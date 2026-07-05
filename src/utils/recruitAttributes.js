@@ -122,6 +122,19 @@ export function positionBucket(position) {
   return POS_ALIAS[up] || up
 }
 
+// Display-only rename for the Scout Staff/Recruiting pages (Staff, Targets,
+// Commitments, Database, Outlook, Thresholds, Scouting Needs) — the "DE"
+// bucket reads as "EDGE" there, matching how the position is actually
+// referred to. Deliberately NOT a change to the bucket value itself: every
+// stored player/recruit still has position "DE", and every matching/scoring/
+// threshold lookup elsewhere in the app keys off "DE" exactly as before —
+// this only swaps the label at the point something renders it as text, so
+// nothing outside these Recruiting pages (roster views, depth charts, etc.)
+// is affected.
+export function recruitingPosLabel(position) {
+  return position === 'DE' ? 'EDGE' : position
+}
+
 // The ordered list of 10 attribute names for a position+archetype, matching the
 // scouting form: exact archetype override → "Archetype (POS)" (OL raw strength)
 // → "ATH - Archetype" → position base. Returns null for positions with no

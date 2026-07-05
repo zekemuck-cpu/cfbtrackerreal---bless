@@ -7,7 +7,7 @@ import ThresholdLookup from './ThresholdLookup';
 import PlayerCount from './PlayerCount';
 import { useDynasty, getRecruitingCommitments, getCurrentRoster, getPlayerClassForYear } from '../context/DynastyContext';
 import { flattenClassCommitments } from '../utils/recruitingScore';
-import { positionBucket } from '../utils/recruitAttributes';
+import { positionBucket, recruitingPosLabel } from '../utils/recruitAttributes';
 import { useTeamColors } from '../hooks/useTeamColors';
 import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
 import { resolveRecruitingDatabaseHost, computeRecentRanks } from '../utils/recruitingDatabasePool';
@@ -298,12 +298,12 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
       const warns = [];
       const zeroed = byThin.filter(x => x.count === 0);
       if (zeroed.length > 0) {
-        warns.push(`No ${zeroed.slice(0, 3).map(x => x.pos).join(', ')} targets on the board — these spots need immediate attention`);
+        warns.push(`No ${zeroed.slice(0, 3).map(x => recruitingPosLabel(x.pos)).join(', ')} targets on the board — these spots need immediate attention`);
       }
       // Always surface the 2 thinnest covered positions
       const covered = byThin.filter(x => x.count > 0).slice(0, 2);
       if (covered.length > 0) {
-        warns.push(`Thinnest pipeline: ${covered.map(t => `${t.pos} (${t.count})`).join(', ')} — need more depth at these spots`);
+        warns.push(`Thinnest pipeline: ${covered.map(t => `${recruitingPosLabel(t.pos)} (${t.count})`).join(', ')} — need more depth at these spots`);
       }
       // If still nothing (every position is loaded), flag the weakest by stars
       if (warns.length === 0) {
@@ -337,13 +337,13 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
 
     const thinnest = byDepth.slice(0, 2);
     if (thinnest[0].count === 0) {
-      warnings.push(`No ${thinnest[0].pos} on the depth chart — position completely unaddressed`);
+      warnings.push(`No ${recruitingPosLabel(thinnest[0].pos)} on the depth chart — position completely unaddressed`);
       if (thinnest[1]?.count === 0)
-        warnings.push(`No ${thinnest[1].pos} either — two key spots with zero depth`);
+        warnings.push(`No ${recruitingPosLabel(thinnest[1].pos)} either — two key spots with zero depth`);
       else if (thinnest[1])
-        warnings.push(`Only ${thinnest[1].count} ${thinnest[1].pos} on the roster — needs more bodies`);
+        warnings.push(`Only ${thinnest[1].count} ${recruitingPosLabel(thinnest[1].pos)} on the roster — needs more bodies`);
     } else {
-      warnings.push(`Thinnest spots: ${thinnest.map(t => `${t.pos} (${t.count})`).join(', ')} — priority recruiting targets`);
+      warnings.push(`Thinnest spots: ${thinnest.map(t => `${recruitingPosLabel(t.pos)} (${t.count})`).join(', ')} — priority recruiting targets`);
     }
 
     // 2. Lowest-rated starter at a critical position (always surface one)
@@ -359,7 +359,7 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
 
     if (starterRatings.length > 0) {
       const ws = starterRatings[0];
-      warnings.push(`${ws.name} leads at ${ws.pos} with ${ws.ovr} OVR — ${ws.ovr < 78 ? 'a clear weak point on the roster' : 'the lowest-rated starter, upgrade needed'}`);
+      warnings.push(`${ws.name} leads at ${recruitingPosLabel(ws.pos)} with ${ws.ovr} OVR — ${ws.ovr < 78 ? 'a clear weak point on the roster' : 'the lowest-rated starter, upgrade needed'}`);
     }
 
     // 3. Seniors vacating positions (flag when it leaves a group short)
@@ -372,11 +372,11 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
         .filter(([pos, n]) => ((byPos[pos] || []).length - n) <= 1)
         .sort(([, a], [, b]) => b - a);
       if (urgentLosses.length > 0) {
-        const str = urgentLosses.slice(0, 2).map(([pos, n]) => `${n > 1 ? n + ' ' : ''}${pos}`).join(', ');
+        const str = urgentLosses.slice(0, 2).map(([pos, n]) => `${n > 1 ? n + ' ' : ''}${recruitingPosLabel(pos)}`).join(', ');
         warnings.push(`Losing ${str} to graduation — depth chart will be critical next season`);
       } else {
         const topLoss = Object.entries(byPosSr).sort(([, a], [, b]) => b - a)[0];
-        warnings.push(`${seniors.length} seniors graduating — ${topLoss[0]} loses the most`);
+        warnings.push(`${seniors.length} seniors graduating — ${recruitingPosLabel(topLoss[0])} loses the most`);
       }
     }
 

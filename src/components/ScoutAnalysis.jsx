@@ -10,6 +10,7 @@ import RecruitingPlanRow from './RecruitingPlanRow';
 import GemBustIcon from './GemBustIcon';
 import { PROFILES, POSITIONS } from './ThresholdLookup';
 import { archetypeBaseScore, normalizeArch, computeScore } from './archetypeWeights';
+import { recruitingPosLabel } from '../utils/recruitAttributes';
 import { isPlayerOnRoster } from '../context/DynastyContext';
 import { buildRevealedPool } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap } from '../utils/devPrediction';
@@ -78,8 +79,8 @@ const POS_SUBGROUPS = {
         { label: 'RT', specific: new Set(['RT']),              minDepth: 3, minStarter: 1 }],
   OG:  [{ label: 'LG', specific: new Set(['LG']),              minDepth: 3, minStarter: 1 },
         { label: 'RG', specific: new Set(['RG']),              minDepth: 3, minStarter: 1 }],
-  DE:  [{ label: 'LE', specific: new Set(['LE','LEDG','EDGE']),minDepth: 3, minStarter: 1 },
-        { label: 'RE', specific: new Set(['RE','REDG']),       minDepth: 3, minStarter: 1 }],
+  DE:  [{ label: 'LEDG', specific: new Set(['LE','LEDG','EDGE']),minDepth: 3, minStarter: 1 },
+        { label: 'REDG', specific: new Set(['RE','REDG']),       minDepth: 3, minStarter: 1 }],
   OLB: [{ label: 'SAM',  specific: new Set(['SAM','LOLB']),   minDepth: 3, minStarter: 1 },
         { label: 'WILL', specific: new Set(['WILL','ROLB']),  minDepth: 3, minStarter: 1 }],
 };
@@ -274,7 +275,7 @@ function buildRec(pos, arch, matchingPlayers, weightsMap = null, pool = null) {
   if (!profile) {
     return {
       type: 'unknown', urgency: 'empty',
-      headline: `${arch} at ${pos}`,
+      headline: `${arch} at ${recruitingPosLabel(pos)}`,
       paragraphs: ['Threshold data for this archetype is not yet configured. Evaluate prospects manually against position-level benchmarks.'],
       target: null,
     };
@@ -296,7 +297,7 @@ function buildRec(pos, arch, matchingPlayers, weightsMap = null, pool = null) {
   if (matchingPlayers.length === 0) {
     return {
       type: 'empty', urgency: 'empty',
-      headline: `No ${arch} ${pos}s on the board yet`,
+      headline: `No ${arch} ${recruitingPosLabel(pos)}s on the board yet`,
       paragraphs: [
         `Nothing filed at this archetype. Here's what we're looking for to call someone a real difference-maker here:`,
         t1Data?.cond ?? `Target prospects with the defining attributes for the ${arch} archetype.`,
@@ -491,11 +492,11 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const returningCount = rc?.returningCount ?? 0;
   const depCount       = rc?.seniorCount    ?? 0;
   const rosterDesc = rc ? (() => {
-    if (rc.count === 0)                          return `No ${pos}s on the roster`;
-    if (returningCount === 0 && depCount > 0)    return `Losing all ${depCount} — no ${pos}s coming back after this year`;
-    if (returningCount === 0)                    return `No returning ${pos}s`;
+    if (rc.count === 0)                          return `No ${recruitingPosLabel(pos)}s on the roster`;
+    if (returningCount === 0 && depCount > 0)    return `Losing all ${depCount} — no ${recruitingPosLabel(pos)}s coming back after this year`;
+    if (returningCount === 0)                    return `No returning ${recruitingPosLabel(pos)}s`;
     if (depCount > 0)                            return `${returningCount} returning after ${depCount} depart`;
-    return `${returningCount} returning at ${pos}`;
+    return `${returningCount} returning at ${recruitingPosLabel(pos)}`;
   })() : null;
 
   // verdictKey drives headline/paragraph PROSE only — it's allowed to read
@@ -720,12 +721,12 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       const secNarr    = buildSecondaryNarrative(others, featPron);
       const backupLine = secNarr || `the room is built around ${featStr}`;
       const eliteOptions = [
-        `${featStr} ${featPlural?'are elite players':'is an elite player'} in this room. ${secNarr ? `${secNarr}.` : `${pos} is in elite hands.`}`.trim(),
-        `We expect ${featStr} to ${featPlural?'lead':'be the guy'} at ${pos} — ${backupLine}.`.trim(),
-        `It's ${featStr}'s room${featPlural?'':' now'}. ${secNarr ? `${secNarr}.` : `That kind of talent at ${pos} is a program-level asset.`}`.trim(),
-        `${featStr} ${featPlural?'look':'looks'} like ${featPlural?'superstars':'a superstar'} in the making. ${secNarr ? `${secNarr}.` : `That level of talent at ${pos} doesn't come around often.`}`.trim(),
-        `${featStr} ${featPlural?'are special':'is special'} — talent like this at ${pos} is as rare as it gets. ${secNarr ? `${secNarr}.` : ''}`.trim(),
-        `${secNarr ? `${secNarr}. ` : ''}${featStr} ${featPlural?'lead':'leads'} this room — that kind of talent at ${pos}, we don't take it for granted.`.trim(),
+        `${featStr} ${featPlural?'are elite players':'is an elite player'} in this room. ${secNarr ? `${secNarr}.` : `${recruitingPosLabel(pos)} is in elite hands.`}`.trim(),
+        `We expect ${featStr} to ${featPlural?'lead':'be the guy'} at ${recruitingPosLabel(pos)} — ${backupLine}.`.trim(),
+        `It's ${featStr}'s room${featPlural?'':' now'}. ${secNarr ? `${secNarr}.` : `That kind of talent at ${recruitingPosLabel(pos)} is a program-level asset.`}`.trim(),
+        `${featStr} ${featPlural?'look':'looks'} like ${featPlural?'superstars':'a superstar'} in the making. ${secNarr ? `${secNarr}.` : `That level of talent at ${recruitingPosLabel(pos)} doesn't come around often.`}`.trim(),
+        `${featStr} ${featPlural?'are special':'is special'} — talent like this at ${recruitingPosLabel(pos)} is as rare as it gets. ${secNarr ? `${secNarr}.` : ''}`.trim(),
+        `${secNarr ? `${secNarr}. ` : ''}${featStr} ${featPlural?'lead':'leads'} this room — that kind of talent at ${recruitingPosLabel(pos)}, we don't take it for granted.`.trim(),
       ].filter(Boolean);
       return eliteOptions[((seed * 7 + 3) % eliteOptions.length + eliteOptions.length) % eliteOptions.length];
     }
@@ -738,11 +739,11 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       const others     = retStarts.filter(p => !ninetyPlusSet.has(p.pid || p.name));
       const secNarr    = buildSecondaryNarrative(others, featPron);
       const ninetyOptions = [
-        `${featStr} ${featPlural?'are':'is'} one of the best at ${pos} in the country. ${secNarr ? `${secNarr}.` : `That's a real position of strength.`}`.trim(),
-        `We've got ${featPlural?'stars':'a star'} in ${featStr} at ${pos}. ${secNarr ? `${secNarr}.` : `This spot is locked down.`}`.trim(),
-        `${featStr} ${featPlural?'are superstars':'is a superstar'} at ${pos}. ${secNarr ? `${secNarr}.` : ''}`.trim(),
-        `${featStr} ${featPlural?'are':'is'} as good as it gets at ${pos}. ${secNarr ? `${secNarr}.` : `Don't take that for granted.`}`.trim(),
-        `${featStr} ${featPlural?'are the guys':'is the guy'} at ${pos} and ${featPlural?'they\'ve':'he\'s'} earned it. ${secNarr ? `${secNarr}.` : ''}`.trim(),
+        `${featStr} ${featPlural?'are':'is'} one of the best at ${recruitingPosLabel(pos)} in the country. ${secNarr ? `${secNarr}.` : `That's a real position of strength.`}`.trim(),
+        `We've got ${featPlural?'stars':'a star'} in ${featStr} at ${recruitingPosLabel(pos)}. ${secNarr ? `${secNarr}.` : `This spot is locked down.`}`.trim(),
+        `${featStr} ${featPlural?'are superstars':'is a superstar'} at ${recruitingPosLabel(pos)}. ${secNarr ? `${secNarr}.` : ''}`.trim(),
+        `${featStr} ${featPlural?'are':'is'} as good as it gets at ${recruitingPosLabel(pos)}. ${secNarr ? `${secNarr}.` : `Don't take that for granted.`}`.trim(),
+        `${featStr} ${featPlural?'are the guys':'is the guy'} at ${recruitingPosLabel(pos)} and ${featPlural?'they\'ve':'he\'s'} earned it. ${secNarr ? `${secNarr}.` : ''}`.trim(),
       ].filter(Boolean);
       return ninetyOptions[((seed * 7 + 3) % ninetyOptions.length + ninetyOptions.length) % ninetyOptions.length];
     }
@@ -752,11 +753,11 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       const others   = retStarts.filter(p => !starDevSet.has(p.pid || p.name) && !topTierSet.has(p.pid || p.name));
       const secNarr  = buildSecondaryNarrative(others, 'him');
       const starOptions = [
-        `${starDevName} is a star at ${pos} — could be one of the better players at this position in college football. ${secNarr ? `${secNarr}.` : ''}`.trim(),
+        `${starDevName} is a star at ${recruitingPosLabel(pos)} — could be one of the better players at this position in college football. ${secNarr ? `${secNarr}.` : ''}`.trim(),
         `${starDevName} is the real deal here. ${secNarr ? `${secNarr}.` : ''}`.trim(),
-        `We've got a star at ${pos} in ${starDevName}. ${secNarr ? `${secNarr} — that's a good room.` : ''}`.trim(),
-        `${starDevName} is a difference-maker at ${pos}. ${secNarr ? `${secNarr}.` : ''}`.trim(),
-        `${starDevName} looks like the guy — potential star at ${pos}. ${secNarr ? `${secNarr}.` : ''}`.trim(),
+        `We've got a star at ${recruitingPosLabel(pos)} in ${starDevName}. ${secNarr ? `${secNarr} — that's a good room.` : ''}`.trim(),
+        `${starDevName} is a difference-maker at ${recruitingPosLabel(pos)}. ${secNarr ? `${secNarr}.` : ''}`.trim(),
+        `${starDevName} looks like the guy — potential star at ${recruitingPosLabel(pos)}. ${secNarr ? `${secNarr}.` : ''}`.trim(),
       ].filter(Boolean);
       return starOptions[((seed * 7 + 3) % starOptions.length + starOptions.length) % starOptions.length];
     }
@@ -785,7 +786,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
         ? `${retStr} ${retPlural?'are the guys':'is the guy'} at ${starterPos} right now. ${comStr ? `${comStr} coming in helps the long-term picture.` : ''}`.trim()
         : null,
 
-      `${retStr ? `${retStr} ${retPlural?'anchor':'anchors'} ${starterPos}` : (rosterDesc || `${pos} room is in good shape`)}.`.trim(),
+      `${retStr ? `${retStr} ${retPlural?'anchor':'anchors'} ${starterPos}` : (rosterDesc || `${recruitingPosLabel(pos)} room is in good shape`)}.`.trim(),
     ].filter(Boolean);
 
     return options[((seed * 7 + 3) % options.length + options.length) % options.length];
@@ -809,62 +810,62 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     headline = depStr
       ? retStar
         ? pick([
-            `${pos} takes a hit losing ${depStr} — ${retStar} anchors us but we need another starter`,
-            `${pos} is critical — losing ${depStr} hurts, and ${retStar} can't carry this room alone`,
+            `${recruitingPosLabel(pos)} takes a hit losing ${depStr} — ${retStar} anchors us but we need another starter`,
+            `${recruitingPosLabel(pos)} is critical — losing ${depStr} hurts, and ${retStar} can't carry this room alone`,
           ])
         : pick([
-            `${pos} is exposed — starter gap next year and we need to address it`,
-            `Losing ${depStr} leaves a real hole at ${pos} — this needs to be solved`,
-            `${pos} is wide open next year after losing ${depStr}`,
-            `${pos} is the most urgent gap right now — no proven starter returning`,
+            `${recruitingPosLabel(pos)} is exposed — starter gap next year and we need to address it`,
+            `Losing ${depStr} leaves a real hole at ${recruitingPosLabel(pos)} — this needs to be solved`,
+            `${recruitingPosLabel(pos)} is wide open next year after losing ${depStr}`,
+            `${recruitingPosLabel(pos)} is the most urgent gap right now — no proven starter returning`,
           ])
       : pick([
-          `${pos} is thin — not enough starter-level talent heading into next year`,
-          `${pos} needs reinforcement — we're short on proven starters`,
+          `${recruitingPosLabel(pos)} is thin — not enough starter-level talent heading into next year`,
+          `${recruitingPosLabel(pos)} needs reinforcement — we're short on proven starters`,
         ]);
   } else if (verdictOverride ? verdictOverride === 'depth-needed' : pipelineNeed) {
     // Depth Needed — the room is fine right now (name the starter to show
     // that), but the focus of the headline has to be the 2–3 year pipeline.
     headline = retStar
       ? pick([
-          `${retStar} has ${pos} covered right now, but the pipeline thins out in 2–3 years — start building behind him`,
-          `No issue at ${pos} today with ${retStar} in the room, but we need depth for the 2–3 year window`,
-          `${retStar} anchors ${pos} for now — the real focus needs to be finding prospects for the years behind him`,
+          `${retStar} has ${recruitingPosLabel(pos)} covered right now, but the pipeline thins out in 2–3 years — start building behind him`,
+          `No issue at ${recruitingPosLabel(pos)} today with ${retStar} in the room, but we need depth for the 2–3 year window`,
+          `${retStar} anchors ${recruitingPosLabel(pos)} for now — the real focus needs to be finding prospects for the years behind him`,
         ])
       : retStr
       ? pick([
-          `${retStr} ${retPlural ? 'have' : 'has'} ${pos} covered right now, but depth thins out in 2–3 years — start building the pipeline`,
-          `${retStr} ${retPlural ? 'are' : 'is'} fine at ${pos} today — the depth in 2–3 years is what needs attention`,
-          `No immediate issue with ${retStr} at ${pos}, but the focus has to shift to prospects for the pipeline`,
+          `${retStr} ${retPlural ? 'have' : 'has'} ${recruitingPosLabel(pos)} covered right now, but depth thins out in 2–3 years — start building the pipeline`,
+          `${retStr} ${retPlural ? 'are' : 'is'} fine at ${recruitingPosLabel(pos)} today — the depth in 2–3 years is what needs attention`,
+          `No immediate issue with ${retStr} at ${recruitingPosLabel(pos)}, but the focus has to shift to prospects for the pipeline`,
         ])
       : pick([
-          `${pos} depth thins out in the 2–3 year window — start building the pipeline now`,
-          `No immediate ${pos} problem, but the depth situation in 2–3 years needs attention`,
-          `${pos} is fine right now but we need to build behind the current group`,
+          `${recruitingPosLabel(pos)} depth thins out in the 2–3 year window — start building the pipeline now`,
+          `No immediate ${recruitingPosLabel(pos)} problem, but the depth situation in 2–3 years needs attention`,
+          `${recruitingPosLabel(pos)} is fine right now but we need to build behind the current group`,
         ]);
   } else if (verdictOverride === 'extra' || (!verdictOverride && roomRatingNarrative === 'Loaded')) {
     headline = eliteDevName
-      ? pick([`${pos} is loaded — ${eliteDevName} leads a deep, talented room`, `${pos} room is stacked — ${eliteDevName} with real depth behind him`])
+      ? pick([`${recruitingPosLabel(pos)} is loaded — ${eliteDevName} leads a deep, talented room`, `${recruitingPosLabel(pos)} room is stacked — ${eliteDevName} with real depth behind him`])
       : ninetyPlusName
-      ? pick([`${pos} is set — ${ninetyPlusName} leads a loaded room`, `${pos} is locked — ${ninetyPlusName} fronts a stacked group`])
-      : pick([`${pos} room is loaded — talented at all levels`, `${pos} is stacked — this is a program-level strength`]);
+      ? pick([`${recruitingPosLabel(pos)} is set — ${ninetyPlusName} leads a loaded room`, `${recruitingPosLabel(pos)} is locked — ${ninetyPlusName} fronts a stacked group`])
+      : pick([`${recruitingPosLabel(pos)} room is loaded — talented at all levels`, `${recruitingPosLabel(pos)} is stacked — this is a program-level strength`]);
   } else if (!verdictOverride && roomRatingNarrative === 'Deep') {
-    headline = pick([`${pos} is in good shape — solid starters with real depth behind them`, `${pos} room is deep — starters covered and a pipeline building`]);
+    headline = pick([`${recruitingPosLabel(pos)} is in good shape — solid starters with real depth behind them`, `${recruitingPosLabel(pos)} room is deep — starters covered and a pipeline building`]);
   } else {
     // No Investment Needed — name the starter(s) and describe the room
     // behind them as strong, rather than a generic "no urgent needs" line.
     headline = eliteDevName
-      ? pick([`${eliteDevName} has ${pos} locked down, and the room behind him is strong — no investment needed`, `${pos} is set — ${eliteDevName} leads a strong room from top to bottom`])
+      ? pick([`${eliteDevName} has ${recruitingPosLabel(pos)} locked down, and the room behind him is strong — no investment needed`, `${recruitingPosLabel(pos)} is set — ${eliteDevName} leads a strong room from top to bottom`])
       : ninetyPlusName
-      ? pick([`${ninetyPlusName} has ${pos} covered, with a strong room behind him — no investment needed`, `${pos} is in great hands with ${ninetyPlusName}, and the depth behind him holds up`])
+      ? pick([`${ninetyPlusName} has ${recruitingPosLabel(pos)} covered, with a strong room behind him — no investment needed`, `${recruitingPosLabel(pos)} is in great hands with ${ninetyPlusName}, and the depth behind him holds up`])
       : starDevName
-      ? pick([`${starDevName} has ${pos} handled, and the room behind him is solid — no investment needed`, `${pos} is set with ${starDevName} leading a solid group behind him`])
+      ? pick([`${starDevName} has ${recruitingPosLabel(pos)} handled, and the room behind him is solid — no investment needed`, `${recruitingPosLabel(pos)} is set with ${starDevName} leading a solid group behind him`])
       : retStr
       ? pick([
-          `${retStr} ${retPlural ? 'have' : 'has'} ${pos} handled, and the room behind ${retPlural ? 'them' : 'him'} is solid — no investment needed`,
-          `${retStr} ${retPlural ? 'are' : 'is'} set at ${pos} with real depth behind ${retPlural ? 'them' : 'him'}`,
+          `${retStr} ${retPlural ? 'have' : 'has'} ${recruitingPosLabel(pos)} handled, and the room behind ${retPlural ? 'them' : 'him'} is solid — no investment needed`,
+          `${retStr} ${retPlural ? 'are' : 'is'} set at ${recruitingPosLabel(pos)} with real depth behind ${retPlural ? 'them' : 'him'}`,
         ])
-      : pick([`${pos} is stable — no investment required this class`, `${pos} is in decent shape — no urgent needs`]);
+      : pick([`${recruitingPosLabel(pos)} is stable — no investment required this class`, `${recruitingPosLabel(pos)} is in decent shape — no urgent needs`]);
   }
 
   // Step 1 — Departures
@@ -890,7 +891,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   } else if (!allDeps.length) {
     paragraphs.push(pick([
       `There's no proven starter in this room right now — that's the core issue.`,
-      `We don't have a proven answer at ${pos} heading into next year.`,
+      `We don't have a proven answer at ${recruitingPosLabel(pos)} heading into next year.`,
     ]));
   } else {
     paragraphs.push(pick([
@@ -914,7 +915,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       const hs = nameList(high);
       parts.push(pick([
         `We're bringing in ${hs} to round the room out — really excited about ${high.length > 1 ? 'them' : 'him'}.`,
-        `${hs} ${high.length > 1 ? 'are' : 'is'} the future here at ${pos}.`,
+        `${hs} ${high.length > 1 ? 'are' : 'is'} the future here at ${recruitingPosLabel(pos)}.`,
         `We have ${hs} coming in too — ${high.length > 1 ? "they're" : "he was"} always a longer-term piece, keep that in mind.`,
       ]));
     }
@@ -933,8 +934,8 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     const score = topHs.score ? ` — ${Math.round(topHs.score)} composite` : '';
     paragraphs.push(pick([
       `On the recruiting side, ${topHs.name} is our best option right now${score}. He checks the boxes for this spot.`,
-      `${topHs.name} leads the board at ${pos}${score} — that's the guy we want to close.`,
-      `${topHs.name} is the best file we have at ${pos}${score}. He's exactly what we're looking for.`,
+      `${topHs.name} leads the board at ${recruitingPosLabel(pos)}${score} — that's the guy we want to close.`,
+      `${topHs.name} is the best file we have at ${recruitingPosLabel(pos)}${score}. He's exactly what we're looking for.`,
     ]));
   }
   if (topPortal) {
@@ -959,26 +960,26 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
     if (hsTargetsOnBoard.length === 0) {
       const lateMsg = currentWeek >= 13
         ? pick([
-            `Recruiting side is empty at ${pos}. It's late in the cycle — most guys are off the market, but let's see if we can snag a gem.`,
-            `Nothing on the HS board at ${pos} and we're deep into the season. The options narrow fast from here — need to move now.`,
-            `Late in the cycle with no ${pos} names filed on the recruiting side. Whatever's left on the board won't be around long.`,
+            `Recruiting side is empty at ${recruitingPosLabel(pos)}. It's late in the cycle — most guys are off the market, but let's see if we can snag a gem.`,
+            `Nothing on the HS board at ${recruitingPosLabel(pos)} and we're deep into the season. The options narrow fast from here — need to move now.`,
+            `Late in the cycle with no ${recruitingPosLabel(pos)} names filed on the recruiting side. Whatever's left on the board won't be around long.`,
           ])
         : currentWeek >= 10
         ? pick([
-            `Recruiting side is empty at ${pos}. It's Week ${currentWeek}. We need to get some names on the board now or we'll have to pivot.`,
-            `No freshman targets at ${pos} yet — we're in Week ${currentWeek} and this board needs to catch up fast.`,
-            `HS board at ${pos} is blank and we're getting late into the season. File some reports now before the window narrows.`,
+            `Recruiting side is empty at ${recruitingPosLabel(pos)}. It's Week ${currentWeek}. We need to get some names on the board now or we'll have to pivot.`,
+            `No freshman targets at ${recruitingPosLabel(pos)} yet — we're in Week ${currentWeek} and this board needs to catch up fast.`,
+            `HS board at ${recruitingPosLabel(pos)} is blank and we're getting late into the season. File some reports now before the window narrows.`,
           ])
         : pick([
-            `We said we want an HS recruit at ${pos} but the board is empty on the recruiting side. Need to start filing reports.`,
-            `No freshman targets at ${pos} yet — if we're going HS here, the board has to catch up.`,
-            `HS side is empty at ${pos}. Let's get some names in and build the board before we lose options.`,
+            `We said we want an HS recruit at ${recruitingPosLabel(pos)} but the board is empty on the recruiting side. Need to start filing reports.`,
+            `No freshman targets at ${recruitingPosLabel(pos)} yet — if we're going HS here, the board has to catch up.`,
+            `HS side is empty at ${recruitingPosLabel(pos)}. Let's get some names in and build the board before we lose options.`,
           ]);
       paragraphs.push(lateMsg);
     } else if (topHs) {
       const score = topHs.score ? ` — ${Math.round(topHs.score)} composite` : '';
       paragraphs.push(pick([
-        `${topHs.name} is the top HS name we have at ${pos}${score}. ${topHs.tier <= 1 ? 'Good fit for what this room needs.' : 'Developmental prospect — useful depth but not a solution for the 1-2 year window.'}`,
+        `${topHs.name} is the top HS name we have at ${recruitingPosLabel(pos)}${score}. ${topHs.tier <= 1 ? 'Good fit for what this room needs.' : 'Developmental prospect — useful depth but not a solution for the 1-2 year window.'}`,
         `On the recruiting side, ${topHs.name} is our best option right now${score}. ${topHs.tier <= 1 ? 'He checks the boxes for this spot.' : "He's a project — keep looking for a higher-ceiling guy."}`,
       ]));
     }
@@ -990,17 +991,17 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
       paragraphs.push(portalOpen ? pick([
         `We've flagged this as a portal target spot — still nothing filed on the portal side. Worth making sure we're in those conversations.`,
         `Portal is the plan here but no portal names have come in yet. Let's get something on the board.`,
-        `We said we're going portal at ${pos} — no transfer targets filed yet. That needs to move.`,
+        `We said we're going portal at ${recruitingPosLabel(pos)} — no transfer targets filed yet. That needs to move.`,
       ]) : pick([
-        `Portal window isn't open yet — plan is already set to target ${pos} when it opens. Nothing to file right now.`,
-        `We're planning to be in the portal at ${pos} when the window opens. Board will fill in once it does.`,
-        `${pos} is flagged as a portal target. Window's not open yet — keep an eye on it and be ready to move when it is.`,
+        `Portal window isn't open yet — plan is already set to target ${recruitingPosLabel(pos)} when it opens. Nothing to file right now.`,
+        `We're planning to be in the portal at ${recruitingPosLabel(pos)} when the window opens. Board will fill in once it does.`,
+        `${recruitingPosLabel(pos)} is flagged as a portal target. Window's not open yet — keep an eye on it and be ready to move when it is.`,
       ]));
     } else if (topPortal) {
       const score = topPortal.score ? ` — ${Math.round(topPortal.score)} composite` : '';
       const tierWord = topPortal.tier === 0 ? 'elite' : topPortal.tier === 1 ? 'solid' : 'developmental';
       paragraphs.push(pick([
-        `${topPortal.name} is the best portal name we have at ${pos} right now${score}. ${topPortal.tier <= 1 ? `That's a ${tierWord} option — worth a close look for this spot.` : `He's a depth piece at best, not a solution for the gap.`}`,
+        `${topPortal.name} is the best portal name we have at ${recruitingPosLabel(pos)} right now${score}. ${topPortal.tier <= 1 ? `That's a ${tierWord} option — worth a close look for this spot.` : `He's a depth piece at best, not a solution for the gap.`}`,
         `On the portal side, ${topPortal.name} is the top name${score}. ${topPortal.tier <= 1 ? 'He fits the profile for what we need here.' : "He's developmental — not the immediate answer we need."}`,
       ]));
     }
@@ -1107,19 +1108,19 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
 
   // ── Step 6: Recruiting plan ───────────────────────────────────────────────────
   if (immediateNeed && stratPortal && stratHs) {
-    paragraphs.push(`Hit the portal first for an immediate starter at ${pos}, then bring in a freshman to build long-term depth.`);
+    paragraphs.push(`Hit the portal first for an immediate starter at ${recruitingPosLabel(pos)}, then bring in a freshman to build long-term depth.`);
   } else if (immediateNeed && stratPortal) {
     const hsNote = hsMin > 0 ? ` Also target ${hsMin} HS recruit${hsMin !== 1 ? 's' : ''} for future depth.` : '';
-    paragraphs.push(`Hit the portal for ${portalMin || 1} immediate starter at ${pos}.${hsNote}`);
+    paragraphs.push(`Hit the portal for ${portalMin || 1} immediate starter at ${recruitingPosLabel(pos)}.${hsNote}`);
   } else if (immediateNeed && stratHs) {
-    paragraphs.push(`Targeting a high school recruit at ${pos} — a high-impact recruit or someone ready to contribute immediately is the priority given the starter gap.`);
+    paragraphs.push(`Targeting a high school recruit at ${recruitingPosLabel(pos)} — a high-impact recruit or someone ready to contribute immediately is the priority given the starter gap.`);
   } else if (pipelineNeed && (hsMin > 0 || portalMin > 0)) {
     const parts = [];
     if (portalMin > 0) parts.push(`${portalMin} portal target${portalMin !== 1 ? 's' : ''}`);
     if (hsMin > 0)     parts.push(`${hsMin} HS recruit${hsMin !== 1 ? 's' : ''}`);
-    paragraphs.push(`Recommendation: target ${parts.join(' and ')} at ${pos} to build out the 2–3 year pipeline.`);
+    paragraphs.push(`Recommendation: target ${parts.join(' and ')} at ${recruitingPosLabel(pos)} to build out the 2–3 year pipeline.`);
   } else if (!immediateNeed && !pipelineNeed && (hsMin > 0 || portalMin > 0)) {
-    paragraphs.push(`No roster investment required at ${pos} this class — we're in good shape. If that spot is needed elsewhere, use it.`);
+    paragraphs.push(`No roster investment required at ${recruitingPosLabel(pos)} this class — we're in good shape. If that spot is needed elsewhere, use it.`);
   }
 
   // Placeholder to satisfy old references — keep this line
@@ -1146,7 +1147,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
         const hs = nameList(high);
         sentences.push(pick([
           `We're bringing in ${hs} to round the room out — really excited about ${high.length > 1 ? 'them' : 'him'}.`,
-          `${hs} ${high.length > 1 ? 'are' : 'is'} the future here at ${pos}.`,
+          `${hs} ${high.length > 1 ? 'are' : 'is'} the future here at ${recruitingPosLabel(pos)}.`,
           `Also adding ${hs} to the room — ${high.length > 1 ? "they're" : "he's"} a name to know.`,
         ]));
       }
@@ -1349,7 +1350,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   const [posRecruitStrategy, setPosRecruitStrategy] = useState({}); // pos → 'hs' | 'portal'
   const [posExtraTargets, setPosExtraTargets]     = useState({}); // pos → extra count beyond system rec
   const [strategiesLoaded, setStrategiesLoaded]   = useState(false); // true once posRecruitStrategy+posExtraTargets loaded
-  const [subPosOverrides, setSubPosOverrides]     = useState({}); // pid → sub-position label ('LE'|'RE' etc)
+  const [subPosOverrides, setSubPosOverrides]     = useState({}); // pid → sub-position label ('LEDG'|'REDG' etc)
   const [verdictOverrides, setVerdictOverrides]   = useState({}); // pos → 'critical'|'depth-needed'|'extra'|'no-investment' (manual pin; absent = auto)
   const [depthTagOverrides, setDepthTagOverrides] = useState({}); // pos → 'Bare'|'Thin'|'Solid'|'Deep'|'Loaded' (manual pin; absent = auto)
   const [showConfig, setShowConfig]             = useState(false);
@@ -1879,7 +1880,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
       if (pos === 'ATH') return;
       const prof = PROFILES[pos];
       if (!prof) return;
-      result[pos] = buildPositionHub(
+      const hub = buildPositionHub(
         pos,
         players.filter(pl => pl.position === pos),
         prof.archetypes,
@@ -1893,6 +1894,35 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
         depthTagOverrides[pos] ?? null,
         revealedPool,
       );
+      // Positions with independent sub-position sides (OT/OG/DE/OLB) let the
+      // coach set Targeting Strategy AND the +/- stepper per side, stored
+      // under composite "pos:label" keys (see the Hub View's own subHubs,
+      // built the same way) — buildPositionHub above has no visibility into
+      // any of that; it sizes hsMin/portalMin from its own whole-position gap
+      // formula, which can (and does) disagree with what each side's own
+      // strategy actually decided. Re-derive the position's recruitTarget
+      // numbers from the real per-side hubs instead, so the aggregate
+      // Recruiting Plan (Overview + Daily Brief) matches what the coach
+      // actually set on each side, not a separately-computed whole-position
+      // guess.
+      const subPosList = rosterContext[pos]?.subPositions;
+      if (subPosList) {
+        const subHubs = subPosList.map(sg => {
+          const key = `${pos}:${sg.label}`;
+          return buildSubHub(sg.label, sg.allPlayers, sg, posRecruitStrategy[key], posExtraTargets[key], verdictOverrides[key], depthTagOverrides[key]);
+        });
+        const hsMin     = subHubs.reduce((s, sh) => s + sh.recruitTarget.hsMin, 0);
+        const hsMax     = subHubs.reduce((s, sh) => s + sh.recruitTarget.hsMax, 0);
+        const portalMin = subHubs.reduce((s, sh) => s + sh.recruitTarget.portalMin, 0);
+        const portalMax = subHubs.reduce((s, sh) => s + sh.recruitTarget.portalMax, 0);
+        hub.recruitTarget = {
+          ...hub.recruitTarget,
+          hsMin, hsMax, portalMin, portalMax,
+          min: portalMin + hsMin, max: portalMax + hsMax,
+          hasPortal: portalMin > 0, hasRecruit: hsMax > 0,
+        };
+      }
+      result[pos] = hub;
     });
     return result;
   }, [players, rosterContext, rosterCapacity, posRecruitStrategy, posExtraTargets, calendarCtx, weightsMap, verdictOverrides, depthTagOverrides, revealedPool]);
@@ -2056,7 +2086,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                     : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
                 }`}
               >
-                {pos}
+                {recruitingPosLabel(pos)}
                 {isCritical && (
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
                 )}
@@ -2088,7 +2118,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {POSITIONS.filter(p => p !== 'ATH').map(pos => (
                     <div key={pos} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-2 border border-surface-4">
-                      <span className="text-[10px] font-black uppercase text-txt-secondary w-8 shrink-0">{pos}</span>
+                      <span className="text-[10px] font-black uppercase text-txt-secondary w-8 shrink-0">{recruitingPosLabel(pos)}</span>
                       <input
                         type="number"
                         min="60" max="99"
@@ -2140,7 +2170,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                     };
                     return (
                       <div key={pos} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isCustom ? 'bg-surface-3 border-surface-4' : 'bg-surface-2 border-surface-4'}`}>
-                        <span className="text-[10px] font-black uppercase text-txt-secondary w-8 shrink-0">{pos}</span>
+                        <span className="text-[10px] font-black uppercase text-txt-secondary w-8 shrink-0">{recruitingPosLabel(pos)}</span>
                         <button onClick={() => set(current - 1)} className="w-5 h-5 flex items-center justify-center rounded border border-slate-700 text-slate-400 text-xs font-black hover:border-slate-500 disabled:opacity-30 transition" disabled={current <= 1}>−</button>
                         <span className={`text-[11px] font-black w-4 text-center tabular-nums ${isCustom ? 'text-emerald-400' : 'text-txt-primary'}`}>{current}</span>
                         <button onClick={() => set(current + 1)} className="w-5 h-5 flex items-center justify-center rounded border border-slate-700 text-slate-400 text-xs font-black hover:border-slate-500 disabled:opacity-30 transition" disabled={current >= 5}>+</button>
@@ -2199,7 +2229,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                         <button key={pos} onClick={() => handlePosChange(pos)}
                           className="w-full text-left rounded-xl border border-surface-4 bg-surface-3 overflow-hidden hover:bg-surface-4 transition">
                           <div className="px-4 py-2.5 border-b border-surface-4 flex items-center justify-between gap-3">
-                            <span className="text-[11px] font-black uppercase tracking-wide text-[#E3242B]">{pos}</span>
+                            <span className="text-[11px] font-black uppercase tracking-wide text-[#E3242B]">{recruitingPosLabel(pos)}</span>
                             <div className="flex items-center gap-1.5">
                               {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
                               {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
@@ -2224,7 +2254,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                         <button key={pos} onClick={() => handlePosChange(pos)}
                           className="w-full text-left rounded-xl border border-surface-4 bg-surface-3 overflow-hidden hover:bg-surface-4 transition">
                           <div className="px-4 py-2.5 border-b border-surface-4 flex items-center justify-between gap-3">
-                            <span className="text-[11px] font-black uppercase tracking-wide text-[#FFC72C]">{pos}</span>
+                            <span className="text-[11px] font-black uppercase tracking-wide text-[#FFC72C]">{recruitingPosLabel(pos)}</span>
                             <div className="flex items-center gap-1.5">
                               {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
                               {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
@@ -2279,7 +2309,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                   const posColor = h.verdict.key === 'critical' ? 'text-[#E3242B]' : h.verdict.key === 'depth-needed' ? 'text-[#FFC72C]' : 'text-txt-secondary';
                   return (
                     <div key={pos} className="space-y-1.5">
-                      <p className={`text-[11px] font-black tracking-wide ${posColor}`}>{pos}</p>
+                      <p className={`text-[11px] font-black tracking-wide ${posColor}`}>{recruitingPosLabel(pos)}</p>
                       {hsPills.map((pillData, i) => renderTargetPill(pillData, `hs-${i}`, pillData.label === '1 HS', { key: pos, type: 'hs', resolved: planHs }))}
                       {portalPills.map((pillData, i) => renderTargetPill(pillData, `p-${i}`, pillData.label === '1 Portal', { key: pos, type: 'portal', resolved: planPortal }))}
                     </div>
@@ -2675,7 +2705,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
 
                 {/* Header */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">{activePos} · Position Overview</p>
+                  <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">{recruitingPosLabel(activePos)} · Position Overview</p>
                   {(depthTagOverrides[activePos] || rosterContext[activePos]?.depthTag) && (() => {
                     const isManual = !!depthTagOverrides[activePos];
                     const tag = depthTagOverrides[activePos] || rosterContext[activePos].depthTag;
@@ -2756,7 +2786,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                   <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
-                        Current Roster · {activePos}
+                        Current Roster · {recruitingPosLabel(activePos)}
                       </p>
                       <div className="flex items-center gap-3 flex-wrap justify-end">
                         <span className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
@@ -2765,7 +2795,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                       </div>
                     </div>
                     {rc.allPlayers.length === 0 ? (
-                      <p className="text-[10px] text-slate-600 italic">No {activePos} players on roster.</p>
+                      <p className="text-[10px] text-slate-600 italic">No {recruitingPosLabel(activePos)} players on roster.</p>
                     ) : (
                       <div className="space-y-1">
                         {(() => {

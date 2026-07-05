@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { computeScore } from './archetypeWeights';
+import { recruitingPosLabel } from '../utils/recruitAttributes';
 import { buildRevealedPool } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap } from '../utils/devPrediction';
 
@@ -705,10 +706,10 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
         headline = `Board's loaded with depth guys. Need to find ceiling talent before this class locks in.`;
       } else {
         const top = scored[0];
-        headline = `${top.name} leads the board at ${top.position}. ${t1 + t2} premium prospects — class is taking shape.`;
+        headline = `${top.name} leads the board at ${recruitingPosLabel(top.position)}. ${t1 + t2} premium prospects — class is taking shape.`;
       }
     } else if (criticals.length > 0) {
-      headline = `${criticals.slice(0, 2).join(' and ')} ${criticals.length === 1 ? 'is a critical need' : 'are critical needs'} — no targets on the board yet.`;
+      headline = `${criticals.slice(0, 2).map(recruitingPosLabel).join(' and ')} ${criticals.length === 1 ? 'is a critical need' : 'are critical needs'} — no targets on the board yet.`;
     } else if (hasRoster) {
       const { available } = rosterSummary;
       headline = `${available} spot${available !== 1 ? 's' : ''} to fill this class. No targets filed yet — open the board.`;
@@ -723,7 +724,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
       if (top) {
         const topDevNote = top.devTrait && !hiddenDev(top.devTrait) ? ` — ${top.devTrait} dev` : '';
         const scoreText = top.score != null ? ` at ${top.score.toFixed(0)} composite` : '';
-        info.push({ text: `${top.name} (${top.position}) leads${scoreText}${topDevNote}`, flag: top.score != null && top.score >= 88 ? 'good' : 'neutral' });
+        info.push({ text: `${top.name} (${recruitingPosLabel(top.position)}) leads${scoreText}${topDevNote}`, flag: top.score != null && top.score >= 88 ? 'good' : 'neutral' });
       }
 
       const eliteDevs = scored.filter(r => r.devTrait === 'Elite');
@@ -1169,13 +1170,13 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                       <div className="space-y-2">
                         {crits.length > 0 && (
                           <p className="text-[13px] leading-snug text-slate-300">
-                            <span className="text-[#E3242B] font-semibold">{crits.map(r => r.pos).join(', ')}</span>
+                            <span className="text-[#E3242B] font-semibold">{crits.map(r => recruitingPosLabel(r.pos)).join(', ')}</span>
                             {crits.length === 1 ? ' has a gap' : ' have gaps'} that need to be addressed before next season.
                           </p>
                         )}
                         {depths.length > 0 && (
                           <p className="text-[13px] leading-snug text-slate-400">
-                            <span className="text-[#FFC72C]/80 font-semibold">{depths.map(r => r.pos).join(', ')}</span>
+                            <span className="text-[#FFC72C]/80 font-semibold">{depths.map(r => recruitingPosLabel(r.pos)).join(', ')}</span>
                             {depths.length === 1 ? ' is running light' : ' are running light'} on depth in the next couple years.
                           </p>
                         )}
@@ -1433,7 +1434,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                           className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-surface-3 border border-surface-4 transition-colors ${onViewDatabase ? 'cursor-pointer hover:bg-surface-4' : ''}`}
                         >
                           {r.stars > 0 && <span className="text-[10px] font-black text-amber-400 tracking-wide shrink-0">{r.stars}★</span>}
-                          <span className="text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 bg-surface-4 border border-surface-5 text-txt-tertiary">{r.position}</span>
+                          <span className="text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 bg-surface-4 border border-surface-5 text-txt-tertiary">{recruitingPosLabel(r.position)}</span>
                           <span className="relative inline-block min-w-0 max-w-[45%] shrink">
                             <span className="text-[11px] font-bold text-txt-primary truncate block">{r.name}</span>
                             <GemBustIcon type={r.gemBust} />

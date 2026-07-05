@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDynasty } from '../context/DynastyContext';
-import { positionBucket } from '../utils/recruitAttributes';
+import { positionBucket, recruitingPosLabel } from '../utils/recruitAttributes';
 import { normalizeArch, isHiddenDev } from './archetypeWeights';
 import { ARCHETYPE_REGISTRY } from '../data/configData';
 import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
@@ -252,7 +252,7 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
                       : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
                   }`}
                 >
-                  <span>{pos}</span>
+                  <span>{recruitingPosLabel(pos)}</span>
                   <span className="opacity-60">{posTotal}</span>
                 </button>
               ))}

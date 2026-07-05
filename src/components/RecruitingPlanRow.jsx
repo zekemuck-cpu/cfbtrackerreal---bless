@@ -1,3 +1,5 @@
+import { recruitingPosLabel } from '../utils/recruitAttributes';
+
 // Shared "Recruiting Plan" row — used by the Daily Brief (one row per position)
 // and by Program Outlook's per-position vertical box.
 export default function RecruitingPlanRow({ pos, hs, portal, targetName, targetIsPortal, targetPid, flag, onClick, onRemove, onRemoveGeneric }) {
@@ -59,10 +61,10 @@ export default function RecruitingPlanRow({ pos, hs, portal, targetName, targetI
   return (
     <div
       onClick={onClick || undefined}
-      title={onClick ? `View ${pos} in Program Outlook` : undefined}
+      title={onClick ? `View ${recruitingPosLabel(pos)} in Program Outlook` : undefined}
       className={`flex items-center gap-2 rounded-md px-2 py-1.5 border ${rowBg} ${onClick ? 'cursor-pointer transition-colors hover:bg-surface-4 hover:border-surface-5' : ''}`}
     >
-      {pos && <span className={`text-[11px] font-black tracking-wide w-7 shrink-0 ${posColor}`}>{pos}</span>}
+      {pos && <span className={`text-[11px] font-black tracking-wide w-7 shrink-0 ${posColor}`}>{recruitingPosLabel(pos)}</span>}
       <div className="flex items-center gap-1 flex-wrap flex-1">
         {hsPills.map(({ label, isName }, i) => pill(label, isName, 'hs', i, `hs-${i}`))}
         {portalPills.map(({ label, isName }, i) => pill(label, isName, 'portal', i, `portal-${i}`))}

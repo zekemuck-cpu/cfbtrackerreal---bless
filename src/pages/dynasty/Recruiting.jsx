@@ -57,7 +57,7 @@ const DEV_TRAIT_RANK = { elite: 4, star: 3, impact: 2, normal: 1 }
 const RECRUIT_POSITION_ORDER = [
   'QB', 'RB', 'HB', 'FB', 'WR', 'TE',
   'LT', 'LG', 'C', 'RG', 'RT', 'OL', 'OT', 'OG', 'G', 'T',
-  'LE', 'RE', 'DE', 'DT', 'NT', 'DL',
+  'LEDG', 'REDG', 'DE', 'DT', 'NT', 'DL',
   'LOLB', 'ROLB', 'OLB', 'MLB', 'ILB', 'LB', 'SAM', 'MIKE', 'WILL',
   'CB', 'FS', 'SS', 'S', 'DB',
   'K', 'P', 'LS', 'ATH',
