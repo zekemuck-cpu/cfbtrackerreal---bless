@@ -4,6 +4,7 @@ import { archetypeBaseScore, computeScore, calcWeightedAvg, gemBustBonus, isHidd
 import { buildRevealedPool, getFormAttrs } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap, predictFloorCeiling, describeFloorCeilingPills } from '../utils/devPrediction';
 import { ATTRIBUTE_ABBR, positionBucket } from '../utils/recruitAttributes';
+import { resolveRecruitGroup } from '../utils/recruitGroup';
 import { OPTIONS_REGISTRY } from './ScoutingReport';
 import GemBustIcon from './GemBustIcon';
 import { useDynasty } from '../context/DynastyContext';
@@ -848,7 +849,7 @@ function GradeModal({ player, allPlayers, weightsMap, pool, onClose }) {
 const POSITIONS_LIST = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH','K','P'];
 const DEV_TRAITS = ['Hidden', 'Normal', 'Impact', 'Star', 'Elite'];
 
-function EditModal({ player, pool, weightsMap, onSave, onClose }) {
+function EditModal({ player, pool, weightsMap, onSave, onClose, onDelete = null }) {
   const [form, setForm] = useState({
     name: player.name,
     position: player.position,
@@ -920,6 +921,14 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
   const liveTier = useMemo(() => getGradeTier(liveScore), [liveScore]);
 
   const [saving, setSaving] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const handleDeleteConfirmed = async () => {
+    setDeleting(true);
+    await onDelete(player);
+    setDeleting(false);
+    onClose();
+  };
   const handleSave = async () => {
     // The edit form's Position dropdown only offers bucketed positions (no
     // LT vs RT) — if the user actually changed it, the old raw sub-position
@@ -935,7 +944,7 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
       devTrait:  form.devTrait,
       gemBust:   form.gemBust,
       stars:     form.stars,
-      group:     form.position === 'ATH' ? 'Athlete Pipeline' : ['QB','HB','WR','TE','OT','OG','C'].includes(form.position) ? 'Offense' : 'Defense',
+      group:     resolveRecruitGroup(form.position, form.archetype.trim()),
       attributes: Object.fromEntries(Object.entries(visibleAttrs).map(([k, v]) => [k, parseInt(v, 10) || 0])),
     };
     setSaving(true);
@@ -1095,21 +1104,53 @@ function EditModal({ player, pool, weightsMap, onSave, onClose }) {
           </section>
         </div>
 
-        <div className="px-5 pb-5 flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex-1 py-2.5 bg-surface-4 hover:bg-surface-5 disabled:opacity-60 disabled:cursor-not-allowed border border-surface-5 rounded-lg text-xs font-black text-white transition"
-          >
-            {saving ? 'Saving…' : 'Save Changes'}
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 transition"
-          >
-            Cancel
-          </button>
-        </div>
+        {confirmingDelete ? (
+          <div className="px-5 pb-5 space-y-3">
+            <p className="text-xs font-bold text-red-400 text-center">Are you sure? This cannot be reversed.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeleteConfirmed}
+                disabled={deleting}
+                className="flex-1 py-2.5 bg-red-900 hover:bg-red-800 disabled:opacity-60 disabled:cursor-not-allowed border border-red-700 rounded-lg text-xs font-black text-white transition"
+              >
+                {deleting ? 'Deleting…' : 'Yes, Delete'}
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deleting}
+                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 transition disabled:opacity-60"
+              >
+                No, Keep Editing
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-5 pb-5 space-y-3">
+            <div className="flex gap-3">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 py-2.5 bg-surface-4 hover:bg-surface-5 disabled:opacity-60 disabled:cursor-not-allowed border border-surface-5 rounded-lg text-xs font-black text-white transition"
+              >
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+            {onDelete && (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="w-full py-2 bg-transparent hover:bg-red-950/40 border border-red-900 rounded-lg text-xs font-black uppercase tracking-wide text-red-400 transition"
+              >
+                Delete Prospect
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1299,7 +1340,16 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     // other surfaces (e.g. the Update Dev Traits dashboard task) show the
     // exact same number for a given recruit.
     const rankByKey = computeRecentRanks(merged);
-    return merged.map(r => ({ ...r, recentRank: rankByKey.get(`${r.sourceDynastyId ?? ''}:${r.pid}`) }));
+    // Backfills `group` for any recruit that predates auto-classification
+    // (recruitingDatabaseSheetFormat.js now stamps it at parse time for new
+    // imports) — computed fresh here rather than relying on a stored value,
+    // so already-existing blank/missing entries display correctly with no
+    // separate data migration needed.
+    return merged.map(r => ({
+      ...r,
+      group: r.group || resolveRecruitGroup(r.position, r.archetype),
+      recentRank: rankByKey.get(`${r.sourceDynastyId ?? ''}:${r.pid}`),
+    }));
   }, [players, recruitingDatabasePlayers, excludedPids]);
 
   // The actual sync engine — shared by the manual "Save" button and the
@@ -1497,7 +1547,11 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       .map(({ _mergedFromDynastyId, _mergedFromDynastyName, ...p }) => p);
     await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: finalPlayers });
     toast.success(`Restored ${addedCount} recruit${addedCount === 1 ? '' : 's'} from backup.`);
-    syncNow({ silent: true });
+    // No manual syncNow() nudge here on purpose — see finalizeLocalImport's
+    // comment in RecruitingDatabaseSheetModal.jsx for why: this closure's
+    // own combinedPlayers is stale relative to the updateDynasty write just
+    // above, and the existing debounced auto-push effect already reconciles
+    // to the sheet reactively once combinedPlayers recomputes.
     setPendingJsonRestore(null);
   };
 
@@ -1700,7 +1754,14 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         <GradeModal player={selectedPlayer} allPlayers={combinedPlayers} weightsMap={weightsMap} pool={pool} onClose={() => setSelectedPlayer(null)} />
       )}
       {editingPlayer && (
-        <EditModal player={editingPlayer} pool={pool} weightsMap={weightsMap} onSave={updated => handleEditSave(updated, editingPlayer)} onClose={() => setEditingPlayer(null)} />
+        <EditModal
+          player={editingPlayer}
+          pool={pool}
+          weightsMap={weightsMap}
+          onSave={updated => handleEditSave(updated, editingPlayer)}
+          onClose={() => setEditingPlayer(null)}
+          onDelete={(onDelete || isFromRecruitingDatabase(editingPlayer)) ? (() => handleDelete(editingPlayer)) : null}
+        />
       )}
       <AuthErrorModal isOpen={auth.showAuthError} onClose={auth.closeAuthError} onRefresh={auth.retry} />
       <RecruitingDatabaseSheetModal
@@ -2031,13 +2092,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                             <button onClick={() => setEditingPlayer(pl)} className="p-1.5 rounded text-slate-600 hover:text-txt-primary hover:bg-surface-3 transition" title="Edit prospect">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
                                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                              </svg>
-                            </button>
-                          )}
-                          {(onDelete || isFromRecruitingDatabase(pl)) && (
-                            <button onClick={() => handleDelete(pl)} className="p-1.5 rounded text-slate-600 hover:text-red-400 hover:bg-surface-3 transition" title="Delete prospect">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
                               </svg>
                             </button>
                           )}

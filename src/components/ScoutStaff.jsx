@@ -11,6 +11,7 @@ import { positionBucket } from '../utils/recruitAttributes';
 import { useTeamColors } from '../hooks/useTeamColors';
 import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
 import { resolveRecruitingDatabaseHost, computeRecentRanks } from '../utils/recruitingDatabasePool';
+import { resolveRecruitGroup } from '../utils/recruitGroup';
 import { useToast } from './ui';
 
 // Shapes a raw dynasty.players record into the grading-ready recruit shape Scout Staff uses.
@@ -18,9 +19,7 @@ import { useToast } from './ui';
 // small per-dynasty counter, so two different dynasties can share the same pid.
 function shapeRecruit(pl, addedIndex, sourceDynastyId) {
   const position = positionBucket(pl.position);
-  const group = position === 'ATH'
-    ? 'Athlete Pipeline'
-    : ['QB', 'HB', 'WR', 'TE', 'OT', 'OG', 'C'].includes(position) ? 'Offense' : 'Defense';
+  const group = resolveRecruitGroup(position, pl.archetype);
   return {
     pid: pl.pid,
     // The raw, un-bucketed position ("LT"/"RT"/"SAM"/...) as originally

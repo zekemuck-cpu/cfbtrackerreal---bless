@@ -6,6 +6,7 @@
 // typical subset), so a save/import round trip never silently drops data.
 
 import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, serializeAttributes, positionBucket } from './recruitAttributes'
+import { resolveRecruitGroup } from './recruitGroup'
 
 export const RECRUITING_DATABASE_SHEET_TAB = 'Recruiting Database'
 
@@ -102,12 +103,17 @@ export function parseRecruitingDatabaseRow(row) {
   // position+archetype) still resolve correctly regardless of which raw label
   // was entered.
   const rawPosition = trim(row[POSITION_COL])
+  const position = positionBucket(rawPosition) || rawPosition
+  const archetype = trim(row[ARCHETYPE_COL])
   return {
     name: trim(row[NAME_COL]),
     class: recruitClass,
-    position: positionBucket(rawPosition) || rawPosition,
+    position,
     rawPosition,
-    archetype: trim(row[ARCHETYPE_COL]),
+    archetype,
+    // Offense/Defense/Special Teams — auto-derived from position+archetype
+    // (see recruitGroup.js) so this is never blank, even for ATH.
+    group: resolveRecruitGroup(position, archetype),
     stars: starsSymbolToNumber(row[STARS_COL]),
     nationalRank: intOrNull(row[NATIONAL_RANK_COL]),
     stateRank: intOrNull(row[STATE_RANK_COL]),

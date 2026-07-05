@@ -23,13 +23,24 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-// Header labels for the local-paste grid, in the exact column order the AI
-// prompt emits and parseRecruitingDatabaseRow (recruitingDatabaseSheetFormat.js)
-// reads by position: A–O are the recruit fields, P is the single Attributes cell.
+// Header labels for the local-paste grid — the Recruiting Database is HS
+// recruits only (real Targets feeding it are pre-filtered to !isPortal
+// upstream in ScoutStaff.jsx), so a "Previous Team" field never applies here
+// and is deliberately not shown or asked for. The underlying Sheet/TSV
+// schema (recruitingDatabaseSheetFormat.js) still reserves that column
+// position for backward compatibility with sheets created before this
+// change — handleLocalImport below splices a blank placeholder back in at
+// that exact slot before handing rows to the shared parser, so nothing about
+// the actual Sheet's column layout ever shifts for anyone already using it.
 const RECRUITING_DB_PASTE_COLUMNS = [
   'Name', 'Class', 'Pos', 'Arch', 'Stars', 'Natl Rk', 'St Rk', 'Pos Rk',
-  'Height', 'Weight', 'Hometown', 'State', 'Gem/Bust', 'Dev', 'Prev Team', 'Attributes',
+  'Height', 'Weight', 'Hometown', 'State', 'Gem/Bust', 'Dev', 'Attributes',
 ]
+
+// Index (within a parsed paste-grid row) where the reserved "Previous Team"
+// slot needs to be reinserted before the shared parser sees the row — see
+// the comment above RECRUITING_DB_PASTE_COLUMNS.
+const PREV_TEAM_SPLICE_INDEX = 14
 
 // Dropdown options for the paste grid's enumerated columns — same idea as
 // the Sheet's own data-validation dropdowns, so a pasted/typed value snaps
@@ -101,8 +112,17 @@ export default function RecruitingDatabaseSheetModal({ isOpen, onClose, combined
     const finalRecruits = applyDuplicateResolution(mergedRecruits, deletedPids)
     await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: finalRecruits })
     toast.success(`Imported ${addedCount} recruit${addedCount === 1 ? '' : 's'}.`)
-    onSync?.({ silent: true })
+    // No manual onSync() nudge here on purpose — PlayerDatabase.jsx already
+    // has its own debounced auto-push effect that reactively picks up this
+    // exact change once combinedPlayers recomputes. Calling onSync() (a
+    // prop closure captured at THIS modal's last render, before the
+    // updateDynasty above resolved) would run a full sheet reconcile against
+    // stale pre-import data — including a stale combinedPlayers snapshot —
+    // and could write that stale set straight back over the import we just
+    // made. Letting the auto-push effect fire on its own next render avoids
+    // that race entirely.
     setPendingLocalImport(null)
+    onClose?.()
   }
 
   // Local paste import: parse the AI's (or hand-typed/uploaded) TSV reply into
@@ -117,7 +137,16 @@ export default function RecruitingDatabaseSheetModal({ isOpen, onClose, combined
   // makes that feel immediate instead of waiting on the debounce.
   const handleLocalImport = async (text) => {
     if (!hostDynasty) throw new Error('No Recruiting Database to import into yet.')
-    const rows = splitTsv(text)
+    // The paste grid never shows/asks for "Previous Team" (see
+    // RECRUITING_DB_PASTE_COLUMNS above), so splice its reserved slot back in
+    // as a blank before handing rows to the shared parser, which still reads
+    // by the original fixed column position — this is what keeps the actual
+    // Sheet schema byte-identical for anyone with an already-linked sheet.
+    const rows = splitTsv(text).map(row => {
+      const withSlot = [...row]
+      withSlot.splice(PREV_TEAM_SPLICE_INDEX, 0, '')
+      return withSlot
+    })
     const parsed = parseRecruitingDatabaseRows(rows).filter(r => r.name)
     if (!parsed.length) throw new Error('No recruits found in the pasted text.')
     const { mergedRecruits } = mergeRecruitingDatabaseRows({
@@ -146,37 +175,38 @@ export default function RecruitingDatabaseSheetModal({ isOpen, onClose, combined
     structure: `This sheet has ONE tab: "Recruiting Database". Row 1 is a PROTECTED header. Output ONLY the NEW rows visible in THIS request's screenshots, pasted BELOW the rows already entered; never re-output existing rows.
 
 You may get any of these screenshots. Handle each:
-  • A RECRUITING BOARD (any list of recruits): output each recruit's columns A–O. Leave the Attributes cell (P) blank.
-  • A recruit's PLAYER PAGE "Attributes" tab: output that ONE recruit's row, columns A–O PLUS the single Attributes cell (P) filled from the tab.
+  • A RECRUITING BOARD (any list of recruits): output each recruit's columns A–N. Leave the Attributes cell (O) blank.
+  • A recruit's PLAYER PAGE "Attributes" tab: output that ONE recruit's row, columns A–N PLUS the single Attributes cell (O) filled from the tab.
 Attributes appear ONLY on the player-page Attributes tab, never on the board. If you only have the board, the Attributes cell stays blank (not every recruit is scouted, and that is expected).
 
-This is a personal scouting reference, independent of any team's actual Targets board — recruits entered here are never added as real recruiting targets, so there is no Commitment column to fill.
+This is a personal scouting reference, independent of any team's actual Targets board — recruits entered here are never added as real recruiting targets, so there is no Commitment column to fill. These are HS recruits only — no Previous Team column either.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES
 ═══════════════════════════════════════════════════════════
 1. Output ONLY data rows for NEW recruits. NEVER output the header row or re-output existing rows.
-2. Tab-separated. Columns in EXACT order A→O (then the single Attributes cell P when scouted).
+2. Tab-separated. Columns in EXACT order A→N (then the single Attributes cell O when scouted).
 3. One row per recruit; keep screenshot order.
 4. NO COMMAS in numbers ("1234", not "1,234"). Integers have no decimal point. No quotes around numbers.
 5. BLANK for unknown — never guess, never 0/"-"/"N/A". Blank ≠ zero.
 6. Dropdown columns (B, C, D, E, I, L, M, N) MUST be EXACTLY one of the listed values.
 7. Column E (Stars) uses ☆ symbols, NOT digits.
 8. Do NOT output the hidden "pid" column, nor the trailing "Updated" column after it — the app fills both.
+9. Player names use normal title case (e.g. "Tyron Funk"), even if the screenshot shows the name in ALL CAPS. NEVER output a name in all caps.
 
 ═══════════════════════════════════════════════════════════
-COLUMNS A–O  — paste at cell A${startRow} of the "Recruiting Database" tab (first empty row below the ${combinedPlayers.length} already entered)
+COLUMNS A–N  — paste at cell A${startRow} of the "Recruiting Database" tab (first empty row below the ${combinedPlayers.length} already entered)
 ═══════════════════════════════════════════════════════════
- A Player     | Full name (text)
+ A Player     | Full name, normal title case (e.g. "Tyron Funk", NOT "TYRON FUNK") — re-case it yourself even if the screenshot shows it in all caps
  B Class      | Dropdown: HS, JUCO Fr, JUCO So, JUCO Jr, Fr, RS Fr, So, RS So, Jr, RS Jr
  C Position   | Dropdown: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P, ATH
  D Archetype  | Dropdown — exact archetype name (e.g. Pocket Passer, Speedster, Raw Strength, Power Rusher, Man Coverage…)
- E Stars      | ☆  ☆☆  ☆☆☆  ☆☆☆☆  ☆☆☆☆☆   (symbols, blank if unknown)
+ E Stars      | The recruit's star rating is always shown as a row of 5 star icons next to their name — some filled/solid (white), some empty/outline. COUNT ONLY THE FILLED/SOLID stars; ignore the empty outline ones. That count (0–5) is the star rating — output that many ☆ symbols (e.g. 3 filled stars → ☆☆☆). Blank if the star row isn't visible at all.
  F Nat. Rank  | integer        G State Rank | integer        H Pos. Rank | integer
  I Height     | Dropdown: 5'5" … 7'0" (straight quotes)      J Weight | integer lbs
- K Hometown   | text           L State | 2-letter code        M Gem/Bust | Gem, Bust, or blank
+ K Hometown   | text           L State | 2-letter code
+ M Gem/Bust   | Gem, Bust, or blank. Look for a small badge/icon overlaid on the recruit's card or name in the screenshot: a solid GREEN GEM icon means Gem; a gem icon with a RED X (or red slash) through it means Bust. No icon at all means blank — never guess one.
  N Dev Trait  | Elite, Star, Impact, Normal, Hidden (Hidden = trait not yet revealed; do not guess — use Hidden when trait is unknown)
- O Prev Team  | team ABBR (transfers only; blank for HS/JUCO or unknown)
 
 ═══════════════════════════════════════════════════════════
 ENUMERATED DROPDOWN VALUES (use EXACTLY — case-sensitive)
@@ -189,42 +219,44 @@ State (L) — 2-letter US codes:
   AK, AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, HI, IA, ID, IL, IN, KS, KY, LA, MA, MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VA, VT, WA, WI, WV, WY
 
 ═══════════════════════════════════════════════════════════
-ATTRIBUTES — column P, a SINGLE cell. Fill ONLY from a player-page "Attributes" tab. OPTIONAL.
+ATTRIBUTES — column O, a SINGLE cell. Fill ONLY from a player-page "Attributes" tab. OPTIONAL.
 ═══════════════════════════════════════════════════════════
-Attributes go in ONE cell (column P), NOT in separate columns. Use the SHORT CODE for each attribute (not the full name) so all values fit in one readable cell.
+Attributes go in ONE cell (column O), NOT in separate columns. Use the SHORT CODE for each attribute (not the full name) so all values fit in one readable cell.
 
   EXAMPLE (an ATH whose tab shows Awareness 76, Speed 67, Acceleration 90, Strength 78, Play Recognition 74, Tackle 80, Hit Power 74, Pursuit 80, Man Coverage 76, Zone Coverage 74) →
-  the P cell is:  AWR 76, SPD 67, ACC 90, STR 78, PREC 74, TAK 80, HIT 74, PUR 80, MCV 76, ZCV 74
+  the O cell is:  AWR 76, SPD 67, ACC 90, STR 78, PREC 74, TAK 80, HIT 74, PUR 80, MCV 76, ZCV 74
 
-Rules for the P cell:
+Rules for the O cell:
   - Use the SHORT CODE for every attribute (see reference below). Short codes keep the cell compact so all values are visible in the sheet.
   - Order does not matter; the app places each value by its code. List only what the tab shows — no blanks for missing attributes.
   - Recognized codes: ${attrNameRef}
-  - One P cell per scouted player. Leave it blank for un-scouted recruits.
+  - One O cell per scouted player. Leave it blank for un-scouted recruits.
 
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT (TSV, paste at A${startRow})
 ═══════════════════════════════════════════════════════════
 === RECRUITING DATABASE — paste at cell A${startRow} of "Recruiting Database" tab ===
-Board row (15 fields, A→O) — blank fields are EMPTY TABS, never omitted:
-<Player>\\t<Class>\\t<Position>\\t<Archetype>\\t<Stars>\\t<Nat>\\t<StateRank>\\t<PosRank>\\t<Height>\\t<Weight>\\t<Hometown>\\t<State>\\t<Gem/Bust>\\t<Dev>\\t<PrevTeam>
+Board row (14 fields, A→N) — blank fields are EMPTY TABS, never omitted:
+<Player>\\t<Class>\\t<Position>\\t<Archetype>\\t<Stars>\\t<Nat>\\t<StateRank>\\t<PosRank>\\t<Height>\\t<Weight>\\t<Hometown>\\t<State>\\t<Gem/Bust>\\t<Dev>
 
-CONCRETE EXAMPLE (unknown state/pos rank, no gem, Hidden dev, no prev team, scouted):
-John Smith\\tHS\\tQB\\tPocket Passer\\t☆☆☆☆\\t15\\t\\t\\t6'3"\\t215\\tAustin\\tTX\\t\\tHidden\\t\\tTPW 87, SAC 82, MAC 79, DAC 74, AWR 71
+CONCRETE EXAMPLE (unknown state/pos rank, no gem, Hidden dev, scouted):
+John Smith\\tHS\\tQB\\tPocket Passer\\t☆☆☆☆\\t15\\t\\t\\t6'3"\\t215\\tAustin\\tTX\\t\\tHidden\\tTPW 87, SAC 82, MAC 79, DAC 74, AWR 71
 
-Notice: the 2 unknown ranks (State Rank, Pos Rank) are EMPTY TABS — they are NOT omitted. All 15 A→O fields are present even when blank.
+Notice: the 2 unknown ranks (State Rank, Pos Rank) are EMPTY TABS — they are NOT omitted. All 14 A→N fields are present even when blank.
 
-Scouted row (16 fields — the 15 A→O fields, then the single Attributes cell P using SHORT CODES):
-<...A→O...>\\t<AWR 76, SPD 67, TAK 80, ...>
+Scouted row (15 fields — the 14 A→N fields, then the single Attributes cell O using SHORT CODES):
+<...A→N...>\\t<AWR 76, SPD 67, TAK 80, ...>
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK
 ═══════════════════════════════════════════════════════════
-[ ] Board rows have exactly 15 tab-separated fields (14 tabs); scouted rows have 16 (the P Attributes cell added)
-[ ] NEVER skip a column even if it is blank — output an empty tab placeholder so the column count is always correct. A blank Dev Trait (N) is still a field; a blank Prev Team (O) is still a field.
+[ ] Board rows have exactly 14 tab-separated fields (13 tabs); scouted rows have 15 (the O Attributes cell added)
+[ ] NEVER skip a column even if it is blank — output an empty tab placeholder so the column count is always correct. A blank Dev Trait (N) is still a field.
 [ ] No header row; no commas in numbers; Stars use ☆ symbols
 [ ] B/C/D/E/I/L/M/N are literal dropdown values
-[ ] The P cell uses SHORT CODES (AWR, SPD, etc.) for compactness; blank when not scouted; pid/Updated never output`,
+[ ] Player names (A) are normal title case, never ALL CAPS, even if the screenshot shows them that way
+[ ] Gem/Bust (M) is read from the green-gem / red-X-gem icon on the recruit, not guessed
+[ ] The O cell uses SHORT CODES (AWR, SPD, etc.) for compactness; blank when not scouted; pid/Updated never output`,
     includeTeamMap: false,
     dynastyTeams: currentDynasty?.teams,
     notes: 'This sheet is the Recruiting Database only — a personal scouting reference. Recruits entered here are never added as real recruiting Targets. The single Attributes cell (P) is filled ONLY from a recruit\'s player-page "Attributes" tab, never from a board screenshot — leave it blank if the recruit has not been scouted.',
