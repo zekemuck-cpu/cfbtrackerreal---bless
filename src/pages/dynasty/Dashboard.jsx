@@ -27,6 +27,10 @@ import TeamRatingsModal from '../../components/TeamRatingsModal'
 import ConferenceChampionshipModal from '../../components/ConferenceChampionshipModal'
 import CoachingStaffModal from '../../components/CoachingStaffModal'
 import SupportStaffModal from '../../components/SupportStaffModal'
+import UpdateDevTraitsModal from '../../components/UpdateDevTraitsModal'
+import { isHiddenDev } from '../../components/archetypeWeights'
+import { getSiblingScoutedPlayers } from '../../utils/sharedRecruitingDb'
+import { resolveRecruitingDatabaseHost, computeRecentRanks } from '../../utils/recruitingDatabasePool'
 import BowlWeek1Modal from '../../components/BowlWeek1Modal'
 import BowlWeek2Modal from '../../components/BowlWeek2Modal'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
@@ -156,7 +160,7 @@ function renderTodoList({ todos, isViewOnly }) {
 }
 
 export default function Dashboard() {
-  const { currentDynasty, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, saveConferenceAlignment, addGame, saveGameSetChanges, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, updatePlayer, processHonorPlayers, isViewOnly, exportDynasty, phaseOverride } = useDynasty()
+  const { currentDynasty, dynasties, getDynastyPlayers, loadingDynastyId, saveSchedule, saveRoster, saveTeamRatings, saveCoachingStaff, saveConferences, saveConferenceAlignment, addGame, saveGameSetChanges, saveCPUBowlGames, saveCFPGames, saveCPUConferenceChampionships, updateDynasty, updatePlayer, processHonorPlayers, isViewOnly, exportDynasty, phaseOverride } = useDynasty()
 
   // Check if dynasty data is being lazily loaded
   const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
@@ -510,6 +514,9 @@ export default function Dashboard() {
   const [showTransferDestinationsModal, setShowTransferDestinationsModal] = useState(false)
   const [showRecruitingModal, setShowRecruitingModal] = useState(false)
   const [showSellCalc, setShowSellCalc] = useState(false)
+  const [showUpdateDevTraitsModal, setShowUpdateDevTraitsModal] = useState(false)
+  const [updateDevTraitsYear, setUpdateDevTraitsYear] = useState(null)
+  const [savingDevTraits, setSavingDevTraits] = useState(false)
 
   // Shared trailing-tools JSX for the recruiting to-do rows. Lives at the
   // recruiting card on Dashboard's main view (not a one-off elsewhere) —
@@ -537,6 +544,88 @@ export default function Dashboard() {
       </a>
     </div>
   ) : null
+
+  // Cross-dynasty scouted players + the shared Database's own resolved host —
+  // needed only to compute the EXACT same "recent number" the Database table
+  // and Threshold/History views show, so the Update Dev Traits task never
+  // displays a different number for the same recruit. Mirrors the identical
+  // pattern already established in ScoutStaff.jsx/PlayerCount.jsx.
+  const [devTraitsSiblingPlayers, setDevTraitsSiblingPlayers] = useState([])
+  useEffect(() => {
+    let alive = true
+    getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(list => {
+      if (alive) setDevTraitsSiblingPlayers(list)
+    })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDynasty?.id, (dynasties || []).map(d => d.id).join('|')])
+
+  const devTraitsHostDynasty = useMemo(
+    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
+    [currentDynasty, dynasties]
+  )
+
+  // The exact same recentRank computation as ScoutStaff.jsx's databaseRecruits
+  // + PlayerDatabase.jsx's combinedPlayers — this dynasty's own targets (every
+  // year), every sibling dynasty's targets, and the shared Database's own
+  // recruitingDatabasePlayers extras, all ranked together via the one shared
+  // computeRecentRanks so the number always matches what's shown elsewhere.
+  const devTraitsRankByKey = useMemo(() => {
+    const ownTargets = (currentDynasty?.players || [])
+      .filter(p => p?.isTarget && p.name)
+      .map((p, i) => ({ pid: p.pid, scoutedAt: p.scoutedAt, addedIndex: i, sourceDynastyId: currentDynasty?.id }))
+    const siblingTargets = devTraitsSiblingPlayers
+      .filter(p => p?.isTarget && p.name)
+      .map((p, i) => ({ pid: p.pid, scoutedAt: p.scoutedAt, addedIndex: 1e6 + i, sourceDynastyId: p._sourceDynastyId }))
+    const excluded = new Set((devTraitsHostDynasty?.recruitingDatabaseExcludedPids || []).map(String))
+    const extras = (devTraitsHostDynasty?.recruitingDatabasePlayers || [])
+      .filter(p => !excluded.has(String(p.pid)))
+      .map(p => ({ pid: p.pid, scoutedAt: p.scoutedAt, addedIndex: p.addedIndex }))
+    return computeRecentRanks([...ownTargets, ...siblingTargets, ...extras])
+  }, [currentDynasty?.players, currentDynasty?.id, devTraitsSiblingPlayers, devTraitsHostDynasty])
+
+  // Signing-class targets for the "Update Dev Traits" task — every target THIS
+  // dynasty entered for the given class year (regardless of who they signed
+  // with; "Targets could be Committed at this point too"), each carrying the
+  // exact recent-number shown everywhere else in the app.
+  const getSigningClassTargets = (year) => {
+    const allTargets = (currentDynasty?.players || []).filter(p => p?.isTarget && p.name)
+    return allTargets
+      .filter(p => Number(p.targetYear) === Number(year))
+      .map(p => ({
+        pid: p.pid,
+        name: p.name,
+        devTrait: p.devTrait,
+        recentRank: devTraitsRankByKey.get(`${currentDynasty?.id ?? ''}:${p.pid}`),
+      }))
+  }
+
+  const handleOpenUpdateDevTraits = (year) => {
+    setUpdateDevTraitsYear(year)
+    setShowUpdateDevTraitsModal(true)
+  }
+
+  const handleSaveDevTraits = async (updates) => {
+    if (!currentDynasty || updates.length === 0) {
+      setShowUpdateDevTraitsModal(false)
+      return
+    }
+    setSavingDevTraits(true)
+    try {
+      const byPid = new Map(updates.map(u => [String(u.pid), u.devTrait]))
+      const changedPids = updates.map(u => u.pid)
+      const newPlayers = (currentDynasty.players || []).map(p =>
+        byPid.has(String(p.pid)) ? { ...p, devTrait: byPid.get(String(p.pid)) } : p
+      )
+      await updateDynasty(currentDynasty.id, { players: newPlayers }, { changedPlayerPids: changedPids })
+      setShowUpdateDevTraitsModal(false)
+    } catch (error) {
+      console.error('Update dev traits error:', error)
+    } finally {
+      setSavingDevTraits(false)
+    }
+  }
+
   const [showPositionChangesModal, setShowPositionChangesModal] = useState(false)
   const [showRecruitingClassRankModal, setShowRecruitingClassRankModal] = useState(false)
   const [showTrainingResultsModal, setShowTrainingResultsModal] = useState(false)
@@ -5195,6 +5284,23 @@ export default function Dashboard() {
                 } : null,
               })
 
+              // Early National Signing Day — dev traits start revealing for this
+              // year's class. Only shown here and at National Signing Day (below);
+              // reappears every offseason until every target that year has a
+              // known dev trait.
+              const bw1DevTraitTargets = getSigningClassTargets(currentDynasty.currentYear)
+              const bw1DevTraitPending = bw1DevTraitTargets.filter(p => isHiddenDev(p.devTrait)).length
+              if (bw1DevTraitTargets.length > 0) {
+                bw1Todos.push({
+                  key: 'update-dev-traits-bw1',
+                  done: bw1DevTraitPending === 0,
+                  title: 'Update Dev Traits',
+                  subtitle: 'National Signing Day - Dev Reveal',
+                  onAction: () => handleOpenUpdateDevTraits(currentDynasty.currentYear),
+                  actionLabel: bw1DevTraitPending > 0 ? 'Update' : 'Edit',
+                })
+              }
+
               return (
                 <>
                   <h3 className="font-display font-bold uppercase leading-none text-txt-primary py-3 pl-3 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', ...sectionStripStyle }}>
@@ -6580,6 +6686,21 @@ export default function Dashboard() {
                   viewTo: hasCommitmentsData ? `${pathPrefix}/recruiting/${userTidForCommits}/${offseasonDataYear}` : null,
                   extraTools: !hasCommitmentsData ? <SellVsSendButton onClick={() => setShowSellCalc(true)} /> : null,
                 })
+
+                // National Signing Day — the other of the two weeks this task
+                // ever shows (alongside Bowl Week 1 / Early Signing Day above).
+                const nsdDevTraitTargets = getSigningClassTargets(offseasonDataYear)
+                const nsdDevTraitPending = nsdDevTraitTargets.filter(p => isHiddenDev(p.devTrait)).length
+                if (nsdDevTraitTargets.length > 0) {
+                  o26Todos.push({
+                    key: 'update-dev-traits-nsd',
+                    done: nsdDevTraitPending === 0,
+                    title: 'Update Dev Traits',
+                    subtitle: 'National Signing Day - Dev Reveal',
+                    onAction: () => handleOpenUpdateDevTraits(offseasonDataYear),
+                    actionLabel: nsdDevTraitPending > 0 ? 'Update' : 'Edit',
+                  })
+                }
               } else {
                 o26Todos.push({
                   key: 'recruiting-week',
@@ -9220,6 +9341,15 @@ export default function Dashboard() {
         recruitingLabel={getRecruitingLabel()}
         existingCommitments={getAllPreviousCommitments()}
         teamColors={teamColors}
+      />
+
+      {/* Update Dev Traits (Bowl Week 1 / Early Signing Day + National Signing Day) */}
+      <UpdateDevTraitsModal
+        isOpen={showUpdateDevTraitsModal}
+        onClose={() => setShowUpdateDevTraitsModal(false)}
+        players={updateDevTraitsYear != null ? getSigningClassTargets(updateDevTraitsYear) : []}
+        onSave={handleSaveDevTraits}
+        saving={savingDevTraits}
       />
 
       {/* Sell vs Send Calculator */}

@@ -18,6 +18,7 @@ import DuplicateReviewModal from './DuplicateReviewModal';
 import {
   resolveRecruitingDatabaseHost, getPoolSiblings, renumberForMerge,
   findDuplicateClusters, applyDuplicateResolution, downloadRecruitingDatabaseJson,
+  computeRecentRanks,
 } from '../utils/recruitingDatabasePool';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
@@ -1290,18 +1291,14 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     // ScoutStaff.jsx from real Targets + sibling-dynasty recruits alone,
     // before recruitingDatabasePlayers (Google Sheets AI-import entries) are
     // merged in below, so those never got ranked at all. Recompute the rank
-    // here across the FULL combined set instead, using the same rule: earliest
-    // scoutedAt first (a permanent stamp set once, at first entry — see
-    // recruitingDatabaseSync.js), addedIndex as a tiebreak for anything
-    // scouted before that field existed. This is what keeps entry #1 forever
-    // #1 even as new recruits get added on top.
-    const ranked = [...merged].sort((a, b) => {
-      const at = a.scoutedAt ?? 0;
-      const bt = b.scoutedAt ?? 0;
-      if (at !== bt) return at - bt;
-      return (a.addedIndex ?? 0) - (b.addedIndex ?? 0);
-    });
-    const rankByKey = new Map(ranked.map((r, i) => [`${r.sourceDynastyId ?? ''}:${r.pid}`, i + 1]));
+    // here across the FULL combined set instead via the shared
+    // computeRecentRanks (same rule everywhere: earliest scoutedAt first — a
+    // permanent stamp set once, at first entry — addedIndex as a tiebreak for
+    // anything scouted before that field existed). This is what keeps entry
+    // #1 forever #1 even as new recruits get added on top, and what lets
+    // other surfaces (e.g. the Update Dev Traits dashboard task) show the
+    // exact same number for a given recruit.
+    const rankByKey = computeRecentRanks(merged);
     return merged.map(r => ({ ...r, recentRank: rankByKey.get(`${r.sourceDynastyId ?? ''}:${r.pid}`) }));
   }, [players, recruitingDatabasePlayers, excludedPids]);
 
@@ -1802,34 +1799,20 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
 
                   <div className="space-y-2 text-xs text-txt-secondary leading-relaxed">
                     <p>
-                      The Recruiting Database is a personal scouting reference for every recruit
-                      you've targeted, across every dynasty on your account. It's separate from the
-                      Targets page: editing or removing something here never changes your real Targets
-                      board, except when you deliberately edit one of your own targets through here.
+                      A scouting reference for every recruit you've targeted — shared across every
+                      dynasty on your account, separate from the real Targets board.
                     </p>
                     <p>
-                      It mirrors itself into a Google Sheet automatically — any change you make here
-                      (a recruit added, edited, or removed) syncs out to the Sheet on its own within a
-                      couple seconds, so you can browse or bulk-edit it outside the app.
+                      <strong className="text-txt-primary">Edit</strong> opens the linked Google Sheet
+                      to add or update recruits (AI-fill supported).
                     </p>
                     <p>
-                      <strong className="text-txt-primary">Edit</strong> opens the Google Sheet
-                      currently linked to your shared Recruiting Database in a new tab — local changes
-                      already sync out on their own, so this is also where you'd go to pull in edits
-                      made directly in the Sheet itself (its own "Save & keep" button). A recruit
-                      deleted from the Sheet is removed here too, except a real Target, which this can
-                      never delete.
-                    </p>
-                    <p>
-                      <strong className="text-txt-primary">Export JSON</strong> downloads a file with
-                      everything in the database — every field, exactly as stored — completely
-                      independent of Google. <strong className="text-txt-primary">Restore from JSON</strong>{' '}
-                      loads one of those files back in, so the database can be rebuilt from scratch
-                      under a brand-new Google account if this one is ever lost.
+                      <strong className="text-txt-primary">Export JSON</strong> downloads a full backup
+                      file, independent of Google. <strong className="text-txt-primary">Restore from
+                      JSON</strong> loads one back in.
                     </p>
                     <p className="text-[10px] text-txt-tertiary leading-relaxed pt-2 border-t border-surface-4">
-                      Every dynasty on your account shares this exact same Recruiting Database — edit
-                      it from any of them and every other one sees the change.
+                      One shared database — edit it from any dynasty and every other one sees the change.
                     </p>
                   </div>
                 </div>

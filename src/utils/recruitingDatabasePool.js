@@ -136,6 +136,27 @@ export async function handleDynastyLeavingPool(dynastyId, dynasties, updateDynas
   return { ok: true, wasHost: true, newHostId: newHost.id };
 }
 
+// The one "recent number" ranking, shared by every surface that shows it
+// (the Database table, the Update Dev Traits dashboard task, anywhere else
+// that needs it) so a recruit's number can never disagree between them.
+// Ranks by permanent entry order — earliest scoutedAt first (a stamp set
+// once, at first entry, never touched again), addedIndex as a tiebreak for
+// anything scouted before that field existed. Returns a Map keyed by
+// `${sourceDynastyId ?? ''}:${pid}` -> rank (1 = first ever entered).
+export function computeRecentRanks(players) {
+  const ranked = [...(players || [])].sort((a, b) => {
+    const at = a.scoutedAt ?? 0;
+    const bt = b.scoutedAt ?? 0;
+    if (at !== bt) return at - bt;
+    return (a.addedIndex ?? 0) - (b.addedIndex ?? 0);
+  });
+  const rankByKey = new Map();
+  ranked.forEach((r, i) => {
+    rankByKey.set(`${r.sourceDynastyId ?? ''}:${r.pid}`, i + 1);
+  });
+  return rankByKey;
+}
+
 // Plain DOM download — no React needed, so this works equally from a component
 // (PlayerDatabase.jsx's Export button) or from DynastyContext.jsx's deletion/
 // storage-tier-migration handoff (the "nowhere left for this data to live"

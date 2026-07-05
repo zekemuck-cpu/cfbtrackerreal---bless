@@ -148,7 +148,7 @@ export default function Recruiting() {
         { k: 'database', l: 'Database' },
         { k: 'outlook', l: 'Outlook' },
         { k: 'thresholds', l: 'Thresholds' },
-        { k: 'counts', l: 'History' },
+        { k: 'counts', l: 'Scouting Needs' },
       ]
     : [{ k: 'commitments', l: 'Commitments' }, { k: 'targets', l: 'Targets' }, { k: 'staff', l: 'Staff' }]
 

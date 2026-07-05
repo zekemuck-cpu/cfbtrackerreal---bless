@@ -2029,9 +2029,10 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
         <div className="w-full md:w-28 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
           <button
             onClick={() => { setIsOverview(true); setActiveArch(null); }}
+            style={isOverview ? { backgroundColor: p, color: '#fff' } : undefined}
             className={`text-[11px] font-display font-black uppercase tracking-wide px-2 py-2 rounded-lg transition shrink-0 text-center ${
               isOverview
-                ? 'bg-surface-4 text-txt-primary'
+                ? ''
                 : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
             }`}
           >
@@ -2051,9 +2052,10 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
               <button
                 key={pos}
                 onClick={() => handlePosChange(pos)}
+                style={!isOverview && activePos === pos ? { backgroundColor: p, color: '#fff' } : undefined}
                 className={`relative text-[11px] font-display font-black uppercase tracking-wide px-2 py-2 rounded-lg transition shrink-0 text-center ${
                   !isOverview && activePos === pos
-                    ? 'bg-surface-4 text-txt-primary'
+                    ? ''
                     : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
                 }`}
               >

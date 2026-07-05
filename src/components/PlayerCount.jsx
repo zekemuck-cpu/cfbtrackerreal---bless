@@ -1,13 +1,33 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDynasty } from '../context/DynastyContext';
 import { positionBucket } from '../utils/recruitAttributes';
-import { normalizeArch } from './archetypeWeights';
+import { normalizeArch, isHiddenDev } from './archetypeWeights';
 import { ARCHETYPE_REGISTRY } from '../data/configData';
 import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
+import { resolveRecruitingDatabaseHost } from '../utils/recruitingDatabasePool';
+import { DEV_TRAITS, buildRevealedPool, countBoundaries, gapToStrong } from '../utils/devTraitLearning';
 import { useCurrentTeamColors } from '../hooks/useTeamColors';
 import { createStaffAccessor } from './staffDB';
 
 const POS_ORDER = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
+
+// Display order (best-to-worst) for the dev-trait counts per archetype — order
+// only affects rendering here, not the boundary math (countBoundaries/
+// gapToStrong work off a Set, so ordering is irrelevant to them).
+const LADDER_ORDER = ['Elite', 'Star', 'Impact', 'Normal'];
+
+// Same per-trait color + glow as the dev trait pill in the Recruiting
+// Database table (PlayerDatabase.jsx's DevTraitPill) — repeated here rather
+// than imported since it's just presentational constants, matching how every
+// other surface that shows dev-trait colors (ThresholdLookup.jsx,
+// ScoutAnalysis.jsx, GemBustIcon.jsx) already keeps its own copy instead of
+// sharing one module.
+const TRAIT_COLORS = {
+  Elite:  { border: '#0E7A2A', text: '#22E065', glow: '0 0 16px rgba(14,122,42,0.85)' },
+  Star:   { border: '#9C7209', text: '#FFD100', glow: '0 0 14px rgba(156,114,9,0.8)' },
+  Impact: { border: '#7C8991', text: '#D6DEE2', glow: 'none' },
+  Normal: { border: '#8C5524', text: '#CD7F32', glow: 'none' },
+};
 
 const STAR_CONFIG = [
   { key: '5' },
@@ -24,14 +44,14 @@ ARCHETYPE_REGISTRY.forEach(({ position, archetype }) => {
   ARCHETYPES_BY_POS[position].push(archetype);
 });
 
-export default function PlayerCount() {
+export default function PlayerCount({ onSelectBucket = null } = {}) {
   const { currentDynasty, dynasties, getDynastyPlayers } = useDynasty();
   const [selectedPos, setSelectedPos] = useState(null);
   const [selectedStar, setSelectedStar] = useState('5');
   const [siblingPlayers, setSiblingPlayers] = useState([]);
 
   const teamColors = useCurrentTeamColors(currentDynasty);
-  const positionBar = teamColors.primary;
+  const p = teamColors.primary;
 
   const [scoutImg, setScoutImg] = useState('');
   const [scoutName, setScoutName] = useState('National Scout');
@@ -85,28 +105,43 @@ export default function PlayerCount() {
 
   const effectiveSiblingPlayers = siblingPlayers.length ? siblingPlayers : cachedSiblingPlayers;
 
+  // The account-wide shared Recruiting Database's own extras (resolved via the
+  // host dynasty) — recruits that were never a real Target anywhere but still
+  // belong in these counts once their dev trait is known.
+  const hostDynasty = useMemo(
+    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
+    [currentDynasty, dynasties]
+  );
+
   // HS recruits only (matches Recruiting Database) — portal/transfer targets are a
-  // different evaluation context and shouldn't skew freshman class counts.
-  const allRecruits = useMemo(() => {
+  // different evaluation context and shouldn't skew freshman class counts. Also
+  // excludes anyone still Hidden/unrevealed — an unknown dev trait isn't a real
+  // outcome yet, so it shouldn't skew these benchmarks either; it'll count itself
+  // in automatically the moment its dev trait is filled in (see Update Dev Traits).
+  const mergedRecruits = useMemo(() => {
+    const excluded = new Set((hostDynasty?.recruitingDatabaseExcludedPids || []).map(String));
     const own = currentDynasty?.players || [];
-    const pool = [...own, ...effectiveSiblingPlayers];
-    return pool.filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam);
-  }, [currentDynasty?.players, effectiveSiblingPlayers]);
+    const targets = [...own, ...effectiveSiblingPlayers].filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam && !excluded.has(String(p.pid)));
+    const seen = new Set(targets.map(p => `${p.pid}`));
+    const extras = (hostDynasty?.recruitingDatabasePlayers || []).filter(p => p.name && !p.isPortal && !p.previousTeam && !seen.has(`${p.pid}`) && !excluded.has(String(p.pid)));
+    return [...targets, ...extras];
+  }, [currentDynasty?.players, effectiveSiblingPlayers, hostDynasty]);
+
+  const allRecruits = useMemo(
+    () => mergedRecruits.filter(p => !isHiddenDev(p.devTrait)),
+    [mergedRecruits]
+  );
+
+  // Same revealed pool Threshold Lookup builds off — feeds the confidence-gap
+  // badge below (how many more scouted recruits until this bucket is
+  // "Strong"), so the badge can never disagree with what Thresholds itself
+  // would show for the same position/archetype/star.
+  const pool = useMemo(() => buildRevealedPool(mergedRecruits), [mergedRecruits]);
 
   const total = allRecruits.length;
 
-  const byStars = useMemo(() => {
-    const counts = { '5': 0, '4': 0, '3': 0, '2': 0, '1': 0 };
-    allRecruits.forEach(r => {
-      const s = String(r.stars ?? '');
-      if (s in counts) counts[s]++;
-    });
-    return counts;
-  }, [allRecruits]);
-
   // Star-tier counts scoped to each position — drives the star pill counts
-  // in Archetypes by Position, which should reflect only the active position's
-  // recruits, not the database-wide totals in `byStars`.
+  // in Archetypes by Position.
   const starCountsByPos = useMemo(() => {
     const result = {};
     allRecruits.forEach(r => {
@@ -131,35 +166,6 @@ export default function PlayerCount() {
       .sort((a, b) => b[1] - a[1]);
     return [...known, ...extra];
   }, [allRecruits]);
-
-  // Normalized archetype counts keyed by bucketed position
-  const archCountsByPos = useMemo(() => {
-    const result = {};
-    allRecruits.forEach(r => {
-      const pos  = positionBucket(r.position) || r.position || 'Other';
-      const norm = normalizeArch(r.archetype?.trim() || '');
-      if (!norm) return;
-      if (!result[pos]) result[pos] = {};
-      result[pos][norm] = (result[pos][norm] || 0) + 1;
-    });
-    return result;
-  }, [allRecruits]);
-
-  // Same shape as archCountsByPos, but scoped to the selected star tier —
-  // drives the Archetypes by Position breakdown only, so the position tabs
-  // above it keep showing overall totals regardless of the star filter.
-  const archCountsByPosStar = useMemo(() => {
-    const result = {};
-    allRecruits.forEach(r => {
-      if (String(r.stars ?? '') !== selectedStar) return;
-      const pos  = positionBucket(r.position) || r.position || 'Other';
-      const norm = normalizeArch(r.archetype?.trim() || '');
-      if (!norm) return;
-      if (!result[pos]) result[pos] = {};
-      result[pos][norm] = (result[pos][norm] || 0) + 1;
-    });
-    return result;
-  }, [allRecruits, selectedStar]);
 
   // Only positions with a defined archetype list get a tab
   const archPositions = byPosition.filter(([pos]) => ARCHETYPES_BY_POS[pos]?.length);
@@ -199,12 +205,18 @@ export default function PlayerCount() {
           </div>
         </div>
 
-        {/* Info card */}
-        <div className="flex-1 min-w-0 rounded-xl p-3 flex flex-col justify-center gap-1.5 bg-surface-2 border border-surface-4 sm:h-[100px]">
-          <p className="text-base font-semibold text-txt-primary">Player Count</p>
-          <p className="text-xs text-txt-tertiary leading-snug">
-            {total > 0 ? `${total} recruits in the database across all seasons` : 'No recruits in the database yet'}
-          </p>
+        {/* Info card — the total is the hero stat here, not a caption */}
+        <div className="flex-1 min-w-0 rounded-xl px-4 py-3 flex items-center justify-between gap-4 bg-surface-2 border border-surface-4 sm:h-[100px]">
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-txt-primary">Scouting Needs</p>
+            <p className="text-xs text-txt-tertiary leading-snug mt-0.5">
+              Exactly which dev traits to scout next so your Analyst has real data to compare future recruits against
+            </p>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-4xl sm:text-5xl font-display font-black leading-none tabular-nums" style={{ color: p }}>{total}</p>
+            <p className="text-[9px] font-display font-black uppercase tracking-[0.14em] text-txt-tertiary mt-1">Recruits</p>
+          </div>
         </div>
       </div>
 
@@ -214,107 +226,151 @@ export default function PlayerCount() {
         </div>
       ) : (
         <>
-          {/* Star tier breakdown */}
-          <div className="grid grid-cols-5 gap-2">
-            {STAR_CONFIG.map(({ key }) => {
-              const count = byStars[key];
-              const pct   = total > 0 ? ((count / total) * 100).toFixed(0) : 0;
-              return (
-                <div key={key} className="bg-surface-2 border border-surface-4 rounded-xl p-3 flex items-center justify-between gap-2">
-                  <div className="flex flex-col gap-1.5">
-                    <p className="text-xl font-display font-black text-txt-secondary leading-none">{key}★</p>
-                    <p className="text-[9px] font-display font-bold tabular-nums text-txt-tertiary">{pct}%</p>
-                  </div>
-                  <p className="text-4xl font-display font-black tabular-nums leading-none text-txt-primary">{count}</p>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Position breakdown */}
-          <div className="rounded-xl bg-surface-2 border border-surface-4 overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-surface-4">
-              <p className="text-[10px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">By Position</p>
-            </div>
-            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-3.5">
-              {byPosition.map(([pos, count]) => (
-                <div key={pos} className="flex items-center gap-2.5">
-                  <span className="text-[13px] font-display font-black uppercase w-10 shrink-0 text-txt-secondary">{pos}</span>
-                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    {count > 0 && (
-                      <div className="h-full rounded-full" style={{ width: `${(count / total) * 100}%`, background: positionBar }} />
-                    )}
-                  </div>
-                  <span className="text-[13px] font-display font-bold tabular-nums text-txt-tertiary w-5 text-right shrink-0">{count}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Archetypes by position — pick a position via tabs, all its archetypes shown, 0-count = empty bar */}
-          <div className="rounded-xl bg-surface-2 border border-surface-4 overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-surface-4">
-              <p className="text-[10px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Archetypes by Position</p>
-            </div>
-            <div className="px-4 pt-3 flex flex-wrap gap-1.5">
+          {/* Archetypes by position — position nav (left) + star sub-tabs and
+              a prioritized scouting-needs list (right), same structural
+              pattern as Threshold Lookup / Program Outlook so this reads as a
+              sibling page instead of the odd one out. Doubles as the position
+              breakdown too (each nav item already carries its total), so a
+              separate "By Position" section isn't needed anymore. Every
+              archetype at the selected star shows, including ones with zero
+              data — nothing is hidden, they're all equally worth knowing
+              about — but the list is sorted so the buckets closest to
+              "Strong" confidence (fewest additional recruits needed) surface
+              first, since those are the quickest wins. */}
+          <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[420px] bg-surface-2 border border-surface-4">
+            {/* Position Nav */}
+            <div className="w-full md:w-32 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
               {archPositions.map(([pos, posTotal]) => (
                 <button
                   key={pos}
                   type="button"
                   onClick={() => setSelectedPos(pos)}
-                  className={`px-3 py-1.5 rounded-lg text-[12px] font-display font-black uppercase transition ${
+                  style={pos === activePos ? { backgroundColor: p, color: '#fff' } : undefined}
+                  className={`flex items-center justify-between gap-2 text-[11px] font-display font-black uppercase tracking-wide px-3 py-2 rounded-lg transition shrink-0 text-left ${
                     pos === activePos
-                      ? 'bg-surface-4 text-txt-primary'
-                      : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
+                      ? ''
+                      : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
                   }`}
                 >
-                  {pos} <span className="opacity-60">{posTotal}</span>
+                  <span>{pos}</span>
+                  <span className="opacity-60 text-[10px]">{posTotal}</span>
                 </button>
               ))}
             </div>
-            {/* Offset so the first star pill starts at the QB pill's horizontal
-                midpoint above it, instead of flush with the position row. */}
-            <div className="pr-4 pt-2 flex flex-wrap gap-1.5" style={{ paddingLeft: '43px' }}>
-              {STAR_CONFIG.map(({ key }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setSelectedStar(key)}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-display font-black transition ${
-                    key === selectedStar
-                      ? 'bg-surface-4 text-txt-primary'
-                      : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
-                  }`}
-                >
-                  {key}★ <span className="opacity-60">{starCountsByPos[activePos]?.[key] ?? 0}</span>
-                </button>
-              ))}
-            </div>
-            {activePos && (() => {
-              const registryArchs = ARCHETYPES_BY_POS[activePos];
-              const normCounts = archCountsByPosStar[activePos] || {};
-              const normTotals = archCountsByPos[activePos] || {};
-              return (
-                <div className="p-4 space-y-2.5">
-                  {registryArchs.map(arch => {
-                    const displayName = normalizeArch(arch);
-                    const count = normCounts[normalizeArch(arch)] || 0;
-                    const archTotal = normTotals[normalizeArch(arch)] || 0;
-                    return (
-                      <div key={arch} className="flex items-center gap-2.5">
-                        <span className="text-[13px] w-44 shrink-0 truncate" style={{ color: count > 0 ? 'var(--txt-secondary)' : 'var(--txt-tertiary)' }}>{displayName}</span>
-                        <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                          {count > 0 && archTotal > 0 && (
-                            <div className="h-full rounded-full" style={{ width: `${(count / archTotal) * 100}%`, background: positionBar }} />
-                          )}
+
+            {/* Right panel */}
+            <div className="flex-1 flex flex-col min-w-0">
+              <div className="border-b border-surface-4 px-4 py-2.5 flex flex-wrap gap-1.5">
+                {STAR_CONFIG.map(({ key }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelectedStar(key)}
+                    style={key === selectedStar ? { backgroundColor: p, color: '#fff' } : undefined}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-display font-black transition ${
+                      key === selectedStar
+                        ? ''
+                        : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-4'
+                    }`}
+                  >
+                    {key}★ <span className="opacity-60">{starCountsByPos[activePos]?.[key] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+              {activePos && (() => {
+                const registryArchs = ARCHETYPES_BY_POS[activePos];
+                const rows = registryArchs.map(arch => {
+                  const archNorm = normalizeArch(arch);
+                  const byTrait = pool[`${activePos}_${archNorm}`]?.[selectedStar] || {};
+                  const traitCounts = {};
+                  DEV_TRAITS.forEach(dt => { traitCounts[dt] = byTrait[dt]?.length || 0; });
+                  const populated = LADDER_ORDER.filter(dt => traitCounts[dt] > 0);
+                  const boundaries = countBoundaries(new Set(populated));
+                  const isStrong = boundaries >= 2;
+                  // All 3 boundaries only happens when all 4 dev traits have at
+                  // least one revealed comp — the max possible confidence for
+                  // this bucket, since there's nothing left on the ladder to add.
+                  const isComplete = boundaries >= 3;
+                  const gap = isStrong ? null : gapToStrong(populated);
+                  // Once Strong, exactly one tier is still missing (always Normal
+                  // or Elite — the two "outer" rungs. A missing middle rung
+                  // (Impact/Star) would have already capped boundaries at 1, not
+                  // 2, since middle rungs each serve double duty across two
+                  // boundaries at once).
+                  const missingForComplete = isStrong && !isComplete
+                    ? LADDER_ORDER.filter(dt => !populated.includes(dt))
+                    : [];
+                  // Same 4-level confidence ladder used everywhere else in the
+                  // app (PlayerDatabase's confidence pill, Threshold Lookup's
+                  // Key panel): Thin (0 boundaries) → Limited (1) → Strong (2) →
+                  // and Complete on top of that (all 3 boundaries — every dev
+                  // trait represented). "Broad" doesn't apply here since this
+                  // view never widens across star levels — every row is scoped
+                  // to one exact star, matching the pool it reads from.
+                  const label = isComplete ? 'Complete' : isStrong ? 'Strong' : boundaries === 1 ? 'Limited' : 'Thin';
+                  const colorCls = isComplete ? 'text-sky-400' : isStrong ? 'text-emerald-400' : boundaries === 1 ? 'text-amber-400' : 'text-orange-400';
+                  return { arch, archNorm, traitCounts, isStrong, isComplete, gap, missingForComplete, label, colorCls };
+                });
+                // Priority order: buckets not yet Strong (closest first — the
+                // quickest wins), then Strong-but-not-Complete (still one more
+                // recruit worth getting), then Complete last (nothing left to do).
+                rows.sort((a, b) => {
+                  const key = r => r.isComplete ? Infinity : r.isStrong ? 4 : r.gap.count;
+                  return key(a) - key(b);
+                });
+                return (
+                  <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+                    {rows.map(({ arch, archNorm, traitCounts, isStrong, isComplete, gap, missingForComplete, label, colorCls }) => (
+                      <button
+                        key={arch}
+                        type="button"
+                        onClick={() => onSelectBucket?.(activePos, arch, selectedStar)}
+                        className={`w-full text-left bg-surface-3 border border-surface-4 rounded-lg px-4 py-3 space-y-2.5 transition ${
+                          onSelectBucket ? 'hover:border-txt-tertiary cursor-pointer' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <span className="text-sm font-display font-bold text-txt-primary">{archNorm}</span>
+                          <div className="text-right">
+                            <p className={`text-[11px] font-display font-black uppercase tracking-wide ${colorCls}`}>
+                              {label}
+                            </p>
+                            {isStrong && !isComplete && (
+                              <p className="text-[10px] font-display font-semibold uppercase tracking-wide text-txt-tertiary mt-0.5">
+                                1 more until Complete: {missingForComplete.join(', ')}
+                              </p>
+                            )}
+                            {!isStrong && (
+                              <p className="text-[10px] font-display font-semibold uppercase tracking-wide text-txt-tertiary mt-0.5">
+                                Needs {gap.count} more until Strong: {gap.options.map(opt => opt.join(' + ')).join(' or ')}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <span className="text-[13px] font-display font-bold tabular-nums w-5 text-right shrink-0" style={{ color: count > 0 ? 'var(--txt-tertiary)' : 'rgba(100,116,139,0.35)' }}>{count}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
+                        <div className="flex flex-wrap gap-2">
+                          {LADDER_ORDER.map(dt => {
+                            const has = traitCounts[dt] > 0;
+                            const c = TRAIT_COLORS[dt];
+                            return (
+                              <span
+                                key={dt}
+                                className="bg-surface-2 border px-2.5 py-1 rounded-md text-xs font-display font-bold uppercase tracking-wide"
+                                style={has
+                                  ? { borderColor: c.border, color: c.text, boxShadow: c.glow }
+                                  : { borderColor: 'var(--surface-4)', color: 'var(--txt-tertiary)', opacity: 0.45 }
+                                }
+                              >
+                                {dt}: {traitCounts[dt]}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
         </>
       )}

@@ -101,3 +101,56 @@ export function getAllTierProfiles(pool, position, archetype, star, formAttrs) {
   });
   return result;
 }
+
+// ── Confidence-gap calculator — shared by Threshold Lookup's "Key" panel and
+// History's per-archetype confidence badge ───────────────────────────────────
+// A "boundary" is one adjacent pair of dev-trait tiers (Normal|Impact,
+// Impact|Star, Star|Elite) where BOTH sides have at least one real revealed
+// comp (MIN_N = 1 — a single scouted+revealed recruit is enough to seed a
+// tier). "Strong" confidence needs 2 of the 3 boundaries satisfied within the
+// exact position+archetype+star bucket.
+const CONFIDENCE_LADDER = ['Normal', 'Impact', 'Star', 'Elite'];
+const CONFIDENCE_PAIRS = [['Normal', 'Impact'], ['Impact', 'Star'], ['Star', 'Elite']];
+
+export function countBoundaries(populatedSet) {
+  return CONFIDENCE_PAIRS.filter(([a, b]) => populatedSet.has(a) && populatedSet.has(b)).length;
+}
+
+function kCombinations(arr, k) {
+  if (k === 0) return [[]];
+  if (arr.length < k) return [];
+  const [first, ...rest] = arr;
+  return [
+    ...kCombinations(rest, k - 1).map(c => [first, ...c]),
+    ...kCombinations(rest, k),
+  ];
+}
+
+// Minimum additional dev-trait tiers (each needing just 1 revealed recruit)
+// that would push a bucket from its current tier coverage to "Strong" (2
+// boundaries). Returns EVERY minimal-size combo that works, not just the
+// first one found — e.g. with Impact+Star already populated (1 boundary),
+// adding Normal (completes Normal|Impact) and adding Elite (completes
+// Star|Elite) are BOTH independently sufficient. Returns { count: 0, options:
+// [] } if already Strong.
+export function gapToStrong(populatedTiers) {
+  const have = new Set(populatedTiers);
+  if (countBoundaries(have) >= 2) return { count: 0, options: [] };
+  const missing = CONFIDENCE_LADDER.filter(t => !have.has(t));
+  for (let size = 1; size <= missing.length; size++) {
+    const options = kCombinations(missing, size).filter(combo => {
+      const test = new Set([...have, ...combo]);
+      return countBoundaries(test) >= 2;
+    });
+    if (options.length > 0) return { count: size, options };
+  }
+  return { count: missing.length, options: [missing] };
+}
+
+// Which dev-trait tiers currently have at least one revealed comp for an
+// exact position+archetype+star bucket — the input `gapToStrong` needs.
+export function populatedTiersFor(pool, position, archetype, star) {
+  const archKey = `${position}_${normalizeArch(archetype)}`;
+  const byTrait = pool[archKey]?.[star] || {};
+  return DEV_TRAITS.filter(dt => (byTrait[dt]?.length || 0) >= MIN_N);
+}

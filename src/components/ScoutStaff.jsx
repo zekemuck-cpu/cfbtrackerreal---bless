@@ -10,6 +10,7 @@ import { flattenClassCommitments } from '../utils/recruitingScore';
 import { positionBucket } from '../utils/recruitAttributes';
 import { useTeamColors } from '../hooks/useTeamColors';
 import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
+import { resolveRecruitingDatabaseHost, computeRecentRanks } from '../utils/recruitingDatabasePool';
 import { useToast } from './ui';
 
 // Shapes a raw dynasty.players record into the grading-ready recruit shape Scout Staff uses.
@@ -181,14 +182,8 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
   // original per-dynasty insertion order.
   const databaseRecruits = useMemo(() => {
     const merged = [...allYearRecruits, ...siblingRecruits];
-    const ranked = [...merged].sort((a, b) => {
-      const at = a.scoutedAt ?? 0;
-      const bt = b.scoutedAt ?? 0;
-      if (at !== bt) return at - bt;
-      return (a.addedIndex ?? 0) - (b.addedIndex ?? 0);
-    });
-    const rankByKey = new Map(ranked.map((r, i) => [`${r.sourceDynastyId}:${r.pid}`, i + 1]));
-    return merged.map(r => ({ ...r, recentRank: rankByKey.get(`${r.sourceDynastyId}:${r.pid}`) }));
+    const rankByKey = computeRecentRanks(merged);
+    return merged.map(r => ({ ...r, recentRank: rankByKey.get(`${r.sourceDynastyId ?? ''}:${r.pid}`) }));
   }, [allYearRecruits, siblingRecruits]);
 
   // Threshold Lookup's pool — same cross-dynasty merge as the Recruiting Database,
@@ -199,7 +194,25 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
   // Database. HS recruits only (matches Recruiting Database) — portal/transfer
   // targets are a different evaluation context and shouldn't skew freshman
   // benchmark data.
-  const thresholdRecruits = useMemo(() => databaseRecruits.filter(r => !r.isPortal && !r.previousTeam), [databaseRecruits]);
+  //
+  // Also folds in the shared Recruiting Database's own recruitingDatabasePlayers
+  // extras (resolved via the account-wide host dynasty) — recruits that were
+  // never a real Target anywhere but are still genuine scouted comps worth
+  // learning from. No explicit dev-trait filter is needed here: buildRevealedPool
+  // (which every Threshold Lookup computation reads through) already excludes
+  // Hidden/blank dev traits on its own, so a Hidden extra folded in here
+  // contributes nothing until its dev trait is actually filled in.
+  const hostDynasty = useMemo(
+    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
+    [currentDynasty, dynasties]
+  );
+  const thresholdRecruits = useMemo(() => {
+    const excluded = new Set((hostDynasty?.recruitingDatabaseExcludedPids || []).map(String));
+    const targets = databaseRecruits.filter(r => !r.isPortal && !r.previousTeam && !excluded.has(String(r.pid)));
+    const seen = new Set(targets.map(r => `${r.pid}`));
+    const extras = (hostDynasty?.recruitingDatabasePlayers || []).filter(r => !r.isPortal && !r.previousTeam && !seen.has(`${r.pid}`) && !excluded.has(String(r.pid)));
+    return [...targets, ...extras];
+  }, [databaseRecruits, hostDynasty]);
 
   // Committed recruits for the current team/year, pulled from dynasty recruiting data
   const committedRecruits = useMemo(() => {
@@ -395,6 +408,23 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
     onNavigate?.('outlook');
   };
 
+  // Deep-link from Scouting Needs (History) — clicking an archetype card
+  // there jumps straight to that exact position + archetype + star bucket in
+  // Thresholds. Unlike ScoutAnalysis, ThresholdLookup unmounts whenever
+  // subView leaves 'thresholds' (see the render below), so a stale jump
+  // target left set from a past visit would otherwise get silently reapplied
+  // the next time the coach mounts it via the plain "Thresholds" tab — this
+  // clears it right after the jump lands, one-shot, same reasoning as
+  // analysisJumpPos above.
+  const [thresholdsJumpTarget, setThresholdsJumpTarget] = useState(null);
+  const goToThresholdsBucket = (pos, arch, star) => {
+    setThresholdsJumpTarget({ pos, arch, star, ts: Date.now() });
+    onNavigate?.('thresholds');
+  };
+  useEffect(() => {
+    if (subView === 'thresholds' && thresholdsJumpTarget) setThresholdsJumpTarget(null);
+  }, [subView, thresholdsJumpTarget]);
+
   // ScoutAnalysis is always mounted (see below), so it's the single source of
   // truth for posExtraTargets — rather than duplicating that state here, it
   // hands its own adjustExtraTargets function up through this ref once
@@ -467,8 +497,8 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
       {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} highlightPid={highlightPid} />}
-      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} />}
-      {subView === 'counts'     && <PlayerCount />}
+      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} jumpTarget={thresholdsJumpTarget} />}
+      {subView === 'counts'     && <PlayerCount onSelectBucket={goToThresholdsBucket} />}
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
           Hidden when not on the analysis view — UI is invisible but computation runs.

@@ -3,6 +3,7 @@ import { createStaffAccessor } from './staffDB';
 import { normalizeArch } from './archetypeWeights';
 import {
   DEV_TRAITS, getFormAttrs, buildRevealedPool, getAllTierProfiles,
+  countBoundaries, gapToStrong,
 } from '../utils/devTraitLearning';
 import { computeAttributeQuality } from '../utils/devPrediction';
 import { useToast } from './ui/Toast';
@@ -585,51 +586,14 @@ export const POSITIONS = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB'
 export { PROFILES };
 
 // ── "Key" panel: confidence-threshold legend + scouting-gap calculator ──────
-// Mirrors computeAttributeQuality's own rule exactly (devPrediction.js): a
-// "boundary" is one adjacent pair of dev-trait tiers (Normal|Impact,
-// Impact|Star, Star|Elite) where BOTH sides have at least one real revealed
-// comp (MIN_N = 1, devTraitLearning.js — a single scouted+revealed recruit is
-// enough to seed a tier). "Strong" confidence needs 2 of the 3 boundaries
-// satisfied within the exact position+archetype+star bucket; "Limited" needs
-// just 1. Low->high order matches devPrediction.js's FULL_LADDER.
-const CONFIDENCE_LADDER = ['Normal', 'Impact', 'Star', 'Elite'];
-const CONFIDENCE_PAIRS = [['Normal', 'Impact'], ['Impact', 'Star'], ['Star', 'Elite']];
-
-function countBoundaries(populatedSet) {
-  return CONFIDENCE_PAIRS.filter(([a, b]) => populatedSet.has(a) && populatedSet.has(b)).length;
-}
-
-function kCombinations(arr, k) {
-  if (k === 0) return [[]];
-  if (arr.length < k) return [];
-  const [first, ...rest] = arr;
-  return [
-    ...kCombinations(rest, k - 1).map(c => [first, ...c]),
-    ...kCombinations(rest, k),
-  ];
-}
-
-// Minimum additional dev-trait tiers (each needing just 1 revealed recruit)
-// that would push a bucket from its current tier coverage to "Strong" (2
-// boundaries). Returns EVERY minimal-size combo that works, not just the
-// first one found — e.g. with Impact+Star already populated (1 boundary),
-// adding Normal (completes Normal|Impact) and adding Elite (completes
-// Star|Elite) are BOTH independently sufficient; reporting only "Normal"
-// would wrongly imply Elite doesn't count. Returns { count: 0, options: [] }
-// if already Strong.
-function gapToStrong(populatedTiers) {
-  const have = new Set(populatedTiers);
-  if (countBoundaries(have) >= 2) return { count: 0, options: [] };
-  const missing = CONFIDENCE_LADDER.filter(t => !have.has(t));
-  for (let size = 1; size <= missing.length; size++) {
-    const options = kCombinations(missing, size).filter(combo => {
-      const test = new Set([...have, ...combo]);
-      return countBoundaries(test) >= 2;
-    });
-    if (options.length > 0) return { count: size, options };
-  }
-  return { count: missing.length, options: [missing] };
-}
+// countBoundaries/gapToStrong now live in devTraitLearning.js (shared with
+// History's confidence badge). Mirrors computeAttributeQuality's own rule
+// exactly (devPrediction.js): a "boundary" is one adjacent pair of dev-trait
+// tiers (Normal|Impact, Impact|Star, Star|Elite) where BOTH sides have at
+// least one real revealed comp (MIN_N = 1 — a single scouted+revealed
+// recruit is enough to seed a tier). "Strong" confidence needs 2 of the 3
+// boundaries satisfied within the exact position+archetype+star bucket;
+// "Limited" needs just 1.
 
 // Which attributes actually separate one tier from an adjacent one — the
 // attribute with the biggest gap is the strongest signal for what it takes to
@@ -687,7 +651,7 @@ function dynamicBadgeText(profile, attrEntries, direction = 'above') {
   return parts.length ? parts.join(' / ') : null;
 }
 
-export default function ThresholdLookup({ players = [], teamColors, teamLogo, dynastyId = null }) {
+export default function ThresholdLookup({ players = [], teamColors, teamLogo, dynastyId = null, jumpTarget = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const { toast } = useToast();
   const p = teamColors?.primary || '#374151';
@@ -724,12 +688,61 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
     setOpenTiers(new Set());
   };
 
+  // Deep-link from Scouting Needs (History) — clicking an archetype card there
+  // jumps straight to this exact position + archetype + star bucket, instead
+  // of making the coach re-navigate the tabs by hand. Keyed on `ts` (not just
+  // the target values) so re-clicking the same bucket after looking at
+  // something else still re-triggers the jump.
+  useEffect(() => {
+    if (!jumpTarget?.pos) return;
+    setActivePos(jumpTarget.pos);
+    if (jumpTarget.arch) setActiveArch(jumpTarget.arch);
+    if (jumpTarget.star) setActiveStar(jumpTarget.star);
+    setOpenTiers(new Set());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpTarget]);
+
   const tierData = profile[activeArch]?.tiers ?? [];
   const archNorm = normalizeArch(activeArch);
   const formAttrs = useMemo(() => getFormAttrs(activePos, archNorm), [activePos, archNorm]);
 
   // Revealed-devTrait-only HS recruit pool — feeds badges, stats, and derived weights.
   const pool = useMemo(() => buildRevealedPool(players), [players]);
+
+  // Sample-size counts off the same revealed pool — surfaced next to the
+  // position nav, archetype tabs, and star tabs so it's obvious at a glance
+  // whether a bucket has enough data before drilling into a tier card,
+  // without needing to cross-check against History.
+  const posCounts = useMemo(() => {
+    const counts = {};
+    Object.entries(pool).forEach(([archKey, byStar]) => {
+      const pos = archKey.slice(0, archKey.indexOf('_'));
+      const total = Object.values(byStar).reduce(
+        (sum, byTrait) => sum + Object.values(byTrait).reduce((s, arr) => s + arr.length, 0), 0
+      );
+      counts[pos] = (counts[pos] || 0) + total;
+    });
+    return counts;
+  }, [pool]);
+
+  const archCounts = useMemo(() => {
+    const counts = {};
+    Object.entries(pool).forEach(([archKey, byStar]) => {
+      counts[archKey] = Object.values(byStar).reduce(
+        (sum, byTrait) => sum + Object.values(byTrait).reduce((s, arr) => s + arr.length, 0), 0
+      );
+    });
+    return counts;
+  }, [pool]);
+
+  const starCountsForActiveArch = useMemo(() => {
+    const byStar = pool[`${activePos}_${archNorm}`] || {};
+    const counts = {};
+    STAR_TABS.forEach(s => {
+      counts[s] = Object.values(byStar[s] || {}).reduce((sum, arr) => sum + arr.length, 0);
+    });
+    return counts;
+  }, [pool, activePos, archNorm]);
 
   // Full sweep across every position/archetype/star bucket for the "Learned"
   // panel — only computed while that panel is actually open, since it's a
@@ -1084,13 +1097,14 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
               key={pos}
               onClick={() => handlePosChange(pos)}
               style={activePos === pos ? { backgroundColor: p, color: '#fff' } : undefined}
-              className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
+              className={`flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-left ${
                 activePos === pos
                   ? ''
                   : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
               }`}
             >
-              {pos}
+              <span>{pos}</span>
+              <span className="opacity-60">{posCounts[pos] || 0}</span>
             </button>
           ))}
         </div>
@@ -1110,7 +1124,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
                     : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
                 }`}
               >
-                {arch}
+                {arch} <span className="opacity-60">{archCounts[`${activePos}_${normalizeArch(arch)}`] || 0}</span>
               </button>
             ))}
           </div>
@@ -1137,7 +1151,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
                       : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-3'
                   }`}
                 >
-                  {s}★
+                  {s}★ <span className="opacity-60">{starCountsForActiveArch[s] ?? 0}</span>
                 </button>
               ))}
             </div>
