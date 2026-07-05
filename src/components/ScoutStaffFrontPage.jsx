@@ -1339,14 +1339,14 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                             {currentYear && (
                               <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">{currentYear}</p>
                             )}
-                            <p className="text-sm font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Recruiting Plan</p>
+                            <p className="text-sm font-display font-bold uppercase text-txt-primary">Recruiting Plan</p>
                             {currentRoster !== null && (
                               <div className="flex flex-col items-center">
                                 <div className="inline-grid grid-cols-2">
                                   <span className="text-[20px] font-black leading-none text-slate-400 text-right">{currentRoster}</span>
                                   <span className="text-[20px] font-black leading-none text-left"><span className="text-slate-600">/85</span></span>
                                 </div>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Current Roster</p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{currentYear ? `Current ${currentYear + 1} Roster` : 'Current Roster'}</p>
                               </div>
                             )}
                             <div className="w-80 grid grid-cols-[1fr_auto_1fr] items-end">
@@ -1377,7 +1377,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                                   <span className={`text-[20px] font-black leading-none text-right ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}>{projRoster}</span>
                                   <span className={`text-[20px] font-black leading-none text-left ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}><span className="text-slate-600">/85</span></span>
                                 </div>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Proj. Roster</p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{currentYear ? `Proj. ${currentYear + 1} Roster` : 'Proj. Roster'}</p>
                               </div>
                             )}
                           </div>

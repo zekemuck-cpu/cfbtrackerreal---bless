@@ -174,10 +174,10 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
     : archPositions[0]?.[0];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
       {/* Scout portrait + info row */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+      <div className="flex flex-col sm:flex-row gap-4 items-stretch">
 
         {/* Scout portrait card */}
         <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[100px] sm:flex-shrink-0">
@@ -206,14 +206,14 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
         </div>
 
         {/* Info card — the total is the hero stat here, not a caption */}
-        <div className="flex-1 min-w-0 rounded-xl px-4 py-3 flex items-center justify-between gap-4 bg-surface-2 border border-surface-4 sm:h-[100px]">
-          <div className="min-w-0">
+        <div className="flex-1 rounded-xl p-3 flex items-start justify-between gap-3 bg-surface-2 border border-surface-4 sm:h-[100px]">
+          <div className="flex flex-col justify-center gap-1.5 h-full">
             <p className="text-base font-semibold text-txt-primary">Scouting Needs</p>
-            <p className="text-xs text-txt-tertiary leading-snug mt-0.5">
+            <p className="text-xs text-txt-tertiary leading-snug">
               Exactly which dev traits to scout next so your Analyst has real data to compare future recruits against
             </p>
           </div>
-          <div className="text-right flex-shrink-0">
+          <div className="flex-shrink-0 flex flex-col justify-center items-end h-full text-right">
             <p className="text-4xl sm:text-5xl font-display font-black leading-none tabular-nums" style={{ color: p }}>{total}</p>
             <p className="text-[9px] font-display font-black uppercase tracking-[0.14em] text-txt-tertiary mt-1">Recruits</p>
           </div>
@@ -239,21 +239,21 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
               first, since those are the quickest wins. */}
           <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[420px] bg-surface-2 border border-surface-4">
             {/* Position Nav */}
-            <div className="w-full md:w-32 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
+            <div className="w-full md:w-28 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
               {archPositions.map(([pos, posTotal]) => (
                 <button
                   key={pos}
                   type="button"
                   onClick={() => setSelectedPos(pos)}
                   style={pos === activePos ? { backgroundColor: p, color: '#fff' } : undefined}
-                  className={`flex items-center justify-between gap-2 text-[11px] font-display font-black uppercase tracking-wide px-3 py-2 rounded-lg transition shrink-0 text-left ${
+                  className={`flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-left ${
                     pos === activePos
                       ? ''
                       : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
                   }`}
                 >
                   <span>{pos}</span>
-                  <span className="opacity-60 text-[10px]">{posTotal}</span>
+                  <span className="opacity-60">{posTotal}</span>
                 </button>
               ))}
             </div>
@@ -267,7 +267,7 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
                     type="button"
                     onClick={() => setSelectedStar(key)}
                     style={key === selectedStar ? { backgroundColor: p, color: '#fff' } : undefined}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-display font-black transition ${
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition ${
                       key === selectedStar
                         ? ''
                         : 'text-txt-tertiary hover:text-txt-secondary hover:bg-surface-4'
