@@ -1199,7 +1199,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // they can never surface on the Targets page. Import ingest is local-only
   // (paste/upload a TSV) — see RecruitingDatabaseImportModal.jsx; there is no
   // live Google Sheet sync.
-  const { currentDynasty, updateDynasty } = useDynasty();
+  const { currentDynasty, updateDynasty, updateRecruitingDatabasePlayers } = useDynasty();
   const auth = useAuthErrorHandler();
   const { toast } = useToast();
   const [showHelpPanel, setShowHelpPanel] = useState(false);
@@ -1335,7 +1335,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     if (!pendingJsonOverwrite || !currentDynasty) return;
     setConfirmingJsonOverwrite(true);
     try {
-      await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: pendingJsonOverwrite.recruits });
+      await updateRecruitingDatabasePlayers(currentDynasty.id, pendingJsonOverwrite.recruits);
       const n = pendingJsonOverwrite.addedCount;
       toast.success(`Database replaced — ${n} recruit${n === 1 ? '' : 's'} restored from backup.`);
       setPendingJsonOverwrite(null);
@@ -1364,7 +1364,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     if (isFromRecruitingDatabase(original)) {
       try {
         const next = recruitingDatabasePlayers.map(p => String(p.pid) === String(original.pid) ? { ...updated, updatedAt: Date.now() } : p);
-        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
+        await updateRecruitingDatabasePlayers(currentDynasty.id, next);
         return true;
       } catch (error) {
         console.error('Recruiting Database edit save error:', error);
@@ -1380,7 +1380,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     if (isFromRecruitingDatabase(pl)) {
       try {
         const next = recruitingDatabasePlayers.filter(p => String(p.pid) !== String(pl.pid));
-        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
+        await updateRecruitingDatabasePlayers(currentDynasty.id, next);
       } catch (error) {
         console.error('Recruiting Database delete error:', error);
         toast.error('Failed to delete. Please try again.');
@@ -1427,18 +1427,20 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       else excludePids.add(String(pid));
     }
 
-    if (dbOnlyChanges.size || dbOnlyDeletePids.size || excludePids.size) {
+    if (dbOnlyChanges.size || dbOnlyDeletePids.size) {
       const next = recruitingDatabasePlayers
         .filter(p => !dbOnlyDeletePids.has(String(p.pid)))
         .map(p => dbOnlyChanges.get(String(p.pid)) || p);
-      const updates = { recruitingDatabasePlayers: next };
-      if (excludePids.size) {
-        updates.recruitingDatabaseExcludedPids = Array.from(new Set([
-          ...(currentDynasty.recruitingDatabaseExcludedPids || []),
-          ...excludePids,
-        ]));
-      }
-      await updateDynasty(currentDynasty.id, updates);
+      await updateRecruitingDatabasePlayers(currentDynasty.id, next);
+    }
+    if (excludePids.size) {
+      // Tiny id list, not part of the size problem recruitingDatabasePlayers
+      // was — stays on the main doc via the ordinary updateDynasty path.
+      const nextExcluded = Array.from(new Set([
+        ...(currentDynasty.recruitingDatabaseExcludedPids || []),
+        ...excludePids,
+      ]));
+      await updateDynasty(currentDynasty.id, { recruitingDatabaseExcludedPids: nextExcluded });
     }
 
     for (const { original, updated } of targetChanges) {

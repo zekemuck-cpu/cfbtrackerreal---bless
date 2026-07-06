@@ -20,7 +20,9 @@ import {
   createDynasty as createDynastyInFirestore,
   updateDynasty as updateDynastyInFirestore,
   savePlayersToSubcollection,
-  saveGamesToSubcollection
+  saveGamesToSubcollection,
+  getRecruitingDatabaseSubcollection,
+  saveRecruitingDatabaseSubcollection
 } from '../dynastyService';
 
 // Storage type constants (per dynasty)
@@ -329,8 +331,10 @@ export const storageService = {
 
       log(`Migrating dynasty ${dynastyId} to cloud with subcollections...`);
 
-      // Extract players and games - these go to subcollections
-      const { players, games, id, ...mainDynastyData } = dynasty;
+      // Extract players, games, and the Recruiting Database's recruit list —
+      // these all go to subcollections, same reasoning for all three (keep
+      // the main doc under Firestore's 1MB limit).
+      const { players, games, recruitingDatabasePlayers, id, ...mainDynastyData } = dynasty;
 
       // Create the main dynasty document WITHOUT players and games
       // This keeps the main document under Firestore's 1MB limit
@@ -368,11 +372,23 @@ export const storageService = {
         }
       }
 
+      // Save the Recruiting Database's recruit list to its own subcollection
+      if (recruitingDatabasePlayers && recruitingDatabasePlayers.length > 0) {
+        try {
+          await saveRecruitingDatabaseSubcollection(cloudDynastyId, recruitingDatabasePlayers);
+          log(`Saved ${recruitingDatabasePlayers.length} Recruiting Database recruits to subcollection`);
+        } catch (rdErr) {
+          console.error('[Storage] Failed to save Recruiting Database subcollection:', rdErr);
+          // Don't fail the whole migration - it'll self-heal via the normal
+          // legacy-field migration path the next time this dynasty loads.
+        }
+      }
+
       // Delete from local only after successful cloud creation
       await indexedDBStorage.deleteDynasty(dynastyId);
 
       log(`Migrated dynasty ${dynastyId} to cloud as ${cloudDynastyId}`);
-      return { success: true, dynasty: { ...cloudDynasty, players, games } };
+      return { success: true, dynasty: { ...cloudDynasty, players, games, recruitingDatabasePlayers } };
     } catch (error) {
       console.error('[Storage] Migration to cloud failed:', error);
       return { success: false, error: error.message };
@@ -410,10 +426,19 @@ export const storageService = {
       // step fails, we abort BEFORE deleting the cloud copy.
       let players = [];
       let games = [];
+      let recruitingDatabasePlayers = [];
       try {
         players = (await firebaseStorage.getPlayers(dynastyId)) || [];
         games = (await firebaseStorage.getGames(dynastyId)) || [];
-        log(`Pulled ${players.length} players + ${games.length} games from cloud subcollections for ${dynastyId}`);
+        // Recruiting Database recruits live in their own subcollection too
+        // (see migrateRecruitingDatabaseToSubcollection) — fall back to
+        // whatever's still on the main doc for a dynasty that hasn't been
+        // opened yet since that migration shipped.
+        recruitingDatabasePlayers = (await getRecruitingDatabaseSubcollection(dynastyId)) || []
+        if (recruitingDatabasePlayers.length === 0 && dynasty.recruitingDatabasePlayers?.length > 0) {
+          recruitingDatabasePlayers = dynasty.recruitingDatabasePlayers
+        }
+        log(`Pulled ${players.length} players + ${games.length} games + ${recruitingDatabasePlayers.length} Recruiting Database recruits from cloud subcollections for ${dynastyId}`)
       } catch (subErr) {
         console.error('[Storage] Failed to fetch subcollections during migrate-to-local:', subErr);
         return {
@@ -422,13 +447,14 @@ export const storageService = {
         };
       }
 
-      // Create locally with the full payload embedded — recruitingDatabasePlayers
-      // is carried over via the `...dynasty` spread, since the Recruiting
-      // Database is per-dynasty.
+      // Create locally with the full payload embedded. Local (IndexedDB)
+      // dynasties keep recruitingDatabasePlayers as a plain field — no
+      // per-document size ceiling to dodge there.
       const localDynasty = await indexedDBStorage.createDynasty({
         ...dynasty,
         players,
         games,
+        recruitingDatabasePlayers,
         storageType: STORAGE_TYPE.LOCAL,
         _subcollectionsMigrated: undefined, // local format doesn't use this flag
       });

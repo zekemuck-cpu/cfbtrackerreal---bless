@@ -31,6 +31,11 @@ import {
   deleteWeekRecapFromSubcollection,
   getWeekRecapsSubcollection,
   migrateWeekRecapsToSubcollection,
+  // Recruiting Database subcollection — same "keep the main doc small"
+  // rationale as weekRecaps above.
+  getRecruitingDatabaseSubcollection,
+  saveRecruitingDatabaseSubcollection,
+  migrateRecruitingDatabaseToSubcollection,
   // Social Media feature subcollections.
   saveSocialFeedToSubcollection,
   getSocialFeedSubcollection,
@@ -5743,7 +5748,7 @@ export function DynastyProvider({ children }) {
   // and the user starts seeing resource-exhausted errors in console.
   // Once per session per dynasty is the right cadence — a permanent failure
   // requires a code fix anyway.
-  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set() })
+  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set() })
   // Mirror of currentDynasty?.id readable from the dynasties listener
   // closure without forcing the listener to re-subscribe every time the
   // user opens a different dynasty. Keeping this listener stable across
@@ -5923,12 +5928,23 @@ export function DynastyProvider({ children }) {
           return { ...prev, ...fresh }
         })
       }
+      const onFreshRecruitingDatabase = (fresh) => {
+        if (skipListenerUpdatesCountRef.current > 0) return
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? { ...d, recruitingDatabasePlayers: fresh } : d
+        ))
+        setCurrentDynasty(prev => {
+          if (!prev || String(prev.id) !== String(dynastyId)) return prev
+          return { ...prev, recruitingDatabasePlayers: fresh }
+        })
+      }
 
-      const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons] = await Promise.all([
+      const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase] = await Promise.all([
         getPlayersSubcollection(dynastyId, { onFresh: onFreshPlayers }),
         getGamesSubcollection(dynastyId, { onFresh: onFreshGames }),
         getWeekRecapsSubcollection(dynastyId, { onFresh: onFreshRecaps }),
         getSeasonsSubcollection(dynastyId, { onFresh: onFreshSeasons }),
+        getRecruitingDatabaseSubcollection(dynastyId, { onFresh: onFreshRecruitingDatabase }),
       ])
 
       // Use subcollection data if available, otherwise fall back to main document
@@ -6005,8 +6021,20 @@ export function DynastyProvider({ children }) {
           })
       }
 
+      // Recruiting Database: same fall-back-to-legacy + fire-and-forget
+      // migration pattern as weekRecaps/seasons above.
+      const recruitingDatabasePlayers = subcollectionRecruitingDatabase.length > 0
+        ? subcollectionRecruitingDatabase
+        : (dynasty.recruitingDatabasePlayers || [])
+      if ((dynasty.recruitingDatabasePlayers || []).length > 0 && !migrationsAttemptedRef.current.recruitingDatabase.has(dynastyId)) {
+        migrationsAttemptedRef.current.recruitingDatabase.add(dynastyId)
+        migrateRecruitingDatabaseToSubcollection(dynastyId, dynasty.recruitingDatabasePlayers).catch(err => {
+          console.warn(`[recruiting database migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+        })
+      }
+
       // Apply migrations to the loaded data
-      const dynastyWithData = { ...dynasty, players, games, weekRecapsByYear, ...mergedSeasonal }
+      const dynastyWithData = { ...dynasty, players, games, weekRecapsByYear, recruitingDatabasePlayers, ...mergedSeasonal }
       const [migratedDynasty] = applyMigrations([dynastyWithData])
 
       // Write the loaded data back into whichever list owns it.
@@ -6618,6 +6646,7 @@ export function DynastyProvider({ children }) {
     loadedDynastyIdsRef.current.clear()
     migrationsAttemptedRef.current.recaps.clear()
     migrationsAttemptedRef.current.seasonal.clear()
+    migrationsAttemptedRef.current.recruitingDatabase.clear()
 
     // If user is not signed in (or running under the dev-auth bypass,
     // which has no real Firestore access), skip cloud sync and load
@@ -6782,12 +6811,23 @@ export function DynastyProvider({ children }) {
                 return { ...prev, ...fresh }
               })
             }
+            const onFreshRecruitingDatabase = (fresh) => {
+              if (skipListenerUpdatesCountRef.current > 0) return
+              setDynasties(prev => prev.map(d =>
+                String(d.id) === String(dynId) ? { ...d, recruitingDatabasePlayers: fresh } : d
+              ))
+              setCurrentDynasty(prev => {
+                if (!prev || String(prev.id) !== String(dynId)) return prev
+                return { ...prev, recruitingDatabasePlayers: fresh }
+              })
+            }
 
-            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons] = await Promise.all([
+            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase] = await Promise.all([
               getPlayersSubcollection(dynasty.id, { onFresh: onFreshPlayers }),
               getGamesSubcollection(dynasty.id, { onFresh: onFreshGames }),
               getWeekRecapsSubcollection(dynasty.id, { onFresh: onFreshRecaps }),
-              getSeasonsSubcollection(dynasty.id, { onFresh: onFreshSeasons })
+              getSeasonsSubcollection(dynasty.id, { onFresh: onFreshSeasons }),
+              getRecruitingDatabaseSubcollection(dynasty.id, { onFresh: onFreshRecruitingDatabase }),
             ])
 
             // Use subcollection data if it exists, otherwise fall back to main document
@@ -6891,6 +6931,18 @@ export function DynastyProvider({ children }) {
                 })
             }
 
+            // Recruiting Database: same fall-back-to-legacy + fire-and-
+            // forget migration pattern as weekRecaps/seasons above.
+            const recruitingDatabasePlayers = subcollectionRecruitingDatabase.length > 0
+              ? subcollectionRecruitingDatabase
+              : (dynasty.recruitingDatabasePlayers || [])
+            if ((dynasty.recruitingDatabasePlayers || []).length > 0 && !migrationsAttemptedRef.current.recruitingDatabase.has(dynasty.id)) {
+              migrationsAttemptedRef.current.recruitingDatabase.add(dynasty.id)
+              migrateRecruitingDatabaseToSubcollection(dynasty.id, dynasty.recruitingDatabasePlayers).catch(err => {
+                console.warn(`[recruiting database migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+              })
+            }
+
             // Mark as loaded
             loadedDynastyIdsRef.current.add(dynasty.id)
 
@@ -6899,6 +6951,7 @@ export function DynastyProvider({ children }) {
               players,
               games,
               weekRecapsByYear,
+              recruitingDatabasePlayers,
               ...mergedSeasonal,
             }
           } catch (err) {
@@ -14709,6 +14762,46 @@ export function DynastyProvider({ children }) {
     await updateDynasty(dynastyId, updateData)
   }
 
+  // Full-replace save for the Recruiting Database's recruit list — the
+  // single write path every caller (import, batch edit, delete, JSON
+  // restore) already funnels through, since all of them rebuild "here is
+  // the complete current list" rather than patching one entry. Cloud
+  // dynasties write to the recruitingDatabase subcollection (kept off the
+  // main doc for the same reason players/games/weekRecaps already are —
+  // see migrateRecruitingDatabaseToSubcollection); local (IndexedDB)
+  // dynasties have no per-document size ceiling to dodge, so they keep
+  // using the plain field via the ordinary updateDynasty path.
+  const updateRecruitingDatabasePlayers = async (dynastyId, players) => {
+    if (blockIfReadOnly(dynastyId, 'update recruiting database')) return
+    const dynasty = await findDynastyById(dynastyId)
+    if (!dynasty) {
+      console.error('Dynasty not found:', dynastyId)
+      return
+    }
+    const looksLikeFirebaseId = typeof dynastyId === 'string' && dynastyId.length >= 20 && !/^\d+$/.test(dynastyId)
+    const isCloudStorage = looksLikeFirebaseId || (dynasty.storageType === 'cloud' && user)
+
+    if (!isCloudStorage) {
+      await updateDynasty(dynastyId, { recruitingDatabasePlayers: players })
+      return
+    }
+
+    await saveRecruitingDatabaseSubcollection(dynastyId, players)
+
+    // Optimistic local update, same shape as updatePlayer's single-doc
+    // cloud path — the subcollection write itself doesn't touch React
+    // state, and subscribeToDynasties only re-fetches this subcollection
+    // for dynasties already flagged as loaded, so without this the UI
+    // wouldn't reflect the save until the next unrelated snapshot.
+    setDynasties(prev => prev.map(d =>
+      String(d.id) === String(dynastyId) ? { ...d, recruitingDatabasePlayers: players } : d
+    ))
+    setCurrentDynasty(prev => {
+      if (!prev || String(prev.id) !== String(dynastyId)) return prev
+      return { ...prev, recruitingDatabasePlayers: players }
+    })
+  }
+
   // Delete a player from the dynasty
   // Adds a 'removed' movement to track the deletion before removing
   const deletePlayer = async (dynastyId, playerPid) => {
@@ -16937,6 +17030,7 @@ export function DynastyProvider({ children }) {
     saveTeamYearInfo,
     saveCoachingStaff,
     updatePlayer,
+    updateRecruitingDatabasePlayers,
     deletePlayer,
     getDynastyPlayers,
     syncAllPlayersStats,

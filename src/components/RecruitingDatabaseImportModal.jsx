@@ -64,7 +64,7 @@ const RECRUITING_DB_COLUMN_OPTIONS = {
 // local flow. Export JSON / Restore from JSON (PlayerDatabase.jsx) cover the
 // account-independent backup need the Sheet used to double as.
 export default function RecruitingDatabaseImportModal({ isOpen, onClose, dynasty }) {
-  const { currentDynasty, updateDynasty } = useDynasty()
+  const { currentDynasty, updateRecruitingDatabasePlayers } = useDynasty()
   const { toast } = useToast()
 
   // Pending local-paste import awaiting duplicate review — { mergedRecruits,
@@ -74,7 +74,7 @@ export default function RecruitingDatabaseImportModal({ isOpen, onClose, dynasty
 
   const finalizeLocalImport = async (mergedRecruits, addedCount, deletedPids = new Set()) => {
     const finalRecruits = applyDuplicateResolution(mergedRecruits, deletedPids)
-    await updateDynasty(dynasty.id, { recruitingDatabasePlayers: finalRecruits })
+    await updateRecruitingDatabasePlayers(dynasty.id, finalRecruits)
     toast.success(`Imported ${addedCount} recruit${addedCount === 1 ? '' : 's'}.`)
     setPendingLocalImport(null)
     onClose?.()

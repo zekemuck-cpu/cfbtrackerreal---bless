@@ -33,6 +33,16 @@ const PLAYERS_SUBCOLLECTION = 'players'
 const GAMES_SUBCOLLECTION = 'games'
 const INVITES_SUBCOLLECTION = 'invites'
 const WEEK_RECAPS_SUBCOLLECTION = 'weekRecaps'
+// Recruiting Database's imported recruit list — moved out of the main
+// document's own recruitingDatabasePlayers field for the same reason
+// players/games/weekRecaps already were: it's a plain array that only ever
+// grows, sitting on the ONE document every single page in a dynasty has to
+// fetch just to render at all. A dynasty that's actually used this feature
+// a lot was paying that download/parse cost on every page load, forever,
+// even on pages that have nothing to do with recruiting. One doc per
+// recruit (keyed by pid, exactly like PLAYERS_SUBCOLLECTION) means it's
+// only ever fetched when something actually asks for it.
+const RECRUITING_DATABASE_SUBCOLLECTION = 'recruitingDatabase'
 // Mirrored from seasonSubcollection.js — kept local so the dynasty
 // teardown path (deleteDynastyWithSubcollections) can wipe the
 // seasons docs without crossing module boundaries.
@@ -746,6 +756,135 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
     console.error('Error saving players to subcollection:', error)
     throw error
   }
+}
+
+/**
+ * Get every recruit in a dynasty's Recruiting Database (the imported/
+ * database-only recruits — see recruitingDatabasePlayers everywhere else in
+ * the app). One doc per recruit, keyed by pid, mirroring
+ * getPlayersSubcollection — same cache-first read + onFresh callback for a
+ * background server refresh, so a save made on one device shows up on
+ * another without waiting for the local cache to get evicted.
+ */
+export async function getRecruitingDatabaseSubcollection(dynastyId, options = {}) {
+  if (!dynastyId) return []
+  const { onFresh = null } = options
+  const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION)
+
+  try {
+    const cachedSnap = await getDocsFromCache(ref)
+    if (!cachedSnap.empty) {
+      const cached = cachedSnap.docs.map(d => d.data())
+      getDocsFromServer(ref).then(snap => {
+        if (!onFresh) return
+        const fresh = snap.docs.map(d => d.data())
+        try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
+      }).catch(() => {})
+      return cached
+    }
+  } catch (_) {
+    // Cache unavailable — fall through to the network.
+  }
+
+  try {
+    const snapshot = await Promise.race([
+      getDocs(ref),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out loading the Recruiting Database — check your connection and try again.')), 15000)),
+    ])
+    return snapshot.docs.map(d => d.data())
+  } catch (error) {
+    console.error('Error fetching Recruiting Database subcollection:', error)
+    throw error
+  }
+}
+
+/**
+ * Full-replace save for the Recruiting Database subcollection — every
+ * current caller already treats recruitingDatabasePlayers as "here is the
+ * complete, current list" (import, batch edit, delete, JSON restore all
+ * rebuild the whole array), so unlike savePlayersToSubcollection this
+ * always deletes orphans; there's no partial-update caller to protect
+ * against. Batched the same way (BATCH_SIZE per commit, small delay
+ * between batches) since a heavy Recruiting Database user could still have
+ * enough recruits to need more than one Firestore batch.
+ */
+export async function saveRecruitingDatabaseSubcollection(dynastyId, players) {
+  const toSave = (players || []).filter(p => p?.pid != null)
+  try {
+    const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION)
+    const existingSnapshot = await getDocs(ref)
+    const existingIds = new Set(existingSnapshot.docs.map(d => d.id))
+    const nextIds = new Set(toSave.map(p => String(p.pid)))
+    const orphanedIds = [...existingIds].filter(id => !nextIds.has(id))
+
+    for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db)
+      orphanedIds.slice(i, i + BATCH_SIZE).forEach(id => {
+        batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION, id))
+      })
+      await batch.commit()
+    }
+
+    const totalBatches = Math.ceil(toSave.length / BATCH_SIZE)
+    for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db)
+      toSave.slice(i, i + BATCH_SIZE).forEach(player => {
+        const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION, String(player.pid))
+        batch.set(playerRef, sanitizeForFirestore(player))
+      })
+      // Bump the main doc's lastModified in the SAME batch as the last
+      // chunk so other devices' dynasty listener notices the change —
+      // subcollection writes alone don't fire it (see
+      // bumpDynastyLastModifiedInBatch's other call sites).
+      if (i + BATCH_SIZE >= toSave.length) bumpDynastyLastModifiedInBatch(batch, dynastyId)
+      await batch.commit()
+      if (i + BATCH_SIZE < toSave.length) {
+        await new Promise(resolve => setTimeout(resolve, totalBatches > 3 ? 300 : 200))
+      }
+    }
+    // If there was nothing to save but orphans WERE deleted, still bump
+    // lastModified so the deletion itself propagates to other devices.
+    if (toSave.length === 0 && orphanedIds.length > 0) {
+      const batch = writeBatch(db)
+      bumpDynastyLastModifiedInBatch(batch, dynastyId)
+      await batch.commit()
+    }
+
+    await waitForPendingWrites(db)
+  } catch (error) {
+    console.error('Error saving Recruiting Database subcollection:', error)
+    throw error
+  }
+}
+
+/**
+ * One-time move of a dynasty's legacy main-doc recruitingDatabasePlayers
+ * array into its own subcollection — same shape of migration already done
+ * for weekRecapsByYear (see migrateWeekRecapsToSubcollection), same safety
+ * rule: if the subcollection already has data, trust it and just clear the
+ * legacy field rather than risk overwriting newer data with stale legacy
+ * data. Idempotent — safe to call repeatedly/concurrently across devices.
+ */
+export async function migrateRecruitingDatabaseToSubcollection(dynastyId, legacyPlayers) {
+  if (!Array.isArray(legacyPlayers) || legacyPlayers.length === 0) return
+  const docRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+  try {
+    const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION)
+    const existingSnapshot = await getDocsFromServer(ref)
+    if (!existingSnapshot.empty) {
+      // Subcollection is already the authoritative copy — just drop the
+      // stale legacy field, don't touch the subcollection's own data.
+      await updateDoc(docRef, { recruitingDatabasePlayers: deleteField() })
+      return
+    }
+  } catch (err) {
+    console.warn(`[migrateRecruitingDatabaseToSubcollection] could not read existing subcollection — aborting to prevent data loss:`, err?.code || err?.message)
+    return
+  }
+  await saveRecruitingDatabaseSubcollection(dynastyId, legacyPlayers)
+  // Atomic field deletion shrinks the main doc immediately, same rationale
+  // as the recap migration's own deleteField step.
+  await updateDoc(docRef, { recruitingDatabasePlayers: deleteField() })
 }
 
 /**
@@ -1660,6 +1799,7 @@ export async function deleteDynastyWithSubcollections(dynastyId) {
       deleteSubcollection(dynastyId, INVITES_SUBCOLLECTION),
       deleteSubcollection(dynastyId, SOCIAL_FEED_SUBCOLLECTION),
       deleteSubcollection(dynastyId, SOCIAL_CHARACTERS_SUBCOLLECTION),
+      deleteSubcollection(dynastyId, RECRUITING_DATABASE_SUBCOLLECTION),
     ])
     await deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId))
   } catch (error) {

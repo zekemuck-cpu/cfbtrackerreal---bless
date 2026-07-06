@@ -7,7 +7,6 @@ import Sidebar from '../components/Sidebar'
 import NewsTicker from '../components/NewsTicker/NewsTicker'
 import TeamSwitcher from '../components/TeamSwitcher'
 import MemberOnboardingModal from '../components/MemberOnboardingModal'
-import ScoutStaff from '../components/ScoutStaff';
 
 
 // Check if we're on a desktop-sized screen
