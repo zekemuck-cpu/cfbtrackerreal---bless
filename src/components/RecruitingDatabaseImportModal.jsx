@@ -224,8 +224,11 @@ FINAL CHECK
       style={{ margin: 0 }}
       onMouseDown={onClose}
     >
+      {/* Wide (not the old fixed 680px) so the paste grid's 15 columns — Name
+          through Attributes — fit on screen without needing to scroll
+          sideways to see a cell. */}
       <div
-        className="card-elevated w-full sm:max-w-[680px] sm:h-auto max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden"
+        className="card-elevated w-full sm:w-[95vw] sm:h-[90dvh] flex flex-col overflow-hidden"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <SheetModalHeader title="Recruiting Database" onClose={onClose} />

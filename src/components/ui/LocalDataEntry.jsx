@@ -210,7 +210,7 @@ export default function LocalDataEntry({
   // legible; a ceiling lets a very long cell (e.g. the one-cell Attributes
   // blob) scroll inside its input rather than dominating the whole table.
   const MIN_CH = 7
-  const MAX_CH = 42
+  const MAX_CH = 32
   const colWidths = useMemo(() => {
     const widths = []
     for (let ci = 0; ci < colCount; ci++) {

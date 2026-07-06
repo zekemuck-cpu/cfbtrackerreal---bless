@@ -13,6 +13,7 @@ import AuthErrorModal from './AuthErrorModal';
 import ConfirmModal from './ConfirmModal';
 import { useToast } from './ui/Toast';
 import RecruitingDatabaseImportModal from './RecruitingDatabaseImportModal';
+import RecruitingDatabaseBatchEditModal from './RecruitingDatabaseBatchEditModal';
 import RecruitingDatabaseMigrationModal from './RecruitingDatabaseMigrationModal';
 import {
   resolveRecruitingDatabaseHost, getPoolSiblings, renumberForMerge,
@@ -1208,6 +1209,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const { toast } = useToast();
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showBatchEditModal, setShowBatchEditModal] = useState(false);
 
   // Every dynasty on the account shares ONE Recruiting Database — the actual data
   // lives on whichever dynasty is the resolved "host" (see recruitingDatabasePool.js).
@@ -1512,6 +1514,63 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     onDelete && onDelete(pl);
   };
 
+  // Batch-edit save: deliberately NOT "call handleEditSave/handleDelete once
+  // per changed row." Both of those close over THIS render's
+  // recruitingDatabasePlayers snapshot — calling either of them N times in a
+  // loop (for N changed database-only rows) would have every call compute
+  // its own "next array" from that SAME stale snapshot, so only the LAST of N
+  // changes would actually survive the round trip. Instead, every database-
+  // only edit/delete in the batch is folded into ONE array + ONE
+  // updateDynasty call. Real-Target edits (routed through onEdit ->
+  // updatePlayer) don't have that problem — updatePlayer re-reads the
+  // dynasty fresh on every call — so those are simply looped, sequentially
+  // awaited so each one sees the previous one's write.
+  const handleBatchSave = async ({ changedRows, deletedPids }) => {
+    const dbOnlyChanges = new Map();
+    const targetChanges = [];
+    for (const { original, updated } of changedRows || []) {
+      if (isFromRecruitingDatabase(original)) {
+        dbOnlyChanges.set(String(original.pid), { ...updated, updatedAt: Date.now() });
+      } else {
+        targetChanges.push({ original, updated });
+      }
+    }
+
+    // "Delete" means two different things depending on where the recruit
+    // lives: a recruitingDatabasePlayers entry is removed outright — gone for
+    // good. A real Target/sibling-scouted player has no delete path anywhere
+    // in this app today (removing one is a bigger action, tied to the actual
+    // Targets/Commitments/roster system, than this reference view should
+    // trigger) — so it's added to recruitingDatabaseExcludedPids instead,
+    // which hides it from the Recruiting Database view only. The real
+    // Target/roster record, and everything downstream of it, is untouched.
+    const dbOnlyDeletePids = new Set();
+    const excludePids = new Set();
+    for (const pid of deletedPids || []) {
+      if (isFromRecruitingDatabase({ pid })) dbOnlyDeletePids.add(String(pid));
+      else excludePids.add(String(pid));
+    }
+
+    if (dbOnlyChanges.size || dbOnlyDeletePids.size || excludePids.size) {
+      const next = recruitingDatabasePlayers
+        .filter(p => !dbOnlyDeletePids.has(String(p.pid)))
+        .map(p => dbOnlyChanges.get(String(p.pid)) || p);
+      const updates = { recruitingDatabasePlayers: next };
+      if (excludePids.size) {
+        updates.recruitingDatabaseExcludedPids = Array.from(new Set([
+          ...(hostDynasty.recruitingDatabaseExcludedPids || []),
+          ...excludePids,
+        ]));
+      }
+      await updateDynasty(hostDynasty.id, updates);
+    }
+
+    for (const { original, updated } of targetChanges) {
+      if (!onEdit) continue;
+      await onEdit(updated, original);
+    }
+  };
+
   useEffect(() => {
     async function loadScout() {
       const img  = await getStaffData('scout_img');
@@ -1637,6 +1696,13 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         onClose={() => setShowImportModal(false)}
         hostDynasty={hostDynasty}
       />
+      <RecruitingDatabaseBatchEditModal
+        isOpen={showBatchEditModal}
+        onClose={() => setShowBatchEditModal(false)}
+        players={combinedPlayers}
+        isFromRecruitingDatabase={isFromRecruitingDatabase}
+        onSaveBatch={handleBatchSave}
+      />
       {migrationProposal && (
         <RecruitingDatabaseMigrationModal
           isOpen
@@ -1684,7 +1750,16 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
               title="Add recruits to the Recruiting Database — paste an AI reply or type/upload a TSV"
               className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
             >
-              Edit
+              Add
+            </button>
+          )}
+          {currentDynasty && onEdit && (
+            <button
+              onClick={() => setShowBatchEditModal(true)}
+              title="Edit or delete many existing recruits at once, all in one grid"
+              className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
+            >
+              Batch Edit
             </button>
           )}
           {currentDynasty && (
@@ -1737,8 +1812,15 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       dynasty on your account, separate from the real Targets board.
                     </p>
                     <p>
-                      <strong className="text-txt-primary">Edit</strong> opens the paste/import panel
+                      <strong className="text-txt-primary">Add</strong> opens the paste/import panel
                       to add recruits (AI-fill supported) — no Google account needed.
+                    </p>
+                    <p>
+                      <strong className="text-txt-primary">Batch Edit</strong> opens every recruit
+                      currently shown in one big editable grid — fix many at once, all without
+                      opening each one individually. Deleting a real Target there just hides it
+                      from this view (your actual Target/roster record is untouched); deleting an
+                      imported-only prospect removes it for good.
                     </p>
                     <p>
                       <strong className="text-txt-primary">Export JSON</strong> downloads a full backup

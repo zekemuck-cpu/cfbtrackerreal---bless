@@ -71,7 +71,9 @@ const ATTR_BY_LABEL = (() => {
 // Parses the single "Attributes" cell (e.g. "AWR 72, SPD 84, ACC 86") back
 // into a full attribute map. Every attribute the recruit has is written here
 // (see serializeAttributes), so nothing is scoped to a position's subset.
-function parseAttributesCell(cell) {
+// Exported for RecruitingDatabaseBatchEditModal.jsx, which reads/writes this
+// same compact-text format directly in an editable cell (no TSV row involved).
+export function parseAttributesCell(cell) {
   if (cell == null) return null
   const text = String(cell).trim()
   if (!text) return null
