@@ -25,10 +25,16 @@ export const HOMETOWN_COL = 10
 export const STATE_COL = 11
 export const GEM_BUST_COL = 12
 export const DEV_TRAIT_COL = 13
-export const PREVIOUS_TEAM_COL = 14
-export const ATTRIBUTES_COL = 15
-export const PID_COL = 16
-export const UPDATED_AT_COL = 17
+// "Previous Team" (transfers only) used to sit here — removed entirely as of
+// this version, since the Recruiting Database is HS recruits only and never
+// has one. Every existing Google Sheet gets its Previous Team column
+// physically deleted on its next sync (see sheetsService.js's
+// removePreviousTeamColumn / PlayerDatabase.jsx's syncNowInner one-time
+// repair), so this schema always matches the real sheet layout — no
+// splice/reinsert workaround needed anywhere.
+export const ATTRIBUTES_COL = 14
+export const PID_COL = 15
+export const UPDATED_AT_COL = 16
 // Stamped once, the moment a recruit first enters the database (whether
 // scouted as a real Target or added here via the AI/Sheets import) — unlike
 // Updated (which changes on every edit), this never changes again, so it's
@@ -36,13 +42,13 @@ export const UPDATED_AT_COL = 17
 // blank cell here (pre-existing rows synced before this column existed) gets
 // backfilled with a fresh timestamp on the next sync — see
 // recruitingDatabaseSync.js.
-export const SCOUTED_AT_COL = 18
+export const SCOUTED_AT_COL = 17
 export const TOTAL_COLS = SCOUTED_AT_COL + 1
 
 export const HEADERS = [
   'Name', 'Class', 'Position', 'Archetype', 'Stars', 'National Rank', 'State Rank',
   'Position Rank', 'Height', 'Weight', 'Hometown', 'State', 'Gem/Bust', 'Dev Trait',
-  'Previous Team', 'Attributes', 'pid', 'Updated', 'Scouted At',
+  'Attributes', 'pid', 'Updated', 'Scouted At',
 ]
 
 function colLetter(idx) {
@@ -124,7 +130,6 @@ export function parseRecruitingDatabaseRow(row) {
     state: trim(row[STATE_COL]),
     gemBust: trim(row[GEM_BUST_COL]),
     devTrait: trim(row[DEV_TRAIT_COL]),
-    previousTeam: trim(row[PREVIOUS_TEAM_COL]),
     isPortal: !NON_PORTAL_CLASSES.includes(recruitClass),
     attributes: parseAttributesCell(row[ATTRIBUTES_COL]),
     pid: trim(pidRaw) !== '' ? Number(trim(pidRaw)) : undefined,
@@ -153,7 +158,6 @@ export function serializeRecruitingDatabaseRow(recruit) {
   r[STATE_COL] = str(recruit.state)
   r[GEM_BUST_COL] = str(recruit.gemBust)
   r[DEV_TRAIT_COL] = str(recruit.devTrait)
-  r[PREVIOUS_TEAM_COL] = str(recruit.previousTeam)
   r[ATTRIBUTES_COL] = serializeAttributes(recruit.attributes)
   r[PID_COL] = recruit.pid ?? ''
   r[UPDATED_AT_COL] = recruit.updatedAt ?? ''

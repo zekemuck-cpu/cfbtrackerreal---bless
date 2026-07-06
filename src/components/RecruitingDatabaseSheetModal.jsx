@@ -26,21 +26,35 @@ const isMobileDevice = () => {
 // Header labels for the local-paste grid — the Recruiting Database is HS
 // recruits only (real Targets feeding it are pre-filtered to !isPortal
 // upstream in ScoutStaff.jsx), so a "Previous Team" field never applies here
-// and is deliberately not shown or asked for. The underlying Sheet/TSV
-// schema (recruitingDatabaseSheetFormat.js) still reserves that column
-// position for backward compatibility with sheets created before this
-// change — handleLocalImport below splices a blank placeholder back in at
-// that exact slot before handing rows to the shared parser, so nothing about
-// the actual Sheet's column layout ever shifts for anyone already using it.
+// and is deliberately not shown or asked for. This now matches the actual
+// Sheet/TSV schema exactly (recruitingDatabaseSheetFormat.js) — the column
+// was physically removed from both places, so no splice/reinsert workaround
+// is needed to keep the two in sync (see removePreviousTeamColumn in
+// sheetsService.js for how an already-existing sheet gets migrated).
 const RECRUITING_DB_PASTE_COLUMNS = [
   'Name', 'Class', 'Pos', 'Arch', 'Stars', 'Natl Rk', 'St Rk', 'Pos Rk',
   'Height', 'Weight', 'Hometown', 'State', 'Gem/Bust', 'Dev', 'Attributes',
 ]
 
-// Index (within a parsed paste-grid row) where the reserved "Previous Team"
-// slot needs to be reinserted before the shared parser sees the row — see
-// the comment above RECRUITING_DB_PASTE_COLUMNS.
-const PREV_TEAM_SPLICE_INDEX = 14
+// Number of core fields (Name through Dev Trait) before the trailing,
+// optional Attributes cell.
+const CORE_FIELD_COUNT = RECRUITING_DB_PASTE_COLUMNS.length - 1
+
+// The AI occasionally still emits an extra blank field before Attributes
+// (old habit from when "Prev Team" sat there) even though the prompt no
+// longer asks for it — when that happens the grid was showing Attributes
+// one column short of where it actually landed, i.e. blank. Attributes is
+// always meant to be the trailing cell regardless of how many fields came
+// before it, so keep the first 14 core fields and whatever the LAST cell
+// is, dropping any stray cell(s) in between — this is robust to extra
+// blanks appearing anywhere before Attributes, not just at one exact index.
+function normalizeRecruitingDbRows(rows) {
+  return rows.map(row => (
+    row.length > CORE_FIELD_COUNT + 1
+      ? [...row.slice(0, CORE_FIELD_COUNT), row[row.length - 1]]
+      : row
+  ))
+}
 
 // Dropdown options for the paste grid's enumerated columns — same idea as
 // the Sheet's own data-validation dropdowns, so a pasted/typed value snaps
@@ -137,16 +151,7 @@ export default function RecruitingDatabaseSheetModal({ isOpen, onClose, combined
   // makes that feel immediate instead of waiting on the debounce.
   const handleLocalImport = async (text) => {
     if (!hostDynasty) throw new Error('No Recruiting Database to import into yet.')
-    // The paste grid never shows/asks for "Previous Team" (see
-    // RECRUITING_DB_PASTE_COLUMNS above), so splice its reserved slot back in
-    // as a blank before handing rows to the shared parser, which still reads
-    // by the original fixed column position — this is what keeps the actual
-    // Sheet schema byte-identical for anyone with an already-linked sheet.
-    const rows = splitTsv(text).map(row => {
-      const withSlot = [...row]
-      withSlot.splice(PREV_TEAM_SPLICE_INDEX, 0, '')
-      return withSlot
-    })
+    const rows = splitTsv(text)
     const parsed = parseRecruitingDatabaseRows(rows).filter(r => r.name)
     if (!parsed.length) throw new Error('No recruits found in the pasted text.')
     const { mergedRecruits } = mergeRecruitingDatabaseRows({
@@ -202,10 +207,21 @@ COLUMNS A–N  — paste at cell A${startRow} of the "Recruiting Database" tab (
  C Position   | Dropdown: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P, ATH
  D Archetype  | Dropdown — exact archetype name (e.g. Pocket Passer, Speedster, Raw Strength, Power Rusher, Man Coverage…)
  E Stars      | The recruit's star rating is always shown as a row of 5 star icons next to their name — some filled/solid (white), some empty/outline. COUNT ONLY THE FILLED/SOLID stars; ignore the empty outline ones. That count (0–5) is the star rating — output that many ☆ symbols (e.g. 3 filled stars → ☆☆☆). Blank if the star row isn't visible at all.
- F Nat. Rank  | integer        G State Rank | integer        H Pos. Rank | integer
+ F Nat. Rank  | integer — national rank
+ G State Rank | integer — labeled "STA:" on the recruit's card/header in the screenshot (right next to "NAT:"). ALWAYS check for this label specifically — it's easy to miss since it's small and sits right after the national rank. Only leave blank if genuinely not shown anywhere.
+ H Pos. Rank  | integer — position rank
  I Height     | Dropdown: 5'5" … 7'0" (straight quotes)      J Weight | integer lbs
  K Hometown   | text           L State | 2-letter code
- M Gem/Bust   | Gem, Bust, or blank. Look for a small badge/icon overlaid on the recruit's card or name in the screenshot: a solid GREEN GEM icon means Gem; a gem icon with a RED X (or red slash) through it means Bust. No icon at all means blank — never guess one.
+ M Gem/Bust   | Gem, Bust, or blank. Look at the LEFT edge of the recruit's portrait/card for a
+   small badge, stacked below the recruiting-interest handshake icon:
+     - A solid GREEN GEM badge = Gem
+     - A RED X badge (a plain red X, NOT necessarily on a gem) = Bust
+     - Neither present = blank
+   This badge is SEPARATE from the recruiting-interest heart/handshake icon.
+   Do not confuse a red X badge with a "not interested" indicator — on this
+   screen the red X in the badge slot means Bust. When in doubt between the
+   two, the Gem/Bust badge sits in the same vertical stack as the green gem
+   would, on the far left of the card.
  N Dev Trait  | Elite, Star, Impact, Normal, Hidden (Hidden = trait not yet revealed; do not guess — use Hidden when trait is unknown)
 
 ═══════════════════════════════════════════════════════════
@@ -239,10 +255,10 @@ OUTPUT FORMAT (TSV, paste at A${startRow})
 Board row (14 fields, A→N) — blank fields are EMPTY TABS, never omitted:
 <Player>\\t<Class>\\t<Position>\\t<Archetype>\\t<Stars>\\t<Nat>\\t<StateRank>\\t<PosRank>\\t<Height>\\t<Weight>\\t<Hometown>\\t<State>\\t<Gem/Bust>\\t<Dev>
 
-CONCRETE EXAMPLE (unknown state/pos rank, no gem, Hidden dev, scouted):
-John Smith\\tHS\\tQB\\tPocket Passer\\t☆☆☆☆\\t15\\t\\t\\t6'3"\\t215\\tAustin\\tTX\\t\\tHidden\\tTPW 87, SAC 82, MAC 79, DAC 74, AWR 71
+CONCRETE EXAMPLE (State Rank read from the "STA:" label, unknown pos rank, no gem, Hidden dev, scouted):
+John Smith\\tHS\\tQB\\tPocket Passer\\t☆☆☆☆\\t15\\t4\\t\\t6'3"\\t215\\tAustin\\tTX\\t\\tHidden\\tTPW 87, SAC 82, MAC 79, DAC 74, AWR 71
 
-Notice: the 2 unknown ranks (State Rank, Pos Rank) are EMPTY TABS — they are NOT omitted. All 14 A→N fields are present even when blank.
+Notice: State Rank (4) came from the card's "STA:" label — check for it every time, don't default to blank. The unknown Pos Rank is still an EMPTY TAB, not omitted. All 14 A→N fields are present even when blank.
 
 Scouted row (15 fields — the 14 A→N fields, then the single Attributes cell O using SHORT CODES):
 <...A→N...>\\t<AWR 76, SPD 67, TAK 80, ...>
@@ -255,7 +271,8 @@ FINAL CHECK
 [ ] No header row; no commas in numbers; Stars use ☆ symbols
 [ ] B/C/D/E/I/L/M/N are literal dropdown values
 [ ] Player names (A) are normal title case, never ALL CAPS, even if the screenshot shows them that way
-[ ] Gem/Bust (M) is read from the green-gem / red-X-gem icon on the recruit, not guessed
+[ ] State Rank (G) checked for the card's "STA:" label every time — not defaulted to blank
+[ ] Gem/Bust (M) is read from the badge on the LEFT edge of the card (green gem = Gem, red X = Bust), not the interest handshake icon, not guessed
 [ ] The O cell uses SHORT CODES (AWR, SPD, etc.) for compactness; blank when not scouted; pid/Updated never output`,
     includeTeamMap: false,
     dynastyTeams: currentDynasty?.teams,
@@ -300,6 +317,7 @@ FINAL CHECK
               importLabel="Import Recruits"
               columns={RECRUITING_DB_PASTE_COLUMNS}
               columnOptions={RECRUITING_DB_COLUMN_OPTIONS}
+              normalizeRows={normalizeRecruitingDbRows}
               allowFileUpload
               fileUploadAccept=".tsv,.txt"
             />

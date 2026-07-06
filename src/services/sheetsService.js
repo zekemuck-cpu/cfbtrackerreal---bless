@@ -11772,8 +11772,6 @@ export async function writeRecruitingRows(spreadsheetId, recruits, userTid, dyna
 export async function createRecruitingDatabaseSheet(title, recruits = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
-    const teams = getTeamsWithCustom(dynastyTeams)
-    const teamAbbrs = Object.keys(teams).sort()
     const totalRows = Math.max(120, recruits.length + 25)
 
     const response = await fetchWithTimeout(SHEETS_API_BASE, {
@@ -11823,7 +11821,7 @@ export async function createRecruitingDatabaseSheet(title, recruits = [], dynast
       },
     })
 
-    const columnWidths = [150, 70, 70, 140, 80, 70, 70, 70, 60, 60, 120, 50, 70, 70, 80, 340, 50, 70, 70]
+    const columnWidths = [150, 70, 70, 140, 80, 70, 70, 70, 60, 60, 120, 50, 70, 70, 340, 50, 70, 70]
     columnWidths.forEach((width, idx) => {
       requests.push({
         updateDimensionProperties: {
@@ -11860,7 +11858,6 @@ export async function createRecruitingDatabaseSheet(title, recruits = [], dynast
     // Targets Commitments sheet uses) — 'Hidden' is a real, common state
     // here (an unrevealed dev trait), unlike the Targets flow.
     requests.push(dropdown(13, RECRUITING_DATABASE_DEV_TRAITS))
-    requests.push(dropdown(14, ['', ...teamAbbrs]))
 
     // Hidden pid/Updated/Scouted At columns — round-trip bookkeeping the app
     // manages; users never need to touch them.
@@ -11930,6 +11927,60 @@ export async function fixRecruitingDatabasePositionValidation(spreadsheetId) {
     })
   } catch (error) {
     console.warn('Recruiting Database position validation repair failed:', error?.message || error)
+  }
+}
+
+// One-time repair: physically removes the "Previous Team" column (index 14,
+// column O) from an existing Recruiting Database sheet created before this
+// schema was simplified — the Database is HS recruits only and never has a
+// real use for it. Deleting the column (rather than just changing what our
+// own code reads/writes) is what keeps the AI prompt's copy-paste flow
+// correctly aligned: the AI's TSV reply assumes Attributes is the very next
+// cell after Dev Trait, which is only true once this stale column is gone
+// from the physical sheet — otherwise Attributes lands in the old Previous
+// Team cell instead. Detects the old layout by reading the header row
+// itself, so this is safe to call repeatedly (a no-op once already removed).
+export async function removePreviousTeamColumn(spreadsheetId) {
+  try {
+    const accessToken = await getAccessToken()
+    const metaResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}?fields=sheets.properties`, {
+      headers: { 'Authorization': `Bearer ${accessToken}` },
+    })
+    if (!metaResponse.ok) return
+    const meta = await metaResponse.json()
+    const sheet = (meta.sheets || []).find(s => s.properties?.title === RECRUITING_DATABASE_SHEET_TAB)
+    if (!sheet) return
+    const sheetId = sheet.properties.sheetId
+
+    const headerResponse = await fetchWithTimeout(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(`${RECRUITING_DATABASE_SHEET_TAB}!O1`)}`,
+      { headers: { 'Authorization': `Bearer ${accessToken}` } }
+    )
+    if (!headerResponse.ok) return
+    const headerData = await headerResponse.json()
+    if (headerData.values?.[0]?.[0] !== 'Previous Team') return // already on the new layout
+
+    await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [
+          { deleteDimension: { range: { sheetId, dimension: 'COLUMNS', startIndex: 14, endIndex: 15 } } },
+          // Re-affirm the hidden pid/Updated/Scouted At columns at their new
+          // (post-shift) positions — belt-and-suspenders in case the delete
+          // doesn't carry the hidden flag along with the shifted columns.
+          {
+            updateDimensionProperties: {
+              range: { sheetId, dimension: 'COLUMNS', startIndex: RECRUITING_DATABASE_PID_COL, endIndex: RECRUITING_DATABASE_SCOUTED_AT_COL + 1 },
+              properties: { hiddenByUser: true },
+              fields: 'hiddenByUser',
+            },
+          },
+        ],
+      }),
+    })
+  } catch (error) {
+    console.warn('Recruiting Database Previous Team column removal failed:', error?.message || error)
   }
 }
 

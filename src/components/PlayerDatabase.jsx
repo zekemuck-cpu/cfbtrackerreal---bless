@@ -10,7 +10,7 @@ import GemBustIcon from './GemBustIcon';
 import { useDynasty } from '../context/DynastyContext';
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler';
 import AuthErrorModal from './AuthErrorModal';
-import { createRecruitingDatabaseSheet, readRecruitingDatabaseSheet, writeRecruitingDatabaseRows, sheetExists, sheetHasRecruitingDatabaseTab, fixRecruitingDatabasePositionValidation } from '../services/sheetsService';
+import { createRecruitingDatabaseSheet, readRecruitingDatabaseSheet, writeRecruitingDatabaseRows, sheetExists, sheetHasRecruitingDatabaseTab, fixRecruitingDatabasePositionValidation, removePreviousTeamColumn } from '../services/sheetsService';
 import { reconcileRecruitingDatabaseSync, snapshotKey } from '../utils/recruitingDatabaseSync';
 import { useToast } from './ui/Toast';
 import RecruitingDatabaseSheetModal from './RecruitingDatabaseSheetModal';
@@ -1472,6 +1472,15 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         if (!hostDynasty.recruitingDatabasePositionValidationFixedV2) {
           await fixRecruitingDatabasePositionValidation(sheetId);
           await updateDynasty(hostDynasty.id, { recruitingDatabasePositionValidationFixedV2: true });
+        }
+        // One-time repair: physically deletes the "Previous Team" column from
+        // an existing sheet still on the old layout (see
+        // removePreviousTeamColumn) — must run before the read below so
+        // parseRecruitingDatabaseRows sees the sheet at the schema it now
+        // expects (Attributes immediately after Dev Trait, no gap).
+        if (!hostDynasty.recruitingDatabasePreviousTeamColumnRemoved) {
+          await removePreviousTeamColumn(sheetId);
+          await updateDynasty(hostDynasty.id, { recruitingDatabasePreviousTeamColumnRemoved: true });
         }
         const sheetRows = await readRecruitingDatabaseSheet(sheetId);
         // Deletion protection must be scoped to THIS dynasty's own real
