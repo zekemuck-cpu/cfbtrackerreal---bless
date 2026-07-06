@@ -5944,7 +5944,18 @@ export function DynastyProvider({ children }) {
         getGamesSubcollection(dynastyId, { onFresh: onFreshGames }),
         getWeekRecapsSubcollection(dynastyId, { onFresh: onFreshRecaps }),
         getSeasonsSubcollection(dynastyId, { onFresh: onFreshSeasons }),
-        getRecruitingDatabaseSubcollection(dynastyId, { onFresh: onFreshRecruitingDatabase }),
+        // Isolated with its own catch: this is the newest of these five
+        // subcollections, so it's the most likely to hit an environment
+        // that hasn't picked up its security rule yet. A failure here
+        // must NOT reject the whole Promise.all — that would fall through
+        // to the catch below and discard the players/games hydration that
+        // already succeeded, which is what caused the roster/score
+        // flickering (this dynasty's data alternating between real and
+        // blank on every listener snapshot).
+        getRecruitingDatabaseSubcollection(dynastyId, { onFresh: onFreshRecruitingDatabase }).catch(err => {
+          console.warn(`[recruiting database] fetch failed for ${dynastyId}, treating as empty:`, err?.code || err?.message || err)
+          return []
+        }),
       ])
 
       // Use subcollection data if available, otherwise fall back to main document
@@ -6827,7 +6838,13 @@ export function DynastyProvider({ children }) {
               getGamesSubcollection(dynasty.id, { onFresh: onFreshGames }),
               getWeekRecapsSubcollection(dynasty.id, { onFresh: onFreshRecaps }),
               getSeasonsSubcollection(dynasty.id, { onFresh: onFreshSeasons }),
-              getRecruitingDatabaseSubcollection(dynasty.id, { onFresh: onFreshRecruitingDatabase }),
+              // Isolated with its own catch — see the matching comment in
+              // selectDynasty's copy of this Promise.all. A failure here must
+              // never reject the whole group and wipe out players/games.
+              getRecruitingDatabaseSubcollection(dynasty.id, { onFresh: onFreshRecruitingDatabase }).catch(err => {
+                console.warn(`[recruiting database] fetch failed for ${dynasty.id}, treating as empty:`, err?.code || err?.message || err)
+                return []
+              }),
             ])
 
             // Use subcollection data if it exists, otherwise fall back to main document
