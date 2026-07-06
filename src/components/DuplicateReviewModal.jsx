@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react'
 import DuplicateReviewList from './DuplicateReviewList'
 
-// Lightweight duplicate-review prompt for ONGOING imports (local-paste, Import-by-
-// URL, JSON restore) — unlike RecruitingDatabaseMigrationModal's one-time pool setup,
-// there's no "here's what's about to happen" explanation needed here, just the
-// review list itself when findDuplicateClusters() flags something.
+// Lightweight duplicate-review prompt for the local-paste import — no "here's
+// what's about to happen" explanation needed, just the review list itself
+// when findDuplicateClusters() flags something.
 export default function DuplicateReviewModal({ isOpen, onClose, duplicateClusters = [], onConfirm, confirming = false }) {
   const [kept, setKept] = useState(() => new Set())
   const allPids = useMemo(() => duplicateClusters.flat().map(p => p.pid), [duplicateClusters])

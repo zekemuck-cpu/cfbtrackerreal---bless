@@ -1,8 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useAuth } from './AuthContext'
 import { useToast } from '../components/ui/Toast'
-import { useConfirm } from '../components/ui/ConfirmDialog'
-import { handleDynastyLeavingPool, downloadRecruitingDatabaseJson } from '../utils/recruitingDatabasePool'
 import {
   getUserDynasties,
   subscribeToDynasties,
@@ -5596,10 +5594,6 @@ export function useDynasty() {
 export function DynastyProvider({ children }) {
   const { user, isPremium, subscription } = useAuth()
   const { toast } = useToast()
-  // Only for the rare "this dynasty is the last one holding the shared
-  // Recruiting Database" guard below — falls back to window.confirm if no
-  // ConfirmProvider happens to be mounted above this point in the tree.
-  const { confirm } = useConfirm()
   const [dynasties, setDynasties] = useState([])
   const [currentDynasty, setCurrentDynasty] = useState(null)
   // Social Media data, kept OFF the dynasty object so the dynasty listener
@@ -5664,6 +5658,68 @@ export function DynastyProvider({ children }) {
   // above; this covers everything else (dynastyPoints, coaches, etc.). Keyed
   // `${dynastyId}::${field}` -> write timestamp.
   const recentMainDocFieldWritesRef = useRef({})
+
+  // How long a locally-saved field is protected against a stale snapshot
+  // overwriting it. Bumped from the original 10s: the cost of this window
+  // being "too long" is trivial (a genuinely newer remote change is ignored
+  // for a few extra seconds before the next snapshot re-applies it), while
+  // the cost of it being too short is real, silent data loss on a slow
+  // round-trip — which is exactly what happened to a Recruiting Database
+  // import that looked saved, then vanished a moment later.
+  const RECENT_WRITE_PROTECTION_MS = 20000
+
+  // Given a freshly-arrived snapshot's version of a dynasty (`fresh`) and
+  // whatever this app already had for that same dynasty a moment ago
+  // (`prev`), returns `fresh` with any field written in the last
+  // RECENT_WRITE_PROTECTION_MS re-applied from `prev` — so an in-flight
+  // write's own snapshot echo (which can carry pre-write data if it arrives
+  // before the write has fully settled) can never silently revert it.
+  // Deliberately dynasty-id-scoped (not "only if this is currentDynasty") so
+  // a write to ANY dynasty in the account — not just the one on screen — is
+  // protected the same way.
+  const reconcileWithRecentWrites = (fresh, prev) => {
+    if (!prev || String(prev.id) !== String(fresh.id)) return fresh
+    const dynastyId = fresh.id
+    const now = Date.now()
+
+    const recentPlayerUpdate = String(lastPlayersUpdateDynastyIdRef.current) === String(dynastyId) &&
+      (now - lastPlayersUpdateTimestampRef.current) < RECENT_WRITE_PROTECTION_MS
+    const recentGamesUpdate = String(lastGamesUpdateDynastyIdRef.current) === String(dynastyId) &&
+      (now - lastGamesUpdateTimestampRef.current) < RECENT_WRITE_PROTECTION_MS
+
+    const recentFields = []
+    const fieldPrefix = `${dynastyId}::`
+    for (const [k, ts] of Object.entries(recentMainDocFieldWritesRef.current)) {
+      if (k.startsWith(fieldPrefix) && (now - ts) < RECENT_WRITE_PROTECTION_MS) {
+        const field = k.slice(fieldPrefix.length)
+        if (prev[field] !== undefined) recentFields.push(field)
+      }
+    }
+
+    if (!recentPlayerUpdate && !recentGamesUpdate && recentFields.length === 0) return fresh
+
+    const preserved = {
+      ...fresh,
+      ...(recentPlayerUpdate && prev.players ? { players: prev.players } : {}),
+      ...(recentGamesUpdate && prev.games ? { games: prev.games } : {}),
+      // saveWeeklyScores writes both `teams` (where rankByWeek lives) and
+      // `weeklyScoresEntered` to the main doc alongside the games
+      // subcollection write. Without preserving them on the same recent-
+      // update window, a stale main-doc snapshot delivered after the
+      // listener-skip count decrements can clobber the just-saved poll —
+      // beta tester report shows up as "ranking reverts to last week's poll
+      // after refresh" while the games stay intact (because games is
+      // already preserved). The Top 25 page then "fights for which ranking
+      // it wants to display" as the listener oscillates.
+      ...(recentGamesUpdate && prev.teams ? { teams: prev.teams } : {}),
+      ...(recentGamesUpdate && prev.weeklyScoresEntered ? { weeklyScoresEntered: prev.weeklyScoresEntered } : {}),
+    }
+    // Generic recently-written fields (dynastyPoints, coaches,
+    // recruitingDatabasePlayers, etc.) — keep the locally-saved value over a
+    // possibly-stale snapshot.
+    for (const field of recentFields) preserved[field] = prev[field]
+    return preserved
+  }
 
   // Drop any active calendar preview when the real dynasty changes, so a
   // preview from one dynasty never bleeds into another.
@@ -6870,17 +6926,26 @@ export function DynastyProvider({ children }) {
       // Apply all migrations
       const migratedDynasties = applyMigrations(allDynasties)
 
-      setDynasties(migratedDynasties)
+      // A snapshot can arrive carrying data from just before a write actually
+      // settled — reconcileWithRecentWrites protects against that echo
+      // reverting a fresh local save. This used to only run for whichever
+      // dynasty was `currentDynasty` at the time (see setCurrentDynasty
+      // below); a write to any OTHER dynasty in this array (e.g. a
+      // background operation, or a co-commish/shared-dynasty write) had zero
+      // protection — the very next snapshot could silently revert it. Now
+      // applied uniformly to every dynasty in the incoming snapshot, not just
+      // the one currently open.
+      setDynasties(prevDynasties => migratedDynasties.map(fresh => {
+        const prev = prevDynasties.find(d => String(d.id) === String(fresh.id))
+        return prev ? reconcileWithRecentWrites(fresh, prev) : fresh
+      }))
       setLoading(false)
       setCloudSyncing(false)
 
-      // Update current dynasty if it's in the list. Functional setter
-      // form so we read the LATEST currentDynasty — the listener closure
-      // is now stable across navigations (no longer rebuilt on every
-      // dynasty open) and a captured `currentDynasty` reference would
-      // be stale here. Preserve recent local player/game edits so the
-      // listener echoing stale subcollection data doesn't clobber a
-      // write the user just made.
+      // Update current dynasty if it's in the list. Functional setter form
+      // so we read the LATEST currentDynasty — the listener closure is now
+      // stable across navigations (no longer rebuilt on every dynasty open)
+      // and a captured `currentDynasty` reference would be stale here.
       setCurrentDynasty(prevCurrent => {
         if (!prevCurrent) return prevCurrent
         const updated = migratedDynasties.find(d => d.id === prevCurrent.id)
@@ -6892,53 +6957,7 @@ export function DynastyProvider({ children }) {
           const isOwnedByUser = prevCurrent.userId === user?.uid
           return isOwnedByUser ? null : prevCurrent
         }
-
-        const recentPlayerUpdate = lastPlayersUpdateDynastyIdRef.current === prevCurrent.id &&
-          (Date.now() - lastPlayersUpdateTimestampRef.current) < 10000
-        const recentGamesUpdate = lastGamesUpdateDynastyIdRef.current === prevCurrent.id &&
-          (Date.now() - lastGamesUpdateTimestampRef.current) < 10000
-
-        // Generic: any main-doc field written for THIS dynasty within the last
-        // 10s. Preserve the locally-saved value so a stale snapshot can't revert
-        // it (fixes dynastyPoints / coaches "didn't save" after refresh).
-        const recentFields = []
-        const fieldPrefix = `${prevCurrent.id}::`
-        for (const [k, ts] of Object.entries(recentMainDocFieldWritesRef.current)) {
-          if (k.startsWith(fieldPrefix) && (Date.now() - ts) < 10000) {
-            const field = k.slice(fieldPrefix.length)
-            if (prevCurrent[field] !== undefined) recentFields.push(field)
-          }
-        }
-
-        if (recentPlayerUpdate || recentGamesUpdate || recentFields.length > 0) {
-          const preserved = {
-            ...updated,
-            ...(recentPlayerUpdate && prevCurrent.players ? { players: prevCurrent.players } : {}),
-            ...(recentGamesUpdate && prevCurrent.games ? { games: prevCurrent.games } : {}),
-            // saveWeeklyScores writes both `teams` (where rankByWeek
-            // lives) and `weeklyScoresEntered` to the main doc
-            // alongside the games subcollection write. Without
-            // preserving them on the same recent-update window, a
-            // stale main-doc snapshot delivered after the listener-
-            // skip count decrements can clobber the just-saved poll
-            // — beta tester report shows up as "ranking reverts to
-            // last week's poll after refresh" while the games stay
-            // intact (because games is already preserved). The Top
-            // 25 page then "fights for which ranking it wants to
-            // display" as the listener oscillates.
-            ...(recentGamesUpdate && prevCurrent.teams ? { teams: prevCurrent.teams } : {}),
-            ...(recentGamesUpdate && prevCurrent.weeklyScoresEntered ? { weeklyScoresEntered: prevCurrent.weeklyScoresEntered } : {}),
-          }
-          // Generic recently-written fields (dynastyPoints, coaches, etc.) —
-          // keep the locally-saved value over a possibly-stale snapshot.
-          for (const field of recentFields) preserved[field] = prevCurrent[field]
-          // Also reflect the preserved version in the dynasties array
-          // so the home page doesn't briefly show stale Firestore data
-          // for a dynasty the user just edited.
-          setDynasties(prevDyn => prevDyn.map(d => d.id === preserved.id ? preserved : d))
-          return preserved
-        }
-        return updated
+        return reconcileWithRecentWrites(updated, prevCurrent)
       })
 
       // PERSIST MIGRATION FLAGS: Save migration flags back to Firestore so migrations don't run again
@@ -8217,49 +8236,7 @@ export function DynastyProvider({ children }) {
     await updateDynasty(dynastyId, { socialPlatform: { ...cur, ...patch } })
   }
 
-  // Shared by deleteDynasty AND migrateDynastyStorage — both actually remove a
-  // dynasty ID for good (migration deletes the old-tier doc and creates a new
-  // one elsewhere). If dynastyId is hosting the account-wide shared Recruiting
-  // Database for its pool, hand it off to a sibling automatically (nothing
-  // lost, no prompt). If it's the ONLY dynasty in its pool, there's nowhere to
-  // hand off to — confirm with the user and download a JSON backup before
-  // allowing the caller to proceed, so the shared database is never silently
-  // orphaned. Returns false if the user cancels (the caller must abort).
-  const checkPoolBeforeDynastyLeaves = async (dynastyId) => {
-    const result = await handleDynastyLeavingPool(dynastyId, dynasties, updateDynasty)
-    if (result.ok || result.reason !== 'lone-host') return true
-
-    const proceed = await confirm({
-      title: 'Last Dynasty Holding Your Shared Recruiting Database',
-      message: "This is the only dynasty holding your account-wide Recruiting Database. Continuing would leave it with nowhere to live, so we'll download a JSON backup first — you can rebuild it in a new dynasty later via \"Restore from JSON.\"",
-      confirmLabel: 'Download Backup & Continue',
-      variant: 'danger',
-    })
-    if (!proceed) return false
-
-    try {
-      const ownPlayers = await getDynastyPlayers(result.dynasty)
-      const targets = (ownPlayers || []).filter(p => p?.isTarget)
-      const extras = result.dynasty.recruitingDatabasePlayers || []
-      const seen = new Set(targets.map(p => String(p.pid)))
-      const merged = [...targets, ...extras.filter(p => !seen.has(String(p.pid)))]
-      const result = await downloadRecruitingDatabaseJson(merged)
-      if (result === 'cancelled') {
-        toast.error('Backup cancelled — not proceeding, to keep your database safe.')
-        return false
-      }
-      toast.success('Recruiting Database backed up to a JSON file.')
-      return true
-    } catch (err) {
-      console.error('Failed to back up Recruiting Database before removal:', err)
-      toast.error('Could not create the backup — cancelling to be safe.')
-      return false
-    }
-  }
-
   const deleteDynasty = async (dynastyId) => {
-    if (!(await checkPoolBeforeDynastyLeaves(dynastyId))) return
-
     // Find the dynasty to determine its storage type. The list exposed to
     // consumers is dynastiesWithShared (owner + shared), so a dynasty the
     // user can see may live in sharedDynasties — search both, same as
@@ -16582,13 +16559,6 @@ export function DynastyProvider({ children }) {
       if (!user) {
         return { success: false, error: 'Sign in required for cloud storage' }
       }
-    }
-
-    // Migrating a dynasty between storage tiers deletes its old-tier document
-    // and creates a brand-new one — the exact same "this ID is about to
-    // disappear from its pool" concern deleteDynasty already guards against.
-    if (!(await checkPoolBeforeDynastyLeaves(dynastyId))) {
-      return { success: false, cancelled: true }
     }
 
     try {

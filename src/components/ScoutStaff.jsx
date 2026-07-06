@@ -9,15 +9,12 @@ import { useDynasty, getRecruitingCommitments, getCurrentRoster, getPlayerClassF
 import { flattenClassCommitments } from '../utils/recruitingScore';
 import { positionBucket, recruitingPosLabel } from '../utils/recruitAttributes';
 import { useTeamColors } from '../hooks/useTeamColors';
-import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
-import { resolveRecruitingDatabaseHost, computeRecentRanks } from '../utils/recruitingDatabasePool';
+import { computeRecentRanks } from '../utils/recruitingDatabasePool';
 import { resolveRecruitGroup } from '../utils/recruitGroup';
 import { useToast } from './ui';
 
 // Shapes a raw dynasty.players record into the grading-ready recruit shape Scout Staff uses.
-// sourceDynastyId + pid together form a globally unique identity — pid alone is only a
-// small per-dynasty counter, so two different dynasties can share the same pid.
-function shapeRecruit(pl, addedIndex, sourceDynastyId) {
+function shapeRecruit(pl, addedIndex) {
   const position = positionBucket(pl.position);
   const group = resolveRecruitGroup(position, pl.archetype);
   return {
@@ -28,10 +25,7 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
     // knows which side of the line a tackle prospect plays) while every
     // grading/threshold lookup below still keys off the bucketed value.
     rawPosition: pl.position,
-    sourceDynastyId,
     scoutedAt: typeof pl.scoutedAt === 'number' ? pl.scoutedAt : null,
-    // Needed by the Recruiting Database's Google Sheet sync to tell whether
-    // a sheet edit is actually newer than this record before writing it back.
     updatedAt: typeof pl.updatedAt === 'number' ? pl.updatedAt : null,
     name: pl.name,
     position,
@@ -46,8 +40,9 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
     nationalRank: pl.nationalRank,
     // These four + class were captured on the recruit at entry but were
     // missing from this shape entirely — silently dropped between the entry
-    // form and every surface (Recruiting Database, its Sheet sync) that reads
-    // recruits through shapeRecruit rather than the raw dynasty.players record.
+    // form and every surface (Recruiting Database, Threshold Lookup, ...)
+    // that reads recruits through shapeRecruit rather than the raw
+    // dynasty.players record.
     stateRank: pl.stateRank,
     height: pl.height || '',
     weight: pl.weight || null,
@@ -66,7 +61,7 @@ function shapeRecruit(pl, addedIndex, sourceDynastyId) {
 const SECTION_TO_VIEW = { staff: 'home', database: 'database', outlook: 'analysis', thresholds: 'thresholds', counts: 'counts' };
 
 export default function ScoutStaff({ year, section = 'staff', onNavigate } = {}) {
-  const { currentDynasty, dynasties, getDynastyPlayers, updateDynasty, updatePlayer, isViewOnly } = useDynasty();
+  const { currentDynasty, updateDynasty, updatePlayer, isViewOnly } = useDynasty();
   const { toast } = useToast();
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams);
   const teamLogo   = currentDynasty?.teams?.[currentDynasty?.currentTid]?.logo || '';
@@ -112,7 +107,7 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
       .filter(pl => pl?.isTarget && pl.name)
       .map((pl, globalIndex) => ({ pl, globalIndex }))
       .filter(({ pl }) => Number(pl.targetYear) === boardYear)
-      .map(({ pl, globalIndex }) => shapeRecruit(pl, globalIndex, currentDynasty?.id));
+      .map(({ pl, globalIndex }) => shapeRecruit(pl, globalIndex));
   }, [currentDynasty?.players, currentDynasty?.id, boardYear]);
 
   // Same shaping as `recruits` above, but NOT scoped to the current class
@@ -126,7 +121,7 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
     const players = currentDynasty?.players || [];
     return players
       .filter(pl => pl?.isTarget && pl.name)
-      .map((pl, globalIndex) => shapeRecruit(pl, globalIndex, currentDynasty?.id));
+      .map((pl, globalIndex) => shapeRecruit(pl, globalIndex));
   }, [currentDynasty?.players, currentDynasty?.id]);
 
   // Active board — excludes anything removed via the Targets tab's remove toggle. Drives
@@ -147,71 +142,40 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
     await updateDynasty(currentDynasty.id, { players: newPlayers }, { changedPlayerPids: [pl.pid] });
   };
 
-  // Cross-dynasty scouted players (every other dynasty this user owns), pulled in for
-  // the Recruiting Database view only — not year-scoped, since "year" numbering isn't
-  // comparable across separate dynasty saves.
-  const [siblingPlayers, setSiblingPlayers] = useState([]);
-  const dynastiesKey = useMemo(
-    () => (dynasties || []).map(d => d.id).join('|'),
-    [dynasties]
-  );
-  useEffect(() => {
-    let alive = true;
-    getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(list => {
-      if (alive) setSiblingPlayers(list);
-    });
-    return () => { alive = false };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty?.id, dynastiesKey]);
-
-  const siblingRecruits = useMemo(() => {
-    return siblingPlayers
-      .filter(pl => pl?.isTarget && pl.name)
-      .map((pl, i) => shapeRecruit(pl, 1e6 + i, pl._sourceDynastyId));
-  }, [siblingPlayers]);
-
   // Full Recruiting Database pool — every one of this dynasty's targets across
-  // every class year, plus every shared dynasty's scouted players. Program
-  // Outlook stays on `recruits`/`boardRecruits` (current dynasty + season
-  // only, since "assess this season's class" shouldn't mix in other seasons
-  // or save files); the database and threshold views below merge.
-  // `recentRank` is the true add order across every dynasty — #1 is the very first
-  // target ever scouted anywhere, the highest number is the most recently added. Players
-  // scouted before this field existed (scoutedAt === null) sort first, oldest, by their
-  // original per-dynasty insertion order.
+  // every class year. Program Outlook stays on `recruits`/`boardRecruits`
+  // (current season only, since "assess this season's class" shouldn't mix
+  // in prior seasons); the database and threshold views below use this wider
+  // pool. `recentRank` is the true add order — #1 is the very first target
+  // ever scouted in this dynasty, the highest number is the most recently
+  // added. Players scouted before this field existed (scoutedAt === null)
+  // sort first, oldest, by their original insertion order.
   const databaseRecruits = useMemo(() => {
-    const merged = [...allYearRecruits, ...siblingRecruits];
-    const rankByKey = computeRecentRanks(merged);
-    return merged.map(r => ({ ...r, recentRank: rankByKey.get(`${r.sourceDynastyId ?? ''}:${r.pid}`) }));
-  }, [allYearRecruits, siblingRecruits]);
+    const rankByKey = computeRecentRanks(allYearRecruits);
+    return allYearRecruits.map(r => ({ ...r, recentRank: rankByKey.get(`${r.pid}`) }));
+  }, [allYearRecruits]);
 
-  // Threshold Lookup's pool — same cross-dynasty merge as the Recruiting Database,
-  // and deliberately NOT filtered by boardRemoved: a recruit dropped from the
-  // Targets board is a triage decision about this dynasty's recruiting class,
-  // not a signal that his scouted attributes/dev trait are bad data — he still
-  // counts toward benchmarks exactly like he still shows in the Recruiting
-  // Database. HS recruits only (matches Recruiting Database) — portal/transfer
-  // targets are a different evaluation context and shouldn't skew freshman
-  // benchmark data.
+  // Threshold Lookup's pool, deliberately NOT filtered by boardRemoved: a
+  // recruit dropped from the Targets board is a triage decision about this
+  // dynasty's recruiting class, not a signal that his scouted attributes/dev
+  // trait are bad data — he still counts toward benchmarks exactly like he
+  // still shows in the Recruiting Database. HS recruits only (matches
+  // Recruiting Database) — portal/transfer targets are a different
+  // evaluation context and shouldn't skew freshman benchmark data.
   //
-  // Also folds in the shared Recruiting Database's own recruitingDatabasePlayers
-  // extras (resolved via the account-wide host dynasty) — recruits that were
-  // never a real Target anywhere but are still genuine scouted comps worth
-  // learning from. No explicit dev-trait filter is needed here: buildRevealedPool
-  // (which every Threshold Lookup computation reads through) already excludes
-  // Hidden/blank dev traits on its own, so a Hidden extra folded in here
-  // contributes nothing until its dev trait is actually filled in.
-  const hostDynasty = useMemo(
-    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
-    [currentDynasty, dynasties]
-  );
+  // Also folds in this dynasty's own recruitingDatabasePlayers extras —
+  // recruits that were never a real Target but are still genuine scouted
+  // comps worth learning from. No explicit dev-trait filter is needed here:
+  // buildRevealedPool (which every Threshold Lookup computation reads
+  // through) already excludes Hidden/blank dev traits on its own, so a Hidden
+  // extra folded in here contributes nothing until its dev trait is filled in.
   const thresholdRecruits = useMemo(() => {
-    const excluded = new Set((hostDynasty?.recruitingDatabaseExcludedPids || []).map(String));
+    const excluded = new Set((currentDynasty?.recruitingDatabaseExcludedPids || []).map(String));
     const targets = databaseRecruits.filter(r => !r.isPortal && !r.previousTeam && !excluded.has(String(r.pid)));
     const seen = new Set(targets.map(r => `${r.pid}`));
-    const extras = (hostDynasty?.recruitingDatabasePlayers || []).filter(r => !r.isPortal && !r.previousTeam && !seen.has(`${r.pid}`) && !excluded.has(String(r.pid)));
+    const extras = (currentDynasty?.recruitingDatabasePlayers || []).filter(r => !r.isPortal && !r.previousTeam && !seen.has(`${r.pid}`) && !excluded.has(String(r.pid)));
     return [...targets, ...extras];
-  }, [databaseRecruits, hostDynasty]);
+  }, [databaseRecruits, currentDynasty]);
 
   // Committed recruits for the current team/year, pulled from dynasty recruiting data
   const committedRecruits = useMemo(() => {
@@ -445,16 +409,14 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
 
   // Recruiting Database's edit modal hands back a shaped recruit (a trimmed
   // view of the raw player). Merge just the edited fields into the real
-  // dynasty.players record — by sourceDynastyId, since the database also
-  // shows recruits scouted in sibling dynasties — so every other surface
-  // reading that player's data (board, thresholds, roster) picks it up too.
-  // Returns true on success, false on failure — callers use this to decide
-  // whether it's safe to discard the edit form (never close/clear on failure,
-  // so a failed save never costs the user their in-progress edit).
+  // dynasty.players record so every other surface reading that player's data
+  // (board, thresholds, roster) picks it up too. Returns true on success,
+  // false on failure — callers use this to decide whether it's safe to
+  // discard the edit form (never close/clear on failure, so a failed save
+  // never costs the user their in-progress edit).
   const handleEditDatabasePlayer = async (updated) => {
     if (isViewOnly) return false;
     try {
-      const targetDynastyId = updated.sourceDynastyId || dynastyId;
       const fields = {
         name: updated.name,
         position: updated.position,
@@ -464,23 +426,13 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
         stars: updated.stars,
         attributes: updated.attributes,
       };
-      const targetDynasty = targetDynastyId === dynastyId
-        ? currentDynasty
-        : dynasties.find(d => String(d.id) === String(targetDynastyId));
-      if (!targetDynasty) {
-        toast.error('Could not save — that dynasty could not be found. Your edit was not saved.');
-        return false;
-      }
-      const players = targetDynastyId === dynastyId ? (currentDynasty?.players || []) : await getDynastyPlayers(targetDynasty);
+      const players = currentDynasty?.players || [];
       const original = players.find(p => p.pid === updated.pid);
       if (!original) {
         toast.error('Could not save — that prospect could not be found. Your edit was not saved.');
         return false;
       }
-      await updatePlayer(targetDynastyId, { ...original, ...fields });
-      if (targetDynastyId !== dynastyId) {
-        getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(setSiblingPlayers);
-      }
+      await updatePlayer(dynastyId, { ...original, ...fields });
       return true;
     } catch (err) {
       console.error('Failed to save prospect edit:', err);

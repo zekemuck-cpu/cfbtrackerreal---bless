@@ -63,7 +63,7 @@ const RECRUITING_DB_COLUMN_OPTIONS = {
 // actually relying on — removed entirely in favor of this simpler, fully
 // local flow. Export JSON / Restore from JSON (PlayerDatabase.jsx) cover the
 // account-independent backup need the Sheet used to double as.
-export default function RecruitingDatabaseImportModal({ isOpen, onClose, hostDynasty }) {
+export default function RecruitingDatabaseImportModal({ isOpen, onClose, dynasty }) {
   const { currentDynasty, updateDynasty } = useDynasty()
   const { toast } = useToast()
 
@@ -74,7 +74,7 @@ export default function RecruitingDatabaseImportModal({ isOpen, onClose, hostDyn
 
   const finalizeLocalImport = async (mergedRecruits, addedCount, deletedPids = new Set()) => {
     const finalRecruits = applyDuplicateResolution(mergedRecruits, deletedPids)
-    await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: finalRecruits })
+    await updateDynasty(dynasty.id, { recruitingDatabasePlayers: finalRecruits })
     toast.success(`Imported ${addedCount} recruit${addedCount === 1 ? '' : 's'}.`)
     setPendingLocalImport(null)
     onClose?.()
@@ -82,20 +82,20 @@ export default function RecruitingDatabaseImportModal({ isOpen, onClose, hostDyn
 
   // Local paste import: parse the AI's (or hand-typed/uploaded) TSV reply into
   // recruit objects via the SAME column layout a Sheet-based read used to, then
-  // merge them onto whatever's already in the shared Recruiting Database
+  // merge them onto whatever's already in this dynasty's Recruiting Database
   // (pid-based, so re-importing an already-known recruit updates it instead of
   // duplicating it — see mergeRecruitingDatabaseRows). Newly-incoming recruits
   // are checked against the existing database for possible duplicates before
-  // finalizing — same conservative name+position+archetype+stars match the
-  // one-time pool migration uses.
+  // finalizing — conservative name+position+archetype+stars match (see
+  // findDuplicateClusters).
   const handleLocalImport = async (text) => {
-    if (!hostDynasty) throw new Error('No Recruiting Database to import into yet.')
+    if (!dynasty) throw new Error('No Recruiting Database to import into yet.')
     const rows = splitTsv(text)
     const parsed = parseRecruitingDatabaseRows(rows).filter(r => r.name)
     if (!parsed.length) throw new Error('No recruits found in the pasted text.')
     const { mergedRecruits } = mergeRecruitingDatabaseRows({
       incomingRows: parsed,
-      localRecruits: hostDynasty.recruitingDatabasePlayers || [],
+      localRecruits: dynasty.recruitingDatabasePlayers || [],
     })
     const clusters = findDuplicateClusters(mergedRecruits)
     if (clusters.length > 0) {
@@ -144,22 +144,32 @@ COLUMNS A–N (in this exact order, tab-separated)
  B Class      | Dropdown: HS, JUCO Fr, JUCO So, JUCO Jr, Fr, RS Fr, So, RS So, Jr, RS Jr
  C Position   | Dropdown: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P, ATH
  D Archetype  | Dropdown — exact archetype name (e.g. Pocket Passer, Speedster, Raw Strength, Power Rusher, Man Coverage…)
- E Stars      | The recruit's star rating is always shown as a row of 5 star icons next to their name — some filled/solid (white), some empty/outline. COUNT ONLY THE FILLED/SOLID stars; ignore the empty outline ones. That count (0–5) is the star rating — output that many ☆ symbols (e.g. 3 filled stars → ☆☆☆). Blank if the star row isn't visible at all.
+ E Stars      | Shown as a row of 5 star icons next to the recruit's name. Every star in
+   the row is the SAME star shape — the only difference is color: some are
+   WHITE (bright, lit up) and some are BLACK/dark (dimmed). COUNT ONLY THE
+   WHITE STARS. Completely ignore the black/dark ones — they are NOT part of
+   the count even though they're still visible as stars. Do this by direct
+   visual count every time; never infer the star count from national rank,
+   archetype, or anything else. Example: 3 white stars + 2 black stars = a
+   3-star recruit → output ☆☆☆. Blank only if no star row is visible at all.
  F Nat. Rank  | integer — national rank
  G State Rank | integer — labeled "STA:" on the recruit's card/header in the screenshot (right next to "NAT:"). ALWAYS check for this label specifically — it's easy to miss since it's small and sits right after the national rank. Only leave blank if genuinely not shown anywhere.
  H Pos. Rank  | integer — position rank
  I Height     | Dropdown: 5'5" … 7'0" (straight quotes)      J Weight | integer lbs
  K Hometown   | text           L State | 2-letter code
- M Gem/Bust   | Gem, Bust, or blank. Look at the LEFT edge of the recruit's portrait/card for a
-   small badge, stacked below the recruiting-interest handshake icon:
-     - A solid GREEN GEM badge = Gem
-     - A RED X badge (a plain red X, NOT necessarily on a gem) = Bust
-     - Neither present = blank
-   This badge is SEPARATE from the recruiting-interest heart/handshake icon.
-   Do not confuse a red X badge with a "not interested" indicator — on this
-   screen the red X in the badge slot means Bust. When in doubt between the
-   two, the Gem/Bust badge sits in the same vertical stack as the green gem
-   would, on the far left of the card.
+ M Gem/Bust   | Gem, Bust, or blank. Check the FAR LEFT edge of the recruit's portrait
+   photo, right at the edge of the picture, in the spot just BELOW the small
+   grey handshake/interest icon that sits at the portrait's top-left corner:
+     - A small circular badge with a RED "X" mark inside it, sitting in that
+       spot = Bust
+     - A small SOLID GREEN diamond/gem shape in that same spot = Gem
+     - Nothing in that spot at all = blank
+   This badge is easy to miss — it's small and sits right at the picture's
+   edge. Always check that exact spot before defaulting to blank; don't guess
+   from the recruit's overall interest level or anything else. The grey
+   handshake icon ABOVE this badge is a completely different indicator
+   (recruiting interest) — never read that icon as Gem or Bust, and never
+   skip checking below it just because it's present.
  N Dev Trait  | Elite, Star, Impact, Normal, Hidden (Hidden = trait not yet revealed; do not guess — use Hidden when trait is unknown)
 
 ═══════════════════════════════════════════════════════════
@@ -209,7 +219,8 @@ FINAL CHECK
 [ ] B/C/D/E/I/L/M/N are literal dropdown values
 [ ] Player names (A) are normal title case, never ALL CAPS, even if the screenshot shows them that way
 [ ] State Rank (G) checked for the card's "STA:" label every time — not defaulted to blank
-[ ] Gem/Bust (M) is read from the badge on the LEFT edge of the card (green gem = Gem, red X = Bust), not the interest handshake icon, not guessed
+[ ] Stars (E) counted by color (white = counted, black/dark = ignored), never inferred from rank/archetype
+[ ] Gem/Bust (M) checked at the exact spot below the handshake icon on the portrait's left edge (red X badge = Bust, green diamond = Gem), not the handshake icon itself, not guessed
 [ ] The O cell uses SHORT CODES (AWR, SPD, etc.) for compactness; blank when not scouted; pid/Updated never output`,
     includeTeamMap: false,
     dynastyTeams: currentDynasty?.teams,

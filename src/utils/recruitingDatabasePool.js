@@ -1,67 +1,17 @@
-// Account-wide shared Recruiting Database — pool resolution, cross-dynasty merge,
-// and duplicate detection. See the "Account-Wide Shared Recruiting Database" plan
-// for the full design; this module is the one place all four call sites (the
-// one-time migration, local-paste import, Import-by-URL, JSON restore, and dynasty
-// deletion/storage-tier-migration handoff) share their logic from.
-//
-// Storage model: rather than a new account-level Firestore location (which would
-// need a security-rules change + manual `firebase deploy`), one of the user's own
-// dynasties acts as the "host" — the shared fields live as ordinary fields on that
-// dynasty's own document, a location that's already fully writable by its owner.
-// Every sibling dynasty stores `recruitingDatabaseHostDynastyId` and reads/writes
-// through that host instead of itself. A host points at itself (self-referencing)
-// so "resolved" is a single presence check, not a tri-state.
-//
-// Two independent pools per account, never mixed: Premium/cloud dynasties share one
-// host; Free/local dynasties (this browser only) share a separate one — a local
-// dynasty can't follow you to another device, so it can't host, or be hosted by, a
-// cloud dynasty's data.
+// Recruiting Database helpers — per-dynasty only. Each dynasty has its own
+// recruitingDatabasePlayers; there is no cross-dynasty sharing or "host"
+// dynasty anymore (that account-wide shared-database design was removed:
+// writes to a dynasty other than the one currently open had no protection
+// against a stale Firestore listener echo silently reverting them — see the
+// fix in DynastyContext.jsx's subscribeToDynasties handler. Carrying data
+// from an old dynasty into a new one is now a manual Export JSON / Restore
+// from JSON step, same as moving to a brand-new account).
 
-// No live Google Sheet to hand off anymore (see RecruitingDatabaseImportModal.jsx's
-// header comment) — just the actual recruit data and its exclusion list.
-const RECRUITING_DB_FIELDS = [
-  'recruitingDatabasePlayers',
-  'recruitingDatabaseExcludedPids',
-];
-
-export function isCloudDynasty(d) {
-  return d?.storageType === 'cloud';
-}
-
-// Every OTHER dynasty this user owns in the same storage-tier pool as
-// currentDynasty — same ownership scoping sharedRecruitingDb.js's
-// getSiblingScoutedPlayers already uses (userId match), plus the storage-tier
-// split a shared physical sheet can't cross.
-export function getPoolSiblings(currentDynasty, dynasties) {
-  if (!currentDynasty) return [];
-  return (dynasties || []).filter(d =>
-    String(d.id) !== String(currentDynasty.id) &&
-    d.userId === currentDynasty.userId &&
-    isCloudDynasty(d) === isCloudDynasty(currentDynasty)
-  );
-}
-
-// The dynasty object to actually read/write Recruiting-Database fields on.
-//   - Not yet migrated (no host pointer set) -> currentDynasty itself (legacy
-//     per-dynasty state; the migration-trigger flow decides what to do next).
-//   - Points at itself -> currentDynasty itself (it's the host).
-//   - Points elsewhere -> the looked-up host dynasty.
-//   - Points elsewhere but that dynasty can't be found -> null. This is a real
-//     error, not a silent fallback: callers must show the recovery alert
-//     ("couldn't find your shared database — restore from a JSON backup if you
-//     have one") rather than quietly treating the current dynasty as empty.
-export function resolveRecruitingDatabaseHost(currentDynasty, dynasties) {
-  if (!currentDynasty) return null;
-  const hostId = currentDynasty.recruitingDatabaseHostDynastyId;
-  if (!hostId || String(hostId) === String(currentDynasty.id)) return currentDynasty;
-  const host = (dynasties || []).find(d => String(d.id) === String(hostId));
-  return host || null;
-}
-
-// Merges every dynasty's recruitingDatabasePlayers into one flat list with fresh,
-// collision-free pids (each source dynasty's own pid namespace is independent, so
-// pid alone can't survive a merge) — each entry tagged with where it came from,
-// for the duplicate-review UI's "from Dynasty X" labels.
+// Merges recruit lists (e.g. "what's already in the database" + "what's in a
+// restored backup file") into one flat list with fresh, collision-free pids —
+// each source's own pid namespace is independent, so pid alone can't survive
+// a merge. Each entry is tagged with where it came from, for the duplicate-
+// review UI's "from X" labels.
 export function renumberForMerge(lists) {
   let nextPid = 1;
   const merged = [];
@@ -101,45 +51,13 @@ export function applyDuplicateResolution(players, deletedPids) {
   return players.filter(p => !deletedPids.has(p.pid));
 }
 
-// Called before a dynasty is actually removed from its pool — by real deletion, or
-// by a storage-tier migration (which deletes the old dynasty ID and creates a new
-// one on the other tier; see storageService.js). If this dynasty isn't a host for
-// anyone, it's a no-op — its pool is unaffected. If it IS a host with other pool
-// members, hands the shared data off to one of them automatically (nothing lost,
-// no prompt needed). If it's the ONLY member of its pool, returns a `lone-host`
-// result instead of touching anything — the caller must prompt the user to export a
-// JSON backup before letting the deletion/migration proceed, since there would
-// otherwise be nowhere left for the shared database to live.
-export async function handleDynastyLeavingPool(dynastyId, dynasties, updateDynasty) {
-  const hostedDynasties = (dynasties || []).filter(d => String(d.recruitingDatabaseHostDynastyId) === String(dynastyId));
-  if (hostedDynasties.length === 0) return { ok: true, wasHost: false };
-
-  const leavingDynasty = dynasties.find(d => String(d.id) === String(dynastyId));
-  const others = hostedDynasties.filter(d => String(d.id) !== String(dynastyId));
-  if (others.length === 0) {
-    return { ok: false, wasHost: true, reason: 'lone-host', dynasty: leavingDynasty };
-  }
-
-  const newHost = others[0];
-  const carry = {};
-  RECRUITING_DB_FIELDS.forEach(field => { carry[field] = leavingDynasty?.[field] ?? null; });
-  carry.recruitingDatabaseHostDynastyId = newHost.id;
-
-  await updateDynasty(newHost.id, carry);
-  await Promise.all(
-    others.filter(d => String(d.id) !== String(newHost.id))
-      .map(d => updateDynasty(d.id, { recruitingDatabaseHostDynastyId: newHost.id }))
-  );
-  return { ok: true, wasHost: true, newHostId: newHost.id };
-}
-
 // The one "recent number" ranking, shared by every surface that shows it
 // (the Database table, the Update Dev Traits dashboard task, anywhere else
 // that needs it) so a recruit's number can never disagree between them.
 // Ranks by permanent entry order — earliest scoutedAt first (a stamp set
 // once, at first entry, never touched again), addedIndex as a tiebreak for
-// anything scouted before that field existed. Returns a Map keyed by
-// `${sourceDynastyId ?? ''}:${pid}` -> rank (1 = first ever entered).
+// anything scouted before that field existed. Returns a Map keyed by pid ->
+// rank (1 = first ever entered).
 export function computeRecentRanks(players) {
   const ranked = [...(players || [])].sort((a, b) => {
     const at = a.scoutedAt ?? 0;
@@ -149,16 +67,15 @@ export function computeRecentRanks(players) {
   });
   const rankByKey = new Map();
   ranked.forEach((r, i) => {
-    rankByKey.set(`${r.sourceDynastyId ?? ''}:${r.pid}`, i + 1);
+    rankByKey.set(`${r.pid}`, i + 1);
   });
   return rankByKey;
 }
 
 // No React needed, so this works equally from a component (PlayerDatabase.jsx's
-// Export button) or from DynastyContext.jsx's deletion/storage-tier-migration
-// handoff (the "nowhere left for this data to live" last-resort backup).
-// Strips merge/rank bookkeeping fields that only make sense in-app, never in a
-// portable backup file.
+// Export button) or from anywhere else that needs a portable backup of a
+// recruit list. Strips merge/rank bookkeeping fields that only make sense
+// in-app, never in a portable backup file.
 //
 // Prefers the File System Access API's showSaveFilePicker — the actual native
 // "Save As" dialog, letting the user pick the folder and file name — over a
@@ -203,5 +120,3 @@ export async function downloadRecruitingDatabaseJson(players, filenamePrefix = '
   URL.revokeObjectURL(url);
   return 'saved';
 }
-
-export { RECRUITING_DB_FIELDS };

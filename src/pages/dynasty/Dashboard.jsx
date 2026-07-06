@@ -29,8 +29,7 @@ import CoachingStaffModal from '../../components/CoachingStaffModal'
 import SupportStaffModal from '../../components/SupportStaffModal'
 import UpdateDevTraitsModal from '../../components/UpdateDevTraitsModal'
 import { isHiddenDev } from '../../components/archetypeWeights'
-import { getSiblingScoutedPlayers } from '../../utils/sharedRecruitingDb'
-import { resolveRecruitingDatabaseHost, computeRecentRanks } from '../../utils/recruitingDatabasePool'
+import { computeRecentRanks } from '../../utils/recruitingDatabasePool'
 import BowlWeek1Modal from '../../components/BowlWeek1Modal'
 import BowlWeek2Modal from '../../components/BowlWeek2Modal'
 import WeeklyScoresModal from '../../components/WeeklyScoresModal'
@@ -545,44 +544,21 @@ export default function Dashboard() {
     </div>
   ) : null
 
-  // Cross-dynasty scouted players + the shared Database's own resolved host —
-  // needed only to compute the EXACT same "recent number" the Database table
-  // and Threshold/History views show, so the Update Dev Traits task never
-  // displays a different number for the same recruit. Mirrors the identical
-  // pattern already established in ScoutStaff.jsx/PlayerCount.jsx.
-  const [devTraitsSiblingPlayers, setDevTraitsSiblingPlayers] = useState([])
-  useEffect(() => {
-    let alive = true
-    getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(list => {
-      if (alive) setDevTraitsSiblingPlayers(list)
-    })
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty?.id, (dynasties || []).map(d => d.id).join('|')])
-
-  const devTraitsHostDynasty = useMemo(
-    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
-    [currentDynasty, dynasties]
-  )
-
   // The exact same recentRank computation as ScoutStaff.jsx's databaseRecruits
   // + PlayerDatabase.jsx's combinedPlayers — this dynasty's own targets (every
-  // year), every sibling dynasty's targets, and the shared Database's own
-  // recruitingDatabasePlayers extras, all ranked together via the one shared
-  // computeRecentRanks so the number always matches what's shown elsewhere.
+  // year) plus its own recruitingDatabasePlayers extras, ranked together via
+  // the one shared computeRecentRanks so the number always matches what's
+  // shown elsewhere.
   const devTraitsRankByKey = useMemo(() => {
     const ownTargets = (currentDynasty?.players || [])
       .filter(p => p?.isTarget && p.name)
-      .map((p, i) => ({ pid: p.pid, scoutedAt: p.scoutedAt, addedIndex: i, sourceDynastyId: currentDynasty?.id }))
-    const siblingTargets = devTraitsSiblingPlayers
-      .filter(p => p?.isTarget && p.name)
-      .map((p, i) => ({ pid: p.pid, scoutedAt: p.scoutedAt, addedIndex: 1e6 + i, sourceDynastyId: p._sourceDynastyId }))
-    const excluded = new Set((devTraitsHostDynasty?.recruitingDatabaseExcludedPids || []).map(String))
-    const extras = (devTraitsHostDynasty?.recruitingDatabasePlayers || [])
+      .map((p, i) => ({ pid: p.pid, scoutedAt: p.scoutedAt, addedIndex: i }))
+    const excluded = new Set((currentDynasty?.recruitingDatabaseExcludedPids || []).map(String))
+    const extras = (currentDynasty?.recruitingDatabasePlayers || [])
       .filter(p => !excluded.has(String(p.pid)))
       .map(p => ({ pid: p.pid, scoutedAt: p.scoutedAt, addedIndex: p.addedIndex }))
-    return computeRecentRanks([...ownTargets, ...siblingTargets, ...extras])
-  }, [currentDynasty?.players, currentDynasty?.id, devTraitsSiblingPlayers, devTraitsHostDynasty])
+    return computeRecentRanks([...ownTargets, ...extras])
+  }, [currentDynasty])
 
   // Signing-class targets for the "Update Dev Traits" task — every target THIS
   // dynasty entered for the given class year (regardless of who they signed
@@ -596,7 +572,7 @@ export default function Dashboard() {
         pid: p.pid,
         name: p.name,
         devTrait: p.devTrait,
-        recentRank: devTraitsRankByKey.get(`${currentDynasty?.id ?? ''}:${p.pid}`),
+        recentRank: devTraitsRankByKey.get(`${p.pid}`),
       }))
   }
 

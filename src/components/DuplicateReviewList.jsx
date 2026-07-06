@@ -1,9 +1,8 @@
-// Shared duplicate-review list — one row per cluster of recruits that look like the
+// Duplicate-review list — one row per cluster of recruits that look like the
 // same person entered more than once (matched conservatively by
-// findDuplicateClusters: name + position + archetype + stars, all exact). Every
-// member starts checked ("kept"); unchecking marks it for deletion. Used by both
-// RecruitingDatabaseMigrationModal (the one-time pool setup) and
-// DuplicateReviewModal (ongoing imports) so there's one implementation of this UI.
+// findDuplicateClusters: name + position + archetype + stars, all exact).
+// Every member starts checked ("kept"); unchecking marks it for deletion.
+// Used by DuplicateReviewModal (the local-paste import flow).
 export default function DuplicateReviewList({ duplicateClusters, isKept, onToggle }) {
   return (
     <>

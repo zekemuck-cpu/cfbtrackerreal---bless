@@ -14,12 +14,7 @@ import ConfirmModal from './ConfirmModal';
 import { useToast } from './ui/Toast';
 import RecruitingDatabaseImportModal from './RecruitingDatabaseImportModal';
 import RecruitingDatabaseBatchEditModal from './RecruitingDatabaseBatchEditModal';
-import RecruitingDatabaseMigrationModal from './RecruitingDatabaseMigrationModal';
-import {
-  resolveRecruitingDatabaseHost, getPoolSiblings, renumberForMerge,
-  findDuplicateClusters, applyDuplicateResolution, downloadRecruitingDatabaseJson,
-  computeRecentRanks,
-} from '../utils/recruitingDatabasePool';
+import { downloadRecruitingDatabaseJson, computeRecentRanks } from '../utils/recruitingDatabasePool';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
 // FIRST rendered line — whether that line ends up being the whole name (short
@@ -1204,145 +1199,27 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // they can never surface on the Targets page. Import ingest is local-only
   // (paste/upload a TSV) — see RecruitingDatabaseImportModal.jsx; there is no
   // live Google Sheet sync.
-  const { currentDynasty, updateDynasty, dynasties } = useDynasty();
+  const { currentDynasty, updateDynasty } = useDynasty();
   const auth = useAuthErrorHandler();
   const { toast } = useToast();
   const [showHelpPanel, setShowHelpPanel] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showBatchEditModal, setShowBatchEditModal] = useState(false);
 
-  // Every dynasty on the account shares ONE Recruiting Database — the actual data
-  // lives on whichever dynasty is the resolved "host" (see recruitingDatabasePool.js).
-  // `hostDynasty` is null only when a host pointer is set but that dynasty can't be
-  // found (data corruption, or a leave-pool handoff that didn't complete) — a real
-  // error state surfaced below, never silently treated as "start fresh."
-  const hostDynasty = useMemo(
-    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
-    [currentDynasty, dynasties]
-  );
-  const hostMissing = !!currentDynasty?.recruitingDatabaseHostDynastyId && !hostDynasty;
+  const recruitingDatabasePlayers = currentDynasty?.recruitingDatabasePlayers || [];
 
-  // One-time "set up your shared Recruiting Database" flow — see
-  // recruitingDatabasePool.js. `null` = nothing to show; a lone dynasty with no
-  // siblings and no leftover data of its own gets silently self-hosted (no
-  // modal needed, nothing to merge or lose). Anything more involved (siblings
-  // exist, or this dynasty has its own leftover data to fold in) surfaces
-  // RecruitingDatabaseMigrationModal instead of writing anything automatically.
-  const [migrationProposal, setMigrationProposal] = useState(null);
-  const [migrationBusy, setMigrationBusy] = useState(false);
-  const autoResolvedRef = useRef(null);
-  useEffect(() => {
-    if (!currentDynasty || currentDynasty.recruitingDatabaseHostDynastyId) return;
-    if (autoResolvedRef.current === currentDynasty.id) return;
-
-    const poolSiblings = getPoolSiblings(currentDynasty, dynasties);
-    const existingHostSibling = poolSiblings.find(d => d.recruitingDatabaseHostDynastyId);
-    const hasOwnData = (currentDynasty.recruitingDatabasePlayers?.length > 0) || !!currentDynasty.recruitingDatabaseSheetId;
-
-    if (existingHostSibling && !hasOwnData) {
-      autoResolvedRef.current = currentDynasty.id;
-      updateDynasty(currentDynasty.id, { recruitingDatabaseHostDynastyId: existingHostSibling.recruitingDatabaseHostDynastyId });
-      return;
-    }
-    if (!existingHostSibling && poolSiblings.length === 0 && !hasOwnData) {
-      autoResolvedRef.current = currentDynasty.id;
-      updateDynasty(currentDynasty.id, { recruitingDatabaseHostDynastyId: currentDynasty.id });
-      return;
-    }
-
-    let candidates, hostDyn;
-    if (existingHostSibling) {
-      // A pool already exists — this run only folds THIS dynasty's own
-      // leftover data into it, no need to touch already-migrated siblings.
-      const existingHostId = existingHostSibling.recruitingDatabaseHostDynastyId;
-      hostDyn = dynasties.find(d => String(d.id) === String(existingHostId)) || existingHostSibling;
-      candidates = [currentDynasty];
-    } else {
-      // Pool's first migration — host is whichever candidate synced most
-      // recently (reusing its existing sheet), tie-broken by "already has a
-      // sheet at all."
-      const unmigrated = poolSiblings.filter(d => !d.recruitingDatabaseHostDynastyId);
-      candidates = [currentDynasty, ...unmigrated];
-      hostDyn = candidates.reduce((best, d) => {
-        if (!best) return d;
-        const bestTime = best.recruitingDatabaseLastSyncedAt || 0;
-        const dTime = d.recruitingDatabaseLastSyncedAt || 0;
-        if (dTime !== bestTime) return dTime > bestTime ? d : best;
-        if (!!d.recruitingDatabaseSheetId !== !!best.recruitingDatabaseSheetId) return d.recruitingDatabaseSheetId ? d : best;
-        return best;
-      }, null);
-    }
-
-    const lists = candidates.map(d => ({
-      dynastyId: d.id,
-      dynastyName: d.teamName || d.coachName || 'Dynasty',
-      players: d.recruitingDatabasePlayers || [],
-    }));
-    const mergedPlayers = renumberForMerge(lists);
-    const duplicateClusters = findDuplicateClusters(mergedPlayers);
-
-    setMigrationProposal({
-      hostId: hostDyn.id,
-      hostName: hostDyn.teamName || hostDyn.coachName || 'Dynasty',
-      hostSheetId: hostDyn.recruitingDatabaseSheetId || null,
-      foldingInNames: candidates.filter(d => String(d.id) !== String(hostDyn.id)).map(d => d.teamName || d.coachName || 'Dynasty'),
-      candidateIds: candidates.map(d => d.id),
-      mergedPlayers,
-      duplicateClusters,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty?.id, currentDynasty?.recruitingDatabaseHostDynastyId, dynasties]);
-
-  // A plain local file download — no network/auth involved, so unlike the
-  // old Sheets-to-Sheets backup this can never fail on an expired Google
-  // token. Downloads the full merged set about to become the shared
-  // database, so if anything goes wrong there's a snapshot of exactly what
-  // was about to be written.
-  const handleMigrationBackupNow = () => {
-    if (!migrationProposal) return;
-    downloadRecruitingDatabaseJson(migrationProposal.mergedPlayers);
-    toast.success('Recruiting Database downloaded as a backup file.');
-  };
-
-  const handleConfirmMigration = async (deletedPids) => {
-    if (!migrationProposal) return;
-    setMigrationBusy(true);
-    try {
-      const finalPlayers = applyDuplicateResolution(migrationProposal.mergedPlayers, deletedPids)
-        .map(({ _mergedFromDynastyId, _mergedFromDynastyName, ...p }) => p);
-      await updateDynasty(migrationProposal.hostId, {
-        recruitingDatabasePlayers: finalPlayers,
-        recruitingDatabaseHostDynastyId: migrationProposal.hostId,
-      });
-      await Promise.all(
-        migrationProposal.candidateIds
-          .filter(id => String(id) !== String(migrationProposal.hostId))
-          .map(id => updateDynasty(id, { recruitingDatabaseHostDynastyId: migrationProposal.hostId }))
-      );
-      toast.success('Recruiting Database set up — every dynasty now shares one.');
-      setMigrationProposal(null);
-    } catch (error) {
-      console.error('Recruiting Database migration error:', error);
-      toast.error('Failed to set up the shared database. Please try again.');
-    } finally {
-      setMigrationBusy(false);
-    }
-  };
-
-  const recruitingDatabasePlayers = hostDynasty?.recruitingDatabasePlayers || [];
-
-  // Everything the Recruiting Database currently shows — real targets/sibling
-  // scouted players (the `players` prop) plus anything pulled in via Import.
-  // Save pushes this full combined view, since the point is mirroring what's
-  // on screen; Import stays scoped to recruitingDatabasePlayers only (below)
-  // so a pulled-in recruit can never retroactively become an isTarget record.
+  // Everything the Recruiting Database currently shows — real targets (the
+  // `players` prop) plus anything pulled in via Import. Export mirrors this
+  // full combined view; Import stays scoped to recruitingDatabasePlayers only
+  // (below) so a pulled-in recruit can never retroactively become an
+  // isTarget record.
   //
-  // recruitingDatabaseExcludedPids is a sheet-driven deletion of a recruit
-  // that isn't stored in recruitingDatabasePlayers at all (a sibling's
-  // scouted player, sourced fresh from `players` every render) — this is the
-  // only place that deletion can actually be enforced. A real Target's pid
-  // never ends up in this list (handleSave never lets Save delete one).
-  const excludedPids = hostDynasty?.recruitingDatabaseExcludedPids || [];
+  // recruitingDatabaseExcludedPids hides a recruit that isn't stored in
+  // recruitingDatabasePlayers at all (a real Target, sourced fresh from
+  // `players` every render) from this view only — used by Batch Edit's
+  // "delete" for a real Target, since actually deleting one isn't available
+  // from here. A real Target's pid never ends up in this list any other way.
+  const excludedPids = currentDynasty?.recruitingDatabaseExcludedPids || [];
   const combinedPlayers = useMemo(() => {
     const excluded = new Set(excludedPids.map(String));
     const basePlayers = excluded.size ? players.filter(p => !excluded.has(String(p.pid))) : players;
@@ -1355,16 +1232,15 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         })();
 
     // `players` only carries a partial recentRank — it's computed upstream in
-    // ScoutStaff.jsx from real Targets + sibling-dynasty recruits alone,
-    // before recruitingDatabasePlayers (Google Sheets AI-import entries) are
-    // merged in below, so those never got ranked at all. Recompute the rank
-    // here across the FULL combined set instead via the shared
-    // computeRecentRanks (same rule everywhere: earliest scoutedAt first — a
-    // permanent stamp set once, at first entry — addedIndex as a tiebreak for
-    // anything scouted before that field existed). This is what keeps entry
-    // #1 forever #1 even as new recruits get added on top, and what lets
-    // other surfaces (e.g. the Update Dev Traits dashboard task) show the
-    // exact same number for a given recruit.
+    // ScoutStaff.jsx from real Targets alone, before recruitingDatabasePlayers
+    // (imported entries) are merged in below, so those never got ranked at
+    // all. Recompute the rank here across the FULL combined set instead via
+    // the shared computeRecentRanks (same rule everywhere: earliest scoutedAt
+    // first — a permanent stamp set once, at first entry — addedIndex as a
+    // tiebreak for anything scouted before that field existed). This is what
+    // keeps entry #1 forever #1 even as new recruits get added on top, and
+    // what lets other surfaces (e.g. the Update Dev Traits dashboard task)
+    // show the exact same number for a given recruit.
     const rankByKey = computeRecentRanks(merged);
     // Backfills `group` for any recruit that predates auto-classification
     // (recruitingDatabaseSheetFormat.js now stamps it at parse time for new
@@ -1374,7 +1250,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     return merged.map(r => ({
       ...r,
       group: r.group || resolveRecruitGroup(r.position, r.archetype),
-      recentRank: rankByKey.get(`${r.sourceDynastyId ?? ''}:${r.pid}`),
+      recentRank: rankByKey.get(`${r.pid}`),
     }));
   }, [players, recruitingDatabasePlayers, excludedPids]);
 
@@ -1402,7 +1278,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const handleJsonFileSelected = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || !hostDynasty) return;
+    if (!file || !currentDynasty) return;
     setRestoringJson(true);
     try {
       const text = await file.text();
@@ -1456,10 +1332,10 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // Confirmed explicitly (see the ConfirmModal below) since it's destructive
   // and can't be undone short of restoring an even older backup.
   const handleConfirmJsonOverwrite = async () => {
-    if (!pendingJsonOverwrite || !hostDynasty) return;
+    if (!pendingJsonOverwrite || !currentDynasty) return;
     setConfirmingJsonOverwrite(true);
     try {
-      await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: pendingJsonOverwrite.recruits });
+      await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: pendingJsonOverwrite.recruits });
       const n = pendingJsonOverwrite.addedCount;
       toast.success(`Database replaced — ${n} recruit${n === 1 ? '' : 's'} restored from backup.`);
       setPendingJsonOverwrite(null);
@@ -1488,7 +1364,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     if (isFromRecruitingDatabase(original)) {
       try {
         const next = recruitingDatabasePlayers.map(p => String(p.pid) === String(original.pid) ? { ...updated, updatedAt: Date.now() } : p);
-        await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: next });
+        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
         return true;
       } catch (error) {
         console.error('Recruiting Database edit save error:', error);
@@ -1504,7 +1380,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     if (isFromRecruitingDatabase(pl)) {
       try {
         const next = recruitingDatabasePlayers.filter(p => String(p.pid) !== String(pl.pid));
-        await updateDynasty(hostDynasty.id, { recruitingDatabasePlayers: next });
+        await updateDynasty(currentDynasty.id, { recruitingDatabasePlayers: next });
       } catch (error) {
         console.error('Recruiting Database delete error:', error);
         toast.error('Failed to delete. Please try again.');
@@ -1558,11 +1434,11 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       const updates = { recruitingDatabasePlayers: next };
       if (excludePids.size) {
         updates.recruitingDatabaseExcludedPids = Array.from(new Set([
-          ...(hostDynasty.recruitingDatabaseExcludedPids || []),
+          ...(currentDynasty.recruitingDatabaseExcludedPids || []),
           ...excludePids,
         ]));
       }
-      await updateDynasty(hostDynasty.id, updates);
+      await updateDynasty(currentDynasty.id, updates);
     }
 
     for (const { original, updated } of targetChanges) {
@@ -1694,7 +1570,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       <RecruitingDatabaseImportModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
-        hostDynasty={hostDynasty}
+        dynasty={currentDynasty}
       />
       <RecruitingDatabaseBatchEditModal
         isOpen={showBatchEditModal}
@@ -1703,19 +1579,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
         isFromRecruitingDatabase={isFromRecruitingDatabase}
         onSaveBatch={handleBatchSave}
       />
-      {migrationProposal && (
-        <RecruitingDatabaseMigrationModal
-          isOpen
-          onClose={() => setMigrationProposal(null)}
-          hostDynastyName={migrationProposal.hostName}
-          foldingInDynastyNames={migrationProposal.foldingInNames}
-          mergedCount={migrationProposal.mergedPlayers.length}
-          duplicateClusters={migrationProposal.duplicateClusters}
-          onBackupNow={handleMigrationBackupNow}
-          confirming={migrationBusy}
-          onConfirm={handleConfirmMigration}
-        />
-      )}
       {pendingJsonOverwrite && (
         <ConfirmModal
           isOpen
@@ -1733,13 +1596,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           loading={confirmingJsonOverwrite}
         />
       )}
-      {hostMissing && (
-        <div className="px-4 py-3 rounded-xl bg-red-950/40 border border-red-800 text-sm text-red-200">
-          Couldn't find your shared Recruiting Database. If you have a previously exported
-          backup file, use <strong>Restore from JSON</strong> below to rebuild it as your new database.
-        </div>
-      )}
-
       {/* Header strip */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
         <h2 className="text-base font-semibold text-txt-primary">Recruiting Database</h2>
@@ -1808,8 +1664,8 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
 
                   <div className="space-y-2 text-xs text-txt-secondary leading-relaxed">
                     <p>
-                      A scouting reference for every recruit you've targeted — shared across every
-                      dynasty on your account, separate from the real Targets board.
+                      A scouting reference for every recruit you've scouted in this dynasty —
+                      separate from the real Targets board.
                     </p>
                     <p>
                       <strong className="text-txt-primary">Add</strong> opens the paste/import panel
@@ -1829,7 +1685,9 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                       contents, it does not merge.
                     </p>
                     <p className="text-[10px] text-txt-tertiary leading-relaxed pt-2 border-t border-surface-4">
-                      One shared database — edit it from any dynasty and every other one sees the change.
+                      This database belongs to this dynasty only — it doesn't carry over to your
+                      other dynasties automatically. Use Export JSON / Restore from JSON to bring it
+                      into a new one.
                     </p>
                   </div>
                 </div>

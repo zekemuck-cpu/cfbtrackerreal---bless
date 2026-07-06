@@ -3,8 +3,6 @@ import { useDynasty } from '../context/DynastyContext';
 import { positionBucket, recruitingPosLabel } from '../utils/recruitAttributes';
 import { normalizeArch, isHiddenDev } from './archetypeWeights';
 import { ARCHETYPE_REGISTRY } from '../data/configData';
-import { getSiblingScoutedPlayers } from '../utils/sharedRecruitingDb';
-import { resolveRecruitingDatabaseHost } from '../utils/recruitingDatabasePool';
 import { DEV_TRAITS, buildRevealedPool, countBoundaries, gapToStrong } from '../utils/devTraitLearning';
 import { useCurrentTeamColors } from '../hooks/useTeamColors';
 import { createStaffAccessor } from './staffDB';
@@ -45,10 +43,9 @@ ARCHETYPE_REGISTRY.forEach(({ position, archetype }) => {
 });
 
 export default function PlayerCount({ onSelectBucket = null } = {}) {
-  const { currentDynasty, dynasties, getDynastyPlayers } = useDynasty();
+  const { currentDynasty } = useDynasty();
   const [selectedPos, setSelectedPos] = useState(null);
   const [selectedStar, setSelectedStar] = useState('5');
-  const [siblingPlayers, setSiblingPlayers] = useState([]);
 
   const teamColors = useCurrentTeamColors(currentDynasty);
   const p = teamColors.primary;
@@ -67,65 +64,22 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
     loadScout();
   }, [currentDynasty?.id]);
 
-  // Stable key so the sibling fetch only reruns when dynasty membership
-  // actually changes, not on every unrelated context re-render.
-  const dynastiesKey = useMemo(
-    () => (dynasties || []).map(d => d.id).join('|'),
-    [dynasties]
-  );
-
-  // getSiblingScoutedPlayers is async (reads every sibling dynasty), so on
-  // every mount this page would show counts computed from just this dynasty's
-  // own recruits, then jump a moment later once siblings load in — the same
-  // flash-of-wrong-data issue fixed on the Daily Brief. Seed from the last
-  // confirmed-correct sibling list (localStorage, synchronous) instead of an
-  // empty array while the real fetch is in flight.
-  const cachedSiblingPlayers = useMemo(() => {
-    if (!currentDynasty?.id) return [];
-    try {
-      const raw = localStorage.getItem(`cfb_sibling_players_${currentDynasty.id}`);
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  }, [currentDynasty?.id]);
-
-  useEffect(() => {
-    let alive = true;
-    getSiblingScoutedPlayers(currentDynasty, dynasties, getDynastyPlayers).then(list => {
-      if (!alive) return;
-      setSiblingPlayers(list);
-      if (currentDynasty?.id) {
-        try { localStorage.setItem(`cfb_sibling_players_${currentDynasty.id}`, JSON.stringify(list)); } catch {}
-      }
-    });
-    return () => { alive = false };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty?.id, dynastiesKey]);
-
-  const effectiveSiblingPlayers = siblingPlayers.length ? siblingPlayers : cachedSiblingPlayers;
-
-  // The account-wide shared Recruiting Database's own extras (resolved via the
-  // host dynasty) — recruits that were never a real Target anywhere but still
-  // belong in these counts once their dev trait is known.
-  const hostDynasty = useMemo(
-    () => resolveRecruitingDatabaseHost(currentDynasty, dynasties),
-    [currentDynasty, dynasties]
-  );
-
   // HS recruits only (matches Recruiting Database) — portal/transfer targets are a
   // different evaluation context and shouldn't skew freshman class counts. Also
   // excludes anyone still Hidden/unrevealed — an unknown dev trait isn't a real
   // outcome yet, so it shouldn't skew these benchmarks either; it'll count itself
   // in automatically the moment its dev trait is filled in (see Update Dev Traits).
+  // Folds in this dynasty's own recruitingDatabasePlayers extras — recruits
+  // that were never a real Target but still belong in these counts once
+  // their dev trait is known.
   const mergedRecruits = useMemo(() => {
-    const excluded = new Set((hostDynasty?.recruitingDatabaseExcludedPids || []).map(String));
+    const excluded = new Set((currentDynasty?.recruitingDatabaseExcludedPids || []).map(String));
     const own = currentDynasty?.players || [];
-    const targets = [...own, ...effectiveSiblingPlayers].filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam && !excluded.has(String(p.pid)));
+    const targets = own.filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam && !excluded.has(String(p.pid)));
     const seen = new Set(targets.map(p => `${p.pid}`));
-    const extras = (hostDynasty?.recruitingDatabasePlayers || []).filter(p => p.name && !p.isPortal && !p.previousTeam && !seen.has(`${p.pid}`) && !excluded.has(String(p.pid)));
+    const extras = (currentDynasty?.recruitingDatabasePlayers || []).filter(p => p.name && !p.isPortal && !p.previousTeam && !seen.has(`${p.pid}`) && !excluded.has(String(p.pid)));
     return [...targets, ...extras];
-  }, [currentDynasty?.players, effectiveSiblingPlayers, hostDynasty]);
+  }, [currentDynasty]);
 
   const allRecruits = useMemo(
     () => mergedRecruits.filter(p => !isHiddenDev(p.devTrait)),
