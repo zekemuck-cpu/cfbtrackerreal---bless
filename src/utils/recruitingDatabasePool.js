@@ -17,13 +17,10 @@
 // dynasty can't follow you to another device, so it can't host, or be hosted by, a
 // cloud dynasty's data.
 
+// No live Google Sheet to hand off anymore (see RecruitingDatabaseImportModal.jsx's
+// header comment) — just the actual recruit data and its exclusion list.
 const RECRUITING_DB_FIELDS = [
   'recruitingDatabasePlayers',
-  'recruitingDatabaseSheetId',
-  'recruitingDatabaseSyncedSnapshot',
-  'recruitingDatabaseLastSyncedAt',
-  'recruitingDatabaseBackupSheetId',
-  'recruitingDatabasePositionValidationFixedV2',
   'recruitingDatabaseExcludedPids',
 ];
 
@@ -157,22 +154,54 @@ export function computeRecentRanks(players) {
   return rankByKey;
 }
 
-// Plain DOM download — no React needed, so this works equally from a component
-// (PlayerDatabase.jsx's Export button) or from DynastyContext.jsx's deletion/
-// storage-tier-migration handoff (the "nowhere left for this data to live"
-// last-resort backup). Strips merge/rank bookkeeping fields that only make
-// sense in-app, never in a portable backup file.
-export function downloadRecruitingDatabaseJson(players, filenamePrefix = 'recruiting-database') {
+// No React needed, so this works equally from a component (PlayerDatabase.jsx's
+// Export button) or from DynastyContext.jsx's deletion/storage-tier-migration
+// handoff (the "nowhere left for this data to live" last-resort backup).
+// Strips merge/rank bookkeeping fields that only make sense in-app, never in a
+// portable backup file.
+//
+// Prefers the File System Access API's showSaveFilePicker — the actual native
+// "Save As" dialog, letting the user pick the folder and file name — over a
+// plain <a download>, which just drops a fixed-name file straight into the
+// browser's default downloads folder with no prompt. Only Chromium browsers
+// support it today, so this always falls back to the plain-download path on
+// anything else (Safari/Firefox), or if the picker call fails for any reason
+// other than the user cancelling it (e.g. called outside a direct user
+// gesture, which the API requires — falling back rather than throwing means
+// a caller in a less direct click context still gets a working export).
+// Returns 'saved', 'cancelled' (user closed the picker without choosing), so
+// callers can skip a misleading success toast on cancel.
+export async function downloadRecruitingDatabaseJson(players, filenamePrefix = 'recruiting-database') {
   const payload = (players || []).map(({ recentRank, _mergedFromDynastyId, _mergedFromDynastyName, ...p }) => p);
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const json = JSON.stringify(payload, null, 2);
+  const suggestedName = `${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.json`;
+
+  if (typeof window !== 'undefined' && typeof window.showSaveFilePicker === 'function') {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName,
+        types: [{ description: 'JSON file', accept: { 'application/json': ['.json'] } }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      return 'saved';
+    } catch (err) {
+      if (err?.name === 'AbortError') return 'cancelled';
+      console.warn('showSaveFilePicker failed, falling back to a plain download:', err);
+    }
+  }
+
+  const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = suggestedName;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  return 'saved';
 }
 
 export { RECRUITING_DB_FIELDS };

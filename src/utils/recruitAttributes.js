@@ -188,7 +188,7 @@ export const ATTRIBUTE_ABBR = {
   'Awareness': 'AWR', 'Speed': 'SPD', 'Acceleration': 'ACC', 'Strength': 'STR',
   'Agility': 'AGI', 'Change of Direction': 'COD',
   'Throw Power': 'THP', 'Short Accuracy': 'SAC', 'Medium Accuracy': 'MAC',
-  'Deep Accuracy': 'DAC', 'Throw On Run': 'TOR', 'Under Pressure': 'TUP', 'Break Sack': 'BSK',
+  'Deep Accuracy': 'DAC', 'Throw On Run': 'RUN', 'Under Pressure': 'TUP', 'Break Sack': 'BSK',
   'Carrying': 'CAR', 'Break Tackle': 'BTK', 'Juke Move': 'JKM', 'Spin Move': 'SPM', 'BC Vision': 'BCV',
   'Catching': 'CTH', 'Catch In Traffic': 'CIT', 'Spectacular Catch': 'SPC',
   'Short Route': 'SRR', 'Medium Route': 'MRR', 'Deep Route': 'DRR', 'Release': 'RLS',
@@ -288,4 +288,8 @@ export const SHEET_HEADER_TO_ATTRIBUTE = {
   'Throw Acc Short': 'Short Accuracy',
   'Throw On The Run': 'Throw On Run',
   'Throw Under Pressure': 'Under Pressure',
+  // 'RUN' is the canonical short code now (matches the in-game attribute
+  // abbreviation) — 'TOR' kept recognized too in case an AI reply or
+  // already-exported backup still uses the old code.
+  'TOR': 'Throw On Run',
 }

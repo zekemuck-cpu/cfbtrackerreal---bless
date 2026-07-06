@@ -496,7 +496,18 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
   }
 
   try {
-    const snapshot = await getDocs(playersRef)
+    // The cache-empty case above is exactly what happens the FIRST time a
+    // given session touches this dynasty's players (e.g. editing a sibling
+    // dynasty's scouted recruit from the shared Recruiting Database) — a
+    // bare getDocs() here is server-priority with no timeout, so a slow or
+    // blocked connection hangs this call (and everything awaiting it, like
+    // a Save button) forever with no error. Race it against a timeout so a
+    // bad connection surfaces as a catchable error instead of an infinite
+    // "Saving…" — callers already fall back to dynasty.players on failure.
+    const snapshot = await Promise.race([
+      getDocs(playersRef),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out loading players — check your connection and try again.')), 15000)),
+    ])
     return snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
   } catch (error) {
     console.error('Error fetching players subcollection:', error)

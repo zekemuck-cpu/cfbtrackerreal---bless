@@ -95,7 +95,7 @@ export default function SheetModalFooter({
           }`}
           style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
         >
-          {deletingSheet ? 'Saving…' : 'Save & close'}
+          {syncing ? 'Syncing…' : deletingSheet ? 'Saving…' : 'Save & close'}
         </button>
       </div>
     </div>

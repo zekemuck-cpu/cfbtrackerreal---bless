@@ -1,14 +1,20 @@
-// Pure column layout + row <-> recruit object mapping for the Recruiting
-// Database's own Google Sheet. Deliberately independent of
+// Column layout + row -> recruit object parsing for the Recruiting
+// Database's local-paste import (an AI reply or hand-typed/uploaded TSV —
+// see RecruitingDatabaseImportModal.jsx). Deliberately independent of
 // src/utils/recruitSheetParse.js (the Targets tab's Commitments-sheet
 // format) — no Commitment/NIL columns, no commitment classification, and
 // every attribute the recruit has is preserved (not just the position's
-// typical subset), so a save/import round trip never silently drops data.
+// typical subset), so an import never silently drops data.
+//
+// This used to also define the layout of a live, two-way-synced Google Sheet
+// (a HEADERS row, a Sheets-API READ_RANGE, a serialize-back-to-a-row
+// function) — removed along with the rest of the Sheets integration; see
+// RecruitingDatabaseImportModal.jsx's header comment for why. Only the
+// column indices and the row -> recruit parse direction survive, since
+// they're still what a pasted TSV reply is parsed against.
 
-import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, serializeAttributes, positionBucket } from './recruitAttributes'
+import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, SHEET_HEADER_TO_ATTRIBUTE, positionBucket } from './recruitAttributes'
 import { resolveRecruitGroup } from './recruitGroup'
-
-export const RECRUITING_DATABASE_SHEET_TAB = 'Recruiting Database'
 
 // Column order (0-indexed).
 export const NAME_COL = 0
@@ -25,56 +31,39 @@ export const HOMETOWN_COL = 10
 export const STATE_COL = 11
 export const GEM_BUST_COL = 12
 export const DEV_TRAIT_COL = 13
-// "Previous Team" (transfers only) used to sit here — removed entirely as of
-// this version, since the Recruiting Database is HS recruits only and never
-// has one. Every existing Google Sheet gets its Previous Team column
-// physically deleted on its next sync (see sheetsService.js's
-// removePreviousTeamColumn / PlayerDatabase.jsx's syncNowInner one-time
-// repair), so this schema always matches the real sheet layout — no
-// splice/reinsert workaround needed anywhere.
+// "Previous Team" (transfers only) used to sit here — removed entirely,
+// since the Recruiting Database is HS recruits only and never has one.
 export const ATTRIBUTES_COL = 14
 export const PID_COL = 15
 export const UPDATED_AT_COL = 16
 // Stamped once, the moment a recruit first enters the database (whether
-// scouted as a real Target or added here via the AI/Sheets import) — unlike
-// Updated (which changes on every edit), this never changes again, so it's
-// what "recent number" ordering (recentRank) is permanently anchored to. A
-// blank cell here (pre-existing rows synced before this column existed) gets
-// backfilled with a fresh timestamp on the next sync — see
-// recruitingDatabaseSync.js.
+// scouted as a real Target or added here via import) — unlike Updated (which
+// changes on every edit), this never changes again, so it's what "recent
+// number" ordering (recentRank) is permanently anchored to. A blank cell here
+// (an older import from before this column existed) gets backfilled with a
+// fresh timestamp — see recruitingDatabaseSync.js.
 export const SCOUTED_AT_COL = 17
-export const TOTAL_COLS = SCOUTED_AT_COL + 1
-
-export const HEADERS = [
-  'Name', 'Class', 'Position', 'Archetype', 'Stars', 'National Rank', 'State Rank',
-  'Position Rank', 'Height', 'Weight', 'Hometown', 'State', 'Gem/Bust', 'Dev Trait',
-  'Attributes', 'pid', 'Updated', 'Scouted At',
-]
-
-function colLetter(idx) {
-  let s = ''
-  for (let n = idx + 1; n > 0; n = Math.floor((n - 1) / 26)) {
-    s = String.fromCharCode(65 + ((n - 1) % 26)) + s
-  }
-  return s
-}
-
-export const READ_RANGE = `${RECRUITING_DATABASE_SHEET_TAB}!A2:${colLetter(SCOUTED_AT_COL)}600`
 
 const NON_PORTAL_CLASSES = ['HS', 'JUCO Fr', 'JUCO So', 'JUCO Jr']
 const starsSymbolToNumber = (s) => (s ? (String(s).match(/☆/g) || []).length : 0)
-const starsNumberToSymbol = (n) => '☆'.repeat(Math.max(0, Math.min(5, Number(n) || 0)))
 const trim = (v) => (v != null ? String(v).trim() : '')
 const intOrNull = (v) => (v !== '' && v != null ? parseInt(v, 10) : null)
-const str = (v) => (v == null ? '' : String(v))
 
 const normLabel = (s) => String(s).toLowerCase().replace(/[^a-z0-9]/g, '')
+// Also folds in SHEET_HEADER_TO_ATTRIBUTE's alternate in-game labels (e.g.
+// "Throw On The Run" -> "Throw On Run", "Throw Under Pressure" -> "Under
+// Pressure") — without this, an AI reply using the game's own attribute tab
+// wording instead of our short codes silently dropped that value entirely,
+// since neither the full canonical name nor its short code matched.
 const ATTR_BY_LABEL = (() => {
   const m = {}
   for (const name of ATTRIBUTE_COLUMNS) {
     m[normLabel(name)] = name
     const abbr = ATTRIBUTE_ABBR[name]
     if (abbr) m[normLabel(abbr)] = name
+  }
+  for (const [alias, name] of Object.entries(SHEET_HEADER_TO_ATTRIBUTE)) {
+    m[normLabel(alias)] = name
   }
   return m
 })()
@@ -140,27 +129,4 @@ export function parseRecruitingDatabaseRow(row) {
 
 export function parseRecruitingDatabaseRows(rows) {
   return (rows || []).map(parseRecruitingDatabaseRow).filter(Boolean)
-}
-
-export function serializeRecruitingDatabaseRow(recruit) {
-  const r = []
-  r[NAME_COL] = str(recruit.name)
-  r[CLASS_COL] = str(recruit.class || 'HS')
-  r[POSITION_COL] = str(recruit.rawPosition ?? recruit.position)
-  r[ARCHETYPE_COL] = str(recruit.archetype)
-  r[STARS_COL] = starsNumberToSymbol(recruit.stars)
-  r[NATIONAL_RANK_COL] = recruit.nationalRank ?? ''
-  r[STATE_RANK_COL] = recruit.stateRank ?? ''
-  r[POSITION_RANK_COL] = recruit.positionRank ?? ''
-  r[HEIGHT_COL] = str(recruit.height)
-  r[WEIGHT_COL] = recruit.weight ?? ''
-  r[HOMETOWN_COL] = str(recruit.hometown)
-  r[STATE_COL] = str(recruit.state)
-  r[GEM_BUST_COL] = str(recruit.gemBust)
-  r[DEV_TRAIT_COL] = str(recruit.devTrait)
-  r[ATTRIBUTES_COL] = serializeAttributes(recruit.attributes)
-  r[PID_COL] = recruit.pid ?? ''
-  r[UPDATED_AT_COL] = recruit.updatedAt ?? ''
-  r[SCOUTED_AT_COL] = recruit.scoutedAt ?? ''
-  return r
 }

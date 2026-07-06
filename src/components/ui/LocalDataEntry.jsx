@@ -19,17 +19,22 @@ import PasteEntrySteps from './PasteEntrySteps'
  *   4. Editable GRID               (the pasted TSV as a real, gridded table —
  *                              the primary view; edit any cell before import)
  *   5. Import                      (serializes the grid and saves)
- *   …  Use Google Sheet instead    (escape hatch to the legacy Sheets flow)
+ *   …  Use Google Sheet instead    (optional escape hatch — only rendered if
+ *                              a caller passes onUseGoogle; the Recruiting
+ *                              Database dropped this path entirely)
  *
  * The AI prompts already emit tab-separated values, and `splitTsv` turns a
- * pasted reply into the SAME rows[][] the Google readers consume. The grid is
- * just an editable view of those rows; on import we re-serialize it to TSV so
- * each modal's `onImport(text)` reuses its existing parser. No sheet, no OAuth.
+ * pasted reply into the SAME rows[][] a Google Sheets reader would consume.
+ * The grid is just an editable view of those rows; on import we re-serialize
+ * it to TSV so each modal's `onImport(text)` reuses its existing parser. No
+ * sheet, no OAuth.
  *
  * Props:
  *   aiPrompt      — string copied by the Copy AI Prompt button.
  *   onImport(text)— async; parse + save the pasted text. Throws on failure.
- *   onUseGoogle   — switch to the Google Sheets flow.
+ *   onUseGoogle   — optional; switch to a Google Sheets flow. Omit to hide
+ *                   that escape hatch entirely (e.g. the Recruiting Database,
+ *                   which has no Sheets flow to switch to).
  *   onCancel      — close without importing (optional).
  *   importLabel   — primary button text (default "Import").
  *   busy          — external disable (e.g. a parent save in flight).
@@ -636,7 +641,9 @@ export default function LocalDataEntry({
 
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-2 pt-3">
-        <Button variant="ghost" size="sm" onClick={onUseGoogle} disabled={disabled}>Use Google Sheet instead</Button>
+        {onUseGoogle && (
+          <Button variant="ghost" size="sm" onClick={onUseGoogle} disabled={disabled}>Use Google Sheet instead</Button>
+        )}
         <div className="flex gap-2 ml-auto">
           {onCancel && <Button variant="secondary" size="sm" onClick={onCancel} disabled={disabled}>Cancel</Button>}
           <Button variant="primary" size="sm" onClick={handleImport} disabled={disabled || !text.trim()}>
