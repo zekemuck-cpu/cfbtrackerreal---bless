@@ -51,6 +51,8 @@ export const RECRUIT_FORM_OVERRIDES = {
   'ATH - Thumper': ['Awareness', 'Speed', 'Acceleration', 'Strength', 'Play Recognition', 'Tackle', 'Hit Power', 'Pursuit', 'Man Coverage', 'Zone Coverage'],
   'ATH - Backfield Threat': ['Awareness', 'Speed', 'Acceleration', 'Carrying', 'Break Tackle', 'Change of Direction', 'Juke Move', 'Spin Move', 'BC Vision', 'Catching'],
   'ATH - Physical Route Runner': ['Awareness', 'Speed', 'Strength', 'Acceleration', 'Run Block', 'Pass Block', 'Catching', 'Catch In Traffic', 'Short Route', 'Medium Route'],
+  'ATH - Elusive Bruiser': ['Awareness', 'Speed', 'Acceleration', 'Carrying', 'Break Tackle', 'Change of Direction', 'Juke Move', 'Spin Move', 'BC Vision', 'Catching'],
+  'ATH - Speed Rusher': ['Awareness', 'Strength', 'Acceleration', 'Block Shedding', 'Tackle', 'Hit Power', 'Power Moves', 'Finesse Moves', 'Speed', 'Pursuit'],
 }
 
 // Serialize an attribute map to the compact single-cell sheet format shared with

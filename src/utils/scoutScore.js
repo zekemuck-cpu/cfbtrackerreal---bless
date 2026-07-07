@@ -103,6 +103,8 @@ const ATH_ARCHETYPE_TO_OVR_POSITION = {
   'Thumper': 'OLB',
   'Backfield Threat': 'HB',
   'Physical Route Runner': 'TE',
+  'Elusive Bruiser': 'HB',
+  'Speed Rusher': 'DE',
 }
 
 // { overall, low, high } projected day-1 overall, or null when not predictable

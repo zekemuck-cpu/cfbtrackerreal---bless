@@ -60,7 +60,9 @@ export const ARCHETYPE_OVERRIDES = {
   "ATH - Pure Possession": ARRAYS.TE_PHYSICAL,
   "ATH - Thumper": ARRAYS.THUMPER,
   "ATH - Backfield Threat": ARRAYS.RUNNER,
-  "ATH - Physical Route Runner": ARRAYS.TE_PHYSICAL
+  "ATH - Physical Route Runner": ARRAYS.TE_PHYSICAL,
+  "ATH - Elusive Bruiser": ARRAYS.RUNNER,
+  "ATH - Speed Rusher": ARRAYS.POWER_RUSHER
 };
 
 // Finalized blueprint structure updated to reflect your exact roster options
@@ -149,5 +151,7 @@ export const ARCHETYPE_REGISTRY = [
   { position: "ATH", archetype: "ATH - Pure Possession" },
   { position: "ATH", archetype: "ATH - Thumper" },
   { position: "ATH", archetype: "ATH - Backfield Threat" },
-  { position: "ATH", archetype: "ATH - Physical Route Runner" }
+  { position: "ATH", archetype: "ATH - Physical Route Runner" },
+  { position: "ATH", archetype: "ATH - Elusive Bruiser" },
+  { position: "ATH", archetype: "ATH - Speed Rusher" }
 ];

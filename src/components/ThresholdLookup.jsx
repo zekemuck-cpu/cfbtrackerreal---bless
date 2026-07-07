@@ -456,7 +456,7 @@ const PROFILES = {
   },
 
   ATH: {
-    archetypes: ['Dual Threat', 'Pure Runner', 'East/West Playmaker', 'Backfield Threat', 'Contested Specialist', 'Physical Route Runner', 'Power Rusher', 'Thumper', 'Lurker', 'Pure Possession', 'Agile', 'Contact Seeker'],
+    archetypes: ['Dual Threat', 'Pure Runner', 'East/West Playmaker', 'Backfield Threat', 'Contested Specialist', 'Physical Route Runner', 'Power Rusher', 'Speed Rusher', 'Thumper', 'Lurker', 'Pure Possession', 'Agile', 'Contact Seeker', 'Elusive Bruiser'],
     'Dual Threat': { tiers: [
       t('SPD 90+ / THR/RUN 87+', 'ACC 86+ / THR PWR 85+', 'Explosive dual-threat with elite arm and legs; absurd development into a franchise game-changer.'),
       t('SPD 84+ / THR/RUN 82+', 'ACC 81+ / THR PWR 80+', 'Strong passer-runner hybrid; fast growth into a dynamic star.'),
@@ -499,6 +499,12 @@ const PROFILES = {
       t('PWR MVS 78+ / STR 76+', 'BLK SHED 74+', 'Solid power defender; a good contributor.'),
       t('Below power rusher benchmarks', 'Under 76 composite', 'Basic power athlete; slow growth.'),
     ]},
+    'Speed Rusher': { tiers: [
+      t('FIN MVS 91+ / SPD 89+', 'ACC 88+ / PURS 83+', 'Explosive first-step terror off the edge; elite bend and speed develop a sack artist.'),
+      t('FIN MVS 85+ / SPD 84+', 'ACC 83+ / PURS 80+', 'Dynamic edge rusher; strong growth.'),
+      t('FIN MVS 78+ / SPD 77+', 'ACC 76+', 'Good speed off the edge; a solid contributor.'),
+      t('Below speed rusher benchmarks', 'Under 76 composite', 'Average edge athlete; slow development.'),
+    ]},
     'Thumper': { tiers: [
       t('TAK 91+ / HIT PWR 89+', 'STR 87+ / PLAY REC 83+', 'Physical downhill hitter; elite toughness develops into a defensive star.'),
       t('TAK 85+ / HIT PWR 83+', 'STR 82+ / PLAY REC 79+', 'Big-contact thumper; fast growth.'),
@@ -531,6 +537,12 @@ const PROFILES = {
       t('BRK TKL 85+ / CAR 83+', 'BC VIS 79+', 'Tough contact seeker; strong growth.'),
       t('BRK TKL 77+ / CAR 76+', 'BC VIS 72+', 'Physical runner/defender; reliable.'),
       t('Below contact benchmarks', 'Under 76 composite', 'Average contact player; slow development.'),
+    ]},
+    'Elusive Bruiser': { tiers: [
+      t('BRK TKL 91+ / JUKE 88+', 'SPD 87+ / ACC 85+', 'Complete north-south back with power and wiggle; elite tackle-breaking drives superstar development.'),
+      t('BRK TKL 85+ / JUKE 83+', 'SPD 82+ / ACC 81+', 'Tough runner who makes people miss; a quick riser.'),
+      t('BRK TKL 77+ / JUKE 76+', 'SPD 76+', 'Balanced every-down back; a solid contributor.'),
+      t('Below elusive benchmarks', 'Under 76 composite', 'Average hybrid; slow development.'),
     ]},
   },
 

@@ -46,10 +46,13 @@ function positionForYear(player, year) {
 // Map an ATH player's archetype to the position group they'd most likely play.
 // Order matters: more-specific patterns first.
 // "Power Rusher" / "Speed Rusher" are EDGE archetypes in CFB, not HB.
+// "Physical Route Runner" is checked before the generic WR "route" pattern
+// below — it's a TE archetype, but would otherwise match WR on "route" first.
 const ATH_ARCHETYPE_MAP = [
   [/scrambler|dual.?threat|pocket|strong.?arm|improviser|field.?general/i, 'QB'],
   [/power.?rush|speed.?rush|pass.?rush|edge.?rush/i, 'EDGE'],
   [/speed.?back|power.?back|north.?south|east.?west|playmaker|elusive|receiving.?back|workhorse/i, 'HB'],
+  [/physical.?route/i, 'TE'],
   [/deep.?threat|slot|speedster|gadget|route/i, 'WR'],
   [/vertical|possession|blocking|move.?te/i, 'TE'],
   [/linebacker|thumper|signal.?caller|lurker/i, 'MIKE'],

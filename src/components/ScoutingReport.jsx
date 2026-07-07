@@ -25,7 +25,9 @@ export const RECRUIT_FORM_OVERRIDES = {
   "ATH - Pure Possession": ["Awareness", "Speed", "Strength", "Acceleration", "Run Block", "Pass Block", "Catching", "Catch In Traffic", "Short Route", "Medium Route"],
   "ATH - Thumper": ["Awareness", "Speed", "Acceleration", "Strength", "Play Recognition", "Tackle", "Hit Power", "Pursuit", "Man Coverage", "Zone Coverage"],
   "ATH - Backfield Threat": ["Awareness", "Speed", "Acceleration", "Carrying", "Break Tackle", "Change of Direction", "Juke Move", "Spin Move", "BC Vision", "Catching"],
-  "ATH - Physical Route Runner": ["Awareness", "Speed", "Strength", "Acceleration", "Run Block", "Pass Block", "Catching", "Catch In Traffic", "Short Route", "Medium Route"]
+  "ATH - Physical Route Runner": ["Awareness", "Speed", "Strength", "Acceleration", "Run Block", "Pass Block", "Catching", "Catch In Traffic", "Short Route", "Medium Route"],
+  "ATH - Elusive Bruiser": ["Awareness", "Speed", "Acceleration", "Carrying", "Break Tackle", "Change of Direction", "Juke Move", "Spin Move", "BC Vision", "Catching"],
+  "ATH - Speed Rusher": ["Awareness", "Strength", "Acceleration", "Block Shedding", "Tackle", "Hit Power", "Power Moves", "Finesse Moves", "Speed", "Pursuit"]
 };
 
 export const BASE_POSITION_CONFIG = {
@@ -64,7 +66,7 @@ export const OPTIONS_REGISTRY = [
   { position: "CB", archetypes: ["Field", "Bump and Run", "Boundary", "Zone"] },
   { position: "FS", archetypes: ["Hybrid", "Coverage Specialist", "Box Specialist"] },
   { position: "SS", archetypes: ["Hybrid", "Coverage Specialist", "Box Specialist"] },
-  { position: "ATH", archetypes: ["ATH - Power Rusher", "ATH - East/West Playmaker", "ATH - Contested Specialist", "ATH - Agile", "ATH - Pure Runner", "ATH - Dual Threat", "ATH - Contact Seeker", "ATH - Lurker", "ATH - Pure Possession", "ATH - Thumper", "ATH - Backfield Threat", "ATH - Physical Route Runner"] },
+  { position: "ATH", archetypes: ["ATH - Power Rusher", "ATH - East/West Playmaker", "ATH - Contested Specialist", "ATH - Agile", "ATH - Pure Runner", "ATH - Dual Threat", "ATH - Contact Seeker", "ATH - Lurker", "ATH - Pure Possession", "ATH - Thumper", "ATH - Backfield Threat", "ATH - Physical Route Runner", "ATH - Elusive Bruiser", "ATH - Speed Rusher"] },
   { position: "FB", archetypes: ["Blocking", "Utility"] },
   { position: "K", archetypes: ["Accurate", "Power"] },
   { position: "P", archetypes: ["Accurate", "Power"] },
