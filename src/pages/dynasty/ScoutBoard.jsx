@@ -12,7 +12,7 @@ import { buildRevealedPool } from '../../utils/devTraitLearning'
 import { buildAttributeQualityMap } from '../../utils/devPrediction'
 import GemBustIcon from '../../components/GemBustIcon'
 import ClearAllTargetsModal from '../../components/ClearAllTargetsModal'
-import { shapeTargetForDatabase } from '../../utils/recruitAttributes'
+import { shapeTargetForDatabase, positionBucket } from '../../utils/recruitAttributes'
 import { useToast } from '../../components/ui/Toast'
 
 // Scout Board (the Targets tab): tracked recruiting targets. Each compact
@@ -46,7 +46,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
   const ranks = []
   if (p.nationalRank) ranks.push({ v: p.nationalRank, l: 'National' })
   if (p.stateRank && p.state) ranks.push({ v: p.stateRank, l: p.state })
-  if (p.positionRank) ranks.push({ v: p.positionRank, l: p.position || 'Position' })
+  if (p.positionRank) ranks.push({ v: p.positionRank, l: p.rawPosition || p.position || 'Position' })
 
   const pct = scoutResult?.ok ? headlinePercentile(scoutResult.data) : null
   const proj = predictRecruitOverall(p)
@@ -100,7 +100,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
         <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border" style={{ backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-4)' }}>
           {p.pictureUrl
             ? <img src={proxyImageUrl(p.pictureUrl, 200)} alt="" className="w-full h-full object-cover" />
-            : <span className={`font-black uppercase text-txt-secondary ${(p.position || 'ATH').length > 3 ? 'text-[8px]' : 'text-[10px]'}`} style={{ letterSpacing: '0.04em' }}>{p.position || 'ATH'}</span>}
+            : <span className={`font-black uppercase text-txt-secondary ${(p.rawPosition || p.position || 'ATH').length > 3 ? 'text-[8px]' : 'text-[10px]'}`} style={{ letterSpacing: '0.04em' }}>{p.rawPosition || p.position || 'ATH'}</span>}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -125,7 +125,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
             )}
           </div>
           <div className="flex flex-wrap items-center gap-x-2.5 sm:gap-x-3 gap-y-0.5 mt-1 text-[9px] sm:text-[11px] tabular-nums" style={{ letterSpacing: '0.3px' }}>
-            <span className="uppercase text-txt-secondary font-semibold">{p.position || 'ATH'}</span>
+            <span className="uppercase text-txt-secondary font-semibold">{p.rawPosition || p.position || 'ATH'}</span>
             {ranks.map((rk) => (
               <span key={rk.l} className="inline-flex items-baseline gap-1 normal-case">
                 <span className="font-bold text-txt-secondary">#{rk.v}</span>
@@ -287,19 +287,50 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
   // The tracked targets for this recruiting year. Targets belong to the user's
   // own team, so they're only shown on that team's recruiting page — never on
   // another team's class.
+  //
+  // rawPosition/position mirrors ScoutStaff.jsx's shapeRecruit: dynasty.players
+  // stores a Target's specific raw position ("RT", "SAM", ...), but grading
+  // (archetypeBaseScore's position+archetype key, GradeReportContent's own
+  // position-based comp filtering) needs the BUCKETED position ("OT", "MIKE")
+  // to line up with how the Recruiting Database keys the exact same recruits
+  // — otherwise a Target's grade can't find its own comps under a mismatched
+  // key, even when they exist. rawPosition keeps today's specific-position
+  // display (badges, rank labels) unchanged.
   const targets = useMemo(() => {
     if (!viewingOwnTeam) return []
     const out = []
     for (const p of dynasty?.players || []) {
       if (!p.isTarget || Number(p.targetYear) !== yearN) continue
-      out.push({ p, status: getTargetStatus(p, userTid) })
+      const bucketed = { ...p, rawPosition: p.position, position: positionBucket(p.position) }
+      out.push({ p: bucketed, status: getTargetStatus(p, userTid) })
     }
     return out
   }, [dynasty?.players, yearN, userTid, viewingOwnTeam])
 
+  // Grading comp pool — every recruit the Recruiting Database itself grades
+  // against (real Targets across every class year, bucketed the same way,
+  // PLUS recruitingDatabasePlayers extras that were imported straight into
+  // the Database and never became a Target), minus anything explicitly
+  // excluded from the Database view. Mirrors PlayerDatabase.jsx's own
+  // combinedPlayers/pool exactly, so a recruit grades identically whether
+  // you're looking at him on the Targets board or in the Database — without
+  // this, an archetype with plenty of comps in the Database could show
+  // "can't grade yet" here just because none of those comps happen to be
+  // real Targets in dynasty.players.
+  const gradingPool = useMemo(() => {
+    const excluded = new Set((dynasty?.recruitingDatabaseExcludedPids || []).map(String))
+    const allTargets = (dynasty?.players || [])
+      .filter(p => p?.isTarget && p.name && !excluded.has(String(p.pid)))
+      .map(p => ({ ...p, rawPosition: p.position, position: positionBucket(p.position) }))
+    const seen = new Set(allTargets.map(p => String(p.pid)))
+    const extras = (dynasty?.recruitingDatabasePlayers || [])
+      .filter(p => !seen.has(String(p.pid)) && !excluded.has(String(p.pid)))
+    return [...allTargets, ...extras]
+  }, [dynasty?.players, dynasty?.recruitingDatabasePlayers, dynasty?.recruitingDatabaseExcludedPids])
+
   // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
-  const revealedPool = useMemo(() => buildRevealedPool(dynasty?.players || []), [dynasty?.players])
-  const weightsMap = useMemo(() => buildAttributeQualityMap(revealedPool, dynasty?.players || []), [revealedPool, dynasty?.players])
+  const revealedPool = useMemo(() => buildRevealedPool(gradingPool), [gradingPool])
+  const weightsMap = useMemo(() => buildAttributeQualityMap(revealedPool, gradingPool), [revealedPool, gradingPool])
 
   // Local scores (Scout Staff mode) — computed synchronously, no API needed.
   const localScores = useMemo(() => {
@@ -450,7 +481,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           {activeRanked.length === 0 ? (
             <div className="px-4 sm:px-5 py-8 text-center text-sm text-txt-tertiary">No targets at this position.</div>
           ) : activeRanked.map((r, i) => (
-            <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={dynasty?.players || []} weightsMap={weightsMap} pool={revealedPool}
+            <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={gradingPool} weightsMap={weightsMap} pool={revealedPool}
               isOpen={openPid === r.p.pid}
               onToggleOpen={() => toggleOpenPid(r.p.pid)}
               canEdit={canEdit}
@@ -506,7 +537,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           ) : (
             <>
               {removedRanked.map((r, i) => (
-                <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={dynasty?.players || []} weightsMap={weightsMap} pool={revealedPool}
+                <Row key={r.p.pid} r={r} rank={i + 1} pathPrefix={pathPrefix} scoutResult={scores.get(r.p.pid)} scoring={scoring} localScore={localScores.get(r.p.pid)} useLocalScores={scoutStaffEnabled} allPlayers={gradingPool} weightsMap={weightsMap} pool={revealedPool}
                   isOpen={openPid === r.p.pid}
                   onToggleOpen={() => toggleOpenPid(r.p.pid)}
                   canEdit={canEdit}
