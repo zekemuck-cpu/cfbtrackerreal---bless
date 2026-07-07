@@ -6,6 +6,8 @@
 // The Targets sheet lays out its 10 attribute columns in exactly this order for
 // each row's position/archetype, and the reader maps them back to names here.
 
+import { resolveRecruitGroup } from './recruitGroup'
+
 export const BASE_POSITION_CONFIG = {
   QB: ['Awareness', 'Throw Power', 'Short Accuracy', 'Medium Accuracy', 'Deep Accuracy', 'Throw On Run', 'Under Pressure', 'Break Sack', 'Speed', 'Acceleration'],
   HB: ['Awareness', 'Speed', 'Acceleration', 'Carrying', 'Break Tackle', 'Change of Direction', 'Juke Move', 'Spin Move', 'BC Vision', 'Catching'],
@@ -135,6 +137,43 @@ export function positionBucket(position) {
 // is affected.
 export function recruitingPosLabel(position) {
   return position === 'DE' ? 'EDGE' : position
+}
+
+// Shapes a raw Target record (a dynasty.players entry with isTarget: true)
+// into the same recruit shape recruitingDatabasePlayers/combinedPlayers
+// expect (bucketed position, computed group, display fields only — no
+// isTarget/teamsByYear/commitmentTid/etc). Mirrors ScoutStaff.jsx's internal
+// shapeRecruit, minus board-only fields (addedIndex, boardRemoved) that mean
+// nothing once archived. Used to permanently preserve a Target's scouted
+// data in the Recruiting Database at the moment it's removed from the
+// Targets page (deletePlayer, Clear All) — kept here rather than imported
+// from ScoutStaff.jsx to avoid a circular import with DynastyContext.jsx.
+export function shapeTargetForDatabase(pl) {
+  const position = positionBucket(pl.position)
+  return {
+    pid: pl.pid,
+    rawPosition: pl.position,
+    scoutedAt: typeof pl.scoutedAt === 'number' ? pl.scoutedAt : null,
+    updatedAt: typeof pl.updatedAt === 'number' ? pl.updatedAt : null,
+    name: pl.name,
+    position,
+    archetype: pl.archetype || '',
+    devTrait: pl.devTrait || '',
+    gemBust: pl.gemBust || '',
+    stars: pl.stars,
+    attributes: pl.attributes || {},
+    group: resolveRecruitGroup(position, pl.archetype),
+    isPortal: pl.isPortal,
+    previousTeam: pl.previousTeam,
+    nationalRank: pl.nationalRank,
+    stateRank: pl.stateRank,
+    height: pl.height || '',
+    weight: pl.weight || null,
+    hometown: pl.hometown || '',
+    state: pl.state || '',
+    class: pl.class || 'HS',
+    positionRank: pl.positionRank,
+  }
 }
 
 // The ordered list of 10 attribute names for a position+archetype, matching the

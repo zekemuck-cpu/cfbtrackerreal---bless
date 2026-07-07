@@ -11,6 +11,9 @@ import { computeScore } from '../../components/archetypeWeights'
 import { buildRevealedPool } from '../../utils/devTraitLearning'
 import { buildAttributeQualityMap } from '../../utils/devPrediction'
 import GemBustIcon from '../../components/GemBustIcon'
+import ClearAllTargetsModal from '../../components/ClearAllTargetsModal'
+import { shapeTargetForDatabase } from '../../utils/recruitAttributes'
+import { useToast } from '../../components/ui/Toast'
 
 // Scout Board (the Targets tab): tracked recruiting targets. Each compact
 // row shows name, stars, ranks, and a grade + composite score (local Scout
@@ -199,13 +202,41 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
 const SORT_OPTIONS = ['scoutscore', 'national', 'priority']
 
 export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', onPositionFilterChange = null, viewingOwnTeam = true, onResolveTargets = null, resolveCount = 0, scoutStaffEnabled = false }) {
-  const { updateDynasty, isViewOnly } = useDynasty()
+  const { updateDynasty, updateRecruitingDatabasePlayers, isViewOnly } = useDynasty()
+  const { toast } = useToast()
   const canEdit = viewingOwnTeam && !isViewOnly
   const handleToggleRemove = async (pl) => {
     if (!dynasty) return
     const players = dynasty.players || []
     const newPlayers = players.map(p => p.pid === pl.pid ? { ...p, boardRemoved: !p.boardRemoved } : p)
     await updateDynasty(dynasty.id, { players: newPlayers }, { changedPlayerPids: [pl.pid] })
+  }
+
+  const [showClearAll, setShowClearAll] = useState(false)
+  // mode: 'keep' archives each cleared target into the Recruiting Database
+  // first (skipping anyone already archived, e.g. from a prior Clear All)
+  // before removing them from dynasty.players — 'full' removes them outright
+  // with no archive step, so they disappear from the Database too.
+  const handleClearAll = async (pids, mode) => {
+    if (!dynasty || !pids.length) return
+    const pidSet = new Set(pids.map(String))
+    const playersArr = dynasty.players || []
+    if (mode === 'keep') {
+      const alreadyArchived = new Set((dynasty.recruitingDatabasePlayers || []).map(p => String(p.pid)))
+      const toArchive = playersArr
+        .filter(p => pidSet.has(String(p.pid)) && !alreadyArchived.has(String(p.pid)))
+        .map(shapeTargetForDatabase)
+      if (toArchive.length) {
+        await updateRecruitingDatabasePlayers(dynasty.id, [...(dynasty.recruitingDatabasePlayers || []), ...toArchive])
+      }
+    }
+    const nextPlayers = playersArr.filter(p => !pidSet.has(String(p.pid)))
+    await updateDynasty(dynasty.id, { players: nextPlayers })
+    toast.success(
+      mode === 'keep'
+        ? `Cleared ${pids.length} target${pids.length === 1 ? '' : 's'} — kept in the Recruiting Database.`
+        : `Cleared ${pids.length} target${pids.length === 1 ? '' : 's'} completely.`
+    )
   }
   const yearN = Number(year)
   // Only one row's dropdown can be expanded at a time — shared across both
@@ -346,6 +377,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
 
   const activeRanked = useMemo(() => ranked.filter((r) => !r.p.boardRemoved), [ranked])
   const removedRanked = useMemo(() => ranked.filter((r) => r.p.boardRemoved), [ranked])
+  const openTargetCount = useMemo(() => targets.filter((t) => t.status === 'open').length, [targets])
 
   if (targets.length === 0) {
     return (
@@ -398,6 +430,18 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
               <Button variant="secondary" size="sm" className="flex-shrink-0 whitespace-nowrap !px-2.5" onClick={onResolveTargets}>
                 <span className="sm:hidden">Commits ({resolveCount})</span>
                 <span className="hidden sm:inline">New commits? ({resolveCount})</span>
+              </Button>
+            )}
+            {canEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-shrink-0 whitespace-nowrap !px-2.5"
+                onClick={() => setShowClearAll(true)}
+                disabled={openTargetCount === 0}
+                title={openTargetCount === 0 ? 'No open targets to clear' : 'Clear all open targets'}
+              >
+                Clear All
               </Button>
             )}
           </div>
@@ -486,6 +530,14 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
           of the way. Without this, that row's own content — not just
           whitespace — is what ends up scrolled underneath the ticker. */}
       <div className="h-16" aria-hidden="true" />
+
+      {showClearAll && (
+        <ClearAllTargetsModal
+          targets={targets}
+          onClose={() => setShowClearAll(false)}
+          onConfirm={handleClearAll}
+        />
+      )}
     </div>
   )
 }

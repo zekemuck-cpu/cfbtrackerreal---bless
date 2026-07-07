@@ -105,6 +105,7 @@ import { normalizeAwardName } from '../utils/playerHeal'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
 import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid, canManageMembers } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
+import { shapeTargetForDatabase } from '../utils/recruitAttributes'
 import { normalizeEditionKey, DEFAULT_EDITION } from '../editions'
 import { getAllStaffDataForDynasty, setAllStaffDataForDynasty } from '../components/staffDB'
 
@@ -14839,6 +14840,29 @@ export function DynastyProvider({ children }) {
     const playerToDelete = (dynasty.players || []).find(p => p.pid === playerPid)
     // Get tid directly - tid is the ONLY source of truth
     const teamTid = getCurrentTeamTid(dynasty)
+
+    // A recruiting Target lives permanently in the Recruiting Database once
+    // scouted — deleting it here (the Targets page's own delete path, via
+    // PlayerEdit) removes the tracked-target record but must NOT erase its
+    // scouted data. Archive a shaped snapshot into recruitingDatabasePlayers
+    // first (skipped if already archived there, e.g. from a prior Clear All)
+    // so it keeps showing in the Database afterward. If this write fails, we
+    // abort the deletion entirely rather than risk silently losing the data.
+    if (playerToDelete?.isTarget) {
+      const alreadyArchived = (dynasty.recruitingDatabasePlayers || [])
+        .some(p => String(p.pid) === String(playerToDelete.pid))
+      if (!alreadyArchived) {
+        try {
+          await updateRecruitingDatabasePlayers(dynastyId, [
+            ...(dynasty.recruitingDatabasePlayers || []),
+            shapeTargetForDatabase(playerToDelete),
+          ])
+        } catch (error) {
+          console.error('[deletePlayer] Failed to archive target into Recruiting Database, aborting delete:', error)
+          throw error
+        }
+      }
+    }
 
     // OPTIMIZATION: For cloud storage, use single-document delete instead of rewriting all players
     if (isCloudStorage) {
