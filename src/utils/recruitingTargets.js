@@ -229,6 +229,11 @@ export function reconcileRecruitingRows({
 
   const committedToUs = []
 
+  // Counts brand-new records created by this call, so each gets a strictly
+  // increasing scoutedAt (see below) instead of colliding on the same
+  // millisecond when a whole board is pasted in at once.
+  let newRecordCount = 0
+
   for (const row of rows) {
     if (!row?.name) continue
     const { status, commitmentTid } = classifyCommitment(row.commitment, userTid, dynastyTeams)
@@ -249,7 +254,14 @@ export function reconcileRecruitingRows({
         // scoutedAt stamps the real wall-clock moment this target was first added —
         // unlike pid (a small per-dynasty counter), it's comparable across dynasties,
         // which is what lets the shared Recruiting Database show true add order.
-        { pid, id: `player-${pid}`, name: row.name, jerseyNumber: '', overall: null, scoutedAt: Date.now() },
+        // The `+ newRecordCount++` offset (same pattern as the Recruiting
+        // Database's own local-paste import — see mergeRecruitingDatabaseRows
+        // in recruitingDatabaseSync.js) keeps every row in THIS paste from
+        // colliding on the exact same millisecond: a synchronous loop over a
+        // whole pasted board runs in well under 1ms, so without the offset
+        // most/all new rows would tie on scoutedAt and fall back to a
+        // tiebreak that doesn't reliably preserve paste order.
+        { pid, id: `player-${pid}`, name: row.name, jerseyNumber: '', overall: null, scoutedAt: Date.now() + newRecordCount++ },
         row,
       )
     }

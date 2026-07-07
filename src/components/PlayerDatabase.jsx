@@ -14,7 +14,7 @@ import ConfirmModal from './ConfirmModal';
 import { useToast } from './ui/Toast';
 import RecruitingDatabaseImportModal from './RecruitingDatabaseImportModal';
 import RecruitingDatabaseBatchEditModal from './RecruitingDatabaseBatchEditModal';
-import { downloadRecruitingDatabaseJson, computeRecentRanks } from '../utils/recruitingDatabasePool';
+import { downloadRecruitingDatabaseJson, computeRecentRanks, reorderByRecentRank } from '../utils/recruitingDatabasePool';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
 // FIRST rendered line — whether that line ends up being the whole name (short
@@ -872,7 +872,7 @@ function GradeModal({ player, allPlayers, weightsMap, pool, onClose }) {
 const POSITIONS_LIST = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH','K','P'];
 const DEV_TRAITS = ['Hidden', 'Normal', 'Impact', 'Star', 'Elite'];
 
-function EditModal({ player, pool, weightsMap, onSave, onClose, onDelete = null }) {
+function EditModal({ player, pool, weightsMap, maxRank, onSave, onClose, onDelete = null }) {
   const [form, setForm] = useState({
     name: player.name,
     position: player.position,
@@ -880,6 +880,7 @@ function EditModal({ player, pool, weightsMap, onSave, onClose, onDelete = null 
     devTrait: player.devTrait || 'Hidden',
     gemBust: player.gemBust || '',
     stars: player.stars,
+    recentRank: player.recentRank ?? '',
     // A superset of every attribute value ever entered in this session — kept
     // separate from what's currently DISPLAYED so cycling archetypes back and
     // forth never permanently discards a value. Only the fields relevant to
@@ -969,6 +970,10 @@ function EditModal({ player, pool, weightsMap, onSave, onClose, onDelete = null 
       stars:     form.stars,
       group:     resolveRecruitGroup(form.position, form.archetype.trim()),
       attributes: Object.fromEntries(Object.entries(visibleAttrs).map(([k, v]) => [k, parseInt(v, 10) || 0])),
+      // Transient — read by handleEditSave to detect a manual "Recent #"
+      // move, then stripped before anything is actually saved. Not a real
+      // field on the recruit record (rank is always derived, never stored).
+      _desiredRecentRank: form.recentRank === '' ? null : Number(form.recentRank),
     };
     setSaving(true);
     // onSave resolves false (and shows its own error toast) if the write
@@ -1042,6 +1047,18 @@ function EditModal({ player, pool, weightsMap, onSave, onClose, onDelete = null 
                 >
                   {['5','4','3','2','1'].map(s => <option key={s} value={s}>{s} Star</option>)}
                 </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Recent #</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={maxRank || undefined}
+                  value={form.recentRank}
+                  onChange={e => setField('recentRank', e.target.value)}
+                  className="w-full bg-surface-3 border border-surface-4 text-xs p-2.5 rounded-lg text-white focus:outline-none focus:border-surface-5 transition"
+                />
+                <p className="text-[9px] text-slate-500 mt-1">Move this recruit to a different spot in the Recent order.</p>
               </div>
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Dev Trait</label>
@@ -1354,6 +1371,62 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const isFromRecruitingDatabase = (pl) =>
     pl?.pid != null && recruitingDatabasePlayers.some(p => String(p.pid) === String(pl.pid));
 
+  // A manual "Recent #" move. Rank is always RE-DERIVED from scoutedAt (see
+  // computeRecentRanks), never stored, so the only way to make a typed
+  // position stick is to rewrite scoutedAt across the WHOLE combined list in
+  // its new order (reorderByRecentRank) — this deliberately overwrites every
+  // OTHER recruit's scoutedAt too, not just the moved one, same tradeoff as a
+  // drag reorder. The edited recruit's normal field edits still go through
+  // whichever path it already belongs to (onEdit for a real Target, straight
+  // into recruitingDatabasePlayers otherwise); everyone else displaced by the
+  // move gets ONE extra batched write per array, never one write per player.
+  const handleRecentRankEdit = async (updatedFields, original, desiredRank) => {
+    const reordered = reorderByRecentRank(combinedPlayers, original.pid, desiredRank);
+    if (!reordered) return false;
+    const scoutedAtByPid = new Map(reordered.map(r => [String(r.pid), r.scoutedAt]));
+    const editedIsDbOnly = isFromRecruitingDatabase(original);
+
+    try {
+      if (editedIsDbOnly) {
+        const nextDb = recruitingDatabasePlayers.map(p => {
+          const scoutedAt = scoutedAtByPid.get(String(p.pid));
+          if (String(p.pid) === String(original.pid)) {
+            return { ...p, ...updatedFields, scoutedAt: scoutedAt ?? p.scoutedAt, updatedAt: Date.now() };
+          }
+          return scoutedAt != null ? { ...p, scoutedAt } : p;
+        });
+        await updateRecruitingDatabasePlayers(currentDynasty.id, nextDb);
+      } else {
+        if (!onEdit) return false;
+        const ok = await onEdit({ ...updatedFields, scoutedAt: scoutedAtByPid.get(String(original.pid)) }, original);
+        if (ok === false) return false;
+
+        const nextDb = recruitingDatabasePlayers.map(p => {
+          const scoutedAt = scoutedAtByPid.get(String(p.pid));
+          return scoutedAt != null ? { ...p, scoutedAt } : p;
+        });
+        if (nextDb.some((p, i) => p !== recruitingDatabasePlayers[i])) {
+          await updateRecruitingDatabasePlayers(currentDynasty.id, nextDb);
+        }
+      }
+
+      const rawPlayers = currentDynasty?.players || [];
+      const nextPlayers = rawPlayers.map(p => {
+        if (String(p.pid) === String(original.pid)) return p; // handled via onEdit above, if applicable
+        const scoutedAt = scoutedAtByPid.get(String(p.pid));
+        return scoutedAt != null ? { ...p, scoutedAt } : p;
+      });
+      if (nextPlayers.some((p, i) => p !== rawPlayers[i])) {
+        await updateDynasty(currentDynasty.id, { players: nextPlayers });
+      }
+      return true;
+    } catch (error) {
+      console.error('Recent # reorder failed:', error);
+      toast.error('Failed to reorder. Please try again.');
+      return false;
+    }
+  };
+
   // Must be async and must return/await the underlying write — EditModal's
   // own handleSave does `const ok = await onSave(updated); if (ok !== false)
   // onClose()`. A version that fires the write and returns undefined
@@ -1361,9 +1434,14 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // succeeded and close immediately, whether or not anything actually
   // persisted or a write error was silently swallowed.
   const handleEditSave = async (updated, original) => {
+    const { _desiredRecentRank, ...updatedFields } = updated;
+    if (_desiredRecentRank != null && Number(_desiredRecentRank) !== original.recentRank) {
+      return await handleRecentRankEdit(updatedFields, original, Number(_desiredRecentRank));
+    }
+
     if (isFromRecruitingDatabase(original)) {
       try {
-        const next = recruitingDatabasePlayers.map(p => String(p.pid) === String(original.pid) ? { ...updated, updatedAt: Date.now() } : p);
+        const next = recruitingDatabasePlayers.map(p => String(p.pid) === String(original.pid) ? { ...updatedFields, updatedAt: Date.now() } : p);
         await updateRecruitingDatabasePlayers(currentDynasty.id, next);
         return true;
       } catch (error) {
@@ -1373,7 +1451,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       }
     }
     if (!onEdit) return false;
-    return await onEdit(updated, original);
+    return await onEdit(updatedFields, original);
   };
 
   const handleDelete = async (pl) => {
@@ -1401,7 +1479,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // updatePlayer) don't have that problem — updatePlayer re-reads the
   // dynasty fresh on every call — so those are simply looped, sequentially
   // awaited so each one sees the previous one's write.
-  const handleBatchSave = async ({ changedRows, deletedPids }) => {
+  const handleBatchSave = async ({ changedRows, deletedPids, rankMoves }) => {
     const dbOnlyChanges = new Map();
     const targetChanges = [];
     for (const { original, updated } of changedRows || []) {
@@ -1427,10 +1505,33 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
       else excludePids.add(String(pid));
     }
 
-    if (dbOnlyChanges.size || dbOnlyDeletePids.size) {
+    // Recent # moves: applied sequentially against an evolving working copy
+    // of the full combined order (reorderByRecentRank re-sorts by whatever
+    // recentRank it's handed, so each move needs to see the PREVIOUS move's
+    // result, not the stale render's ranks) — same "move a card, everyone in
+    // between shifts by one" semantics as the single-row Edit modal, just
+    // repeated once per moved row. scoutedAtByPid ends up holding the FINAL
+    // scoutedAt for every recruit touched by ANY move.
+    const scoutedAtByPid = new Map();
+    if (rankMoves?.length) {
+      let workingList = combinedPlayers.map(p => ({ pid: p.pid, recentRank: p.recentRank, scoutedAt: p.scoutedAt }));
+      for (const { pid, desiredRank } of rankMoves) {
+        const reordered = reorderByRecentRank(workingList, pid, desiredRank);
+        if (!reordered) continue;
+        workingList = reordered.map((r, i) => ({ pid: r.pid, scoutedAt: r.scoutedAt, recentRank: i + 1 }));
+        reordered.forEach(r => scoutedAtByPid.set(String(r.pid), r.scoutedAt));
+      }
+    }
+
+    if (dbOnlyChanges.size || dbOnlyDeletePids.size || scoutedAtByPid.size) {
       const next = recruitingDatabasePlayers
         .filter(p => !dbOnlyDeletePids.has(String(p.pid)))
-        .map(p => dbOnlyChanges.get(String(p.pid)) || p);
+        .map(p => {
+          const changed = dbOnlyChanges.get(String(p.pid));
+          const scoutedAt = scoutedAtByPid.get(String(p.pid));
+          if (changed) return scoutedAt != null ? { ...changed, scoutedAt } : changed;
+          return scoutedAt != null ? { ...p, scoutedAt } : p;
+        });
       await updateRecruitingDatabasePlayers(currentDynasty.id, next);
     }
     if (excludePids.size) {
@@ -1445,7 +1546,24 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
 
     for (const { original, updated } of targetChanges) {
       if (!onEdit) continue;
-      await onEdit(updated, original);
+      const scoutedAt = scoutedAtByPid.get(String(original.pid));
+      await onEdit(scoutedAt != null ? { ...updated, scoutedAt } : updated, original);
+    }
+
+    // Real Targets whose scoutedAt shifted but had no OTHER field edit (so
+    // they never went through onEdit above) — one combined dynasty.players
+    // write covers all of them, instead of one write per shifted player.
+    if (scoutedAtByPid.size) {
+      const targetChangedPids = new Set(targetChanges.map(({ original }) => String(original.pid)));
+      const rawPlayers = currentDynasty?.players || [];
+      const nextPlayers = rawPlayers.map(p => {
+        if (targetChangedPids.has(String(p.pid))) return p; // already written via onEdit above
+        const scoutedAt = scoutedAtByPid.get(String(p.pid));
+        return scoutedAt != null ? { ...p, scoutedAt } : p;
+      });
+      if (nextPlayers.some((p, i) => p !== rawPlayers[i])) {
+        await updateDynasty(currentDynasty.id, { players: nextPlayers });
+      }
     }
   };
 
@@ -1563,6 +1681,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           player={editingPlayer}
           pool={pool}
           weightsMap={weightsMap}
+          maxRank={combinedPlayers.length}
           onSave={updated => handleEditSave(updated, editingPlayer)}
           onClose={() => setEditingPlayer(null)}
           onDelete={(onDelete || isFromRecruitingDatabase(editingPlayer)) ? (() => handleDelete(editingPlayer)) : null}

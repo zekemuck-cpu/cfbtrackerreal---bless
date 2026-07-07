@@ -72,6 +72,28 @@ export function computeRecentRanks(players) {
   return rankByKey;
 }
 
+// Manually moves one recruit to a typed "Recent #" position — the same
+// "move a card in a list, everyone in between shifts by one" semantics as a
+// drag reorder, just expressed as a number. Rank is always RE-DERIVED from
+// scoutedAt (see computeRecentRanks above), never stored directly, so the
+// only way to make a manual position stick is to rewrite scoutedAt for the
+// WHOLE list in its new order — this intentionally overwrites every other
+// recruit's scoutedAt too, not just the moved one (accepted tradeoff, see
+// PlayerDatabase.jsx's Edit modal "Recent #" field). Returns an array of
+// { pid, scoutedAt } for every recruit in the new order, or null if the
+// moved pid isn't found.
+export function reorderByRecentRank(fullList, movedPid, desiredRank) {
+  const list = [...(fullList || [])].sort((a, b) => (a.recentRank ?? 0) - (b.recentRank ?? 0));
+  const oldIndex = list.findIndex(p => String(p.pid) === String(movedPid));
+  if (oldIndex === -1) return null;
+  const [moved] = list.splice(oldIndex, 1);
+  const newIndex = Math.max(0, Math.min(list.length, Math.round(desiredRank) - 1));
+  list.splice(newIndex, 0, moved);
+  const n = list.length;
+  const baseTime = Date.now() - (n - 1);
+  return list.map((p, i) => ({ pid: p.pid, scoutedAt: baseTime + i }));
+}
+
 // No React needed, so this works equally from a component (PlayerDatabase.jsx's
 // Export button) or from anywhere else that needs a portable backup of a
 // recruit list. Strips merge/rank bookkeeping fields that only make sense

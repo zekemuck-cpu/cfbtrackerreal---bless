@@ -190,9 +190,13 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
   useEffect(() => {
     if (isOpen && !seededRef.current) {
       seededRef.current = true
-      setRows(players.map(p => {
+      // Most-recent-first — same default order the Database table itself
+      // shows (its "Recent" column, descending), so the top row here is the
+      // same recruit as the top row there.
+      const sorted = [...players].sort((a, b) => (b.recentRank ?? 0) - (a.recentRank ?? 0))
+      setRows(sorted.map(p => {
         const attrKeys = attrKeysFor(p)
-        return { pid: p.pid, original: p, attrKeys, form: recruitToForm(p, attrKeys), deleted: false }
+        return { pid: p.pid, original: p, attrKeys, form: recruitToForm(p, attrKeys), recentRank: p.recentRank ?? '', deleted: false }
       }))
       setSearch('')
     }
@@ -205,6 +209,11 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
   }
   const updateAttr = (pid, key, value) => {
     setRows(prev => prev.map(r => (r.pid === pid ? { ...r, form: { ...r.form, attrs: { ...r.form.attrs, [key]: value } } } : r)))
+  }
+  // Kept separate from `form` — it's a transient reorder instruction, not a
+  // real recruit field, so it's never part of formsDiffer/formToRecruitFields.
+  const updateRecentRank = (pid, value) => {
+    setRows(prev => prev.map(r => (r.pid === pid ? { ...r, recentRank: value } : r)))
   }
   const markDeleted = (pid) => {
     setRows(prev => prev.map(r => (r.pid === pid ? { ...r, deleted: true } : r)))
@@ -221,6 +230,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
 
   const pendingDeleteCount = rows.filter(r => r.deleted).length
   const changedCount = rows.filter(r => !r.deleted && formsDiffer(r.form, recruitToForm(r.original, r.attrKeys), r.attrKeys)).length
+  const rankChangedCount = rows.filter(r => !r.deleted && r.recentRank !== '' && Number(r.recentRank) !== r.original.recentRank).length
 
   const handleSave = async () => {
     setSaving(true)
@@ -229,10 +239,17 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
         .filter(r => !r.deleted && formsDiffer(r.form, recruitToForm(r.original, r.attrKeys), r.attrKeys))
         .map(r => ({ original: r.original, updated: { ...r.original, ...formToRecruitFields(r.form, r.attrKeys) } }))
       const deletedPids = rows.filter(r => r.deleted).map(r => r.pid)
-      await onSaveBatch({ changedRows, deletedPids })
+      // Recent # moves: applied sequentially, in row order, against the
+      // evolving order — same semantics as the single-row Edit modal's
+      // reorder, just repeated once per row whose Recent # actually changed.
+      const rankMoves = rows
+        .filter(r => !r.deleted && r.recentRank !== '' && Number(r.recentRank) !== r.original.recentRank)
+        .map(r => ({ pid: r.pid, desiredRank: Number(r.recentRank) }))
+      await onSaveBatch({ changedRows, deletedPids, rankMoves })
       const parts = []
       if (changedRows.length) parts.push(`${changedRows.length} updated`)
       if (deletedPids.length) parts.push(`${deletedPids.length} removed`)
+      if (rankMoves.length) parts.push(`${rankMoves.length} reordered`)
       toast.success(parts.length ? `Batch edit saved — ${parts.join(', ')}.` : 'No changes to save.')
       onClose?.()
     } catch (error) {
@@ -287,6 +304,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
               <thead className="sticky top-0 z-10 bg-surface-3">
                 <tr className="text-[10px] font-semibold uppercase tracking-wide text-txt-tertiary">
                   <th className={stickyNameTh} style={{ boxShadow: '2px 0 0 var(--surface-4)' }}>Name</th>
+                  <th className="border border-surface-4 px-2 py-2 text-left min-w-[70px]">Recent #</th>
                   <th className="border border-surface-4 px-2 py-2 text-left min-w-[90px]">Class</th>
                   <th className="border border-surface-4 px-2 py-2 text-left min-w-[80px]">Pos</th>
                   <th className="border border-surface-4 px-2 py-2 text-left min-w-[160px]">Archetype</th>
@@ -317,6 +335,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
                           className={inputCls}
                         />
                       </td>
+                      <TextCell numeric value={r.recentRank} onChange={v => updateRecentRank(r.pid, v)} />
                       <SelectCell value={r.form.class} options={CLASS_OPTIONS} onChange={v => updateField(r.pid, 'class', v)} />
                       <SelectCell
                         value={r.form.rawPosition}
@@ -356,7 +375,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
                 })}
                 {visibleRows.length === 0 && (
                   <tr>
-                    <td colSpan={16} className="p-8 text-center text-txt-tertiary">No recruits match that filter.</td>
+                    <td colSpan={17} className="p-8 text-center text-txt-tertiary">No recruits match that filter.</td>
                   </tr>
                 )}
               </tbody>
@@ -366,8 +385,10 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
           <div className="flex items-center justify-between gap-3 pt-1 flex-shrink-0">
             <span className="text-xs text-txt-tertiary">
               {changedCount > 0 && `${changedCount} row${changedCount === 1 ? '' : 's'} edited`}
-              {changedCount > 0 && pendingDeleteCount > 0 && ' · '}
+              {changedCount > 0 && (pendingDeleteCount > 0 || rankChangedCount > 0) && ' · '}
               {pendingDeleteCount > 0 && `${pendingDeleteCount} to remove`}
+              {pendingDeleteCount > 0 && rankChangedCount > 0 && ' · '}
+              {rankChangedCount > 0 && `${rankChangedCount} to reorder`}
             </span>
             <div className="flex gap-2">
               <button onClick={onClose} disabled={saving} className="px-4 py-2 rounded-md font-semibold text-sm border border-surface-4 hover:bg-surface-3 text-txt-primary disabled:opacity-60">
@@ -375,7 +396,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
               </button>
               <button
                 onClick={handleSave}
-                disabled={saving || (changedCount === 0 && pendingDeleteCount === 0)}
+                disabled={saving || (changedCount === 0 && pendingDeleteCount === 0 && rankChangedCount === 0)}
                 className="px-4 py-2 rounded-md font-semibold text-sm disabled:opacity-60"
                 style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
               >
