@@ -264,8 +264,19 @@ export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, 
   const [scoutUrlText, setScoutUrlText] = useState('');
   const [analystUrlText, setAnalystUrlText] = useState('');
 
-  // Initial Boot-up: load names/images/bios immediately on mount
+  // Initial Boot-up: load names/images/bios immediately on mount.
+  // Gated on dynastyId, not just an empty deps array: dynastyId is
+  // `currentDynasty?.id ?? null` in the parent, which starts out null on a
+  // hard refresh until the dynasty actually finishes loading. getStaffData/
+  // saveStaffData above are built from dynastyId fresh every render, but this
+  // effect would otherwise still close over whichever version existed the
+  // one time it ran — if that happened before dynastyId was ready, every
+  // read below permanently used the unprefixed (wrong) accessor for this
+  // mount, so saved staff data would silently fail to load back in even
+  // though it was saved correctly under the right key. Depending on
+  // dynastyId re-fires this once it's actually available.
   useEffect(() => {
+    if (!dynastyId) return;
     async function loadBasicStaff() {
       const img1  = await getStaffData('scout_img');
       const img2  = await getStaffData('analyst_img');
@@ -319,11 +330,17 @@ export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, 
       try { if (scenarioBag) bioBagsRef.current.scenarios = JSON.parse(scenarioBag); } catch {}
     }
     loadBasicStaff();
-  }, []);
+  }, [dynastyId]);
 
-  // Contract migration: run once when dynasty year becomes available
+  // Contract migration: run once when dynasty year becomes available.
+  // currentYear alone isn't a reliable readiness signal here — the parent
+  // passes `currentDynasty?.currentYear || new Date().getFullYear()`, so
+  // currentYear is truthy (today's real calendar year) even before the
+  // dynasty has loaded, same race as loadBasicStaff above. Also gating on
+  // dynastyId prevents this from running once with a stale/unprefixed
+  // getStaffData and marking the migration "done" under the wrong key.
   useEffect(() => {
-    if (!currentYear) return;
+    if (!currentYear || !dynastyId) return;
     async function migrateContracts() {
       const sy1 = await getStaffData('scout_contract_start_year');
       if (!sy1) {
@@ -347,7 +364,7 @@ export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, 
       }
     }
     migrateContracts();
-  }, [currentYear]);
+  }, [currentYear, dynastyId]);
 
   // Automated write listeners saving content to Database clusters on mutations
   const handleNameChange = async (val, slot) => {

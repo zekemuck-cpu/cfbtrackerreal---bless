@@ -1367,6 +1367,19 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   );
 
   useEffect(() => {
+    // dynasty.id starts out null/undefined on a hard refresh (currentDynasty
+    // hydrates asynchronously) — this effect used to have an empty deps
+    // array, so if it fired before dynasty.id was ready, getStaffData above
+    // was permanently stuck using the unprefixed accessor from that first
+    // render (a stale closure — redefining getStaffData on every render
+    // doesn't help once this effect has already run). Every override below
+    // (cut/draft/transfer flags, starter thresholds, preferred archetypes,
+    // etc.) would then silently read as empty despite being saved correctly,
+    // since saves always happen well after dynasty.id is loaded. Depending on
+    // dynasty?.id and bailing until it's real fixes the race, and as a bonus
+    // correctly reloads this dynasty's own overrides if dynasty ever changes
+    // out from under this component without it unmounting.
+    if (!dynasty?.id) return;
     async function load() {
       // Fire every staffDB read in parallel instead of chaining them one
       // after another — each is a separate IndexedDB round-trip, so awaiting
@@ -1413,7 +1426,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
       setStrategiesLoaded(true);
     }
     load();
-  }, []);
+  }, [dynasty?.id]);
 
   const toggleRecruitStrategy = async (pos, type) => {
     const hub = allHubs[pos];
