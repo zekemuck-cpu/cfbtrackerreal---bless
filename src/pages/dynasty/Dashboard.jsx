@@ -7061,6 +7061,36 @@ export default function Dashboard() {
         </div>
       )}
 
+          {/* To-Do List — deliberately rendered ONCE here, after the whole
+              phase ternary above, rather than threaded into every individual
+              phase's own todos array (preseason/regular season/conference
+              championship/postseason/offseason each build their own list
+              independently). That would mean touching 10+ separate spots for
+              a feature that should never disappear; this way it always shows
+              up right under whatever phase-specific card rendered above,
+              regardless of phase, from one place. */}
+          {(() => {
+            const todoItems = currentDynasty.todoItems || []
+            const openCount = todoItems.filter(i => !i.done).length
+            return (
+              <div className="space-y-3">
+                <h3 className="font-display font-bold uppercase leading-none text-txt-primary py-3 pl-3 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', ...sectionStripStyle }}>
+                  To-Do List
+                </h3>
+                {renderTodoList({
+                  todos: [{
+                    key: 'todo-list',
+                    done: openCount === 0,
+                    title: 'To-Do List',
+                    subtitle: openCount > 0 ? `${openCount} open item${openCount === 1 ? '' : 's'}` : 'All caught up',
+                    viewTo: `${pathPrefix}/todo-list`,
+                  }],
+                  isViewOnly,
+                })}
+              </div>
+            )
+          })()}
+
           {/* Roster Section - Desktop Only (below tasks). Hidden when last
               week's recap exists; in that case Roster + Schedule fold into
               the tabbed mobile-style section below (full width, both cols). */}

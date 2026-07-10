@@ -26,7 +26,7 @@ import {
   Dashboard, Roster, Rankings, Stats, CoachCareer, CoachBuild, Coaches, Players, Player, PlayerEdit,
   PlayersByState, AllTimeLineup, Recruiting, ScoutStaff, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
-  ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
+  ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, ToDoList, Game,
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, DynastyBlueprint, CoachProfile, CoachEdit, DevTools,
   SocialCharacter, LeaguePreferences, ImageGallery,
 } from './routes/lazyPages'
@@ -99,6 +99,7 @@ function AppRoutes() {
             <Route path="weekly-scores" element={<WeeklyScores />} />
             <Route path="weekly-scores/:year" element={<WeeklyScores />} />
             <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
+            <Route path="todo-list" element={<ToDoList />} />
             <Route path="cards" element={<CardCollection />} />
             <Route path="game/:gameId" element={<Game />} />
             <Route path="social/:charId" element={<SocialCharacter />} />
@@ -193,6 +194,7 @@ function AppRoutes() {
                   <Route path="weekly-scores" element={<WeeklyScores />} />
                   <Route path="weekly-scores/:year" element={<WeeklyScores />} />
                   <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
+            <Route path="todo-list" element={<ToDoList />} />
                   <Route path="cards" element={<CardCollection />} />
                   <Route path="game/new" element={<GameEdit />} />
                   <Route path="game/:gameId" element={<Game />} />
