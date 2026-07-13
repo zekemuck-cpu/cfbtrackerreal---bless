@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
+import { getEditionKey } from '../editions'
 import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import { isEditor } from '../data/leagueModel'
@@ -161,9 +162,14 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const editionConfig = getEditionConfig(currentDynasty)
   const showBlueprint = Boolean(editionConfig?.features?.dynastyPoints) && !isViewOnly
 
+  // Scheme Builder's formation/play/scheme data is sourced from CFB 27 only —
+  // hidden entirely for dynasties on any other game edition.
+  const showSchemeBuilder = getEditionKey(currentDynasty) === 'cfb27'
+
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },
     ...(showBlueprint ? [{ name: 'Dynasty Blueprint', path: `${pathPrefix}/team/${teamTid}/${currentYear}?tab=blueprint` }] : []),
+    ...(showSchemeBuilder ? [{ name: 'Scheme Builder', path: `${pathPrefix}/scheme-builder/${teamTid}/${currentYear}` }] : []),
     { name: 'Around the Country', path: `${pathPrefix}/weekly-scores` },
     { name: 'Top 25', path: `${pathPrefix}/rankings` },
     { name: 'CFP Bracket', path: `${pathPrefix}/cfp-bracket` },

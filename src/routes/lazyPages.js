@@ -49,6 +49,7 @@ export const DevTools = lazyWithPreload(() => import('../pages/dynasty/DevTools'
 export const ImageGallery = lazyWithPreload(() => import('../pages/admin/ImageGallery'))
 export const ScoutStaff = lazyWithPreload(() => import('../components/ScoutStaff'))
 export const CoachBuild = lazyWithPreload(() => import('../pages/dynasty/CoachBuild'))
+export const SchemeBuilder = lazyWithPreload(() => import('../pages/dynasty/SchemeBuilder'))
 
 // Preload map: sidebar nav name → chunk preload fn.
 // Called on mouseenter/focus of nav links so chunks warm up before click.
@@ -73,6 +74,7 @@ export const preloadByNavName = {
   'Danger Zone': DangerZone.preload,
   'AI Prompts': PromptStudio.preload,
   'Dynasty Blueprint': TeamYear.preload,
+  'Scheme Builder': SchemeBuilder.preload,
 }
 
 // Warm the most commonly-visited pages during browser idle time.

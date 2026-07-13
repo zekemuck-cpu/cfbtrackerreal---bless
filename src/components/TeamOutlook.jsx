@@ -15,8 +15,12 @@ import { projectRoster, projectDepartures, projectNflCandidates } from '../utils
 import { buildBoard, SIDE_OPTIONS, ST_ROLE_SLOTS, sideOfPosition, resolveDepthLayout } from '../utils/outlookBoard'
 import { getTeamLogoByTid } from '../data/teams'
 import { OFFENSE_SCHEMES, DEFENSE_SCHEMES } from '../data/schemes'
-import { OFFENSE_TEAM_PLAYBOOKS, OFFENSE_SCHEME_PLAYBOOKS, DEFENSE_PLAYBOOKS, ALL_OFFENSE_PLAYBOOKS } from '../data/playbookList'
+import playbookTeams from '../data/playbookData/teams.json'
 import DepthChartPositionsModal from './DepthChartPositionsModal'
+
+// Real CFB27 school names for the offense "Team Playbooks" picker (from the
+// Scheme Builder data ingest — see scripts/ingestPlaybookData.mjs).
+const OFFENSE_TEAM_PLAYBOOKS = [...playbookTeams].map((t) => t.name).sort()
 
 const EMPTY_ARR = []
 const EMPTY_OBJ = {}
@@ -803,12 +807,12 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
                           ))}
 
                         {/* Scheme playbooks */}
-                        {(!pbSearch || OFFENSE_SCHEME_PLAYBOOKS.some(pb => pb.toLowerCase().includes(pbSearch.toLowerCase()))) && (
+                        {(!pbSearch || OFFENSE_SCHEMES.some(pb => pb.toLowerCase().includes(pbSearch.toLowerCase()))) && (
                           <>
                             <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider border-t mt-1" style={{ color: 'var(--text-tertiary)', borderColor: 'var(--surface-4)' }}>
                               Scheme Playbooks
                             </div>
-                            {OFFENSE_SCHEME_PLAYBOOKS
+                            {OFFENSE_SCHEMES
                               .filter(pb => !pbSearch || pb.toLowerCase().includes(pbSearch.toLowerCase()))
                               .map(pb => (
                                 <button
@@ -830,7 +834,7 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
                         <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                           Defense Playbooks
                         </div>
-                        {DEFENSE_PLAYBOOKS.map(pb => (
+                        {DEFENSE_SCHEMES.map(pb => (
                           <button
                             key={pb}
                             type="button"
@@ -871,11 +875,11 @@ export default function TeamOutlook({ tid, guardRef, focusPid, side: sideProp, o
                         {OFFENSE_TEAM_PLAYBOOKS.map(pb => <option key={pb} value={pb}>{pb}</option>)}
                       </optgroup>
                       <optgroup label="Scheme Playbooks">
-                        {OFFENSE_SCHEME_PLAYBOOKS.map(pb => <option key={pb} value={pb}>{pb}</option>)}
+                        {OFFENSE_SCHEMES.map(pb => <option key={pb} value={pb}>{pb}</option>)}
                       </optgroup>
                     </>
                   ) : (
-                    DEFENSE_PLAYBOOKS.map(pb => <option key={pb} value={pb}>{pb}</option>)
+                    DEFENSE_SCHEMES.map(pb => <option key={pb} value={pb}>{pb}</option>)
                   )}
                 </select>
               </div>

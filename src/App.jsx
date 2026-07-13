@@ -28,7 +28,7 @@ import {
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, ToDoList, Game,
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, DynastyBlueprint, CoachProfile, CoachEdit, DevTools,
-  SocialCharacter, LeaguePreferences, ImageGallery,
+  SocialCharacter, LeaguePreferences, ImageGallery, SchemeBuilder,
 } from './routes/lazyPages'
 
 
@@ -103,6 +103,7 @@ function AppRoutes() {
             <Route path="cards" element={<CardCollection />} />
             <Route path="game/:gameId" element={<Game />} />
             <Route path="social/:charId" element={<SocialCharacter />} />
+            <Route path="scheme-builder/:tid/:year" element={<SchemeBuilder />} />
           </Route>
 
           {/* All other routes wrapped in DynastyProvider */}
@@ -200,6 +201,7 @@ function AppRoutes() {
                   <Route path="game/:gameId" element={<Game />} />
                   <Route path="game/:gameId/edit" element={<GameEdit />} />
                   <Route path="social/:charId" element={<SocialCharacter />} />
+                  <Route path="scheme-builder/:tid/:year" element={<SchemeBuilder />} />
                   <Route path="preferences" element={<LeaguePreferences />} />
                   <Route path="admin" element={<DangerZone />} />
                   <Route path="league" element={<LeagueSettings />} />
