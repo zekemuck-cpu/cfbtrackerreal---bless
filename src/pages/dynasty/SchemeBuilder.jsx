@@ -3,11 +3,17 @@
 //     archetypes, then assemble a base package of real CFB27 formations.
 //   Archetypes mode: view/edit this team's players' real play-style
 //     archetypes (writes the same player.archetype field used app-wide).
-//   Game View mode: a plain (no scoring) reference of the real plays inside
-//     whatever formations were chosen — meant to be glanced at mid-game.
+//   Gameplan mode: a reference of the real plays inside every formation in
+//     the chosen playbook — meant to be glanced at mid-game.
 // CFB27-only: gated off for any other game edition.
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import {
+  DndContext, MouseSensor, TouchSensor, KeyboardSensor,
+  useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core'
+import { SortableContext, useSortable, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useDynasty } from '../../context/DynastyContext'
 import { getEditionKey } from '../../editions'
 import { TEAMS, getColorsFromTid } from '../../data/teamRegistry'
@@ -16,12 +22,12 @@ import { PageHero, Card, Badge, Button, EmptyState } from '../../components/ui'
 import { Input, Select } from '../../components/ui/FormField'
 import { projectRoster } from '../../utils/rosterProjection'
 import { buildBoard, DEPTH_CHART_CATALOG } from '../../utils/outlookBoard'
-import { scoreSchemeFit, scoreFormationFit, parseFormationPersonnel } from '../../utils/schemeFit'
+import { scoreSchemeFit, scoreFormationFit, scorePlaybookFit, parseFormationPersonnel } from '../../utils/schemeFit'
 import { archetypesForPosition } from '../../data/archetypeSchemeFit'
 import formationsData from '../../data/playbookData/formations.json'
 import teamsData from '../../data/playbookData/teams.json'
-import schemeFormationsData from '../../data/playbookData/schemeFormations.json'
 import schemeTeamIdsData from '../../data/playbookData/schemeTeamIds.json'
+import playbookTendencyData from '../../data/playbookData/playbookTendency.json'
 
 // Vite-native lazy loaders for the large per-set play files and per-team
 // playbook files — only the sets/teams actually opened get fetched.
@@ -33,8 +39,122 @@ const PLAY_TYPE_GROUPS = {
   defense: [['BLITZ', 'Blitz'], ['MAN', 'Man'], ['ZONE', 'Zone'], ['MATCH', 'Match']],
 }
 
+// Situational categories start with these three out of the box (removable,
+// and more can be added with custom titles) — stable ids so a category
+// that's never been touched still resolves to the same key once the user
+// does add/remove/star something in it and it gets persisted for real.
+const DEFAULT_SITUATIONAL_CATEGORIES = [
+  { id: 'redzone', name: 'Redzone', formationIds: [], playIds: [] },
+  { id: 'goalline', name: 'Goal Line', formationIds: [], playIds: [] },
+  { id: 'twomin', name: '2 Min Drill', formationIds: [], playIds: [] },
+]
+
+// Header bands (situational categories AND base-package formations) are
+// colored by what's actually inside them — the majority play type — so the
+// color carries real information (glance at a band, know if it's a run
+// look or a pass look) instead of being an arbitrary per-id hash. Separate
+// from team color entirely, matching the "team color is an accent, never a
+// fill" rule — these bands are a state/content indicator, not branding.
+const PLAY_TYPE_COLORS = {
+  offense: { RUN: '#dd9440', PASS: '#4090dd', RPO: '#9e6bdd' },
+  defense: { BLITZ: '#ef4444', MAN: '#9e6bdd', ZONE: '#4090dd', MATCH: '#22c55e' },
+}
+const EMPTY_BAND_COLOR = '#4e515c' // surface-5 — "nothing in here yet", not a type
+
+function dominantTypeColor(plays, side) {
+  if (!plays || !plays.length) return EMPTY_BAND_COLOR
+  const counts = {}
+  for (const p of plays) counts[p.type] = (counts[p.type] || 0) + 1
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]
+  return PLAY_TYPE_COLORS[side]?.[top] || EMPTY_BAND_COLOR
+}
+
 const slugSet = (name) => String(name).trim().replace(/[^a-zA-Z0-9-]+/g, '_')
 const formationId = (f) => `${f.set_name}::${f.formation_name}`
+
+// The SELECTED playbook's own formation list (with play counts) — a Map of
+// formationId ("set::formation") -> how many plays this specific playbook
+// carries out of it. Playbook-level SCORING (Stage 2) doesn't need this —
+// see scorePlaybookFit, which reads the already-loaded tendency data
+// instead — this is only for narrowing/labeling Stage 3's formation list
+// once a playbook is actually picked.
+function loadPlaybookFormationCounts(teamId, side) {
+  const path = `../../data/playbookData/teamPlaybooks/${teamId}.json`
+  const loader = teamPlaybookLoaders[path]
+  if (!loader) return Promise.resolve(new Map())
+  return loader().then((mod) => {
+    const data = mod.default || mod
+    const plays = data[side] || []
+    const counts = new Map()
+    for (const p of plays) {
+      const key = `${p.set}::${p.formation}`
+      counts.set(key, (counts.get(key) || 0) + 1)
+    }
+    return counts
+  })
+}
+
+// Same score-color convention as the scheme cards and formation cards —
+// success/default/outline by score band. `null`/undefined (not loaded yet)
+// renders nothing rather than a placeholder, so the list doesn't flicker.
+// Shown to one decimal place so genuinely different (if close) playbook
+// scores read as different, not just rounded to the same whole number.
+function PlaybookScoreBadge({ score }) {
+  if (score == null) return null
+  return <Badge variant={score >= 70 ? 'success' : score >= 40 ? 'default' : 'outline'}>{score.toFixed(1)}</Badge>
+}
+
+// Shared, consistently-structured breakdown for every score in Scheme
+// Builder (scheme rankings, playbook scores, formation scores) — same
+// columns everywhere (position, archetype/OVR, that slot's own 0-100
+// value, and its weight share of the total) so two scores of the SAME
+// type — two schemes, two playbooks, two formations — can be lined up
+// factor-by-factor instead of just comparing the final number.
+function ScoreBreakdownTable({ breakdown }) {
+  if (!breakdown || !breakdown.length) {
+    return <p className="mt-1.5 text-xs text-txt-tertiary">No archetypes are set yet for the positions this score is based on.</p>
+  }
+  return (
+    <div className="mt-1.5 rounded-sm border border-surface-5 overflow-hidden text-xs">
+      <div className="grid grid-cols-[2.5rem_1fr_3rem_3.5rem] gap-x-2 px-2 py-1 bg-surface-3 text-txt-tertiary font-semibold uppercase tracking-wide text-[10px]">
+        <span>Pos</span>
+        <span>Archetype</span>
+        <span className="text-right">Value</span>
+        <span className="text-right">Weight</span>
+      </div>
+      {breakdown.map((b, i) => (
+        <div key={`${b.position}-${i}`} className="grid grid-cols-[2.5rem_1fr_3rem_3.5rem] gap-x-2 px-2 py-1 border-t border-surface-5">
+          <span className="text-txt-primary font-semibold truncate">{b.position}</span>
+          <span className="text-txt-secondary truncate">
+            {b.archetype || 'Not set'}{b.ovr != null ? ` (${b.ovr} OVR)` : ''}
+          </span>
+          <span className="text-txt-primary tabular-nums text-right">{b.value.toFixed(1)}</span>
+          <span className="text-txt-tertiary tabular-nums text-right">{b.weightPct.toFixed(0)}%</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// A plain text toggle (no decorative icon, per CLAUDE.md) that reveals the
+// breakdown table on demand — collapsed by default so cards/pills stay
+// compact. `stop` stops the click from bubbling to a parent onClick,
+// needed when this sits inside a selectable Card.
+function BreakdownToggle({ breakdown, stop }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div onClick={stop ? (e) => e.stopPropagation() : undefined}>
+      <button
+        type="button"
+        className="text-[11px] font-semibold text-txt-tertiary hover:text-txt-primary underline decoration-dotted underline-offset-2"
+        onClick={(e) => { if (stop) e.stopPropagation(); setOpen((v) => !v) }}
+      >
+        {open ? 'Hide breakdown' : 'Show breakdown'}
+      </button>
+      {open && <ScoreBreakdownTable breakdown={breakdown} />}
+    </div>
+  )
+}
 
 function personnelLabel(f) {
   if (f.personnel) return { text: f.personnel, isEstimate: false }
@@ -57,6 +177,7 @@ export default function SchemeBuilder() {
   const [side, setSide] = useState('offense')
   const [mode, setMode] = useState('build')
   const [query, setQuery] = useState('')
+  const [playbookSearch, setPlaybookSearch] = useState('')
   const [setPlaysCache, setSetPlaysCache] = useState({})
 
   const isCfb27 = getEditionKey(currentDynasty) === 'cfb27'
@@ -101,11 +222,15 @@ export default function SchemeBuilder() {
   const packageSet = useMemo(() => new Set(packageIds), [packageIds])
   const roleAssignmentsKey = `${side}RoleAssignments`
   const roleAssignments = builderState[roleAssignmentsKey] || {}
-
-  const selectScheme = (scheme) => {
-    if (isViewOnly || !currentDynasty) return
-    updateDynasty(currentDynasty.id, { [schemeField]: scheme === selectedScheme ? null : scheme })
-  }
+  const playbookKey = `${side}PlaybookTeamId`
+  const selectedPlaybookTeamId = builderState[playbookKey] || null
+  // Game View "starred" plays — pinned outside their formation's collapsed
+  // play list for quick in-game glance access. Keyed by the play's own id
+  // (already unique per real play in the ingested data), not per-formation,
+  // since a play only ever appears under the one formation it belongs to.
+  const favoritePlayIdsKey = `${side}FavoritePlayIds`
+  const favoritePlayIds = builderState[favoritePlayIdsKey] || []
+  const favoritePlaySet = useMemo(() => new Set(favoritePlayIds), [favoritePlayIds])
 
   // Multi-level dot-notation keys (e.g. 'schemeBuilder.166.2026.x') only
   // nest correctly against Firestore — local IndexedDB storage does a
@@ -113,17 +238,38 @@ export default function SchemeBuilder() {
   // instead of a nested object. Build the nested object explicitly and
   // write it under a single top-level key, matching the established
   // pattern for teamFuture (DynastyContext.jsx's saveTeamFuturePlan).
-  const writeSchemeBuilderField = (key, value) => {
-    if (isViewOnly || !currentDynasty) return
+  //
+  // Pure builder (no updateDynasty call) so callers that need to change
+  // several schemeBuilder fields *and* a top-level field (e.g.
+  // offenseScheme) in the same click can merge everything into ONE
+  // updateDynasty call — two separate fire-and-forget calls race on the
+  // same read-modify-write cycle (each reads the dynasty before the
+  // other's write lands), and the second call silently clobbers the
+  // first's change instead of composing with it. Takes an object of
+  // key -> value so a single call can set multiple fields at once.
+  const buildSchemeBuilderPatch = (updates) => {
     const sb = currentDynasty?.schemeBuilder || {}
     const forTid = sb[tid] || {}
     const forYear = forTid[year] || {}
-    updateDynasty(currentDynasty.id, {
-      schemeBuilder: {
-        ...sb,
-        [tid]: { ...forTid, [year]: { ...forYear, [key]: value } },
-      },
-    })
+    return { schemeBuilder: { ...sb, [tid]: { ...forTid, [year]: { ...forYear, ...updates } } } }
+  }
+
+  const writeSchemeBuilderField = (key, value) => {
+    if (isViewOnly || !currentDynasty) return
+    updateDynasty(currentDynasty.id, buildSchemeBuilderPatch({ [key]: value }))
+  }
+
+  const selectScheme = (scheme) => {
+    if (isViewOnly || !currentDynasty) return
+    const next = scheme === selectedScheme ? null : scheme
+    // A playbook only makes sense within the scheme it was picked under —
+    // changing schemes clears it (and the package built under it — see
+    // selectPlaybook's comment) so the formation list doesn't stay narrowed
+    // to a playbook that no longer matches what's selected.
+    const updates = selectedPlaybookTeamId
+      ? { [schemeField]: next, ...buildSchemeBuilderPatch({ [playbookKey]: undefined, [packageKey]: undefined }) }
+      : { [schemeField]: next }
+    updateDynasty(currentDynasty.id, updates)
   }
 
   const setPackageIds = (next) => writeSchemeBuilderField(packageKey, next)
@@ -140,20 +286,165 @@ export default function SchemeBuilder() {
     writeSchemeBuilderField(roleAssignmentsKey, { ...roleAssignments, [slotId]: pid || undefined })
   }
 
+  // Star/unstar a real play for quick in-game glance access in Game View —
+  // starred plays surface above the collapsed play list instead of being
+  // buried inside it.
+  const toggleFavoritePlay = (playId) => {
+    const next = favoritePlaySet.has(playId)
+      ? favoritePlayIds.filter((id) => id !== playId)
+      : [...favoritePlayIds, playId]
+    writeSchemeBuilderField(favoritePlayIdsKey, next)
+  }
+
+  // Base package order is user-controlled (drag-to-reorder in Game View),
+  // not just insertion order — packageIds IS that order, so reordering is
+  // just an arrayMove write.
+  const reorderPackage = (oldIndex, newIndex) => setPackageIds(arrayMove(packageIds, oldIndex, newIndex))
+
+  // Situational categories (Redzone, Goal Line, 2 Min Drill by default, plus
+  // any custom ones) — each holds its own formationIds/playIds; starring
+  // still goes through the single shared favoritePlaySet above ("the same
+  // star ability"), not a separate per-category favorites list.
+  const situationalCategoriesKey = `${side}SituationalCategories`
+  const situationalCategories = builderState[situationalCategoriesKey] || DEFAULT_SITUATIONAL_CATEGORIES
+  const setSituationalCategories = (next) => writeSchemeBuilderField(situationalCategoriesKey, next)
+  const updateCategory = (catId, updater) => {
+    setSituationalCategories(situationalCategories.map((c) => (c.id === catId ? updater(c) : c)))
+  }
+  const addCategory = (name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setSituationalCategories([...situationalCategories, { id: crypto.randomUUID(), name: trimmed, formationIds: [], playIds: [] }])
+  }
+  const removeCategory = (catId) => setSituationalCategories(situationalCategories.filter((c) => c.id !== catId))
+  const addFormationToCategory = (catId, fid) => updateCategory(catId, (c) => (
+    c.formationIds.includes(fid) ? c : { ...c, formationIds: [...c.formationIds, fid] }
+  ))
+  const removeFormationFromCategory = (catId, fid) => updateCategory(catId, (c) => (
+    { ...c, formationIds: c.formationIds.filter((id) => id !== fid) }
+  ))
+  const addPlayToCategory = (catId, playId) => updateCategory(catId, (c) => (
+    c.playIds.includes(playId) ? c : { ...c, playIds: [...c.playIds, playId] }
+  ))
+  const removePlayFromCategory = (catId, playId) => updateCategory(catId, (c) => (
+    { ...c, playIds: c.playIds.filter((id) => id !== playId) }
+  ))
+  const reorderCategories = (oldIndex, newIndex) => setSituationalCategories(arrayMove(situationalCategories, oldIndex, newIndex))
+
+  // Deselects when re-picking the current playbook (toggle), used by the
+  // scheme-scoped picker buttons where the scheme is already known to match.
+  // Clearing the package alongside the playbook is deliberate: a package is
+  // "the formations I built out of THIS playbook" — carrying it over to a
+  // deselected (or different) playbook made the next pick look like it
+  // already had formations selected, when really it was leftover from the
+  // old one (formation ids can collide across playbooks since they're just
+  // set_name::formation_name, not playbook-scoped).
+  const selectPlaybook = (teamId) => {
+    if (isViewOnly || !currentDynasty) return
+    const next = teamId === selectedPlaybookTeamId ? undefined : teamId
+    updateDynasty(currentDynasty.id, buildSchemeBuilderPatch({ [playbookKey]: next, [packageKey]: undefined }))
+    setQuery('')
+    setPlaybookSearch('')
+  }
+
+  // Jumps straight to a specific playbook found via search, regardless of
+  // which scheme (if any) is currently selected — syncing the scheme to
+  // match so the rest of the page (rationale, fit scoring) stays consistent.
+  const selectPlaybookDirect = (teamId, scheme) => {
+    if (isViewOnly || !currentDynasty) return
+    const updates = buildSchemeBuilderPatch({ [playbookKey]: teamId, [packageKey]: undefined })
+    if (scheme && scheme !== selectedScheme) updates[schemeField] = scheme
+    updateDynasty(currentDynasty.id, updates)
+    setPlaybookSearch('')
+    setQuery('')
+  }
+
+  const deselectPlaybook = () => selectPlaybook(selectedPlaybookTeamId)
+
   const sideFormations = useMemo(() => formationsData.filter((f) => f.side === side), [side])
 
-  // Exact scheme -> formation membership straight from the game's own
-  // default playbook for that scheme (see schemeFormations.json), not a
-  // fuzzy real-team aggregate.
-  const officialFormations = selectedScheme ? (schemeFormationsData[side]?.[selectedScheme] || []) : []
-  const officialPlayCounts = useMemo(() => {
-    const m = new Map()
-    for (const row of officialFormations) m.set(`${row.set}::${row.formation}`, row.playCount)
-    return m
-  }, [officialFormations])
+  const officialTeamId = selectedScheme ? schemeTeamIdsData[side]?.[selectedScheme] : null
+  const runningTeams = useMemo(
+    () => (selectedScheme
+      ? teamsData.filter((t) => t[side === 'offense' ? 'offensiveScheme' : 'defensiveScheme'] === selectedScheme)
+      : []),
+    [selectedScheme, side],
+  )
+  const playbookLabel = !selectedPlaybookTeamId ? null
+    : selectedPlaybookTeamId === officialTeamId ? `Official ${selectedScheme} playbook`
+    : (teamsData.find((t) => t.id === selectedPlaybookTeamId)?.name || 'Selected playbook')
+
+  // Every playbook for this side (real teams + scheme templates), for the
+  // "search for a specific playbook" shortcut — not scoped to whichever
+  // scheme happens to be selected, so you can jump straight to a team you
+  // already know regardless of what's currently picked.
+  const allPlaybooksForSide = useMemo(() => {
+    const field = side === 'offense' ? 'offensiveScheme' : 'defensiveScheme'
+    const real = teamsData
+      .filter((t) => t[field])
+      .map((t) => ({ id: t.id, name: t.name, scheme: t[field] }))
+    const templates = Object.entries(schemeTeamIdsData[side] || {})
+      .map(([scheme, id]) => ({ id, name: `Official ${scheme} playbook`, scheme }))
+    return [...real, ...templates].sort((a, b) => a.name.localeCompare(b.name))
+  }, [side])
+
+  const playbookSearchResults = useMemo(() => {
+    const q = playbookSearch.trim().toLowerCase()
+    if (!q) return []
+    return allPlaybooksForSide.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 15)
+  }, [allPlaybooksForSide, playbookSearch])
+
+  // Real per-playbook run/pass/RPO/motion/option/personnel tendency, sourced
+  // from playbookgamer.com. Defense tendency only exists for the 30 generic
+  // scheme templates (real teams don't have customized defensive playbooks
+  // in the underlying game data), so this is null for most defense picks.
+  const playbookTendency = selectedPlaybookTeamId ? (playbookTendencyData[side]?.[selectedPlaybookTeamId] || null) : null
+
+  // The chosen playbook's own formation list (with how many plays it runs
+  // out of each) — loaded once per playbook selection. This is the pool
+  // scoredFormations below narrows to: you build your 4-8 base formations
+  // from what's actually IN the playbook you picked, not the full 554-
+  // formation catalog. `null` = no playbook selected yet or still loading.
+  const [playbookFormationCounts, setPlaybookFormationCounts] = useState(null)
+  useEffect(() => {
+    if (!selectedPlaybookTeamId) { setPlaybookFormationCounts(null); return undefined }
+    let cancelled = false
+    setPlaybookFormationCounts(null)
+    loadPlaybookFormationCounts(selectedPlaybookTeamId, side).then((counts) => {
+      if (!cancelled) setPlaybookFormationCounts(counts)
+    })
+    return () => { cancelled = true }
+  }, [selectedPlaybookTeamId, side])
+
+  // Playbook-level fit scores for every candidate shown in "Choose a
+  // Playbook" (Official + real teams running this scheme) — a real team's
+  // specific personnel usage can differ from a generic scheme template even
+  // though they share a scheme, so this scores each candidate individually
+  // rather than reusing the scheme-level score. Driven entirely by the
+  // already-loaded playbookTendencyData (no per-candidate formation-file
+  // fetch needed — see scorePlaybookFit), so this is synchronous.
+  const playbookScores = useMemo(() => {
+    if (!selectedScheme) return {}
+    const candidateIds = [officialTeamId, ...runningTeams.map((t) => t.id)].filter((id) => id != null)
+    const out = {}
+    for (const id of candidateIds) {
+      const tendency = playbookTendencyData[side]?.[id] || null
+      out[id] = scorePlaybookFit(board, side, selectedScheme, tendency)
+    }
+    return out
+  }, [selectedScheme, side, officialTeamId, runningTeams, board])
+
+  // Best-fitting playbooks first; a candidate scorePlaybookFit couldn't
+  // score at all (null — no starters at any of its slots) sinks to the
+  // bottom rather than sorting arbitrarily.
+  const rankedRunningTeams = useMemo(
+    () => [...runningTeams].sort((a, b) => (playbookScores[b.id]?.score ?? -1) - (playbookScores[a.id]?.score ?? -1)),
+    [runningTeams, playbookScores],
+  )
 
   const scoredFormations = useMemo(() => {
-    let rows = sideFormations
+    if (!playbookFormationCounts) return []
+    let rows = sideFormations.filter((f) => playbookFormationCounts.has(formationId(f)))
     if (query.trim()) {
       const q = query.trim().toLowerCase()
       rows = rows.filter((f) => f.formation_name.toLowerCase().includes(q) || f.set_name.toLowerCase().includes(q))
@@ -161,28 +452,29 @@ export default function SchemeBuilder() {
     return rows
       .map((f) => {
         const id = formationId(f)
-        const officialPlayCount = officialPlayCounts.get(id) || 0
         return {
           ...f,
           id,
           isSelected: packageSet.has(id),
-          isOfficial: officialPlayCount > 0,
-          officialPlayCount,
+          playbookPlayCount: playbookFormationCounts.get(id) || 0,
           personnelInfo: personnelLabel(f),
-          fit: scoreFormationFit(board, f, side === 'offense' ? selectedScheme : null),
+          fit: scoreFormationFit(board, f, side, selectedScheme),
         }
       })
       .sort((a, b) => {
         if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1
-        if (a.isOfficial !== b.isOfficial) return a.isOfficial ? -1 : 1
-        if (b.officialPlayCount !== a.officialPlayCount) return b.officialPlayCount - a.officialPlayCount
         return b.fit.score - a.fit.score
       })
-  }, [sideFormations, query, officialPlayCounts, board, side, selectedScheme, packageSet])
+  }, [sideFormations, query, playbookFormationCounts, board, side, selectedScheme, packageSet])
 
-  const teamsForScheme = (scheme, forSide) => {
-    const field = forSide === 'offense' ? 'offensiveScheme' : 'defensiveScheme'
-    return teamsData.filter((t) => t[field] === scheme)
+  // One-click convenience: fill the package with the top N formations from
+  // the currently narrowed (playbook-scoped) list, ranked by fit — the
+  // "build around fit recommendations" shortcut. Manual add/remove below
+  // still works the same for hand-picking instead.
+  const quickFillTopByFit = (count = 6) => {
+    if (isViewOnly) return
+    const top = scoredFormations.filter((f) => !f.isSelected).slice(0, count).map((f) => f.id)
+    setPackageIds([...new Set([...packageIds, ...top])])
   }
 
   const selectedFormationObjs = useMemo(
@@ -190,12 +482,35 @@ export default function SchemeBuilder() {
     [sideFormations, packageSet],
   )
 
-  // Game View: lazily fetch each selected formation's set-level play file
-  // once, cache the raw set (not per-formation) so multiple formations
+  // Game View's full list: every formation in the SELECTED PLAYBOOK (not
+  // narrowed by the Stage 3 search box, unlike scoredFormations). Order here
+  // is just catalog order — Game View itself derives "Your Base Package"'s
+  // order from packageIds (user-reorderable) and treats everything else as
+  // "Rest of the Playbook". Carries the same scoreFormationFit score shown
+  // in Build mode's Stage 3, so a formation reads the same recommendation
+  // wherever it's shown.
+  const gameViewFormations = useMemo(() => {
+    if (!playbookFormationCounts) return []
+    return sideFormations
+      .filter((f) => playbookFormationCounts.has(formationId(f)))
+      .map((f) => {
+        const id = formationId(f)
+        return {
+          ...f,
+          id,
+          isSelected: packageSet.has(id),
+          playbookPlayCount: playbookFormationCounts.get(id) || 0,
+          fit: scoreFormationFit(board, f, side, selectedScheme),
+        }
+      })
+  }, [sideFormations, playbookFormationCounts, packageSet, board, side, selectedScheme])
+
+  // Game View: lazily fetch every formation-in-playbook's set-level play
+  // file once, cache the raw set (not per-formation) so multiple formations
   // sharing a set (e.g. two different Gun looks) only fetch it once.
   useEffect(() => {
     if (mode !== 'game') return
-    selectedFormationObjs.forEach((f) => {
+    gameViewFormations.forEach((f) => {
       const cacheKey = `${side}/${slugSet(f.set_name)}`
       if (setPlaysCache[cacheKey]) return
       const path = `../../data/playbookData/plays/${side}/${slugSet(f.set_name)}.json`
@@ -206,7 +521,7 @@ export default function SchemeBuilder() {
       })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, side, selectedFormationObjs])
+  }, [mode, side, gameViewFormations])
 
   const playsForFormation = (f) => {
     const cacheKey = `${side}/${slugSet(f.set_name)}`
@@ -215,25 +530,20 @@ export default function SchemeBuilder() {
     return rows.filter((p) => p.formation === f.formation_name)
   }
 
-  const usePlaybook = async (teamId) => {
-    if (isViewOnly || !teamId) return
-    const path = `../../data/playbookData/teamPlaybooks/${teamId}.json`
-    const loader = teamPlaybookLoaders[path]
-    if (!loader) return
-    const mod = await loader()
-    const data = mod.default || mod
-    const plays = data[side] || []
-    const counts = new Map()
-    for (const p of plays) {
-      const key = `${p.set}::${p.formation}`
-      counts.set(key, (counts.get(key) || 0) + 1)
+  // Flat playId -> {play, formation} index over every formation in the
+  // current playbook — lets a situational category store bare play ids
+  // (added directly via its search box, independent of the play's own
+  // formation being in the package) and still render/look them up.
+  const playIndex = useMemo(() => {
+    const map = new Map()
+    for (const f of gameViewFormations) {
+      const plays = playsForFormation(f)
+      if (!plays) continue
+      for (const p of plays) map.set(p.id, { play: p, formation: f })
     }
-    const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k]) => k)
-    const merged = [...new Set([...packageIds, ...top])]
-    setPackageIds(merged)
-  }
-
-  const officialTeamId = selectedScheme ? schemeTeamIdsData[side]?.[selectedScheme] : null
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameViewFormations, setPlaysCache])
 
   if (!currentDynasty) return null
 
@@ -265,7 +575,7 @@ export default function SchemeBuilder() {
               Archetypes
             </Button>
             <Button variant={mode === 'game' ? 'primary' : 'outline'} accentColor={teamColors.primary} size="sm" onClick={() => setMode('game')}>
-              Game View
+              Gameplan
             </Button>
           </div>
         }
@@ -277,13 +587,24 @@ export default function SchemeBuilder() {
           schemeRankings={schemeRankings}
           selectedScheme={selectedScheme}
           onSelectScheme={selectScheme}
-          teamsForScheme={teamsForScheme}
+          runningTeams={rankedRunningTeams}
           officialTeamId={officialTeamId}
+          playbookScores={playbookScores}
+          selectedPlaybookTeamId={selectedPlaybookTeamId}
+          playbookLabel={playbookLabel}
+          playbookTendency={playbookTendency}
+          onSelectPlaybook={selectPlaybook}
+          onDeselectPlaybook={deselectPlaybook}
+          playbookSearch={playbookSearch}
+          onPlaybookSearchChange={setPlaybookSearch}
+          playbookSearchResults={playbookSearchResults}
+          onSelectPlaybookDirect={selectPlaybookDirect}
+          playbookLoaded={!!playbookFormationCounts}
           scoredFormations={scoredFormations}
           query={query}
           onQueryChange={setQuery}
           onTogglePackage={togglePackage}
-          onUsePlaybook={usePlaybook}
+          onQuickFill={quickFillTopByFit}
           packageCount={packageIds.length}
           teamColors={teamColors}
           accentText={accentText}
@@ -307,8 +628,24 @@ export default function SchemeBuilder() {
       {mode === 'game' && (
         <GameViewMode
           side={side}
-          selectedFormationObjs={selectedFormationObjs}
+          gameViewFormations={gameViewFormations}
           playsForFormation={playsForFormation}
+          playIndex={playIndex}
+          packageIds={packageIds}
+          onTogglePackage={togglePackage}
+          onReorderPackage={reorderPackage}
+          favoritePlaySet={favoritePlaySet}
+          onToggleFavoritePlay={toggleFavoritePlay}
+          situationalCategories={situationalCategories}
+          onAddCategory={addCategory}
+          onRemoveCategory={removeCategory}
+          onReorderCategories={reorderCategories}
+          onAddFormationToCategory={addFormationToCategory}
+          onRemoveFormationFromCategory={removeFormationFromCategory}
+          onAddPlayToCategory={addPlayToCategory}
+          onRemovePlayFromCategory={removePlayFromCategory}
+          teamColors={teamColors}
+          isViewOnly={isViewOnly}
           onSwitchToBuild={() => setMode('build')}
         />
       )}
@@ -317,14 +654,15 @@ export default function SchemeBuilder() {
 }
 
 function BuildMode({
-  side, schemeRankings, selectedScheme, onSelectScheme, teamsForScheme, officialTeamId,
-  scoredFormations, query, onQueryChange, onTogglePackage, onUsePlaybook,
+  side, schemeRankings, selectedScheme, onSelectScheme, runningTeams, officialTeamId, playbookScores,
+  selectedPlaybookTeamId, playbookLabel, playbookTendency, onSelectPlaybook, onDeselectPlaybook,
+  playbookSearch, onPlaybookSearchChange, playbookSearchResults, onSelectPlaybookDirect, playbookLoaded,
+  scoredFormations, query, onQueryChange, onTogglePackage, onQuickFill,
   packageCount, teamColors, accentText, isViewOnly,
 }) {
   const [showAllSchemes, setShowAllSchemes] = useState(false)
   const [showAllTeams, setShowAllTeams] = useState(false)
   const visibleSchemes = showAllSchemes ? schemeRankings : schemeRankings.slice(0, 6)
-  const runningTeams = selectedScheme ? teamsForScheme(selectedScheme, side) : []
   const visibleTeams = showAllTeams ? runningTeams : runningTeams.slice(0, 8)
 
   return (
@@ -351,9 +689,12 @@ function BuildMode({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="font-semibold text-sm text-txt-primary">{r.scheme}</div>
-                  <Badge variant={r.score >= 65 ? 'success' : r.score >= 40 ? 'default' : 'outline'}>{r.score}</Badge>
+                  <Badge variant={r.score >= 65 ? 'success' : r.score >= 40 ? 'default' : 'outline'}>{r.score.toFixed(1)}</Badge>
                 </div>
                 {r.rationale && <div className="mt-1.5 text-xs text-txt-tertiary">{r.rationale}</div>}
+                <div className="mt-2">
+                  <BreakdownToggle breakdown={r.breakdown} stop />
+                </div>
               </Card>
             )
           })}
@@ -369,42 +710,95 @@ function BuildMode({
         )}
       </section>
 
+      <section>
+        <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary mb-1">
+          Search for a Specific Playbook
+        </h2>
+        <p className="text-xs text-txt-tertiary mb-3">
+          Already know who you want to build from? Search any real team or official scheme playbook directly — picking one here sets the matching scheme automatically.
+        </p>
+        <Input
+          value={playbookSearch}
+          onChange={(e) => onPlaybookSearchChange(e.target.value)}
+          placeholder="Search playbooks (e.g. Alabama, Air Raid)..."
+          className="max-w-sm mb-2"
+        />
+        {playbookSearch.trim() && (
+          playbookSearchResults.length ? (
+            <div className="flex flex-wrap gap-2">
+              {playbookSearchResults.map((p) => {
+                const active = p.id === selectedPlaybookTeamId
+                return (
+                  <Button
+                    key={p.id}
+                    variant={active ? 'primary' : 'outline'}
+                    accentColor={active ? teamColors.primary : undefined}
+                    size="sm"
+                    disabled={isViewOnly}
+                    onClick={() => (active ? onDeselectPlaybook() : onSelectPlaybookDirect(p.id, p.scheme))}
+                  >
+                    {p.name} <span className={active ? 'ml-1' : 'text-txt-tertiary ml-1'}>({p.scheme})</span>
+                  </Button>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-txt-tertiary">No playbooks match "{playbookSearch}".</p>
+          )
+        )}
+      </section>
+
       {selectedScheme && (
         <section>
-          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
-              Base Package — {selectedScheme} ({packageCount} selected)
-            </h2>
-            <Input
-              value={query}
-              onChange={(e) => onQueryChange(e.target.value)}
-              placeholder="Search all formations..."
-              className="max-w-xs"
-            />
-          </div>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary mb-1">
+            Choose a {selectedScheme} Playbook
+          </h2>
+          <p className="text-xs text-txt-tertiary mb-3">
+            Pick one real playbook to build from — your base package comes from that playbook's actual formations, scored against your roster. The one you're on is highlighted in your team color; click it again to deselect. Each playbook's own score reflects how well your personnel fits ITS specific formation mix, not just the scheme in general.
+          </p>
 
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {officialTeamId && (
-              <Button variant="primary" size="sm" accentColor={teamColors.primary} disabled={isViewOnly} onClick={() => onUsePlaybook(officialTeamId)}>
-                Use official {selectedScheme} playbook
-              </Button>
-            )}
-            {!officialTeamId && (
-              <span className="text-xs text-txt-tertiary">No official default playbook found for {selectedScheme} — browse and add formations manually below.</span>
+          <div className="flex flex-wrap items-start gap-2 mb-3">
+            {officialTeamId ? (
+              <div className="flex flex-col items-start gap-1">
+                <Button
+                  variant={selectedPlaybookTeamId === officialTeamId ? 'primary' : 'outline'}
+                  size="sm"
+                  accentColor={selectedPlaybookTeamId === officialTeamId ? teamColors.primary : undefined}
+                  disabled={isViewOnly}
+                  onClick={() => onSelectPlaybook(officialTeamId)}
+                >
+                  Official {selectedScheme} playbook
+                  <PlaybookScoreBadge score={playbookScores[officialTeamId]?.score} />
+                </Button>
+                {playbookScores[officialTeamId] && <BreakdownToggle breakdown={playbookScores[officialTeamId].breakdown} />}
+              </div>
+            ) : (
+              <span className="text-xs text-txt-tertiary">No official default playbook found for {selectedScheme}.</span>
             )}
           </div>
 
           {runningTeams.length > 0 && (
-            <div className="mb-3">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-txt-tertiary mb-1">
-                <span>Real teams running {selectedScheme} ({runningTeams.length}):</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {visibleTeams.map((t) => (
-                  <Button key={t.id} variant="outline" size="sm" onClick={() => !isViewOnly && onUsePlaybook(t.id)} disabled={isViewOnly}>
-                    {t.name}
-                  </Button>
-                ))}
+            <div>
+              <div className="text-xs text-txt-tertiary mb-1">Real teams running {selectedScheme} ({runningTeams.length}), best fit first:</div>
+              <div className="flex flex-wrap items-start gap-2">
+                {visibleTeams.map((t) => {
+                  const active = t.id === selectedPlaybookTeamId
+                  return (
+                    <div key={t.id} className="flex flex-col items-start gap-1">
+                      <Button
+                        variant={active ? 'primary' : 'outline'}
+                        accentColor={active ? teamColors.primary : undefined}
+                        size="sm"
+                        onClick={() => !isViewOnly && onSelectPlaybook(t.id)}
+                        disabled={isViewOnly}
+                      >
+                        {t.name}
+                        <PlaybookScoreBadge score={playbookScores[t.id]?.score} />
+                      </Button>
+                      {playbookScores[t.id] && <BreakdownToggle breakdown={playbookScores[t.id].breakdown} />}
+                    </div>
+                  )
+                })}
                 {runningTeams.length > 8 && (
                   <button
                     type="button"
@@ -417,44 +811,135 @@ function BuildMode({
               </div>
             </div>
           )}
+        </section>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {scoredFormations.map((f) => (
-              <Card key={f.id} variant={f.isSelected ? 'elevated' : 'bordered'} padding="sm" style={f.isSelected ? { borderColor: teamColors.primary } : undefined}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold text-txt-primary truncate">{f.formation_name}</div>
-                    <div className="text-xs text-txt-tertiary">
-                      {f.set_name} · {f.play_count} plays{f.isOfficial ? ' · in official playbook' : ''}
-                    </div>
-                    <div className="text-xs text-txt-tertiary mt-0.5">
-                      {f.personnelInfo.text}{f.personnelInfo.isEstimate ? ' (est.)' : ''}
-                      {f.fit.avgOvr != null ? ` · ${f.fit.avgOvr} OVR personnel` : ''}
-                    </div>
-                  </div>
-                  <Badge variant={f.fit.score >= 70 ? 'success' : f.fit.score >= 40 ? 'default' : 'outline'}>{f.fit.score}</Badge>
-                </div>
-                {f.fit.missingRoles.length > 0 && (
-                  <div className="mt-1 text-xs" style={{ color: 'var(--accent-warning)' }}>
-                    Thin at: {f.fit.missingRoles.join(', ')}
-                  </div>
-                )}
-                <Button
-                  className="mt-2 w-full"
-                  size="sm"
-                  variant={f.isSelected ? 'primary' : 'outline'}
-                  accentColor={f.isSelected ? teamColors.primary : undefined}
-                  disabled={isViewOnly}
-                  onClick={() => onTogglePackage(f.id)}
-                >
-                  {f.isSelected ? 'Remove from package' : 'Add to package'}
-                </Button>
-              </Card>
-            ))}
+      {selectedScheme && selectedPlaybookTeamId && (
+        <section>
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-txt-secondary">
+              Base Package — {playbookLabel} ({packageCount} selected)
+            </h2>
+            <div className="flex items-center gap-2">
+              <Input
+                value={query}
+                onChange={(e) => onQueryChange(e.target.value)}
+                placeholder="Search this playbook..."
+                className="max-w-xs"
+              />
+              <Button variant="outline" size="sm" disabled={isViewOnly} onClick={onDeselectPlaybook}>
+                Deselect playbook
+              </Button>
+            </div>
           </div>
+
+          <PlaybookIdentityPanel side={side} tendency={playbookTendency} playbookLabel={playbookLabel} />
+
+          {!playbookLoaded ? (
+            <p className="text-xs text-txt-tertiary">Loading playbook...</p>
+          ) : !scoredFormations.length ? (
+            <EmptyState variant="compact" title="No formations found" message="This playbook doesn't carry any formations for this side, or your search didn't match anything." />
+          ) : (
+            <>
+              <div className="mb-3">
+                <Button variant="outline" size="sm" disabled={isViewOnly} onClick={() => onQuickFill(6)}>
+                  Quick-fill top 6 by fit
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {scoredFormations.map((f) => (
+                  <Card key={f.id} variant={f.isSelected ? 'elevated' : 'bordered'} padding="sm" style={f.isSelected ? { borderColor: teamColors.primary } : undefined}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-txt-primary truncate">{f.formation_name}</div>
+                        <div className="text-xs text-txt-tertiary">
+                          {f.set_name} · {f.playbookPlayCount} plays in this playbook
+                        </div>
+                        <div className="text-xs text-txt-tertiary mt-0.5">
+                          {f.personnelInfo.text}{f.personnelInfo.isEstimate ? ' (est.)' : ''}
+                          {f.fit.avgOvr != null ? ` · ${f.fit.avgOvr} OVR personnel` : ''}
+                        </div>
+                      </div>
+                      <Badge variant={f.fit.score >= 70 ? 'success' : f.fit.score >= 40 ? 'default' : 'outline'}>{f.fit.score.toFixed(1)}</Badge>
+                    </div>
+                    <BreakdownToggle breakdown={f.fit.breakdown} />
+                    <Button
+                      className="mt-2 w-full"
+                      size="sm"
+                      variant={f.isSelected ? 'primary' : 'outline'}
+                      accentColor={f.isSelected ? teamColors.primary : undefined}
+                      disabled={isViewOnly}
+                      onClick={() => onTogglePackage(f.id)}
+                    >
+                      {f.isSelected ? 'Remove from package' : 'Add to package'}
+                    </Button>
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
     </div>
+  )
+}
+
+// "var" is playbookgamer.com's own catch-all bucket for formations whose
+// personnel doesn't fit a clean 2-digit code — shown as "Multiple" rather
+// than the raw label since it isn't a real personnel grouping.
+const PERSONNEL_CODE_LABELS = { var: 'Multiple' }
+
+// Real run/pass/RPO/motion/option/personnel-mix identity for the selected
+// playbook (sourced from playbookgamer.com). Defense tendency only exists
+// for the 30 generic scheme templates — real teams don't have customized
+// defensive playbooks in the underlying game data — so this renders a short
+// note instead of stats when picking a real team's defense.
+function PlaybookIdentityPanel({ side, tendency, playbookLabel }) {
+  if (!tendency) {
+    if (side === 'offense') return null
+    return (
+      <p className="text-xs text-txt-tertiary mb-3">
+        No tendency data available for {playbookLabel}'s defense — only the official scheme playbooks have tendency stats.
+      </p>
+    )
+  }
+
+  const pct = (n) => (tendency.total ? Math.round((n / tendency.total) * 100) : 0)
+
+  if (side === 'offense') {
+    const topPersonnel = tendency.personnel
+      ? Object.entries(tendency.personnel).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 4)
+      : []
+    return (
+      <Card variant="bordered" padding="sm" className="mb-3">
+        <div className="text-xs font-bold uppercase tracking-wide text-txt-tertiary mb-2">Playbook Identity</div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-txt-secondary">
+          <span>{pct(tendency.run)}% Run</span>
+          <span>{pct(tendency.pass)}% Pass</span>
+          <span>{pct(tendency.rpo)}% RPO</span>
+          <span>{pct(tendency.motion)}% Motion</span>
+          <span>{pct(tendency.option)}% Option</span>
+          <span>{pct(tendency.qbRun)}% QB Run</span>
+        </div>
+        {topPersonnel.length > 0 && (
+          <div className="mt-1.5 text-xs text-txt-tertiary">
+            Most-used personnel: {topPersonnel.map(([code, count]) => `${PERSONNEL_CODE_LABELS[code] || code} (${count})`).join(', ')}
+          </div>
+        )}
+      </Card>
+    )
+  }
+
+  return (
+    <Card variant="bordered" padding="sm" className="mb-3">
+      <div className="text-xs font-bold uppercase tracking-wide text-txt-tertiary mb-2">Playbook Identity</div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-txt-secondary">
+        <span>{pct(tendency.zone)}% Zone</span>
+        <span>{pct(tendency.blitz)}% Blitz</span>
+        <span>{pct(tendency.man)}% Man</span>
+        <span>{pct(tendency.match)}% Match</span>
+      </div>
+    </Card>
   )
 }
 
@@ -474,6 +959,10 @@ const LG_RG_POS = ['LG', 'RG']
 const EDGE_POS = ['LEDG', 'LE', 'REDG', 'RE', 'EDGE', 'DE']
 const SAM_WILL_POS = ['SAM', 'WILL', 'OLB']
 const FS_SS_POS = ['FS', 'SS']
+// Nickel is a real hybrid role — plenty of real defenses play a safety
+// there instead of a true 3rd corner — so the switch pool includes both,
+// not just CB.
+const NICKEL_POS = ['CB', 'FS', 'SS']
 
 const ROLE_SLOTS = {
   offense: [
@@ -483,7 +972,8 @@ const ROLE_SLOTS = {
     { id: 'FB', label: 'FB', positions: ['FB'] },
     { id: 'WR', label: 'WR', positions: ['WR'] },
     { id: 'WR2', label: 'WR2', positions: ['WR'], groupRank: 1 },
-    { id: 'SLWR', label: 'Slot WR', positions: ['WR'], groupRank: 2 },
+    { id: 'WR3', label: 'WR3', positions: ['WR'], groupRank: 2 },
+    { id: 'SLWR', label: 'Slot WR', positions: ['WR'], groupRank: 3 },
     { id: 'TE', label: 'TE', positions: ['TE'] },
     { id: 'TE2', label: 'TE2', positions: ['TE'], groupRank: 1 },
     { id: 'LT', label: 'LT', positions: LT_RT_POS },
@@ -496,13 +986,14 @@ const ROLE_SLOTS = {
     { id: 'LEDG', label: 'LE', positions: EDGE_POS },
     { id: 'DT', label: 'DT', positions: ['DT', 'NT'] },
     { id: 'DT2', label: 'DT2', positions: ['DT', 'NT'], groupRank: 1 },
+    { id: 'DT3', label: 'DT3', positions: ['DT', 'NT'], groupRank: 2 },
     { id: 'REDG', label: 'RE', positions: EDGE_POS, groupRank: 1 },
     { id: 'SAM', label: 'SAM', positions: SAM_WILL_POS },
     { id: 'MIKE', label: 'MIKE', positions: ['MIKE'] },
     { id: 'WILL', label: 'WILL', positions: SAM_WILL_POS, groupRank: 1 },
     { id: 'CB', label: 'CB', positions: ['CB'] },
     { id: 'CB2', label: 'CB2', positions: ['CB'], groupRank: 1 },
-    { id: 'NB', label: 'Nickel', positions: ['CB'], groupRank: 2 },
+    { id: 'NB', label: 'Nickel', positions: NICKEL_POS, groupRank: 2 },
     { id: 'FS', label: 'FS', positions: FS_SS_POS },
     { id: 'SS', label: 'SS', positions: FS_SS_POS, groupRank: 1 },
   ],
@@ -625,52 +1116,627 @@ function ArchetypesMode({ side, players, board, currentDynasty, updatePlayer, is
   )
 }
 
-function GameViewMode({ side, selectedFormationObjs, playsForFormation, onSwitchToBuild }) {
-  if (!selectedFormationObjs.length) {
+// The star toggle itself — an actual star icon (filled + team-colored when
+// on, outlined otherwise), shared by in-formation play rows and the flat
+// play rows situational categories render for bare (formation-less-looking)
+// added plays.
+function StarToggle({ isFavorite, onClick, teamColors, disabled }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={isFavorite ? 'Unstar play' : 'Star play'}
+      aria-pressed={isFavorite}
+      className={`shrink-0 p-0.5 ${isFavorite ? '' : 'text-txt-tertiary hover:text-txt-primary'} ${disabled ? 'cursor-default' : ''}`}
+      style={isFavorite ? { color: teamColors.primary } : undefined}
+      onClick={onClick}
+    >
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill={isFavorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.5}>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6-4.5-4.2 6.1-.7z"
+        />
+      </svg>
+    </button>
+  )
+}
+
+// A single play row with a star toggle for Game View's favorite-play
+// mechanism.
+function PlayRow({ play, isFavorite, onToggleFavorite, teamColors, disabled }) {
+  return (
+    <li className="flex items-center justify-between gap-2">
+      <span className="text-sm text-txt-primary truncate">{play.name}</span>
+      <StarToggle isFavorite={isFavorite} teamColors={teamColors} disabled={disabled} onClick={() => !disabled && onToggleFavorite(play.id)} />
+    </li>
+  )
+}
+
+// The drag handle (three stacked bars, matching Sidebar's reorder-mode
+// convention) for base-package cards — only rendered when a card is inside
+// the reorderable "Your Base Package" grid.
+function DragHandle({ attributes, listeners, colorStyle }) {
+  return (
+    <button
+      type="button"
+      {...attributes}
+      {...listeners}
+      aria-label="Drag to reorder"
+      className="flex flex-col justify-center gap-[3px] shrink-0 px-1 py-1 -ml-1 rounded text-txt-tertiary hover:text-txt-primary cursor-grab active:cursor-grabbing"
+      style={{ touchAction: 'none', ...colorStyle }}
+    >
+      <span className="block w-3.5 h-px bg-current" />
+      <span className="block w-3.5 h-px bg-current" />
+      <span className="block w-3.5 h-px bg-current" />
+    </button>
+  )
+}
+
+// One formation's Game View card — starred plays surface directly under the
+// header (visible without expanding anything), and the full play list
+// (grouped by run/pass/rpo or blitz/man/zone/match) sits behind a collapsed
+// text toggle so a formation with few stars stays compact. `headerActions`
+// lets callers attach context-specific controls (add/remove package,
+// remove from category) without this card needing to know which context
+// it's in; `dragHandleProps` is only passed for reorderable base-package
+// cards.
+function FormationGameCard({
+  f, plays, favoritePlaySet, onToggleFavoritePlay, groups, teamColors, isViewOnly, headerActions, dragHandleProps,
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const favorited = plays ? plays.filter((p) => favoritePlaySet.has(p.id)) : []
+  return (
+    <Card variant={f.isSelected ? 'elevated' : 'bordered'} padding="sm" style={f.isSelected ? { borderColor: teamColors.primary } : undefined}>
+      <div className="mb-1.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
+            {dragHandleProps && <DragHandle {...dragHandleProps} />}
+            <div className="display-md truncate" style={{ fontSize: '0.9375rem' }}>{f.set_name} - {f.formation_name}</div>
+          </div>
+          {f.fit && (
+            <Badge variant={f.fit.score >= 70 ? 'success' : f.fit.score >= 40 ? 'default' : 'outline'} className="shrink-0">
+              {f.fit.score.toFixed(1)}
+            </Badge>
+          )}
+        </div>
+        {headerActions?.length > 0 && (
+          <div className="flex items-center gap-2.5 mt-1">
+            {headerActions.map((a) => (
+              <button
+                key={a.key}
+                type="button"
+                disabled={isViewOnly}
+                onClick={a.onClick}
+                className="text-[10px] font-semibold uppercase tracking-wide text-txt-tertiary hover:text-txt-primary underline decoration-dotted underline-offset-2 disabled:cursor-default"
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {f.fit && <BreakdownToggle breakdown={f.fit.breakdown} />}
+      </div>
+      {!plays ? (
+        <div className="text-xs text-txt-tertiary">Loading plays...</div>
+      ) : (
+        <>
+          {favorited.length > 0 && (
+            <ul className="space-y-1 mb-2">
+              {favorited.map((p) => (
+                <PlayRow key={p.id} play={p} isFavorite teamColors={teamColors} onToggleFavorite={onToggleFavoritePlay} disabled={isViewOnly} />
+              ))}
+            </ul>
+          )}
+          <button
+            type="button"
+            className="text-[11px] font-semibold text-txt-tertiary hover:text-txt-primary underline decoration-dotted underline-offset-2"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? 'Hide plays' : `Show all plays (${plays.length})`}
+          </button>
+          {expanded && (
+            <div className="space-y-3 mt-2">
+              {groups.map(([type, label]) => {
+                const rows = plays.filter((p) => p.type === type)
+                if (!rows.length) return null
+                return (
+                  <div key={type}>
+                    <div className="text-xs font-bold uppercase tracking-wide text-txt-tertiary mb-1">{label}</div>
+                    <ul className="space-y-1">
+                      {rows.map((p) => (
+                        <PlayRow
+                          key={p.id}
+                          play={p}
+                          isFavorite={favoritePlaySet.has(p.id)}
+                          teamColors={teamColors}
+                          onToggleFavorite={onToggleFavoritePlay}
+                          disabled={isViewOnly}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  )
+}
+
+// A base-package formation, styled to match the situational categories —
+// a colored header band (same per-id color cycle as categoryColor) over a
+// dense, always-expanded two-column play list — so "Your Base Package"
+// reads as the same call-sheet language instead of a boxed-in card style
+// with a collapsed play list. No per-play remove here (nothing to remove
+// from a formation's own play list); the header's action is the
+// add/remove-from-package toggle instead.
+function PackageFormationCard({ f, plays, favoritePlaySet, onToggleFavoritePlay, teamColors, isViewOnly, dragHandleProps, onTogglePackage, side }) {
+  const [expanded, setExpanded] = useState(false)
+  const rows = plays || []
+  const favorited = rows.filter((p) => favoritePlaySet.has(p.id))
+  const half = Math.ceil(rows.length / 2)
+  const col1 = rows.slice(0, half)
+  const col2 = rows.slice(half)
+  const bandColor = dominantTypeColor(rows, side)
+  const bandText = getContrastTextColor(bandColor)
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-surface-4">
+      <div className="flex items-center justify-between gap-2 px-4 py-2" style={{ backgroundColor: bandColor }}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {dragHandleProps && <DragHandle {...dragHandleProps} colorStyle={{ color: bandText }} />}
+          <div className="label-sm truncate" style={{ color: bandText }}>{f.set_name} - {f.formation_name}</div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-[11px] font-semibold tabular" style={{ color: bandText, opacity: 0.8 }}>{rows.length} plays</span>
+          {!isViewOnly && (
+            <button
+              type="button"
+              onClick={onTogglePackage}
+              className="text-[10px] font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+              style={{ color: bandText, opacity: 0.8 }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="bg-surface-2">
+        {!plays ? (
+          <div className="text-xs text-txt-tertiary px-4 py-3">Loading plays...</div>
+        ) : (
+          <>
+            {favorited.length > 0 && (
+              <div className="pt-1">
+                {favorited.map((p) => (
+                  <CategoryPlayRow key={p.id} play={p} isFavorite teamColors={teamColors} isViewOnly={isViewOnly} onToggleFavorite={onToggleFavoritePlay} side={side} />
+                ))}
+              </div>
+            )}
+            <div className="px-4 py-2">
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="text-[11px] font-semibold text-txt-tertiary hover:text-txt-primary underline decoration-dotted underline-offset-2"
+              >
+                {expanded ? 'Hide plays' : `Show all plays (${rows.length})`}
+              </button>
+            </div>
+            {expanded && (
+              rows.length === 0 ? (
+                <p className="text-xs text-txt-tertiary px-4 pb-3">No plays found for this formation.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2">
+                  <div className="sm:border-r sm:border-surface-4 pb-1">
+                    {col1.map((p) => (
+                      <CategoryPlayRow key={p.id} play={p} isFavorite={favoritePlaySet.has(p.id)} onToggleFavorite={onToggleFavoritePlay} teamColors={teamColors} isViewOnly={isViewOnly} side={side} />
+                    ))}
+                  </div>
+                  <div className="pb-1">
+                    {col2.map((p) => (
+                      <CategoryPlayRow key={p.id} play={p} isFavorite={favoritePlaySet.has(p.id)} onToggleFavorite={onToggleFavoritePlay} teamColors={teamColors} isViewOnly={isViewOnly} side={side} />
+                    ))}
+                  </div>
+                </div>
+              )
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Wraps a base-package PackageFormationCard as a dnd-kit sortable item so
+// the grid can be drag-reordered — same handle-carries-the-listeners
+// pattern as Sidebar's SortableNavRow, just using rectSortingStrategy for
+// a grid instead of a vertical list.
+function SortablePackageCard({ f, cardProps }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : undefined,
+    position: 'relative',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <PackageFormationCard f={f} dragHandleProps={{ attributes, listeners }} {...cardProps} />
+    </div>
+  )
+}
+
+// Same sortable-wrapper pattern as SortablePackageCard, for reordering
+// situational category cards instead of package formation cards.
+function SortableCategoryCard({ category, sectionProps }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : undefined,
+    position: 'relative',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <SituationalCategorySection category={category} dragHandleProps={{ attributes, listeners }} {...sectionProps} />
+    </div>
+  )
+}
+
+// Inline "type a name, click Add" control for creating a new situational
+// category.
+function AddCategoryControl({ onAdd, isViewOnly }) {
+  const [name, setName] = useState('')
+  if (isViewOnly) return null
+  const submit = () => {
+    if (!name.trim()) return
+    onAdd(name)
+    setName('')
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        placeholder="New category name..."
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
+        className="max-w-[220px]"
+      />
+      <Button variant="outline" size="sm" onClick={submit}>Add category</Button>
+    </div>
+  )
+}
+
+// One row inside a situational category's dense play list — a team-color
+// tick marks starred plays (matching the hero/chip accent language instead
+// of a second, competing accent color), a plain-text type label stands in
+// for a colored pill, and remove is a plain close glyph so the row stays
+// as narrow as a real call sheet's.
+function CategoryPlayRow({ play, onToggleFavorite, isFavorite, onRemove, teamColors, isViewOnly, side }) {
+  const typeColor = PLAY_TYPE_COLORS[side]?.[play.type]
+  return (
+    <div className="flex items-center gap-2 pl-3 pr-3 h-9 border-t border-surface-3 first:border-t-0 hover:bg-surface-3">
+      <span
+        className="w-[3px] h-3.5 rounded-sm shrink-0"
+        style={{ backgroundColor: isFavorite ? teamColors.primary : 'transparent' }}
+      />
+      <span className={`text-[13px] truncate flex-1 ${isFavorite ? 'text-txt-primary font-semibold' : 'text-txt-secondary'}`}>
+        {play.name}
+      </span>
+      <span className="label-xs shrink-0" style={typeColor ? { color: typeColor } : undefined}>{play.type}</span>
+      <StarToggle isFavorite={isFavorite} teamColors={teamColors} disabled={isViewOnly} onClick={() => onToggleFavorite(play.id)} />
+      {!isViewOnly && onRemove && (
+        <button type="button" onClick={onRemove} aria-label="Remove from category" className="shrink-0 text-txt-tertiary hover:text-txt-primary">
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
+
+// One situational category — a colored header band (per docs/DESIGN.md's
+// semantic-color system, never team color) over a dense, plain-text,
+// two-column play list — the structure of a real coach's call sheet.
+// Formations added via the search box get flattened into their individual
+// plays here rather than rendered as nested formation cards, so the list
+// reads as one flat set of calls for this situation, matching the
+// reference call sheet exactly.
+function SituationalCategorySection({
+  category, gameViewFormations, formationsById, playIndex, playsForFormation, side,
+  favoritePlaySet, onToggleFavoritePlay, teamColors, isViewOnly, dragHandleProps,
+  onAddFormation, onRemoveFormation, onAddPlay, onRemovePlay, onRemoveCategory,
+}) {
+  const [search, setSearch] = useState('')
+  const [searchVisible, setSearchVisible] = useState(true)
+  const q = search.trim().toLowerCase()
+  const matchedFormations = q
+    ? gameViewFormations.filter((f) => `${f.set_name} ${f.formation_name}`.toLowerCase().includes(q)).slice(0, 6)
+    : []
+  const matchedPlays = q
+    ? [...playIndex.values()].filter(({ play }) => play.name.toLowerCase().includes(q)).slice(0, 6)
+    : []
+
+  const rows = [
+    ...category.playIds.map((id) => playIndex.get(id)).filter(Boolean).map(({ play, formation }) => ({
+      key: `play:${play.id}`, play, formation, onRemove: () => onRemovePlay(category.id, play.id),
+    })),
+    ...category.formationIds.flatMap((fid) => {
+      const f = formationsById.get(fid)
+      const plays = f && playsForFormation(f)
+      if (!plays) return []
+      return plays.map((play) => ({
+        key: `formation:${fid}:${play.id}`, play, formation: f, onRemove: () => onRemoveFormation(category.id, fid),
+      }))
+    }),
+  ]
+  const half = Math.ceil(rows.length / 2)
+  const col1 = rows.slice(0, half)
+  const col2 = rows.slice(half)
+
+  const bandColor = dominantTypeColor(rows.map((r) => r.play), side)
+  const bandText = getContrastTextColor(bandColor)
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-surface-4">
+      <div className="flex items-center justify-between gap-2 px-4 py-2" style={{ backgroundColor: bandColor }}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {dragHandleProps && <DragHandle {...dragHandleProps} colorStyle={{ color: bandText }} />}
+          <div className="label-sm truncate" style={{ color: bandText }}>{category.name}</div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="text-[11px] font-semibold tabular" style={{ color: bandText, opacity: 0.8 }}>{rows.length} plays</span>
+          {!isViewOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() => setSearchVisible((v) => !v)}
+                className="text-[10px] font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+                style={{ color: bandText, opacity: 0.8 }}
+              >
+                {searchVisible ? 'Hide search' : 'Show search'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemoveCategory(category.id)}
+                className="text-[10px] font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+                style={{ color: bandText, opacity: 0.8 }}
+              >
+                Remove
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-surface-2">
+        {!isViewOnly && searchVisible && (
+          <div className="p-3 border-b border-surface-4">
+            <Input
+              placeholder="Search formations or plays to add..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {q && (
+              <div className="mt-1 rounded-md border border-surface-4 max-h-56 overflow-y-auto text-xs">
+                {matchedFormations.length === 0 && matchedPlays.length === 0 && (
+                  <div className="px-2 py-1.5 text-txt-tertiary">No matches.</div>
+                )}
+                {matchedFormations.map((f) => (
+                  <div key={f.id} className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-surface-4 first:border-t-0 bg-surface-3">
+                    <span className="truncate text-txt-primary">
+                      {f.set_name} - {f.formation_name} <span className="text-txt-tertiary">(formation)</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 font-semibold text-txt-tertiary hover:text-txt-primary underline decoration-dotted underline-offset-2"
+                      onClick={() => onAddFormation(category.id, f.id)}
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))}
+                {matchedPlays.map(({ play, formation }) => (
+                  <div key={play.id} className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-surface-4 first:border-t-0 bg-surface-3">
+                    <span className="truncate text-txt-primary">
+                      {play.name} <span className="text-txt-tertiary">({formation.set_name} - {formation.formation_name})</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="shrink-0 font-semibold text-txt-tertiary hover:text-txt-primary underline decoration-dotted underline-offset-2"
+                      onClick={() => onAddPlay(category.id, play.id)}
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {rows.length === 0 ? (
+          <p className="text-xs text-txt-tertiary px-4 py-3">No plays added yet — search above to add some.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2">
+            <div className="sm:border-r sm:border-surface-4 pb-1">
+              {col1.map((row) => (
+                <CategoryPlayRow
+                  key={row.key}
+                  play={row.play}
+                  isFavorite={favoritePlaySet.has(row.play.id)}
+                  onToggleFavorite={onToggleFavoritePlay}
+                  onRemove={row.onRemove}
+                  teamColors={teamColors}
+                  isViewOnly={isViewOnly}
+                  side={side}
+                />
+              ))}
+            </div>
+            <div className="pb-1">
+              {col2.map((row) => (
+                <CategoryPlayRow
+                  key={row.key}
+                  play={row.play}
+                  isFavorite={favoritePlaySet.has(row.play.id)}
+                  onToggleFavorite={onToggleFavoritePlay}
+                  onRemove={row.onRemove}
+                  teamColors={teamColors}
+                  isViewOnly={isViewOnly}
+                  side={side}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function GameViewMode({
+  side, gameViewFormations, playsForFormation, playIndex, packageIds, onTogglePackage, onReorderPackage,
+  favoritePlaySet, onToggleFavoritePlay, situationalCategories, onAddCategory, onRemoveCategory, onReorderCategories,
+  onAddFormationToCategory, onRemoveFormationFromCategory, onAddPlayToCategory, onRemovePlayFromCategory,
+  teamColors, isViewOnly, onSwitchToBuild,
+}) {
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  )
+
+  if (!gameViewFormations.length) {
     return (
       <EmptyState
-        title="No formations in your package yet"
-        message={`Build a base ${side} package first, then come back here for a clean in-game reference.`}
+        title="No playbook selected yet"
+        message={`Pick a ${side} playbook in Build mode, then come back here for a clean in-game reference of every formation in it.`}
         action={<Button variant="primary" onClick={onSwitchToBuild}>Go to Build mode</Button>}
       />
     )
   }
 
   const groups = PLAY_TYPE_GROUPS[side]
+  const formationsById = new Map(gameViewFormations.map((f) => [f.id, f]))
+  // Pinned order follows packageIds (user-reorderable), not catalog order —
+  // any stale id (e.g. left over from a since-changed playbook) just drops.
+  const pinned = packageIds.map((id) => formationsById.get(id)).filter(Boolean)
+  const rest = gameViewFormations.filter((f) => !f.isSelected)
+
+  const cardProps = (f) => ({
+    plays: playsForFormation(f),
+    favoritePlaySet,
+    onToggleFavoritePlay,
+    groups,
+    teamColors,
+    isViewOnly,
+    headerActions: isViewOnly ? [] : [{
+      key: 'package',
+      label: f.isSelected ? 'Remove from package' : 'Add to package',
+      onClick: () => onTogglePackage(f.id),
+    }],
+  })
+
+  const packageCardProps = (f) => ({
+    plays: playsForFormation(f),
+    favoritePlaySet,
+    onToggleFavoritePlay,
+    teamColors,
+    isViewOnly,
+    side,
+    onTogglePackage: () => onTogglePackage(f.id),
+  })
+
+  const handlePackageDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return
+    const oldIndex = packageIds.indexOf(active.id)
+    const newIndex = packageIds.indexOf(over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    onReorderPackage(oldIndex, newIndex)
+  }
+
+  const categoryIds = situationalCategories.map((c) => c.id)
+  const handleCategoryDragEnd = ({ active, over }) => {
+    if (!over || active.id === over.id) return
+    const oldIndex = categoryIds.indexOf(active.id)
+    const newIndex = categoryIds.indexOf(over.id)
+    if (oldIndex < 0 || newIndex < 0) return
+    onReorderCategories(oldIndex, newIndex)
+  }
+
+  const sectionProps = {
+    gameViewFormations,
+    formationsById,
+    playIndex,
+    playsForFormation,
+    groups,
+    side,
+    favoritePlaySet,
+    onToggleFavoritePlay,
+    teamColors,
+    isViewOnly,
+    onAddFormation: onAddFormationToCategory,
+    onRemoveFormation: onRemoveFormationFromCategory,
+    onAddPlay: onAddPlayToCategory,
+    onRemovePlay: onRemovePlayFromCategory,
+    onRemoveCategory,
+  }
 
   return (
-    <div className="space-y-4">
-      {selectedFormationObjs.map((f) => {
-        const plays = playsForFormation(f)
-        return (
-          <Card key={formationId(f)} variant="bordered">
-            <div className="flex items-baseline justify-between gap-2 mb-2">
-              <div className="font-semibold text-txt-primary">{f.formation_name}</div>
-              <Badge variant="outline">{f.set_name}</Badge>
-            </div>
-            {!plays ? (
-              <div className="text-xs text-txt-tertiary">Loading plays...</div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {groups.map(([type, label]) => {
-                  const rows = plays.filter((p) => p.type === type)
-                  if (!rows.length) return null
-                  return (
-                    <div key={type}>
-                      <div className="text-xs font-bold uppercase tracking-wide text-txt-tertiary mb-1">{label}</div>
-                      <ul className="space-y-0.5">
-                        {rows.map((p) => (
-                          <li key={p.id} className="text-sm text-txt-primary">{p.name}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )
-                })}
+    <div className="space-y-6">
+      <section>
+        <div className="label-sm mb-2">Your Base Package</div>
+        {pinned.length === 0 ? (
+          <p className="text-xs text-txt-tertiary">
+            No formations added to your base package yet — add some in Build mode, or browse the full playbook below.
+          </p>
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePackageDragEnd}>
+            <SortableContext items={pinned.map((f) => f.id)} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+                {pinned.map((f) => <SortablePackageCard key={f.id} f={f} cardProps={packageCardProps(f)} />)}
               </div>
-            )}
-          </Card>
-        )
-      })}
+            </SortableContext>
+          </DndContext>
+        )}
+      </section>
+
+      <section>
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <div className="label-sm">Situational Categories</div>
+          <AddCategoryControl onAdd={onAddCategory} isViewOnly={isViewOnly} />
+        </div>
+        {situationalCategories.length === 0 ? (
+          <p className="text-xs text-txt-tertiary">No situational categories yet.</p>
+        ) : (
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
+            <SortableContext items={categoryIds} strategy={rectSortingStrategy}>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+                {situationalCategories.map((cat) => (
+                  <SortableCategoryCard key={cat.id} category={cat} sectionProps={sectionProps} />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
+      </section>
+
+      {rest.length > 0 && (
+        <section>
+          <div className="label-sm mb-2">
+            Rest of the Playbook ({rest.length})
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 items-start">
+            {rest.map((f) => <FormationGameCard key={f.id} f={f} {...cardProps(f)} />)}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

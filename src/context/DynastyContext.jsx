@@ -7936,6 +7936,18 @@ export function DynastyProvider({ children }) {
         for (const field of replaceSeasonal) {
           if (field in expandedUpdates) merged[field] = expandedUpdates[field]
         }
+        // schemeBuilder (Scheme Builder's per-tid/year scheme+playbook+
+        // package state) has the identical problem: every write already
+        // sends the COMPLETE object for that tid/year (see SchemeBuilder.jsx's
+        // buildSchemeBuilderPatch), so deepMerge-ing it can only add/update
+        // keys, never remove one — deselecting a playbook writes it with the
+        // key genuinely absent, updateDoc correctly clears it on the server,
+        // but deepMerge would leave the stale value sitting in local state,
+        // making the deselect look like it silently did nothing. Unlike
+        // teams/replaceSeasonal this needs no opt-in flag — every caller of
+        // this field already sends the full picture, so a wholesale replace
+        // is always correct.
+        if ('schemeBuilder' in expandedUpdates) merged.schemeBuilder = expandedUpdates.schemeBuilder
         return merged
       }
 

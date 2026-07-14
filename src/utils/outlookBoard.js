@@ -49,6 +49,7 @@ const DEFENSE_CATALOG = [
   s('LEDG', 'LE', 'EDGE', ['LEDG', 'LE', 'EDGE', 'DE']),
   s('DT', 'DT', 'DT', ['DT', 'NT']),
   s('DT2', 'DT2', 'DT', ['DT', 'NT'], false),
+  s('DT3', 'DT3', 'DT', ['DT', 'NT'], false),
   s('REDG', 'RE', 'EDGE', ['REDG', 'RE', 'EDGE', 'DE']),
   s('SAM', 'SAM', 'OLB', ['SAM', 'OLB']),
   s('MIKE', 'MIKE', 'MIKE', ['MIKE']),
@@ -77,7 +78,7 @@ const OFFENSE_ROWS = [
   ['WR', 'WR2', 'WR3', 'SLWR', 'HB2', 'HB', 'QB', 'FB', 'TE', 'TE2'],  // WRs | backfield | TEs
 ]
 const DEFENSE_ROWS = [
-  ['LEDG', 'DT', 'DT2', 'REDG'],              // line
+  ['LEDG', 'DT', 'DT2', 'DT3', 'REDG'],       // line
   ['SAM', 'MIKE', 'WILL'],                    // linebackers
   ['CB', 'CB2', 'NB', 'FS', 'SS', 'S3'],      // secondary
 ]
