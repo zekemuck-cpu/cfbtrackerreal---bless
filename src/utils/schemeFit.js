@@ -74,6 +74,13 @@ function starterOvr(slot) {
 const FALLBACK_OVR = 65
 
 const round1 = (n) => Math.round(n * 10) / 10
+// Formation-level scores use one extra decimal — scheme/playbook scores
+// average across many players so 1 decimal is plenty of resolution, but a
+// single formation's score is a continuous, real-data-driven value (see
+// playLibraryRichness) that legitimately differs by hundredths between two
+// similar formations; rounding to 1 decimal was collapsing genuinely
+// different formations onto the same displayed number.
+const round2 = (n) => Math.round(n * 100) / 100
 
 const describeStarter = (s) => `${s.position} (${s.archetype}${s.ovr != null ? `, ${s.ovr} OVR` : ''})`
 
@@ -393,14 +400,45 @@ function playerQuality(tile, position, side, scheme, tendency) {
   return talent * 0.5 + style * 0.5
 }
 
-// Scores a single real formation purely on the talent and scheme-style fit
-// of the specific players it would actually put on the field — not on
-// whether you technically have "enough" bodies (every roster does, that's
-// rarely the real question). Returns { score (0-100), avgOvr, breakdown }
-// where avgOvr is the average rating of the featured players and breakdown
-// is buildBreakdown's shared shape — every featured slot counts equally
-// here (weight 1 each), so weightPct is just an even split.
-export function scoreFormationFit(board, formation, side, scheme) {
+// A continuous (never-saturating-in-practice) 0-1 measure of a formation's
+// real play library depth/variety, blending two real signals:
+//   - balance: normalized Shannon entropy of the EXACT play-type mix (RUN/
+//     PASS/RPO, or BLITZ/MAN/ZONE/MATCH on defense) — unlike a simple
+//     "how many of the 3-4 types are present" count, this keeps moving as
+//     the real proportions shift, so two formations that both carry all
+//     three offensive types essentially never land on the exact same
+//     balance value (their real play mixes are never identically split).
+//   - volume: log-scaled play count — grows with every additional real
+//     play (no hard plateau within realistic playbook sizes), so a
+//     94-play formation and a 92-play formation still differ.
+// Two different real formations landing on the exact same richness value
+// would require an identical play-type split AND an identical play count
+// — possible in principle, vanishingly unlikely in practice.
+function playLibraryRichness(plays, side) {
+  const types = side === 'offense' ? ['RUN', 'PASS', 'RPO'] : ['BLITZ', 'MAN', 'ZONE', 'MATCH']
+  const total = plays.length
+  const counts = types.map((t) => plays.reduce((n, p) => n + (p.type === t ? 1 : 0), 0))
+  let entropy = 0
+  for (const c of counts) {
+    if (!c) continue
+    const p = c / total
+    entropy -= p * Math.log2(p)
+  }
+  const balance = entropy / Math.log2(types.length) // 0 (all one type) - 1 (perfectly even split)
+  const volume = Math.min(1, Math.log2(total + 1) / Math.log2(120)) // ~0 at a couple plays, ~1 around 119
+  return balance * 0.5 + volume * 0.5
+}
+
+// Scores a single real formation on the talent and scheme-style fit of the
+// specific players it would actually put on the field, THEN nudges that
+// personnel-fit score by the formation's own real play library — a deeper,
+// more varied set of calls out of the same personnel grouping is a genuine
+// in-game advantage (more answers for the same personnel), so two
+// formations that need identical personnel no longer tie just because the
+// personnel-fit half of the score is identical. `plays` is optional (the
+// real per-formation play list, when already loaded) — omit it to get the
+// pure personnel-fit score, e.g. before a playbook's plays are fetched.
+export function scoreFormationFit(board, formation, side, scheme, plays) {
   const featured = side === 'offense' ? offenseFeaturedPlayers(board, formation) : defenseFeaturedPlayers(board, formation)
   if (!featured.length) return { score: 50, avgOvr: null, breakdown: [] }
 
@@ -411,12 +449,17 @@ export function scoreFormationFit(board, formation, side, scheme) {
     value: playerQuality(tile, position, side, scheme),
     weight: 1,
   }))
-  const score = rows.reduce((a, r) => a + r.value, 0) / rows.length
+  const personnelScore = rows.reduce((a, r) => a + r.value, 0) / rows.length
 
   const ovrs = rows.map((r) => r.ovr).filter(Number.isFinite)
   const avgOvr = ovrs.length ? Math.round(ovrs.reduce((a, b) => a + b, 0) / ovrs.length) : null
 
-  return { score: round1(Math.max(0, Math.min(100, score))), avgOvr, breakdown: buildBreakdown(rows) }
+  let score = personnelScore
+  if (plays && plays.length) {
+    score += (playLibraryRichness(plays, side) - 0.5) * 12
+  }
+
+  return { score: round2(Math.max(0, Math.min(100, score))), avgOvr, breakdown: buildBreakdown(rows) }
 }
 
 // Personnel-usage-weighted roster slots for playbook-level scoring — see

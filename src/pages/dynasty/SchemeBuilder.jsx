@@ -10,9 +10,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   DndContext, MouseSensor, TouchSensor, KeyboardSensor,
-  useSensor, useSensors, closestCenter,
+  useSensor, useSensors, closestCenter, useDroppable,
 } from '@dnd-kit/core'
-import { SortableContext, useSortable, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
+import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useDynasty } from '../../context/DynastyContext'
 import { getEditionKey } from '../../editions'
@@ -60,6 +60,18 @@ const PLAY_TYPE_COLORS = {
   defense: { BLITZ: '#ef4444', MAN: '#9e6bdd', ZONE: '#4090dd', MATCH: '#22c55e' },
 }
 const EMPTY_BAND_COLOR = '#4e515c' // surface-5 — "nothing in here yet", not a type
+
+// A few category identities carry their own fixed color regardless of
+// content — Redzone reads as danger-red and 2 Min Drill as go-green the
+// same way a real sideline card would, so those two override the
+// computed dominant-play-type color. Any other category (including
+// Goal Line and custom ones) still gets colored by what's inside it.
+const CATEGORY_FIXED_COLORS = { redzone: '#ef4444', twomin: '#22c55e' }
+
+// Base package cards get a single fixed "highlighter" yellow regardless of
+// content — these are the formations you actually built your gameplan
+// around, so they should visually pop above everything else on the page.
+const BASE_PACKAGE_BAND_COLOR = '#f4ff3d'
 
 function dominantTypeColor(plays, side) {
   if (!plays || !plays.length) return EMPTY_BAND_COLOR
@@ -220,6 +232,11 @@ export default function SchemeBuilder() {
   const packageKey = `${side}PackageIds`
   const packageIds = builderState[packageKey] || []
   const packageSet = useMemo(() => new Set(packageIds), [packageIds])
+  // Per-formation color overrides for base package cards — keyed by
+  // formation id, absent/undefined means "use the default highlighter
+  // yellow". Same override/reset shape as situational category colors.
+  const packageColorsKey = `${side}PackageColors`
+  const packageColors = builderState[packageColorsKey] || {}
   const roleAssignmentsKey = `${side}RoleAssignments`
   const roleAssignments = builderState[roleAssignmentsKey] || {}
   const playbookKey = `${side}PlaybookTeamId`
@@ -274,9 +291,8 @@ export default function SchemeBuilder() {
 
   const setPackageIds = (next) => writeSchemeBuilderField(packageKey, next)
 
-  const togglePackage = (fid) => {
-    setPackageIds(packageSet.has(fid) ? packageIds.filter((id) => id !== fid) : [...packageIds, fid])
-  }
+  const setPackageColor = (fid, color) => writeSchemeBuilderField(packageColorsKey, { ...packageColors, [fid]: color })
+  const resetPackageColor = (fid) => writeSchemeBuilderField(packageColorsKey, { ...packageColors, [fid]: undefined })
 
   // Which player is assigned to each Archetypes-mode role slot (LT, HB2,
   // Nickel, ...) — persisted so switching a role to a bench player survives
@@ -296,11 +312,6 @@ export default function SchemeBuilder() {
     writeSchemeBuilderField(favoritePlayIdsKey, next)
   }
 
-  // Base package order is user-controlled (drag-to-reorder in Game View),
-  // not just insertion order — packageIds IS that order, so reordering is
-  // just an arrayMove write.
-  const reorderPackage = (oldIndex, newIndex) => setPackageIds(arrayMove(packageIds, oldIndex, newIndex))
-
   // Situational categories (Redzone, Goal Line, 2 Min Drill by default, plus
   // any custom ones) — each holds its own formationIds/playIds; starring
   // still goes through the single shared favoritePlaySet above ("the same
@@ -311,12 +322,6 @@ export default function SchemeBuilder() {
   const updateCategory = (catId, updater) => {
     setSituationalCategories(situationalCategories.map((c) => (c.id === catId ? updater(c) : c)))
   }
-  const addCategory = (name) => {
-    const trimmed = name.trim()
-    if (!trimmed) return
-    setSituationalCategories([...situationalCategories, { id: crypto.randomUUID(), name: trimmed, formationIds: [], playIds: [] }])
-  }
-  const removeCategory = (catId) => setSituationalCategories(situationalCategories.filter((c) => c.id !== catId))
   const addFormationToCategory = (catId, fid) => updateCategory(catId, (c) => (
     c.formationIds.includes(fid) ? c : { ...c, formationIds: [...c.formationIds, fid] }
   ))
@@ -329,7 +334,142 @@ export default function SchemeBuilder() {
   const removePlayFromCategory = (catId, playId) => updateCategory(catId, (c) => (
     { ...c, playIds: c.playIds.filter((id) => id !== playId) }
   ))
-  const reorderCategories = (oldIndex, newIndex) => setSituationalCategories(arrayMove(situationalCategories, oldIndex, newIndex))
+  // A user-picked color overrides the computed/identity default entirely;
+  // clearing it (color: undefined) reverts to that automatic behavior.
+  const setCategoryColor = (catId, color) => updateCategory(catId, (c) => ({ ...c, color }))
+  const resetCategoryColor = (catId) => updateCategory(catId, (c) => ({ ...c, color: undefined }))
+  const renameCategory = (catId, name) => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    updateCategory(catId, (c) => ({ ...c, name: trimmed }))
+  }
+
+  // Dividers — a free-floating title/section-break the user can drop
+  // anywhere in "Your Gameplan" (via the same drag reorder as
+  // formations/categories), or just as a blank rule if left untitled.
+  // Now that "Your Gameplan" is a true multi-column board (each column an
+  // independent stack, see gameplanColumns below), a divider is just a
+  // normal item that lives in whichever column it's dragged into — there's
+  // no more "spans the full board" orientation, since that's fundamentally
+  // at odds with columns being allowed to differ in length. Purely
+  // presentational: no plays/formations of their own, just an id + title.
+  const gameplanDividersKey = `${side}GameplanDividers`
+  const gameplanDividers = builderState[gameplanDividersKey] || []
+  const setGameplanDividers = (next) => writeSchemeBuilderField(gameplanDividersKey, next)
+  const renameDivider = (divId, title) => {
+    setGameplanDividers(gameplanDividers.map((d) => (d.id === divId ? { ...d, title } : d)))
+  }
+  // Same override/reset shape as category colors — a user-picked color is
+  // optional (plain/transparent by default) and "Auto" clears it.
+  const setDividerColor = (divId, color) => {
+    setGameplanDividers(gameplanDividers.map((d) => (d.id === divId ? { ...d, color } : d)))
+  }
+  const resetDividerColor = (divId) => {
+    setGameplanDividers(gameplanDividers.map((d) => (d.id === divId ? { ...d, color: undefined } : d)))
+  }
+
+  const GAMEPLAN_COLUMN_COUNT = 3
+
+  // "Your Gameplan" board — 3 independent columns, each its own ordered
+  // list of tags (formations/categories/dividers mixed freely within a
+  // column). Columns are allowed to hold different numbers of items; there
+  // is no forced row alignment across them. Falls back to a round-robin
+  // distribution of "package formations, then categories" (matching the
+  // old auto-flowed-grid's default appearance) until the user actually
+  // drags something, at which point that snapshot becomes the real
+  // persisted layout. Every add/remove of a formation, category, or
+  // divider below also has to touch this list — an item that exists in its
+  // own source array but not here would just never render.
+  //
+  // Persisted shape is an OBJECT keyed by column index ({ "0": [...],
+  // "1": [...], "2": [...] }), not an array of arrays — Firestore's
+  // updateDoc rejects nested arrays outright ("Nested arrays are not
+  // supported"), and an array-of-arrays is exactly that. A map whose
+  // values are arrays is fine, so columns are converted to/from that shape
+  // right at the persistence boundary; everywhere else in this component
+  // still works with a plain array of 3 arrays.
+  const gameplanColumnsKey = `${side}GameplanColumns`
+  const columnsFromDoc = (doc) => Array.from(
+    { length: GAMEPLAN_COLUMN_COUNT },
+    (_, i) => doc?.[String(i)] || [],
+  )
+  const columnsToDoc = (cols) => Object.fromEntries(cols.map((col, i) => [String(i), col]))
+  const gameplanColumns = builderState[gameplanColumnsKey]
+    ? columnsFromDoc(builderState[gameplanColumnsKey])
+    : (() => {
+      const flat = [
+        ...packageIds.map((id) => `formation:${id}`),
+        ...situationalCategories.map((c) => `category:${c.id}`),
+      ]
+      const cols = Array.from({ length: GAMEPLAN_COLUMN_COUNT }, () => [])
+      flat.forEach((tag, i) => cols[i % GAMEPLAN_COLUMN_COUNT].push(tag))
+      return cols
+    })()
+  const reorderGameplanColumns = (nextColumns) => writeSchemeBuilderField(gameplanColumnsKey, columnsToDoc(nextColumns))
+  // Always materializes off the CURRENT effective columns (already
+  // fallback-or-explicit) rather than only touching an already-persisted
+  // value — same reasoning as before: a divider has no fallback entry at
+  // all, so this must work even on the very first add. New items go into
+  // whichever column currently has the fewest items, keeping columns
+  // roughly balanced by default.
+  const addToGameplanColumns = (tag) => {
+    const cols = gameplanColumns.map((col) => [...col])
+    let shortest = 0
+    for (let i = 1; i < cols.length; i++) {
+      if (cols[i].length < cols[shortest].length) shortest = i
+    }
+    cols[shortest].push(tag)
+    return { [gameplanColumnsKey]: columnsToDoc(cols) }
+  }
+  const removeFromGameplanColumns = (tag) => ({
+    [gameplanColumnsKey]: columnsToDoc(gameplanColumns.map((col) => col.filter((t) => t !== tag))),
+  })
+
+  const togglePackage = (fid) => {
+    if (isViewOnly || !currentDynasty) return
+    const adding = !packageSet.has(fid)
+    const nextPackageIds = adding ? [...packageIds, fid] : packageIds.filter((id) => id !== fid)
+    const tag = `formation:${fid}`
+    updateDynasty(currentDynasty.id, buildSchemeBuilderPatch({
+      [packageKey]: nextPackageIds,
+      ...(adding ? addToGameplanColumns(tag) : removeFromGameplanColumns(tag)),
+    }))
+  }
+
+  // Blank template, same as addDivider — dropped straight onto the board
+  // with an empty name, edited in place from there (typed into the
+  // always-on name field, formations/plays added via its own search).
+  const addCategory = () => {
+    if (isViewOnly || !currentDynasty) return
+    const newCat = { id: crypto.randomUUID(), name: '', formationIds: [], playIds: [] }
+    updateDynasty(currentDynasty.id, buildSchemeBuilderPatch({
+      [situationalCategoriesKey]: [...situationalCategories, newCat],
+      ...addToGameplanColumns(`category:${newCat.id}`),
+    }))
+  }
+  const removeCategory = (catId) => {
+    if (isViewOnly || !currentDynasty) return
+    updateDynasty(currentDynasty.id, buildSchemeBuilderPatch({
+      [situationalCategoriesKey]: situationalCategories.filter((c) => c.id !== catId),
+      ...removeFromGameplanColumns(`category:${catId}`),
+    }))
+  }
+
+  const addDivider = () => {
+    if (isViewOnly || !currentDynasty) return
+    const newDiv = { id: crypto.randomUUID(), title: '' }
+    updateDynasty(currentDynasty.id, buildSchemeBuilderPatch({
+      [gameplanDividersKey]: [...gameplanDividers, newDiv],
+      ...addToGameplanColumns(`divider:${newDiv.id}`),
+    }))
+  }
+  const removeDivider = (divId) => {
+    if (isViewOnly || !currentDynasty) return
+    updateDynasty(currentDynasty.id, buildSchemeBuilderPatch({
+      [gameplanDividersKey]: gameplanDividers.filter((d) => d.id !== divId),
+      ...removeFromGameplanColumns(`divider:${divId}`),
+    }))
+  }
 
   // Deselects when re-picking the current playbook (toggle), used by the
   // scheme-scoped picker buttons where the scheme is already known to match.
@@ -452,20 +592,23 @@ export default function SchemeBuilder() {
     return rows
       .map((f) => {
         const id = formationId(f)
+        const cacheKey = `${side}/${slugSet(f.set_name)}`
+        const setPlays = setPlaysCache[cacheKey]
+        const plays = setPlays ? setPlays.filter((p) => p.formation === f.formation_name) : undefined
         return {
           ...f,
           id,
           isSelected: packageSet.has(id),
           playbookPlayCount: playbookFormationCounts.get(id) || 0,
           personnelInfo: personnelLabel(f),
-          fit: scoreFormationFit(board, f, side, selectedScheme),
+          fit: scoreFormationFit(board, f, side, selectedScheme, plays),
         }
       })
       .sort((a, b) => {
         if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1
         return b.fit.score - a.fit.score
       })
-  }, [sideFormations, query, playbookFormationCounts, board, side, selectedScheme, packageSet])
+  }, [sideFormations, query, playbookFormationCounts, board, side, selectedScheme, packageSet, setPlaysCache])
 
   // One-click convenience: fill the package with the top N formations from
   // the currently narrowed (playbook-scoped) list, ranked by fit — the
@@ -487,29 +630,38 @@ export default function SchemeBuilder() {
   // is just catalog order — Game View itself derives "Your Base Package"'s
   // order from packageIds (user-reorderable) and treats everything else as
   // "Rest of the Playbook". Carries the same scoreFormationFit score shown
-  // in Build mode's Stage 3, so a formation reads the same recommendation
-  // wherever it's shown.
+  // in Build mode's Stage 3, plus (once loaded) that formation's own real
+  // play list, so its score reflects real play-library depth/variety
+  // instead of tying with every other formation that shares its personnel
+  // grouping — depends on setPlaysCache so scores recompute the moment
+  // each set's plays finish loading (see the fetch effect just below).
   const gameViewFormations = useMemo(() => {
     if (!playbookFormationCounts) return []
     return sideFormations
       .filter((f) => playbookFormationCounts.has(formationId(f)))
       .map((f) => {
         const id = formationId(f)
+        const cacheKey = `${side}/${slugSet(f.set_name)}`
+        const setPlays = setPlaysCache[cacheKey]
+        const plays = setPlays ? setPlays.filter((p) => p.formation === f.formation_name) : undefined
         return {
           ...f,
           id,
           isSelected: packageSet.has(id),
           playbookPlayCount: playbookFormationCounts.get(id) || 0,
-          fit: scoreFormationFit(board, f, side, selectedScheme),
+          fit: scoreFormationFit(board, f, side, selectedScheme, plays),
+          personnelInfo: personnelLabel(f),
         }
       })
-  }, [sideFormations, playbookFormationCounts, packageSet, board, side, selectedScheme])
+  }, [sideFormations, playbookFormationCounts, packageSet, board, side, selectedScheme, setPlaysCache])
 
-  // Game View: lazily fetch every formation-in-playbook's set-level play
-  // file once, cache the raw set (not per-formation) so multiple formations
-  // sharing a set (e.g. two different Gun looks) only fetch it once.
+  // Lazily fetch every formation-in-playbook's set-level play file once a
+  // playbook is selected, regardless of mode — Build mode's Stage 3 scores
+  // and Game View both fold real play-library data into scoreFormationFit,
+  // so both need it loaded, not just Game View. Cache the raw set (not
+  // per-formation) so multiple formations sharing a set (e.g. two
+  // different Gun looks) only fetch it once.
   useEffect(() => {
-    if (mode !== 'game') return
     gameViewFormations.forEach((f) => {
       const cacheKey = `${side}/${slugSet(f.set_name)}`
       if (setPlaysCache[cacheKey]) return
@@ -633,17 +785,29 @@ export default function SchemeBuilder() {
           playIndex={playIndex}
           packageIds={packageIds}
           onTogglePackage={togglePackage}
-          onReorderPackage={reorderPackage}
+          packageColors={packageColors}
+          onSetPackageColor={setPackageColor}
+          onResetPackageColor={resetPackageColor}
           favoritePlaySet={favoritePlaySet}
           onToggleFavoritePlay={toggleFavoritePlay}
           situationalCategories={situationalCategories}
           onAddCategory={addCategory}
           onRemoveCategory={removeCategory}
-          onReorderCategories={reorderCategories}
+          gameplanColumns={gameplanColumns}
+          onReorderGameplanColumns={reorderGameplanColumns}
           onAddFormationToCategory={addFormationToCategory}
           onRemoveFormationFromCategory={removeFormationFromCategory}
           onAddPlayToCategory={addPlayToCategory}
           onRemovePlayFromCategory={removePlayFromCategory}
+          onSetCategoryColor={setCategoryColor}
+          onResetCategoryColor={resetCategoryColor}
+          onRenameCategory={renameCategory}
+          gameplanDividers={gameplanDividers}
+          onAddDivider={addDivider}
+          onRemoveDivider={removeDivider}
+          onRenameDivider={renameDivider}
+          onSetDividerColor={setDividerColor}
+          onResetDividerColor={resetDividerColor}
           teamColors={teamColors}
           isViewOnly={isViewOnly}
           onSwitchToBuild={() => setMode('build')}
@@ -860,7 +1024,7 @@ function BuildMode({
                           {f.fit.avgOvr != null ? ` · ${f.fit.avgOvr} OVR personnel` : ''}
                         </div>
                       </div>
-                      <Badge variant={f.fit.score >= 70 ? 'success' : f.fit.score >= 40 ? 'default' : 'outline'}>{f.fit.score.toFixed(1)}</Badge>
+                      <Badge variant={f.fit.score >= 70 ? 'success' : f.fit.score >= 40 ? 'default' : 'outline'}>{f.fit.score.toFixed(2)}</Badge>
                     </div>
                     <BreakdownToggle breakdown={f.fit.breakdown} />
                     <Button
@@ -1173,6 +1337,28 @@ function DragHandle({ attributes, listeners, colorStyle }) {
   )
 }
 
+// One small pencil-icon toggle, shared by situational category and base
+// package headers — clicking it reveals that box's rename input (if any)
+// and color picker, keeping the header uncluttered until the user actually
+// wants to edit something.
+function EditIconButton({ onClick, active, colorStyle, label }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      className="shrink-0 p-0.5"
+      style={colorStyle}
+    >
+      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5Z" />
+      </svg>
+    </button>
+  )
+}
+
 // One formation's Game View card — starred plays surface directly under the
 // header (visible without expanding anything), and the full play list
 // (grouped by run/pass/rpo or blitz/man/zone/match) sits behind a collapsed
@@ -1196,10 +1382,15 @@ function FormationGameCard({
           </div>
           {f.fit && (
             <Badge variant={f.fit.score >= 70 ? 'success' : f.fit.score >= 40 ? 'default' : 'outline'} className="shrink-0">
-              {f.fit.score.toFixed(1)}
+              {f.fit.score.toFixed(2)}
             </Badge>
           )}
         </div>
+        {f.personnelInfo && (
+          <div className="text-xs text-txt-tertiary mt-0.5">
+            {f.personnelInfo.text}{f.personnelInfo.isEstimate ? ' (est.)' : ''}
+          </div>
+        )}
         {headerActions?.length > 0 && (
           <div className="flex items-center gap-2.5 mt-1">
             {headerActions.map((a) => (
@@ -1273,25 +1464,59 @@ function FormationGameCard({
 // with a collapsed play list. No per-play remove here (nothing to remove
 // from a formation's own play list); the header's action is the
 // add/remove-from-package toggle instead.
-function PackageFormationCard({ f, plays, favoritePlaySet, onToggleFavoritePlay, teamColors, isViewOnly, dragHandleProps, onTogglePackage, side }) {
+function PackageFormationCard({
+  f, plays, favoritePlaySet, onToggleFavoritePlay, teamColors, isViewOnly, dragHandleProps, onTogglePackage, side,
+  color, onSetColor, onResetColor,
+}) {
   const [expanded, setExpanded] = useState(false)
+  const [editing, setEditing] = useState(false)
   const rows = plays || []
   const favorited = rows.filter((p) => favoritePlaySet.has(p.id))
   const half = Math.ceil(rows.length / 2)
   const col1 = rows.slice(0, half)
   const col2 = rows.slice(half)
-  const bandColor = dominantTypeColor(rows, side)
+  const bandColor = color || BASE_PACKAGE_BAND_COLOR
   const bandText = getContrastTextColor(bandColor)
 
   return (
-    <div className="rounded-xl overflow-hidden border border-surface-4">
-      <div className="flex items-center justify-between gap-2 px-4 py-2" style={{ backgroundColor: bandColor }}>
+    <div className="rounded-sm overflow-hidden border border-surface-4">
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5" style={{ backgroundColor: bandColor }}>
         <div className="flex items-center gap-1.5 min-w-0">
           {dragHandleProps && <DragHandle {...dragHandleProps} colorStyle={{ color: bandText }} />}
           <div className="label-sm truncate" style={{ color: bandText }}>{f.set_name} - {f.formation_name}</div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-[11px] font-semibold tabular" style={{ color: bandText, opacity: 0.8 }}>{rows.length} plays</span>
+          {!isViewOnly && editing && (
+            <>
+              <input
+                type="color"
+                value={bandColor}
+                onChange={(e) => onSetColor(f.id, e.target.value)}
+                aria-label={`${f.formation_name} color`}
+                title="Pick a color for this formation"
+                className="w-5 h-5 shrink-0 rounded border-0 bg-transparent p-0 cursor-pointer"
+              />
+              {color && (
+                <button
+                  type="button"
+                  onClick={() => onResetColor(f.id)}
+                  className="text-[10px] font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+                  style={{ color: bandText, opacity: 0.8 }}
+                >
+                  Auto
+                </button>
+              )}
+            </>
+          )}
+          {!isViewOnly && (
+            <EditIconButton
+              onClick={() => setEditing((v) => !v)}
+              active={editing}
+              label={editing ? 'Done editing color' : 'Edit color'}
+              colorStyle={{ color: bandText }}
+            />
+          )}
           {!isViewOnly && (
             <button
               type="button"
@@ -1305,6 +1530,11 @@ function PackageFormationCard({ f, plays, favoritePlaySet, onToggleFavoritePlay,
         </div>
       </div>
       <div className="bg-surface-2">
+        {f.personnelInfo && (
+          <div className="text-xs text-txt-tertiary px-4 pt-2">
+            {f.personnelInfo.text}{f.personnelInfo.isEstimate ? ' (est.)' : ''}
+          </div>
+        )}
         {!plays ? (
           <div className="text-xs text-txt-tertiary px-4 py-3">Loading plays...</div>
         ) : (
@@ -1350,64 +1580,188 @@ function PackageFormationCard({ f, plays, favoritePlaySet, onToggleFavoritePlay,
   )
 }
 
-// Wraps a base-package PackageFormationCard as a dnd-kit sortable item so
-// the grid can be drag-reordered — same handle-carries-the-listeners
-// pattern as Sidebar's SortableNavRow, just using rectSortingStrategy for
-// a grid instead of a vertical list.
-function SortablePackageCard({ f, cardProps }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: f.id })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-    zIndex: isDragging ? 20 : undefined,
-    position: 'relative',
-  }
-  return (
-    <div ref={setNodeRef} style={style}>
-      <PackageFormationCard f={f} dragHandleProps={{ attributes, listeners }} {...cardProps} />
-    </div>
-  )
-}
+// A freely-repositionable title/break for "Your Gameplan" — drag it
+// anywhere (via the same handle as formations and categories) to group the
+// boxes around it, or leave the title blank for a plain rule. Two shapes:
+//   row    — spans the full grid width and forces a line break, so it
+//            reads as a section title over whatever's below it.
+// Every column in "Your Gameplan" is an independent stack, so a divider is
+// just a normal item that lives inside whichever column it's dragged into
+// — there's no more "spans the whole board" mode. The title is always an
+// inline input rather than hiding behind an edit toggle — a divider has
+// nothing else to edit there. Color, like categories and package cards,
+// hides behind the same pencil-icon toggle so the default view stays
+// uncluttered; unlike those, an uncolored divider has no computed
+// fallback — it just stays plain/transparent until the user picks
+// something.
+function GameplanDivider({ divider, dragHandleProps, onRename, onRemove, onSetColor, onResetColor, isViewOnly }) {
+  const [title, setTitle] = useState(divider.title || '')
+  const [editing, setEditing] = useState(false)
+  const commit = () => { if (title !== divider.title) onRename(divider.id, title) }
+  const bandColor = divider.color || null
+  const bandText = bandColor ? getContrastTextColor(bandColor) : undefined
+  const textStyle = bandText ? { color: bandText } : undefined
 
-// Same sortable-wrapper pattern as SortablePackageCard, for reordering
-// situational category cards instead of package formation cards.
-function SortableCategoryCard({ category, sectionProps }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: category.id })
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.6 : 1,
-    zIndex: isDragging ? 20 : undefined,
-    position: 'relative',
-  }
-  return (
-    <div ref={setNodeRef} style={style}>
-      <SituationalCategorySection category={category} dragHandleProps={{ attributes, listeners }} {...sectionProps} />
-    </div>
+  const titleInput = (
+    <input
+      value={title}
+      onChange={(e) => setTitle(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { commit(); e.currentTarget.blur() }
+        if (e.key === 'Escape') { setTitle(divider.title || ''); e.currentTarget.blur() }
+      }}
+      placeholder="Divider title (optional)"
+      disabled={isViewOnly}
+      className="label-sm border-0 outline-none min-w-0 flex-1 placeholder:text-txt-muted placeholder:normal-case placeholder:tracking-normal placeholder:font-normal"
+      style={{ backgroundColor: 'transparent', ...textStyle }}
+    />
   )
-}
 
-// Inline "type a name, click Add" control for creating a new situational
-// category.
-function AddCategoryControl({ onAdd, isViewOnly }) {
-  const [name, setName] = useState('')
-  if (isViewOnly) return null
-  const submit = () => {
-    if (!name.trim()) return
-    onAdd(name)
-    setName('')
-  }
-  return (
-    <div className="flex items-center gap-2">
-      <Input
-        placeholder="New category name..."
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
-        className="max-w-[220px]"
+  const controls = !isViewOnly && (
+    <div className="flex items-center gap-2.5 shrink-0">
+      {editing && (
+        <>
+          <input
+            type="color"
+            value={bandColor || '#4e515c'}
+            onChange={(e) => onSetColor(divider.id, e.target.value)}
+            aria-label="Divider color"
+            title="Pick a color for this divider"
+            className="w-5 h-5 shrink-0 rounded border-0 bg-transparent p-0 cursor-pointer"
+          />
+          {bandColor && (
+            <button
+              type="button"
+              onClick={() => onResetColor(divider.id)}
+              className="text-[10px] font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+              style={textStyle ? { ...textStyle, opacity: 0.8 } : undefined}
+            >
+              Auto
+            </button>
+          )}
+        </>
+      )}
+      <EditIconButton
+        onClick={() => setEditing((v) => !v)}
+        active={editing}
+        label={editing ? 'Done editing' : 'Edit Divider'}
+        colorStyle={textStyle}
       />
-      <Button variant="outline" size="sm" onClick={submit}>Add category</Button>
+      <button
+        type="button"
+        onClick={() => onRemove(divider.id)}
+        className="shrink-0 text-txt-tertiary hover:text-txt-primary"
+        aria-label="Remove Divider"
+        style={textStyle}
+      >
+        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+  )
+
+  // Same single-line height as a category/formation box's header band
+  // (px-3 py-1.5) — a divider is a title/rule, not a card, so it should
+  // never grow to match the taller boxes around it. flex-wrap (not a
+  // hardcoded second row) means the normal, non-editing state — just the
+  // title plus the pencil/remove controls — stays on one line exactly like
+  // every other header; it only reflows if editing mode's extra
+  // color-swatch/Auto controls genuinely don't fit.
+  return (
+    <div
+      className="rounded-sm border border-surface-4 flex items-center gap-2 px-3 py-1.5 flex-wrap"
+      style={{ backgroundColor: bandColor || 'var(--surface-2)' }}
+    >
+      {dragHandleProps && <DragHandle {...dragHandleProps} colorStyle={textStyle} />}
+      {titleInput}
+      {controls}
+    </div>
+  )
+}
+
+// One column of the "Your Gameplan" board — an independent vertical stack
+// with its own SortableContext, so columns can hold different numbers of
+// items and reordering never has to reason about the other two columns'
+// geometry. Also a useDroppable zone in its own right (id `column:<n>`) so
+// an empty column, or a drop past the last item, still has somewhere valid
+// to receive a drag — without it, dnd-kit has no droppable target inside a
+// column with too few (or zero) items for the pointer to land on.
+function GameplanColumn({
+  colIndex, items, packageCardProps, categorySectionProps, onRenameDivider, onRemoveDivider,
+  onSetDividerColor, onResetDividerColor, isViewOnly,
+}) {
+  const { setNodeRef } = useDroppable({ id: `column:${colIndex}` })
+  return (
+    <div ref={setNodeRef} className="min-h-[2.5rem]">
+      <SortableContext items={items.map((item) => item.tag)} strategy={verticalListSortingStrategy}>
+        {items.map((item) => (
+          <GameplanSortableItem
+            key={item.tag}
+            item={item}
+            packageCardProps={packageCardProps}
+            categorySectionProps={categorySectionProps}
+            onRenameDivider={onRenameDivider}
+            onRemoveDivider={onRemoveDivider}
+            onSetDividerColor={onSetDividerColor}
+            onResetDividerColor={onResetDividerColor}
+            isViewOnly={isViewOnly}
+          />
+        ))}
+      </SortableContext>
+    </div>
+  )
+}
+
+// Wraps a base-package PackageFormationCard, a SituationalCategorySection,
+// OR a GameplanDivider as a single dnd-kit sortable item inside its
+// column's own vertical SortableContext — so all three kinds of box can be
+// dragged into any position within a column, or across into a different
+// column entirely (handled at the board level). Same
+// handle-carries-the-listeners pattern as Sidebar's SortableNavRow;
+// verticalListSortingStrategy (a plain vertical stack, not a 2D grid) is
+// what makes reordering feel like it just "sticks" wherever it's dropped
+// instead of the whole board doing an unpredictable reflow animation —
+// items of very different heights (a thin divider next to a tall
+// formation card) don't fight the sorting strategy's geometry the way they
+// did under rectSortingStrategy.
+function GameplanSortableItem({
+  item, packageCardProps, categorySectionProps, onRenameDivider, onRemoveDivider,
+  onSetDividerColor, onResetDividerColor, isViewOnly,
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.tag })
+  const isDivider = item.type === 'divider'
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 20 : undefined,
+    position: 'relative',
+    // A divider can zero out its own bottom margin to sit fused directly
+    // against whatever's below it in the same column — a "double header"
+    // look — while every other item keeps the normal gap.
+    marginBottom: isDivider ? 0 : '0.5rem',
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      {item.type === 'formation' && (
+        <PackageFormationCard f={item.data} dragHandleProps={{ attributes, listeners }} {...packageCardProps(item.data)} />
+      )}
+      {item.type === 'category' && (
+        <SituationalCategorySection category={item.data} dragHandleProps={{ attributes, listeners }} {...categorySectionProps} />
+      )}
+      {item.type === 'divider' && (
+        <GameplanDivider
+          divider={item.data}
+          dragHandleProps={{ attributes, listeners }}
+          onRename={onRenameDivider}
+          onRemove={onRemoveDivider}
+          onSetColor={onSetDividerColor}
+          onResetColor={onResetDividerColor}
+          isViewOnly={isViewOnly}
+        />
+      )}
     </div>
   )
 }
@@ -1420,12 +1774,12 @@ function AddCategoryControl({ onAdd, isViewOnly }) {
 function CategoryPlayRow({ play, onToggleFavorite, isFavorite, onRemove, teamColors, isViewOnly, side }) {
   const typeColor = PLAY_TYPE_COLORS[side]?.[play.type]
   return (
-    <div className="flex items-center gap-2 pl-3 pr-3 h-9 border-t border-surface-3 first:border-t-0 hover:bg-surface-3">
+    <div className="flex items-center gap-1.5 px-2.5 h-7 border-t border-surface-3 first:border-t-0 hover:bg-surface-3">
       <span
-        className="w-[3px] h-3.5 rounded-sm shrink-0"
+        className="w-[3px] h-3 rounded-sm shrink-0"
         style={{ backgroundColor: isFavorite ? teamColors.primary : 'transparent' }}
       />
-      <span className={`text-[13px] truncate flex-1 ${isFavorite ? 'text-txt-primary font-semibold' : 'text-txt-secondary'}`}>
+      <span className={`text-[12px] truncate flex-1 ${isFavorite ? 'text-txt-primary font-semibold' : 'text-txt-secondary'}`}>
         {play.name}
       </span>
       <span className="label-xs shrink-0" style={typeColor ? { color: typeColor } : undefined}>{play.type}</span>
@@ -1452,9 +1806,12 @@ function SituationalCategorySection({
   category, gameViewFormations, formationsById, playIndex, playsForFormation, side,
   favoritePlaySet, onToggleFavoritePlay, teamColors, isViewOnly, dragHandleProps,
   onAddFormation, onRemoveFormation, onAddPlay, onRemovePlay, onRemoveCategory,
+  onSetColor, onResetColor, onRename,
 }) {
   const [search, setSearch] = useState('')
   const [searchVisible, setSearchVisible] = useState(true)
+  const [editing, setEditing] = useState(false)
+  const [nameDraft, setNameDraft] = useState(category.name)
   const q = search.trim().toLowerCase()
   const matchedFormations = q
     ? gameViewFormations.filter((f) => `${f.set_name} ${f.formation_name}`.toLowerCase().includes(q)).slice(0, 6)
@@ -1480,18 +1837,66 @@ function SituationalCategorySection({
   const col1 = rows.slice(0, half)
   const col2 = rows.slice(half)
 
-  const bandColor = dominantTypeColor(rows.map((r) => r.play), side)
+  const bandColor = category.color || CATEGORY_FIXED_COLORS[category.id] || dominantTypeColor(rows.map((r) => r.play), side)
   const bandText = getContrastTextColor(bandColor)
 
+  const commitRename = () => {
+    const trimmed = nameDraft.trim()
+    if (trimmed && trimmed !== category.name) onRename(category.id, trimmed)
+    else setNameDraft(category.name)
+  }
+
   return (
-    <div className="rounded-xl overflow-hidden border border-surface-4">
-      <div className="flex items-center justify-between gap-2 px-4 py-2" style={{ backgroundColor: bandColor }}>
-        <div className="flex items-center gap-1.5 min-w-0">
+    <div className="rounded-sm overflow-hidden border border-surface-4">
+      <div className="flex items-center justify-between gap-2 px-3 py-1.5" style={{ backgroundColor: bandColor }}>
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {dragHandleProps && <DragHandle {...dragHandleProps} colorStyle={{ color: bandText }} />}
-          <div className="label-sm truncate" style={{ color: bandText }}>{category.name}</div>
+          <input
+            value={nameDraft}
+            onChange={(e) => setNameDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { commitRename(); e.currentTarget.blur() }
+              if (e.key === 'Escape') { setNameDraft(category.name); e.currentTarget.blur() }
+            }}
+            placeholder="Category name"
+            disabled={isViewOnly}
+            className="label-sm border-0 outline-none min-w-0 flex-1 placeholder:text-txt-muted placeholder:normal-case placeholder:tracking-normal placeholder:font-normal"
+            style={{ backgroundColor: 'transparent', color: bandText }}
+          />
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-[11px] font-semibold tabular" style={{ color: bandText, opacity: 0.8 }}>{rows.length} plays</span>
+          {!isViewOnly && editing && (
+            <>
+              <input
+                type="color"
+                value={bandColor}
+                onChange={(e) => onSetColor(category.id, e.target.value)}
+                aria-label={`${category.name} color`}
+                title="Pick a color for this category"
+                className="w-5 h-5 shrink-0 rounded border-0 bg-transparent p-0 cursor-pointer"
+              />
+              {category.color && (
+                <button
+                  type="button"
+                  onClick={() => onResetColor(category.id)}
+                  className="text-[10px] font-semibold uppercase tracking-wide underline decoration-dotted underline-offset-2"
+                  style={{ color: bandText, opacity: 0.8 }}
+                >
+                  Auto
+                </button>
+              )}
+            </>
+          )}
+          {!isViewOnly && (
+            <EditIconButton
+              onClick={() => setEditing((v) => !v)}
+              active={editing}
+              label={editing ? 'Done editing' : 'Edit category'}
+              colorStyle={{ color: bandText }}
+            />
+          )}
           {!isViewOnly && (
             <>
               <button
@@ -1601,9 +2006,14 @@ function SituationalCategorySection({
 }
 
 function GameViewMode({
-  side, gameViewFormations, playsForFormation, playIndex, packageIds, onTogglePackage, onReorderPackage,
-  favoritePlaySet, onToggleFavoritePlay, situationalCategories, onAddCategory, onRemoveCategory, onReorderCategories,
+  side, gameViewFormations, playsForFormation, playIndex, packageIds, onTogglePackage,
+  packageColors, onSetPackageColor, onResetPackageColor,
+  favoritePlaySet, onToggleFavoritePlay, situationalCategories, onAddCategory, onRemoveCategory,
+  gameplanColumns, onReorderGameplanColumns,
   onAddFormationToCategory, onRemoveFormationFromCategory, onAddPlayToCategory, onRemovePlayFromCategory,
+  onSetCategoryColor, onResetCategoryColor, onRenameCategory,
+  gameplanDividers, onAddDivider, onRemoveDivider, onRenameDivider,
+  onSetDividerColor, onResetDividerColor,
   teamColors, isViewOnly, onSwitchToBuild,
 }) {
   const sensors = useSensors(
@@ -1624,10 +2034,10 @@ function GameViewMode({
 
   const groups = PLAY_TYPE_GROUPS[side]
   const formationsById = new Map(gameViewFormations.map((f) => [f.id, f]))
-  // Pinned order follows packageIds (user-reorderable), not catalog order —
-  // any stale id (e.g. left over from a since-changed playbook) just drops.
-  const pinned = packageIds.map((id) => formationsById.get(id)).filter(Boolean)
-  const rest = gameViewFormations.filter((f) => !f.isSelected)
+  const packageSet = new Set(packageIds)
+  const rest = gameViewFormations
+    .filter((f) => !f.isSelected)
+    .sort((a, b) => (b.fit?.score ?? -1) - (a.fit?.score ?? -1))
 
   const cardProps = (f) => ({
     plays: playsForFormation(f),
@@ -1651,26 +2061,12 @@ function GameViewMode({
     isViewOnly,
     side,
     onTogglePackage: () => onTogglePackage(f.id),
+    color: packageColors[f.id],
+    onSetColor: onSetPackageColor,
+    onResetColor: onResetPackageColor,
   })
 
-  const handlePackageDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return
-    const oldIndex = packageIds.indexOf(active.id)
-    const newIndex = packageIds.indexOf(over.id)
-    if (oldIndex < 0 || newIndex < 0) return
-    onReorderPackage(oldIndex, newIndex)
-  }
-
-  const categoryIds = situationalCategories.map((c) => c.id)
-  const handleCategoryDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return
-    const oldIndex = categoryIds.indexOf(active.id)
-    const newIndex = categoryIds.indexOf(over.id)
-    if (oldIndex < 0 || newIndex < 0) return
-    onReorderCategories(oldIndex, newIndex)
-  }
-
-  const sectionProps = {
+  const categorySectionProps = {
     gameViewFormations,
     formationsById,
     playIndex,
@@ -1686,43 +2082,107 @@ function GameViewMode({
     onAddPlay: onAddPlayToCategory,
     onRemovePlay: onRemovePlayFromCategory,
     onRemoveCategory,
+    onSetColor: onSetCategoryColor,
+    onResetColor: onResetCategoryColor,
+    onRename: onRenameCategory,
+  }
+
+  // "Your Gameplan" — formations (from the base package), situational
+  // categories, and dividers, resolved from gameplanColumns (3 independent
+  // per-column tag lists) so any of them can sit anywhere in any column,
+  // and columns are free to hold different numbers of items. Any tag whose
+  // target no longer exists (a formation removed from the package
+  // elsewhere, a deleted category/divider) just drops.
+  const categoriesById = new Map(situationalCategories.map((c) => [c.id, c]))
+  const dividersById = new Map(gameplanDividers.map((d) => [d.id, d]))
+  const resolveTag = (tag) => {
+    if (tag.startsWith('formation:')) {
+      const f = formationsById.get(tag.slice('formation:'.length))
+      return f && packageSet.has(f.id) ? { tag, type: 'formation', data: f } : null
+    }
+    if (tag.startsWith('category:')) {
+      const cat = categoriesById.get(tag.slice('category:'.length))
+      return cat ? { tag, type: 'category', data: cat } : null
+    }
+    if (tag.startsWith('divider:')) {
+      const div = dividersById.get(tag.slice('divider:'.length))
+      return div ? { tag, type: 'divider', data: div } : null
+    }
+    return null
+  }
+  const gameplanColumnItems = gameplanColumns.map((col) => col.map(resolveTag).filter(Boolean))
+  const gameplanItemCount = gameplanColumnItems.reduce((n, col) => n + col.length, 0)
+
+  const findColumnOf = (tag) => gameplanColumns.findIndex((col) => col.includes(tag))
+
+  const handleGameplanDragEnd = ({ active, over }) => {
+    if (!over) return
+    const activeTag = String(active.id)
+    const overId = String(over.id)
+    const fromCol = findColumnOf(activeTag)
+    if (fromCol < 0) return
+
+    let toCol
+    let toIndex
+    if (overId.startsWith('column:')) {
+      toCol = Number(overId.slice('column:'.length))
+      toIndex = gameplanColumns[toCol].length
+    } else {
+      toCol = findColumnOf(overId)
+      if (toCol < 0) return
+      toIndex = gameplanColumns[toCol].indexOf(overId)
+    }
+
+    if (fromCol === toCol) {
+      const oldIndex = gameplanColumns[fromCol].indexOf(activeTag)
+      if (oldIndex === toIndex) return
+      const next = gameplanColumns.map((col) => [...col])
+      next[fromCol] = arrayMove(next[fromCol], oldIndex, toIndex)
+      onReorderGameplanColumns(next)
+    } else {
+      const next = gameplanColumns.map((col) => [...col])
+      next[fromCol] = next[fromCol].filter((t) => t !== activeTag)
+      next[toCol].splice(toIndex, 0, activeTag)
+      onReorderGameplanColumns(next)
+    }
   }
 
   return (
     <div className="space-y-6">
       <section>
-        <div className="label-sm mb-2">Your Base Package</div>
-        {pinned.length === 0 ? (
+        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+          <div className="label-sm">Your Gameplan</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {!isViewOnly && (
+              <>
+                <Button variant="outline" size="sm" onClick={onAddDivider}>Add Divider</Button>
+                <Button variant="outline" size="sm" onClick={onAddCategory}>Add Call</Button>
+              </>
+            )}
+          </div>
+        </div>
+        {gameplanItemCount === 0 ? (
           <p className="text-xs text-txt-tertiary">
-            No formations added to your base package yet — add some in Build mode, or browse the full playbook below.
+            Nothing here yet — add formations to your base package in Build mode (or below), or add a situational category above.
           </p>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePackageDragEnd}>
-            <SortableContext items={pinned.map((f) => f.id)} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
-                {pinned.map((f) => <SortablePackageCard key={f.id} f={f} cardProps={packageCardProps(f)} />)}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
-      </section>
-
-      <section>
-        <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-          <div className="label-sm">Situational Categories</div>
-          <AddCategoryControl onAdd={onAddCategory} isViewOnly={isViewOnly} />
-        </div>
-        {situationalCategories.length === 0 ? (
-          <p className="text-xs text-txt-tertiary">No situational categories yet.</p>
-        ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleCategoryDragEnd}>
-            <SortableContext items={categoryIds} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
-                {situationalCategories.map((cat) => (
-                  <SortableCategoryCard key={cat.id} category={cat} sectionProps={sectionProps} />
-                ))}
-              </div>
-            </SortableContext>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGameplanDragEnd}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 items-start">
+              {gameplanColumnItems.map((items, colIndex) => (
+                <GameplanColumn
+                  key={colIndex}
+                  colIndex={colIndex}
+                  items={items}
+                  packageCardProps={packageCardProps}
+                  categorySectionProps={categorySectionProps}
+                  onRenameDivider={onRenameDivider}
+                  onRemoveDivider={onRemoveDivider}
+                  onSetDividerColor={onSetDividerColor}
+                  onResetDividerColor={onResetDividerColor}
+                  isViewOnly={isViewOnly}
+                />
+              ))}
+            </div>
           </DndContext>
         )}
       </section>
