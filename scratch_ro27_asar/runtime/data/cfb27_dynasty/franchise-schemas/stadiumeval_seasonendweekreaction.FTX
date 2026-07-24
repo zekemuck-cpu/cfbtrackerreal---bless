@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StadiumEval_SeasonEndWeekReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StadiumEval_SeasonEndWeekReaction" numMembers="4" base="Reaction" assetId="7707444" isRecordPersistent="true" majorVersionCRC="-1288192415" minorVersionCRC="1490172995">
+			<attribute name="EventRecord" idx="0" type="Season_EndWeekEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="7707444-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="StadiumEval" idx="3" type="StadiumEval" />
+		</schema>
+	</schemas>
+</FranTkData>

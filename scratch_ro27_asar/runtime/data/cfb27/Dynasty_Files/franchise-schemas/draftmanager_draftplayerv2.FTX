@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DraftManager_DraftPlayerV2.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftManager_DraftPlayerV2" numMembers="3" base="none()" ownerAssetId="6498521" isRecordPersistent="true" isExpr="true" majorVersionCRC="1205460115" minorVersionCRC="-8353190">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="draftPlayer" idx="1" type="DraftPlayer" />
+		</schema>
+	</schemas>
+</FranTkData>

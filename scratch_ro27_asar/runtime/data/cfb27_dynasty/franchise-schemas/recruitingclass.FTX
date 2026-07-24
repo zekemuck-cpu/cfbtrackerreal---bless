@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingClass.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RecruitingClass" numMembers="10" assetId="7739630" isRecordPersistent="true" majorVersionCRC="1427164212" minorVersionCRC="1302821559">
+			<attribute name="HighSchool" idx="0" value="0" />
+			<attribute name="JuniorCollege_Sophomore" idx="1" value="1" />
+			<attribute name="JuniorCollege_Junior" idx="2" value="2" />
+			<attribute name="JuniorCollege_Senior" idx="3" value="3" />
+			<attribute name="Transfer_Freshman" idx="4" value="4" />
+			<attribute name="Transfer_Sophomore" idx="5" value="5" />
+			<attribute name="Transfer_Junior" idx="6" value="6" />
+			<attribute name="Transfer_Senior" idx="7" value="7" />
+			<attribute name="Count_" idx="8" value="8" />
+			<attribute name="Invalid" idx="9" value="9" />
+		</enum>
+	</schemas>
+</FranTkData>

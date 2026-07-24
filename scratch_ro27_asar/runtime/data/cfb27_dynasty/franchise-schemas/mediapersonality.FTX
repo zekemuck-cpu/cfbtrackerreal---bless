@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\MediaPersonality.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaPersonality" numMembers="4" assetId="6498636" isRecordPersistent="true" majorVersionCRC="1077072856" minorVersionCRC="332959018">
+			<attribute name="FirstName" idx="0" type="string" maxLen="1" />
+			<attribute name="JobTitle" idx="1" type="string" maxLen="1" />
+			<attribute name="LastName" idx="2" type="string" maxLen="1" />
+			<attribute name="PortraitId" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

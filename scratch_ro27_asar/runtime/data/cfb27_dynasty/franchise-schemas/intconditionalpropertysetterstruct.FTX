@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\IntConditionalPropertySetterStruct.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\PropertySetterStruct.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="IntConditionalPropertySetterStruct" numMembers="7" base="PropertySetterStruct" assetId="11960297" isRecordPersistent="true" majorVersionCRC="1027925852" minorVersionCRC="-2047662278">
+			<attribute name="Condition" idx="0" type="ConditionOperator" default="ConditionOperator:AND" />
+			<attribute name="ConditionValue" idx="1" type="int" minValue="-65535" maxValue="65536" default="0" />
+			<attribute name="FalseSetter" idx="2" type="PropertySetterStruct" />
+			<attribute name="Name" idx="3" type="string" maxLen="40" />
+			<attribute name="SetOnTarget" idx="4" type="bool" default="False" />
+			<attribute name="Setter" idx="5" type="PropertySetterBase" />
+			<attribute name="TrueSetter" idx="6" type="PropertySetterStruct" />
+		</schema>
+	</schemas>
+</FranTkData>

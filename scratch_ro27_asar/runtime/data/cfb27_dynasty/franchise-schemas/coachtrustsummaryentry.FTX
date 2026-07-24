@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\CoachTrustSummaryEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TransactionWeekSummaryEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachTrustSummaryEntry" numMembers="3" base="TransactionWeekSummaryEntry" assetId="9072516" isRecordPersistent="false" majorVersionCRC="638835990" minorVersionCRC="773367205">
+			<attribute name="OldPlayerDepth" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OldValue" idx="1" type="int" minValue="-32000" maxValue="32000" default="0" />
+			<attribute name="UserEntity" idx="2" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

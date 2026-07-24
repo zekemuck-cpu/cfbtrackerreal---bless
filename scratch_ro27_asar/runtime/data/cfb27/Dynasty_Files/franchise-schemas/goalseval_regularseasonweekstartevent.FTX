@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\GoalsEval_RegularSeasonWeekStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalsEval_RegularSeasonWeekStartEvent" numMembers="4" base="Reaction" assetId="6498885" isRecordPersistent="true" majorVersionCRC="1122799468" minorVersionCRC="2124264802">
+			<attribute name="EventRecord" idx="0" type="RegularSeasonWeekStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6498885-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Transaction" idx="3" type="AssignWeeklyGoalsTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

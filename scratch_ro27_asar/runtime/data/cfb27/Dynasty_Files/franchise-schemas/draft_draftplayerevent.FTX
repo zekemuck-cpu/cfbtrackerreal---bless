@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\Draft_DraftPlayerEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Draft_DraftPlayerEvent" numMembers="12" base="Event" assetId="6378028" isRecordPersistent="true" majorVersionCRC="15008704" minorVersionCRC="-949678705">
+			<attribute name="AudioQueue" idx="0" type="int" minValue="0" maxValue="6400" default="0" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6378028-1895458" final="true" />
+			<attribute name="IsFantasyDraft" idx="2" type="bool" default="False" />
+			<attribute name="IsForcedDraftPick" idx="3" type="bool" default="False" />
+			<attribute name="Pick" idx="4" type="DraftPick" />
+			<attribute name="Player" idx="5" type="Player" />
+			<attribute name="PlayersProjectedPick" idx="6" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="PlayersProjectedRound" idx="7" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="Send" idx="8" type="none()" guid="6378028-1895455" final="true" />
+			<attribute name="SurnameAudioID" idx="9" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="Team" idx="10" type="Team" />
+			<attribute name="TrueOverallRanking" idx="11" type="int" minValue="0" maxValue="511" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

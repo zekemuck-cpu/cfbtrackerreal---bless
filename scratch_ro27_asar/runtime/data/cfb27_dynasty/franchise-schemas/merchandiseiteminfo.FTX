@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\MerchandiseItemInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SellableItemInfo.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MerchandiseItemInfo" numMembers="13" base="SellableItemInfo" defaultStoreCapacity="20" assetId="6494989" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="364" majorVersionCRC="1459993004" minorVersionCRC="-1657554517">
+			<attribute name="DefaultPrice" idx="0" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DisplayName" idx="1" type="string" maxLen="33" />
+			<attribute name="ImageId" idx="2" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="IsUnlockable" idx="3" type="bool" default="False" />
+			<attribute name="MaxPrice" idx="4" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="MerchandiseItem" idx="5" type="MerchandiseItem" default="MerchandiseItem:TeamJersey" />
+			<attribute name="MerchandiseSubject" idx="6" type="MerchandiseItemSubject" default="MerchandiseItemSubject:Team" />
+			<attribute name="MerchandiseSubjectIndex" idx="7" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="MerchandiseType" idx="8" type="MerchandiseType" default="MerchandiseType:Apparel" />
+			<attribute name="MinPrice" idx="9" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PriceCurve" idx="10" type="Spline" />
+			<attribute name="PriceIncrement" idx="11" type="int" minValue="1" maxValue="100" default="1" />
+			<attribute name="UnlockPopularityThreshold" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

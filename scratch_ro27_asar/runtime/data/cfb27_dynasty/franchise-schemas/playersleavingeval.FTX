@@ -1,0 +1,83 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEval" numMembers="76" base="Module" assetId="6498461" isRecordPersistent="true" majorVersionCRC="-152449090" minorVersionCRC="-821364846">
+			<attribute name="AddTransfersToPortal" idx="0" type="none()" guid="6498461-2083046" final="true" />
+			<attribute name="AdvanceReturnLists" idx="1" type="none()" guid="6498461-1925004" final="true" />
+			<attribute name="AttemptEarlyNFLPersuasion" idx="2" type="PlayersLeavingEval_AttemptEarlyNFLPersuasion" guid="6498461-2083099" final="true" />
+			<attribute name="AttemptTransferPersuasion" idx="3" type="PlayersLeavingEval_AttemptTransferPersuasion" guid="6498461-2083103" final="true" />
+			<attribute name="AwardsEval" idx="4" type="AwardsEval" />
+			<attribute name="CanPlayerEarlyLeaveForNFL" idx="5" type="PlayersLeavingEval_CanPlayerEarlyLeaveForNFL" guid="6498461-1976187" final="true" />
+			<attribute name="CanPlayerTransfer" idx="6" type="PlayersLeavingEval_CanPlayerTransfer" guid="6498461-1976227" final="true" />
+			<attribute name="CreateResources" idx="7" type="none()" guid="6498461-1924987" final="true" />
+			<attribute name="DepthChartEval" idx="8" type="DepthChartEval" />
+			<attribute name="DesiredFreeAgentCounts" idx="9" type="PositionCountTable" />
+			<attribute name="DestroyResources" idx="10" type="none()" guid="6498461-1924990" final="true" />
+			<attribute name="DraftClass" idx="11" type="LeavingPlayer[]" />
+			<attribute name="DraftClassGeneratedEvent" idx="12" type="DraftClass_DraftClassGenerated" />
+			<attribute name="DraftPlayerEvent" idx="13" type="Draft_DraftPlayerEvent" />
+			<attribute name="DraftResultsEnd_End" idx="14" type="none()" guid="6498461-2353056" final="true" />
+			<attribute name="DraftResultsEnd_Start" idx="15" type="none()" guid="6498461-2353049" final="true" />
+			<attribute name="DraftResultsEnd_Update" idx="16" type="PlayersLeavingEval_DraftResultsEnd_Update" guid="6498461-2353052" final="true" />
+			<attribute name="EarlyNFLPlayers" idx="17" type="LeavingPlayer[]" />
+			<attribute name="EnterTrophyRoomResponse" idx="18" type="UIFlowForm" />
+			<attribute name="EvaluatePlayersForEarlyDraft" idx="19" type="none()" guid="6498461-1976211" final="true" />
+			<attribute name="EvaluatePlayersForTransferRequests" idx="20" type="PlayersLeavingEval_EvaluatePlayersForTransferRequests" guid="6498461-1976231" final="true" />
+			<attribute name="FirstRoundPickHOF" idx="21" type="string" maxLen="341" />
+			<attribute name="FirstRoundPickNoHOF" idx="22" type="string" maxLen="341" />
+			<attribute name="ForceRetireAllUserPlayers" idx="23" type="none()" guid="6498461-1925040" />
+			<attribute name="ForceRetirement" idx="24" type="PlayersLeavingEval_ForceRetirement" guid="6498461-1925018" final="true" />
+			<attribute name="ForceRetirementResponse" idx="25" type="UIFlowForm" />
+			<attribute name="Franchise" idx="26" type="Franchise" />
+			<attribute name="GenerateDraftClass" idx="27" type="PlayersLeavingEval_GenerateDraftClass" guid="6498461-1976194" final="true" />
+			<attribute name="GetEarlyNFLDraftChance" idx="28" type="PlayersLeavingEval_GetEarlyNFLDraftChance" guid="6498461-1976206" final="true" />
+			<attribute name="GetTransferChance" idx="29" type="PlayersLeavingEval_GetTransferChance" guid="6498461-1976221" final="true" />
+			<attribute name="HandleForceRetirement" idx="30" type="PlayersLeavingEval_HandleForceRetirement" guid="6498461-1925043" final="true" default="if(!player.IsCreated)&#xD;&#xA;{&#xD;&#xA;  Franchise.RetiredPlayers.FindAndErase(player);&#xD;&#xA;  PlayerManager.UnRetirePlayer(player);&#xD;&#xA;}" />
+			<attribute name="HandleRegisterUser" idx="31" type="PlayersLeavingEval_HandleRegisterUser" guid="6498461-2238213" final="true" default="int offSeasonStagType = OffseasonStageType.PlayersLeaving;&#xD;&#xA;if(SeasonInfo.CurrentOffseasonStage == offSeasonStagType)&#xD;&#xA;{&#xD;&#xA;  IssuePlayersLeavingRequestToUser(EventRecord.User.UserEntity);&#xD;&#xA;}" />
+			<attribute name="HandleUpdateUserDefaultRequestAction" idx="32" type="PlayersLeavingEval_HandleUpdateUserDefaultRequestAction" guid="6498461-1925049" final="true" />
+			<attribute name="HighRetirementChanceThreshold" idx="33" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="IssueEnterTrophyRoomRequest" idx="34" type="PlayersLeavingEval_IssueEnterTrophyRoomRequest" guid="6498461-2426046" final="true" default="EnterTrophyRoomRequest request = new EnterTrophyRoomRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( EnterTrophyRoomResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(player);" />
+			<attribute name="IssuePlayersLeavingRequestToTeams" idx="35" type="none()" guid="6498461-2083024" final="true" />
+			<attribute name="IssuePlayersLeavingRequestToUser" idx="36" type="PlayersLeavingEval_IssuePlayersLeavingRequestToUser" guid="6498461-2083001" final="true" default="PlayersLeavingEnterRequest request = new PlayersLeavingEnterRequest;&#xD;&#xA;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;request.RequestData = PlayersLeavingTunables;&#xD;&#xA;&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;   request.ResponseForms.Append(PlayersLeavingForm);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueRetirementRequest" idx="37" type="PlayersLeavingEval_IssueRetirementRequest" guid="6498461-1925023" final="true" default="Retirement_ForceRetirementRequest request = new Retirement_ForceRetirementRequest;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = true;&#xD;&#xA;request.RequestData = player;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.doSetRetiredFlag = false;&#xD;&#xA;request.RequestStyle = RequestStyle.Blocker;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( ForceRetirementResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(player);" />
+			<attribute name="IssueViewRetirementsRequest" idx="38" type="PlayersLeavingEval_IssueViewRetirementsRequest" guid="6498461-1925058" final="true" default="ViewRetirementsRequest request = new ViewRetirementsRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 1;&#xD;&#xA;request.RequestData = Franchise.SeasonInfo;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( ViewRetirementsResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IsTeamAboveMinimumAtPositionNextYear" idx="39" type="PlayersLeavingEval_IsTeamAboveMinimumAtPositionNextYear" guid="6498461-1976104" final="true" />
+			<attribute name="LateRoundPickHOF" idx="40" type="string" maxLen="341" />
+			<attribute name="LateRoundPickNoHOF" idx="41" type="string" maxLen="341" />
+			<attribute name="LeagueSetting" idx="42" type="LeagueSetting" />
+			<attribute name="MySchoolGradeEval" idx="43" type="MySchoolGradeEval" />
+			<attribute name="NarrativePlayer" idx="44" type="NarrativePlayer" />
+			<attribute name="PersuasionFailed" idx="45" type="string" maxLen="101" default="Persuasion Failed" />
+			<attribute name="PersuasionSuccessful" idx="46" type="string" maxLen="101" default="Persuasion Successful" />
+			<attribute name="PlayerContractManager" idx="47" type="PlayerContractManager" />
+			<attribute name="PlayerGradeEval" idx="48" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="49" type="PlayerManager" />
+			<attribute name="PlayerRetirementDelayedEvent" idx="50" type="PlayerRetirementDelayedEvent" />
+			<attribute name="PlayersLeavingForm" idx="51" type="UIFlowForm" />
+			<attribute name="PlayersLeavingTunables" idx="52" type="PlayersLeavingTunables" />
+			<attribute name="PlayersRetiringNextWeek" idx="53" type="PlayerRetirementAppointmentInfo[]" />
+			<attribute name="ProgramPointsTuning" idx="54" type="ProgramPointsTuning" />
+			<attribute name="Random" idx="55" type="Random" />
+			<attribute name="RecrutingTunables" idx="56" type="RecruitingTunables" />
+			<attribute name="RemoveDraftClassPlayers" idx="57" type="none()" guid="6498461-2083157" final="true" />
+			<attribute name="RemoveEarlyDraftPlayers" idx="58" type="none()" guid="6498461-1976202" final="true" />
+			<attribute name="RequestServer" idx="59" type="RequestServer" />
+			<attribute name="ResetPersuasionAttempts" idx="60" type="none()" guid="6498461-2083058" />
+			<attribute name="RetirementPositionInfoTable" idx="61" type="PlayerPositionLookupTable" />
+			<attribute name="RetireUserFreeAgents" idx="62" type="none()" guid="6498461-1925028" final="true" />
+			<attribute name="SeasonInfo" idx="63" type="SeasonInfo" />
+			<attribute name="SeasonScheduleManager" idx="64" type="SeasonScheduleManager" />
+			<attribute name="SelectFreeAgentsToDelete" idx="65" type="PlayersLeavingEval_SelectFreeAgentsToDelete" guid="6498461-1924974" final="true" />
+			<attribute name="TalentTreeEvalRef" idx="66" type="TalentTreeEval" />
+			<attribute name="TeamHasQualityReplacementNextYear" idx="67" type="PlayersLeavingEval_TeamHasQualityReplacementNextYear" guid="6498461-1976108" final="true" />
+			<attribute name="TeamManager" idx="68" type="TeamManager" />
+			<attribute name="TeamRevenueEval" idx="69" type="TeamRevenueEval" />
+			<attribute name="TransferRequests" idx="70" type="LeavingPlayer[]" />
+			<attribute name="UndraftedHOF" idx="71" type="string" maxLen="341" />
+			<attribute name="UndraftedNoHOF" idx="72" type="string" maxLen="341" />
+			<attribute name="UserRegistry" idx="73" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="74" type="none()" guid="6498461-1925053" final="true" />
+			<attribute name="ViewRetirementsResponse" idx="75" type="UIFlowForm" />
+		</schema>
+	</schemas>
+</FranTkData>

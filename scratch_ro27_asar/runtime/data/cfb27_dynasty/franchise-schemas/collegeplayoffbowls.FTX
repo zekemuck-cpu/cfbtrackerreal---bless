@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\CollegePlayoffBowls.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CollegePlayoffBowls" numMembers="11" assetId="7738466" isRecordPersistent="true" majorVersionCRC="-384527195" minorVersionCRC="1478590076">
+			<attribute name="Cotton" idx="0" value="0" />
+			<attribute name="FirstBowlRotation" idx="1" value="0" />
+			<attribute name="Orange" idx="2" value="0" />
+			<attribute name="Fiesta" idx="3" value="1" />
+			<attribute name="Peach" idx="4" value="1" />
+			<attribute name="SecondBowlRotation" idx="5" value="1" />
+			<attribute name="Rose" idx="6" value="2" />
+			<attribute name="Sugar" idx="7" value="2" />
+			<attribute name="ThirdBowlRotation" idx="8" value="2" />
+			<attribute name="COUNT_" idx="9" value="3" />
+			<attribute name="INVALID_" idx="10" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

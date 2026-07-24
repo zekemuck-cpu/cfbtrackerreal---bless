@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\SendPlayerToProDraftAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SendPlayerToProDraftAction" numMembers="3" base="SequenceAction" defaultStoreCapacity="2" assetId="12616707" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-156501504" minorVersionCRC="-2022549370">
+			<attribute name="Actor" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="Default" idx="1" type="bool" default="False" />
+			<attribute name="Enabled" idx="2" type="bool" default="True" />
+		</schema>
+	</schemas>
+</FranTkData>

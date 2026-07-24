@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TradeEval_EndNegotiation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeEval_EndNegotiation" numMembers="2" base="none()" ownerAssetId="6495411" isRecordPersistent="true" isExpr="true" majorVersionCRC="1316161250" minorVersionCRC="1700887582">
+			<attribute name="negotiation" idx="0" type="TradeNegotiation" />
+		</schema>
+	</schemas>
+</FranTkData>

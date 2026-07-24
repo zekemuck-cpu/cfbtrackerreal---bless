@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\ClearDraftBoardTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ClearDraftBoardTransaction" numMembers="15" base="LoopTransaction" assetId="5699519" isRecordPersistent="true" majorVersionCRC="-1240862414" minorVersionCRC="223592624">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="DraftBoardEval" idx="1" type="DraftBoardEval" />
+			<attribute name="IsBlocking" idx="2" type="bool" default="True" />
+			<attribute name="IsDone" idx="3" type="bool()" guid="5699519-1895538" />
+			<attribute name="IsDynamic" idx="4" type="bool" default="False" />
+			<attribute name="Item" idx="5" type="Team" />
+			<attribute name="ItemIndex" idx="6" type="int" minValue="0" maxValue="2147483647" default="0" />
+			<attribute name="ItemList" idx="7" type="Team[]" />
+			<attribute name="Process" idx="8" type="none()" guid="5699519-1895540" />
+			<attribute name="Sleep" idx="9" type="ITransaction_Sleep" guid="5699519-1895548" />
+			<attribute name="Start" idx="10" type="none()" guid="5699519-1895544" />
+			<attribute name="StartStage" idx="11" type="Stage" />
+			<attribute name="TimeScale" idx="12" type="float" default="0" />
+			<attribute name="TransitionPending" idx="13" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="14" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

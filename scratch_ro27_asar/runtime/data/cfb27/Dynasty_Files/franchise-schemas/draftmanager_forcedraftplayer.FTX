@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\DraftManager_ForceDraftPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftManager_ForceDraftPlayer" numMembers="4" base="none()" ownerAssetId="6498521" isRecordPersistent="true" isExpr="true" majorVersionCRC="800083702" minorVersionCRC="96308594">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="draftPlayer" idx="1" type="Player" />
+			<attribute name="overallPick" idx="2" type="int" minValue="0" maxValue="400" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

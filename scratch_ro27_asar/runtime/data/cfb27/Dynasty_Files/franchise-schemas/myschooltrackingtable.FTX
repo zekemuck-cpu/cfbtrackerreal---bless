@@ -1,0 +1,42 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolTrackingTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolTrackingTable" numMembers="35" defaultStoreCapacity="138" assetId="6514524" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-617386835" minorVersionCRC="-792969699">
+			<attribute name="AcademicPrestigeGrade" idx="0" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="AthleticFacilitiesGrade" idx="1" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="AthleticFacilitiesScore" idx="2" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="BrandExposureGamesOfTheWeekPlayed" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureGamesOfTheWeekWins" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureGrade" idx="5" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="BrandExposureNationalTVPlayed" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureNationalTVWins" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureStreamingPlayed" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureStreamingWins" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CampusLifestyleGrade" idx="10" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="CampusLifestyleScore" idx="11" type="int" minValue="0" maxValue="134" default="0" />
+			<attribute name="ChampionshipContenderCurrentYearRank" idx="12" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="ChampionshipContenderGrade" idx="13" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ChampionshipContenderYearPlus1Rank" idx="14" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="ChampionshipContenderYearPlus2Rank" idx="15" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="ChampionshipContenderYearPlus3Rank" idx="16" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="CoachPrestigeGrade" idx="17" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="CoachStabilityGrade" idx="18" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ConferencePrestigeGrade" idx="19" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="PlayingStyleGradeByPlayerTypeTable" idx="20" type="record" />
+			<attribute name="PlayingStyleRankByPlayerTypeTable" idx="21" type="record" />
+			<attribute name="PlayingStyleStatByPlayerTypeTable" idx="22" type="record" />
+			<attribute name="ProgramTraditionGrade" idx="23" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeDB" idx="24" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeDL" idx="25" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeK" idx="26" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeLB" idx="27" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeOL" idx="28" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeP" idx="29" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeQB" idx="30" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeRB" idx="31" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeTE" idx="32" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeWR" idx="33" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="StadiumAtmosphereGrade" idx="34" type="LetterGrade" default="LetterGrade:Aplus" />
+		</schema>
+	</schemas>
+</FranTkData>

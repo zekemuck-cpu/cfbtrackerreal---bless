@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\UIRangeSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIRangeSelectItem" numMembers="3" base="UISelectItem" defaultStoreCapacity="12" assetId="6812684" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="117" majorVersionCRC="532518534" minorVersionCRC="-1785776366">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="ValueMax" idx="1" type="int" minValue="0" maxValue="512" default="0" />
+			<attribute name="ValueMin" idx="2" type="int" minValue="0" maxValue="512" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\ChallengeResult.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ChallengeResult" numMembers="7" defaultStoreCapacity="20" assetId="10489466" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1693587524" minorVersionCRC="-855377112">
+			<attribute name="BonusObjectivesCompleted" idx="0" type="ChallengeObjective[]" />
+			<attribute name="ChallengeTierGroup" idx="1" type="ChallengeTierGroup" />
+			<attribute name="ObjectiveCompleted1" idx="2" type="bool" default="False" />
+			<attribute name="ObjectiveCompleted2" idx="3" type="bool" default="False" />
+			<attribute name="ObjectiveCompleted3" idx="4" type="bool" default="False" />
+			<attribute name="TeamGeneratedFrom" idx="5" type="Team" />
+			<attribute name="Tier" idx="6" type="int" minValue="0" maxValue="2" default="1" />
+		</schema>
+	</schemas>
+</FranTkData>

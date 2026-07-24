@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\Handedness.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Handedness" numMembers="5" assetId="6379101" isRecordPersistent="true" majorVersionCRC="214478312" minorVersionCRC="1404992822">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Right" idx="1" value="0" />
+			<attribute name="Left" idx="2" value="1" />
+			<attribute name="Max_" idx="3" value="2" />
+			<attribute name="Invalid_" idx="4" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

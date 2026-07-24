@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\BaseContractPositionPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BaseContractPositionPhilosophy" numMembers="2" assetId="6495221" isRecordPersistent="true" majorVersionCRC="1366364105" minorVersionCRC="-893328785">
+			<attribute name="AgeAdjustmentFactor" idx="0" type="Spline" />
+			<attribute name="RandomAdjustmentFactor" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

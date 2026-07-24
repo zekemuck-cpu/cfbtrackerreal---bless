@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_InitInjuryReturnNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_InitInjuryReturnNotificationRequest" numMembers="4" base="Injury_ReturnNotificationRequest()" ownerAssetId="6498459" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1855939526" minorVersionCRC="2031474998">
+			<attribute name="Team" idx="0" type="Team" />
+			<attribute name="request" idx="1" type="Injury_ReturnNotificationRequest" />
+			<attribute name="Player" idx="2" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

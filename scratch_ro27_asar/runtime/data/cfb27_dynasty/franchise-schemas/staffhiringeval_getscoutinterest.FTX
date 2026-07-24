@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_GetScoutInterest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_GetScoutInterest" numMembers="3" base="int()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="1937152" minorVersionCRC="1601182568">
+			<attribute name="contractOffer" idx="0" type="StaffPersonContractOffer" />
+			<attribute name="expectedXP" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

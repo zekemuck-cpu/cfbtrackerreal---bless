@@ -1,0 +1,10 @@
+<FranTkData fileName="Core-Schemas\DataTemplateSchema.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DataTemplateSchema" numMembers="3" defaultStoreCapacity="78" assetId="6210684" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1110" majorVersionCRC="-1172938484" minorVersionCRC="1292300599">
+			<attribute name="FilterKeys" idx="0" type="DataTemplateFilterKey[]" />
+			<attribute name="Members" idx="1" type="DataTemplateProperty[]" />
+			<attribute name="Schema" idx="2" type="string" maxLen="65" />
+		</schema>
+	</schemas>
+</FranTkData>

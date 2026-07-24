@@ -1,0 +1,100 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_Server.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Server.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_Server" numMembers="89" base="FranTkServer_Server" assetId="6499350" isRecordPersistent="true" majorVersionCRC="1881626432" minorVersionCRC="-334386366">
+			<attribute name="AdvanceTransaction" idx="0" type="AdvanceSeasonWeekTransaction" />
+			<attribute name="BoxScoreFlow" idx="1" type="FranchiseServer_BoxScoreFlow" />
+			<attribute name="CareerFlow" idx="2" type="FranchiseServer_CareerFlow" />
+			<attribute name="ChallengesFlow" idx="3" type="FranchiseServer_ChallengesFlow" />
+			<attribute name="CoachDatabaseFlow" idx="4" type="FranchiseServer_CoachDatabaseFlow" />
+			<attribute name="CoachDetailsFlow" idx="5" type="FranchiseServer_CoachDetailsFlow" />
+			<attribute name="CoachStatFlow" idx="6" type="FranchiseServer_CoachStatFlow" />
+			<attribute name="ContractNegotiationFlow" idx="7" type="FranchiseServer_ContractNegotiationFlow" />
+			<attribute name="CreateCoachFlow" idx="8" type="FranchiseServer_CreateCoachFlow" />
+			<attribute name="CreatePlayerFlow" idx="9" type="FranchiseServer_CreatePlayerFlow" />
+			<attribute name="CustomConferencesFlow" idx="10" type="DynastyServer_CustomConferencesFlow" />
+			<attribute name="CustomSchedulesFlow" idx="11" type="DynastyServer_CustomSchedulesFlow" />
+			<attribute name="CutDaysFlow" idx="12" type="FranchiseServer_CutDaysFlow" />
+			<attribute name="DepthChartFlow" idx="13" type="FranchiseServer_DepthChartFlow" />
+			<attribute name="DraftFlow" idx="14" type="FranchiseServer_DraftFlow" />
+			<attribute name="EditDraftClassFlow" idx="15" type="FranchiseServer_EditDraftClassFlow" />
+			<attribute name="FinancesFlow" idx="16" type="FranchiseServer_FinancesFlow" />
+			<attribute name="FootballRecordsFlow" idx="17" type="FranchiseServer_FootballRecordsFlow" />
+			<attribute name="FormationSubsFlow" idx="18" type="FranchiseServer_FormationSubsFlow" />
+			<attribute name="FormManager" idx="19" type="FranTkServer_FormManager" />
+			<attribute name="FreeAgentsFlow" idx="20" type="FranchiseServer_FreeAgentsFlow" />
+			<attribute name="GamebreakerFlow" idx="21" type="FranchiseServer_GamebreakerFlow" />
+			<attribute name="GameScheduleFlow" idx="22" type="FranchiseServer_GameScheduleFlow" />
+			<attribute name="GoalsFlow" idx="23" type="FranchiseServer_GoalsFlow" />
+			<attribute name="InjuryReportFlow" idx="24" type="FranchiseServer_InjuryReportFlow" />
+			<attribute name="LeagueAwardsFlow" idx="25" type="FranchiseServer_LeagueAwardsFlow" />
+			<attribute name="LeagueHistoryFlow" idx="26" type="FranchiseServer_LeagueHistoryFlow" />
+			<attribute name="LeagueSettingFlow" idx="27" type="FranchiseServer_LeagueSettingFlow" />
+			<attribute name="LegacyScoreFlow" idx="28" type="FranchiseServer_LegacyScoreFlow" />
+			<attribute name="MetersFlow" idx="29" type="DynastyServer_MetersFlow" />
+			<attribute name="MySchoolFlow" idx="30" type="DynastyServer_MySchoolFlow" />
+			<attribute name="ObjectiveFlow" idx="31" type="FranchiseServer_ObjectiveFlow" />
+			<attribute name="OfferManagementFlow" idx="32" type="FranchiseServer_OfferManagementFlow" />
+			<attribute name="PlayerCareerStatFlow" idx="33" type="FranchiseServer_PlayerCareerStatFlow" />
+			<attribute name="PlayerDetailsFlow" idx="34" type="FranchiseServer_PlayerDetailsFlow" />
+			<attribute name="PlayerProgressionFlow" idx="35" type="FranchiseServer_PlayerProgressionFlow" />
+			<attribute name="PlayerSeasonStatFlow" idx="36" type="FranchiseServer_PlayerSeasonStatFlow" />
+			<attribute name="PlayersLeavingFlow" idx="37" type="DynastyServer_PlayersLeavingFlow" />
+			<attribute name="PollsFlow" idx="38" type="FranchiseServer_PollsFlow" />
+			<attribute name="PositionChangesFlow" idx="39" type="FranchiseServer_PositionChangesFlow" />
+			<attribute name="PracticeHistoryFlow" idx="40" type="FranchiseServer_PracticeHistoryFlow" />
+			<attribute name="PracticeHomeFlow" idx="41" type="FranchiseServer_PracticeHomeFlow" />
+			<attribute name="ProgressionPackagesFlow" idx="42" type="FranchiseServer_ProgressionPackagesFlow" />
+			<attribute name="PrologueFlow" idx="43" type="FranchiseServer_PrologueFlow" />
+			<attribute name="ProspectListFlow" idx="44" type="DynastyServer_ProspectListFlow" />
+			<attribute name="RecruitingBoardFlow" idx="45" type="DynastyServer_RecruitingBoardFlow" />
+			<attribute name="RecruitingHubFlow" idx="46" type="DynastyServer_RecruitingHubFlow" />
+			<attribute name="RecruitUserFlow" idx="47" type="DynastyServer_RecruitUserFlow" />
+			<attribute name="RedshirtsFlow" idx="48" type="FranchiseServer_RedshirtsFlow" />
+			<attribute name="RequestServer" idx="49" type="RequestServer" />
+			<attribute name="ReSignFlow" idx="50" type="FranchiseServer_ReSignFlow" />
+			<attribute name="RetirementFlow" idx="51" type="FranchiseServer_RetirementFlow" />
+			<attribute name="RosterFlow" idx="52" type="FranchiseServer_RosterFlow" />
+			<attribute name="RosterImportFlow" idx="53" type="FranchiseServer_RosterImportFlow" />
+			<attribute name="RosterNILFlow" idx="54" type="FranchiseServer_FreeAgentsFlow" />
+			<attribute name="SchemeFlow" idx="55" type="FranchiseServer_SchemeFlow" />
+			<attribute name="ScoutingV2Flow" idx="56" type="FranchiseServer_ScoutingV2Flow" />
+			<attribute name="SeasonGameFlow" idx="57" type="FranchiseServer_SeasonGameFlow" />
+			<attribute name="SelectCoachOfferFlow" idx="58" type="FranchiseServer_SelectCoachOfferFlow" />
+			<attribute name="SignatureAbilitiesTable" idx="59" type="SignatureAbilitiesTable" />
+			<attribute name="SnapshotFlow" idx="60" type="FranchiseServer_SnapshotFlow" />
+			<attribute name="StadiumFlow" idx="61" type="FranchiseServer_StadiumFlow" />
+			<attribute name="StaffFlow" idx="62" type="FranchiseServer_StaffFlow" />
+			<attribute name="StaffHiringFlow" idx="63" type="FranchiseServer_StaffHiringFlow" />
+			<attribute name="TalentTreeFlow" idx="64" type="FranchiseServer_TalentTreeFlow" />
+			<attribute name="TeamBuilderFlow" idx="65" type="DynastyServer_TeamBuilderFlow" />
+			<attribute name="TeamGoalsFlow" idx="66" type="FranchiseServer_TeamGoalsFlow" />
+			<attribute name="TeamHistoricalStatFlow" idx="67" type="FranchiseServer_TeamHistoricalStatFlow" />
+			<attribute name="TeamNeedsPositionFlow" idx="68" type="FranchiseServer_TeamNeedsPositionFlow" />
+			<attribute name="TeamProgressionFlow" idx="69" type="FranchiseServer_TeamProgressionFlow" />
+			<attribute name="TeamScheduleFlow" idx="70" type="FranchiseServer_TeamScheduleFlow" />
+			<attribute name="TeamSeasonStatFlow" idx="71" type="FranchiseServer_TeamSeasonStatFlow" />
+			<attribute name="TeamStandingsFlow" idx="72" type="FranchiseServer_TeamStandingsFlow" />
+			<attribute name="TeamSuccessFlow" idx="73" type="FranchiseServer_TeamSuccessFlow" />
+			<attribute name="TeamValueFlow" idx="74" type="FranchiseServer_TeamValueFlow" />
+			<attribute name="TelemetryManager" idx="75" type="TelemetryManager" />
+			<attribute name="TimelineViewFlow" idx="76" type="FranchiseServer_TimelineViewFlow" />
+			<attribute name="TitleUpdateOne" idx="77" type="record" />
+			<attribute name="TitleUpdateTwo" idx="78" type="record" />
+			<attribute name="TopClassesFlow" idx="79" type="DynastyServer_TopClassesFlow" />
+			<attribute name="ToughestPlacesFlow" idx="80" type="FranchiseServer_ToughestPlacesFlow" />
+			<attribute name="TransactionHistoryFlow" idx="81" type="FranchiseServer_TransactionHistoryFlow" />
+			<attribute name="TrophyRoomUtil" idx="82" type="TrophyRoomUtil" />
+			<attribute name="TutorialManager" idx="83" type="TutorialManager" />
+			<attribute name="UserAdminFlow" idx="84" type="FranchiseServer_UserAdminFlow" />
+			<attribute name="UserFlow" idx="85" type="FranchiseServer_UserFlow" />
+			<attribute name="UserRegistry" idx="86" type="UserRegistry" />
+			<attribute name="WeekSummaryFlow" idx="87" type="FranchiseServer_WeekSummaryFlow" />
+			<attribute name="XFactorDatabaseFlow" idx="88" type="FranchiseServer_XFactorDatabaseFlow" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,30 @@
+<FranTkData fileName="Franchise-Schemas\TutorialManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TutorialManager" numMembers="23" base="Module" assetId="6494635" isRecordPersistent="true" majorVersionCRC="-1952793198" minorVersionCRC="1516071949">
+			<attribute name="AcquisitionTip" idx="0" type="TutorialInfo" />
+			<attribute name="AdvanceWeekTip" idx="1" type="TutorialInfo" />
+			<attribute name="CombineTip" idx="2" type="TutorialInfo" />
+			<attribute name="CutPlayersPracticeSquadTip" idx="3" type="TutorialInfo" />
+			<attribute name="CutPlayersTip" idx="4" type="TutorialInfo" />
+			<attribute name="DraftTip" idx="5" type="TutorialInfo" />
+			<attribute name="InjuryEarlyReturnTip" idx="6" type="TutorialInfo" />
+			<attribute name="InjuryEarlyReturnTutorialList" idx="7" type="TutorialInfo[]" />
+			<attribute name="IsUserHelpEnabled" idx="8" type="bool" default="False" />
+			<attribute name="LeagueOwnerWalkthroughStage" idx="9" type="TutorialWalkthroughStage" default="TutorialWalkthroughStage:PlayGame" />
+			<attribute name="LeagueSetting" idx="10" type="LeagueSetting" />
+			<attribute name="PlayGameTip" idx="11" type="TutorialInfo" />
+			<attribute name="PostGameInjuryTip" idx="12" type="TutorialInfo" />
+			<attribute name="ResignPlayersLastChanceTip" idx="13" type="TutorialInfo" />
+			<attribute name="ResignPlayersTip" idx="14" type="TutorialInfo" />
+			<attribute name="ReturningFromInjuryTip" idx="15" type="TutorialInfo" />
+			<attribute name="ScoutingTip" idx="16" type="TutorialInfo" />
+			<attribute name="SeasonGoalTip" idx="17" type="TutorialInfo" />
+			<attribute name="SeasonInfo" idx="18" type="SeasonInfo" />
+			<attribute name="SuperbowlTip" idx="19" type="TutorialInfo" />
+			<attribute name="TradeOfferTip" idx="20" type="TutorialInfo" />
+			<attribute name="TrainingTip" idx="21" type="TutorialInfo" />
+			<attribute name="WildcardTip" idx="22" type="TutorialInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

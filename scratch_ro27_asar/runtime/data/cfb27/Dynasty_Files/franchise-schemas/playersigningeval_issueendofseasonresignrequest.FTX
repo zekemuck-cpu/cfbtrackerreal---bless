@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_IssueEndOfSeasonReSignRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_IssueEndOfSeasonReSignRequest" numMembers="2" base="none()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="2088016720" minorVersionCRC="1358112538">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

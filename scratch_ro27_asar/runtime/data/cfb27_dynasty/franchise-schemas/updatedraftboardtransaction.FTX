@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\UpdateDraftBoardTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateDraftBoardTransaction" numMembers="18" base="Transaction" assetId="6498917" isRecordPersistent="true" majorVersionCRC="-379631820" minorVersionCRC="2018084907">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="DraftBoardEval" idx="1" type="DraftBoardEval" />
+			<attribute name="DraftClassManager" idx="2" type="DraftClassManager" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="IsBlocking" idx="4" type="bool" default="True" />
+			<attribute name="IsDone" idx="5" type="bool()" guid="6498917-1895538" />
+			<attribute name="IsDynamic" idx="6" type="bool" default="False" />
+			<attribute name="Item" idx="7" type="Team" />
+			<attribute name="ItemIndex" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ItemList" idx="9" type="Team[]" />
+			<attribute name="Process" idx="10" type="none()" guid="6498917-1895540" />
+			<attribute name="Sleep" idx="11" type="ITransaction_Sleep" guid="6498917-1895548" />
+			<attribute name="Start" idx="12" type="none()" guid="6498917-1895544" />
+			<attribute name="StartStage" idx="13" type="Stage" />
+			<attribute name="TimeScale" idx="14" type="float" default="0" />
+			<attribute name="TransitionPending" idx="15" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="16" type="Stage" />
+			<attribute name="UpdateStage" idx="17" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

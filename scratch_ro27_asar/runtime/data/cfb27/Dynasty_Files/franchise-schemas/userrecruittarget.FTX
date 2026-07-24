@@ -1,0 +1,34 @@
+<FranTkData fileName="Franchise-Schemas\UserRecruitTarget.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\RecruitTarget.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserRecruitTarget" numMembers="23" base="RecruitTarget" defaultStoreCapacity="1120" assetId="8207447" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1483107420" minorVersionCRC="-1450824712">
+			<attribute name="ActivePitches" idx="0" type="ActiveRecruitingPitch[]" />
+			<attribute name="CommittedWeekNumber" idx="1" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="ContactFriendsAndFamily" idx="2" type="bool" default="False" />
+			<attribute name="ContactHighSchoolCoaches" idx="3" type="bool" default="False" />
+			<attribute name="CurrentNILOffer" idx="4" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="CurrentScholarshipBonus" idx="5" type="int" minValue="-200" maxValue="50" default="0" />
+			<attribute name="ImmediateRecruitingFeedback" idx="6" type="RecruitingActionFeedbackEntry[]" />
+			<attribute name="IsFavorite" idx="7" type="bool" default="False" />
+			<attribute name="NILExpectation" idx="8" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="OriginalNILExpectation" idx="9" type="int" minValue="0" maxValue="510" default="0" />
+			<attribute name="ProspectHoursSpentCurrent" idx="10" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ProspectInfluenceDelta" idx="11" type="int" minValue="-200" maxValue="1023" default="0" />
+			<attribute name="ProspectInfluenceTotal" idx="12" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="ProspectInfluenceTotalLastWeek" idx="13" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="Recruit" idx="14" type="Recruit" />
+			<attribute name="RecruitingFeedback" idx="15" type="RecruitingActionFeedbackEntry[]" />
+			<attribute name="ScheduledVisit" idx="16" type="ActiveVisitInfo" />
+			<attribute name="ScholarshipStatus" idx="17" type="ScholarshipStatus" default="ScholarshipStatus:Invalid" />
+			<attribute name="SearchSocialMedia" idx="18" type="bool" default="False" />
+			<attribute name="SendTheHouse" idx="19" type="bool" default="False" />
+			<attribute name="SwayPitch" idx="20" type="RecruitingPitchType" default="RecruitingPitchType:Invalid" />
+			<attribute name="UnlockedIntelBitfield" idx="21" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="VisitRecruitsSchool" idx="22" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\WearAndTearTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WearAndTearTuning" numMembers="4" base="BaseTuning" defaultStoreCapacity="2" assetId="8585464" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-225842209" minorVersionCRC="-1755756861">
+			<attribute name="AmountToDecreaseBasedOnHealth" idx="0" type="Spline" />
+			<attribute name="ImpactAbilitiesToBodyPartMapping" idx="1" type="BodyPartImpactAbilityWeightEntry[][]" />
+			<attribute name="MaxBodyPartDamage" idx="2" type="int" minValue="0" maxValue="100" default="95" />
+			<attribute name="MinBodyPartDamage" idx="3" type="int" minValue="-100" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CoachProgressionEval_HandleDraftedPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachProgressionEval_HandleDraftedPlayer" numMembers="2" base="none()" ownerAssetId="6498443" isRecordPersistent="true" isExpr="true" majorVersionCRC="-260108181" minorVersionCRC="-1445422003">
+			<attribute name="event" idx="0" type="Draft_DraftPlayerEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

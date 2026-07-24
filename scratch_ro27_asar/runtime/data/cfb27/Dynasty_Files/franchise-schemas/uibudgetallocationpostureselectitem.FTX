@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UIBudgetAllocationPostureSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIBudgetAllocationPostureSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="11" assetId="13293994" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="188" majorVersionCRC="1835780424" minorVersionCRC="353683243">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="BudgetAllocationPosture" default="BudgetAllocationPosture:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\GoalCompletionCriteria_GetProgress.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalCompletionCriteria_GetProgress" numMembers="7" base="int()" ownerAssetId="6498535" isRecordPersistent="true" isExpr="true" majorVersionCRC="1411398696" minorVersionCRC="562544446">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="seasonGame" idx="2" type="SeasonGame" />
+			<attribute name="statManager" idx="3" type="StatManager" />
+			<attribute name="gamesPlayed" idx="4" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="currentWeek" idx="5" type="int" minValue="0" maxValue="31" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

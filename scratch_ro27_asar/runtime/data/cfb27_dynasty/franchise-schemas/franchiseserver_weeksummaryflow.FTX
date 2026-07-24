@@ -1,0 +1,44 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_WeekSummaryFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_WeekSummaryFlow" numMembers="33" base="FranTkServer_Flow" assetId="9027451" isRecordPersistent="true" majorVersionCRC="-1672965406" minorVersionCRC="-1097323547">
+			<attribute name="ChallengesEval" idx="0" type="ChallengesEval" />
+			<attribute name="CoachGoalsEval" idx="1" type="CoachGoalsEval" />
+			<attribute name="CoachProgressionTuning" idx="2" type="record" />
+			<attribute name="ContractExpectationsEnumTable" idx="3" type="EnumTable" />
+			<attribute name="Form" idx="4" type="UIForm" />
+			<attribute name="FormManager" idx="5" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="6" type="record" />
+			<attribute name="HandednessEnumTable" idx="7" type="EnumTable" />
+			<attribute name="JobSecurityEnumTable" idx="8" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="9" type="EnumTable" />
+			<attribute name="MySchoolEnumTable" idx="10" type="record" />
+			<attribute name="MySchoolGradeEval" idx="11" type="record" />
+			<attribute name="MySchoolGradeInfoList" idx="12" type="record" />
+			<attribute name="NarrativePlayerMetersEval" idx="13" type="NarrativePlayerMetersEval" />
+			<attribute name="PlayerProgressionTuning" idx="14" type="record" />
+			<attribute name="PlayersLeavingEval" idx="15" type="record" />
+			<attribute name="PlayerTypeEnumTable" idx="16" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="17" type="EnumTable" />
+			<attribute name="RecruitingActionIntensityEnumTable" idx="18" type="EnumTable" />
+			<attribute name="RecruitingActionTypeEnumTable" idx="19" type="EnumTable" />
+			<attribute name="RecruitingBonusTypeEnumTable" idx="20" type="EnumTable" />
+			<attribute name="RecruitingBonusValueTypeEnumTable" idx="21" type="EnumTable" />
+			<attribute name="RecruitingClassEnumTable" idx="22" type="EnumTable" />
+			<attribute name="RecruitingEval" idx="23" type="record" />
+			<attribute name="RecruitingMotivationEnumTable" idx="24" type="EnumTable" />
+			<attribute name="RecruitingPitchTypeEnumTable" idx="25" type="EnumTable" />
+			<attribute name="RecruitTransactionUpdateEnumTable" idx="26" type="record" />
+			<attribute name="SchoolYearEnumTable" idx="27" type="record" />
+			<attribute name="StateNameEnumTable" idx="28" type="EnumTable" />
+			<attribute name="StringManager" idx="29" type="record" />
+			<attribute name="TeamManager" idx="30" type="record" />
+			<attribute name="TransactionHistoryManager" idx="31" type="record" />
+			<attribute name="UserRegistry" idx="32" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

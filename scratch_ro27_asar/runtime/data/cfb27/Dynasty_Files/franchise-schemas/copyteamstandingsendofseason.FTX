@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CopyTeamStandingsEndOfSeason.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CopyTeamStandingsEndOfSeason" numMembers="4" base="ModifierView" assetId="6814786" isRecordPersistent="true" majorVersionCRC="449857424" minorVersionCRC="2129493483">
+			<attribute name="Formula" idx="0" type="CopyTeamStandingsEndOfSeason_Formula" guid="6814786-1983232" default="// copy current season value to previous season before reseting them&#xD;&#xA;Subject.PrevSeasonDivStanding = Subject.CurSeasonDivStanding;&#xD;&#xA;Subject.PrevSeasonLeagStanding = Subject.CurSeasonLeagStanding; " />
+			<attribute name="Source" idx="1" type="record" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6814786-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

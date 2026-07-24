@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_TeamHistoricalStatFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_TeamHistoricalStatFlow" numMembers="5" base="FranTkServer_Flow" assetId="10605056" isRecordPersistent="true" majorVersionCRC="-402526528" minorVersionCRC="427956606">
+			<attribute name="Form" idx="0" type="UIForm" />
+			<attribute name="FormManager" idx="1" type="FranTkServer_FormManager" />
+			<attribute name="League" idx="2" type="League" />
+			<attribute name="SchemeEnumTable" idx="3" type="EnumTable" />
+			<attribute name="UserRegistry" idx="4" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

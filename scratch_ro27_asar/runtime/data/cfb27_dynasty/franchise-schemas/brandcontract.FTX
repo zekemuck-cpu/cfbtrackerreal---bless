@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\BrandContract.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BrandContract" numMembers="9" defaultStoreCapacity="102" assetId="8519453" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1099" majorVersionCRC="1902841370" minorVersionCRC="1759292866">
+			<attribute name="ConcludingEffect" idx="0" type="MetersPotentialAction" />
+			<attribute name="Duration" idx="1" type="int" minValue="0" maxValue="16" default="0" />
+			<attribute name="FanLevelRequirement" idx="2" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="IconId" idx="3" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="ID" idx="4" type="string" maxLen="23" />
+			<attribute name="InitialEffect" idx="5" type="MetersPotentialAction" />
+			<attribute name="Name" idx="6" type="string" maxLen="1" />
+			<attribute name="OngoingEffect" idx="7" type="MetersPotentialAction" />
+			<attribute name="Tier" idx="8" type="BrandContractTier" default="BrandContractTier:Local" />
+		</schema>
+	</schemas>
+</FranTkData>

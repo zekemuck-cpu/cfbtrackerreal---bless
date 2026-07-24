@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DraftRoadmapEvaluationEndEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftRoadmapEvaluationEndEvent" numMembers="2" base="Event" assetId="6598543" isRecordPersistent="true" majorVersionCRC="-2086808426" minorVersionCRC="874407498">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598543-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598543-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

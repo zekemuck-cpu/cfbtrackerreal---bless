@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\UICoachDemeanorSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UICoachDemeanorSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="3" assetId="11335284" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="21" majorVersionCRC="1864109800" minorVersionCRC="402854521">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="CoachDemeanor" default="CoachDemeanor:Classic" />
+		</schema>
+	</schemas>
+</FranTkData>

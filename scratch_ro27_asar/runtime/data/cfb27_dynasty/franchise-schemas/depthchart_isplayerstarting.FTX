@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DepthChart_IsPlayerStarting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChart_IsPlayerStarting" numMembers="3" base="bool()" ownerAssetId="6378775" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1285892903" minorVersionCRC="-1129618491">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="config" idx="1" type="DepthChartConfig" />
+		</schema>
+	</schemas>
+</FranTkData>

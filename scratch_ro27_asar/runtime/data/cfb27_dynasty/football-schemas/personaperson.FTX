@@ -1,0 +1,157 @@
+<FranTkData fileName="Football-Schemas\PersonaPerson.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\FootballPlayer.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaPerson" numMembers="146" base="FootballPlayer" assetId="12844406" isRecordPersistent="true" majorVersionCRC="641672605" minorVersionCRC="923712655">
+			<attribute name="ACQ_DNA_0" idx="0" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_01" idx="1" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_02" idx="2" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_03" idx="3" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_04" idx="4" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_05" idx="5" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_06" idx="6" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_07" idx="7" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_08" idx="8" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_09" idx="9" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_10" idx="10" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_11" idx="11" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_12" idx="12" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_13" idx="13" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_14" idx="14" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_15" idx="15" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_16" idx="16" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_17" idx="17" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_18" idx="18" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="ACQ_DNA_19" idx="19" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="CharacterGameplay" idx="20" type="CharacterGameplay" />
+			<attribute name="Focus" idx="21" type="BTCareerPersonaFocus" default="BTCareerPersonaFocus:LoveOfTheGame" />
+			<attribute name="IronManPosition" idx="22" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="IsUserControlled" idx="23" type="bool" default="False" />
+			<attribute name="Mindset" idx="24" type="BTCareerPersonaMindset" default="BTCareerPersonaMindset:Content" />
+			<attribute name="PersonaGoalTracker" idx="25" type="PersonaGoalTracker" />
+			<attribute name="Position" idx="26" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="PT_28_3" idx="27" type="bool" default="False" />
+			<attribute name="PT_AGGRESSIVERECEIVER" idx="28" type="bool" default="False" />
+			<attribute name="PT_ANCHORED" idx="29" type="bool" default="False" />
+			<attribute name="PT_BIGHITTER" idx="30" type="bool" default="False" />
+			<attribute name="PT_BOUNCER" idx="31" type="bool" default="False" />
+			<attribute name="PT_BULLISH" idx="32" type="bool" default="False" />
+			<attribute name="PT_CANNON" idx="33" type="bool" default="False" />
+			<attribute name="PT_CANNONBALL" idx="34" type="bool" default="False" />
+			<attribute name="PT_CONSERVATIVE" idx="35" type="bool" default="False" />
+			<attribute name="PT_COVERBALL" idx="36" type="bool" default="False" />
+			<attribute name="PT_DISCIPLINED" idx="37" type="bool" default="False" />
+			<attribute name="PT_DLPOWERRUSHER" idx="38" type="bool" default="False" />
+			<attribute name="PT_DLPUREPOWER" idx="39" type="bool" default="False" />
+			<attribute name="PT_DLRUNSTOPPER" idx="40" type="bool" default="False" />
+			<attribute name="PT_DLSPEEDRUSHER" idx="41" type="bool" default="False" />
+			<attribute name="PT_DOUBLEBACK" idx="42" type="bool" default="False" />
+			<attribute name="PT_ELUSIVEINSTINCT" idx="43" type="bool" default="False" />
+			<attribute name="PT_EYESUP" idx="44" type="bool" default="False" />
+			<attribute name="PT_FINESSERUSHER" idx="45" type="bool" default="False" />
+			<attribute name="PT_FLYSWATTER" idx="46" type="bool" default="False" />
+			<attribute name="PT_FORTIFIER" idx="47" type="bool" default="False" />
+			<attribute name="PT_FREEPLAYFINDER" idx="48" type="bool" default="False" />
+			<attribute name="PT_FREESTYLER" idx="49" type="bool" default="False" />
+			<attribute name="PT_FROZENSOLID" idx="50" type="bool" default="False" />
+			<attribute name="PT_GASGUZZLER" idx="51" type="bool" default="False" />
+			<attribute name="PT_HAPPYFEET" idx="52" type="bool" default="False" />
+			<attribute name="PT_HBELUSIVEBACK" idx="53" type="bool" default="False" />
+			<attribute name="PT_HBELUSIVEPOWER" idx="54" type="bool" default="False" />
+			<attribute name="PT_HBPOWERBACK" idx="55" type="bool" default="False" />
+			<attribute name="PT_HBPOWERBLOCKING" idx="56" type="bool" default="False" />
+			<attribute name="PT_HBPOWERRECEIVING" idx="57" type="bool" default="False" />
+			<attribute name="PT_HBRECEIVINGBACK" idx="58" type="bool" default="False" />
+			<attribute name="PT_HEROBALL" idx="59" type="bool" default="False" />
+			<attribute name="PT_HIGHLIGHTREEL" idx="60" type="bool" default="False" />
+			<attribute name="PT_INVINCIBLE" idx="61" type="bool" default="False" />
+			<attribute name="PT_LBFIELDGENERAL" idx="62" type="bool" default="False" />
+			<attribute name="PT_LBPASSCOVERAGE" idx="63" type="bool" default="False" />
+			<attribute name="PT_LBRUNSUPPORT" idx="64" type="bool" default="False" />
+			<attribute name="PT_LONGARMOFTHELAW" idx="65" type="bool" default="False" />
+			<attribute name="PT_LOOKFORSTARS" idx="66" type="bool" default="False" />
+			<attribute name="PT_NOSEDIVE" idx="67" type="bool" default="False" />
+			<attribute name="PT_OBLIVIOUS" idx="68" type="bool" default="False" />
+			<attribute name="PT_PANICBUTTON" idx="69" type="bool" default="False" />
+			<attribute name="PT_PARANOID" idx="70" type="bool" default="False" />
+			<attribute name="PT_PLAYBALL" idx="71" type="bool" default="False" />
+			<attribute name="PT_PLAYRECEIVER" idx="72" type="bool" default="False" />
+			<attribute name="PT_POSSESSIONRECEIVER" idx="73" type="bool" default="False" />
+			<attribute name="PT_POWERRUSHER" idx="74" type="bool" default="False" />
+			<attribute name="PT_PUNCHITOUT" idx="75" type="bool" default="False" />
+			<attribute name="PT_QBBACKFIELDCREATOR" idx="76" type="bool" default="False" />
+			<attribute name="PT_QBCOMMIT" idx="77" type="bool" default="False" />
+			<attribute name="PT_QBDUALTHREAT" idx="78" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEBACKFIELDCREATOR" idx="79" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEDUALTHREAT" idx="80" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEPOCKETPASSER" idx="81" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEPURERUNNER" idx="82" type="bool" default="False" />
+			<attribute name="PT_QBPOCKETPASSER" idx="83" type="bool" default="False" />
+			<attribute name="PT_QBPURERUNNER" idx="84" type="bool" default="False" />
+			<attribute name="PT_QUICKCLOCK" idx="85" type="bool" default="False" />
+			<attribute name="PT_QUICKTRIGGER" idx="86" type="bool" default="False" />
+			<attribute name="PT_RACRECEIVER" idx="87" type="bool" default="False" />
+			<attribute name="PT_REDZONEJAMMER" idx="88" type="bool" default="False" />
+			<attribute name="PT_RIPCORD" idx="89" type="bool" default="False" />
+			<attribute name="PT_RISKTAKER" idx="90" type="bool" default="False" />
+			<attribute name="PT_RUNOVER" idx="91" type="bool" default="False" />
+			<attribute name="PT_SAFETACKLER" idx="92" type="bool" default="False" />
+			<attribute name="PT_SEEINGGHOSTS" idx="93" type="bool" default="False" />
+			<attribute name="PT_SHOWBOAT" idx="94" type="bool" default="False" />
+			<attribute name="PT_SNAPMISCHIEF" idx="95" type="bool" default="False" />
+			<attribute name="PT_SNOWBALL" idx="96" type="bool" default="False" />
+			<attribute name="PT_SRUNSUPPORT" idx="97" type="bool" default="False" />
+			<attribute name="PT_STEERINGCLEAR" idx="98" type="bool" default="False" />
+			<attribute name="PT_STRONGARM" idx="99" type="bool" default="False" />
+			<attribute name="PT_TEBLOCKING" idx="100" type="bool" default="False" />
+			<attribute name="PT_TEPHYSICALBLOCKER" idx="101" type="bool" default="False" />
+			<attribute name="PT_TEPHYSICALROUTERUNNER" idx="102" type="bool" default="False" />
+			<attribute name="PT_TEVERTICALTHREAT" idx="103" type="bool" default="False" />
+			<attribute name="PT_THROWAWAY" idx="104" type="bool" default="False" />
+			<attribute name="PT_THROWITUP" idx="105" type="bool" default="False" />
+			<attribute name="PT_TRAVELINGSHOWMEN" idx="106" type="bool" default="False" />
+			<attribute name="PT_TWISTER" idx="107" type="bool" default="False" />
+			<attribute name="PT_UNDERCUT" idx="108" type="bool" default="False" />
+			<attribute name="PT_UNDISCIPLINED" idx="109" type="bool" default="False" />
+			<attribute name="PT_UNUSEDTRAIT1" idx="110" type="bool" default="False" />
+			<attribute name="PT_UNUSEDTRAIT2" idx="111" type="bool" default="False" />
+			<attribute name="PT_UPANDOVER" idx="112" type="bool" default="False" />
+			<attribute name="PT_WHIRLWIND" idx="113" type="bool" default="False" />
+			<attribute name="PT_WRELUSIVEROUTERUNNER" idx="114" type="bool" default="False" />
+			<attribute name="PT_WRGADGET" idx="115" type="bool" default="False" />
+			<attribute name="PT_WRPHYSICALBLOCKER" idx="116" type="bool" default="False" />
+			<attribute name="PT_WRPHYSICALRECEIVER" idx="117" type="bool" default="False" />
+			<attribute name="PT_WRPHYSICALROUTERUNNER" idx="118" type="bool" default="False" />
+			<attribute name="PT_WRPLAYMAKER" idx="119" type="bool" default="False" />
+			<attribute name="PT_WRPOWERBLOCKING" idx="120" type="bool" default="False" />
+			<attribute name="Role" idx="121" type="BTCareerPersonaRole" default="BTCareerPersonaRole:DepthFiller" />
+			<attribute name="SeasonHealthPool" idx="122" type="int" minValue="0" maxValue="1000" default="1000" />
+			<attribute name="SeasonHealthPoolMax" idx="123" type="int" minValue="0" maxValue="1000" default="1000" />
+			<attribute name="TempDNA" idx="124" type="BTCareerPersonaTemporaryDNA" default="BTCareerPersonaTemporaryDNA:Invalid" />
+			<attribute name="TempDNA_Duration" idx="125" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WearAndTear_Back" idx="126" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LAnkle" idx="127" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LArm" idx="128" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LElbow" idx="129" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LFoot" idx="130" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LHand" idx="131" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LHip" idx="132" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LKnee" idx="133" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LLeg" idx="134" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LShoulder" idx="135" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RAnkle" idx="136" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RArm" idx="137" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RElbow" idx="138" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RFoot" idx="139" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RHand" idx="140" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RHip" idx="141" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_Rib" idx="142" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RKnee" idx="143" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RLeg" idx="144" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RShoulder" idx="145" type="int" minValue="0" maxValue="10" default="10" />
+		</schema>
+	</schemas>
+</FranTkData>

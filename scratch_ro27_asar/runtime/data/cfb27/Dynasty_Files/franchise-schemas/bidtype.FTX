@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\BidType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BidType" numMembers="5" assetId="8532628" isRecordPersistent="true" majorVersionCRC="90489771" minorVersionCRC="1860292762">
+			<attribute name="Bowl" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Last_" idx="2" value="1" />
+			<attribute name="SemiFinals" idx="3" value="1" />
+			<attribute name="Count" idx="4" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

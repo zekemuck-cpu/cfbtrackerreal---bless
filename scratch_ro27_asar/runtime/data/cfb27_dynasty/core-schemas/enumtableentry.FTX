@@ -1,0 +1,10 @@
+<FranTkData fileName="Core-Schemas\EnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EnumTableEntry" numMembers="3" assetId="6210549" isRecordPersistent="true" majorVersionCRC="-1229938480" minorVersionCRC="-1245971911">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,36 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolPlayingTimeTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolPlayingTimeTuning" numMembers="25" base="BaseTuning" defaultStoreCapacity="1" assetId="6816548" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2117019962" minorVersionCRC="1052673605">
+			<attribute name="FreshmanScoreMultiplier" idx="0" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="FullBackupFreshmanMod" idx="1" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="FullBackupJuniorMod" idx="2" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="FullBackupSeniorMod" idx="3" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="FullBackupSophomoreMod" idx="4" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="FullStarterFreshmanMod" idx="5" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="FullStarterJuniorMod" idx="6" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="FullStarterSeniorMod" idx="7" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="FullStarterSophomoreMod" idx="8" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="JuniorScoreMultiplier" idx="9" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="MajorVariance" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxSnapShareImpact" idx="11" type="int" minValue="0" maxValue="12" default="6" />
+			<attribute name="MinorVariance" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PartBackupFreshmanMod" idx="13" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="PartBackupJuniorMod" idx="14" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="PartBackupSeniorMod" idx="15" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="PartBackupSophomoreMod" idx="16" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="PartStarterFreshmanMod" idx="17" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="PartStarterJuniorMod" idx="18" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="PartStarterSeniorMod" idx="19" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="PartStarterSophomoreMod" idx="20" type="int" minValue="0" maxValue="24" default="0" />
+			<attribute name="RecruitValueToGrade" idx="21" type="MySchoolRankingRangesTable" />
+			<attribute name="SnapExpectationToSchoolYearArray" idx="22" type="int[]" />
+			<attribute name="SnapShareMod" idx="23" type="int" minValue="0" maxValue="12" default="2" />
+			<attribute name="SophomoreScoreMultiplier" idx="24" type="int" minValue="0" maxValue="7" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

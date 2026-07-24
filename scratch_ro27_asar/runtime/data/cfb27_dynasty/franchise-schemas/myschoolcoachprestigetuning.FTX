@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolCoachPrestigeTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolCoachPrestigeTuning" numMembers="4" base="BaseTuning" defaultStoreCapacity="1" assetId="6816542" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1061243656" minorVersionCRC="1410071577">
+			<attribute name="CoachPrestigeRankToGradeRange" idx="0" type="MySchoolRankingRangesTable" />
+			<attribute name="DCPerformanceWeight" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HCPerformanceWeight" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OCPerformanceWeight" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

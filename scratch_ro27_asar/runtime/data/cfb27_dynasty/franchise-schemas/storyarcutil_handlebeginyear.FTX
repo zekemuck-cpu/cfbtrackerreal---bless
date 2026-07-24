@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_HandleBeginYear.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_HandleBeginYear" numMembers="2" base="none()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1507428880" minorVersionCRC="2122818988">
+			<attribute name="event" idx="0" type="Season_BeginYearEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

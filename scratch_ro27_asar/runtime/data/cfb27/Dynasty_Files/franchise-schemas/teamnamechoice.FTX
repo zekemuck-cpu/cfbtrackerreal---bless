@@ -1,0 +1,49 @@
+<FranTkData fileName="Franchise-Schemas\TeamNameChoice.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamNameChoice" numMembers="42" defaultStoreCapacity="60" assetId="6495119" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1975145320" minorVersionCRC="1073455215">
+			<attribute name="AssetName" idx="0" type="string" maxLen="1" />
+			<attribute name="BathroomPartDisplayName" idx="1" type="string" maxLen="1" />
+			<attribute name="BathroomPartNickname" idx="2" type="string" maxLen="17" default="[Reloc Nickname]" />
+			<attribute name="ConcessionPartDisplayName" idx="3" type="string" maxLen="1" />
+			<attribute name="ConcessionPartNickname" idx="4" type="string" maxLen="17" default="[Reloc Nickname]" />
+			<attribute name="DisplayName" idx="5" type="string" maxLen="18" />
+			<attribute name="FanZonePartDisplayName" idx="6" type="string" maxLen="1" />
+			<attribute name="FanZonePartNickname" idx="7" type="string" maxLen="17" default="[Reloc Nickname]" />
+			<attribute name="HistoryText" idx="8" type="string" maxLen="1" />
+			<attribute name="LogoImageId" idx="9" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Name" idx="10" type="string" maxLen="1" />
+			<attribute name="NickName" idx="11" type="string" maxLen="18" />
+			<attribute name="ParkingPartDisplayName" idx="12" type="string" maxLen="1" />
+			<attribute name="ParkingPartNickname" idx="13" type="string" maxLen="17" default="[Reloc Nickname]" />
+			<attribute name="Popularity" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PresentationId" idx="15" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeatingPartDisplayName" idx="16" type="string" maxLen="1" />
+			<attribute name="SeatingPartNickname" idx="17" type="string" maxLen="17" default="[Reloc Nickname]" />
+			<attribute name="StadiumName" idx="18" type="string" maxLen="41" />
+			<attribute name="TEAM_BACKGROUNDCOLORB" idx="19" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORB2" idx="20" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORG" idx="21" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORG2" idx="22" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORR" idx="23" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORR2" idx="24" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_CROWDPALETTE" idx="25" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ENDPLAY_ANIM_VAL" idx="26" type="EndPlayTeamAnimation" default="EndPlayTeamAnimation:None" />
+			<attribute name="TEAM_FLAGRESID" idx="27" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_GOALPOST" idx="28" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO" idx="29" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="TEAM_LOGO_LEFT_ANGLED" idx="30" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="TEAM_LOGO_RIGHT_ANGLED" idx="31" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="TEAM_PREFIX_NAME" idx="32" type="string" maxLen="4" />
+			<attribute name="TeamFan_Family" idx="33" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_Hardcore" idx="34" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_New" idx="35" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_Optimistic" idx="36" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_Pessimistic" idx="37" type="TweetAuthorInfo" />
+			<attribute name="TeamHasSecondaryColor" idx="38" type="bool" default="False" />
+			<attribute name="TeamStorePartDisplayName" idx="39" type="string" maxLen="1" />
+			<attribute name="TeamStorePartNickname" idx="40" type="string" maxLen="17" default="[Reloc Nickname]" />
+			<attribute name="UniformChoices" idx="41" type="UniformChoice[]" />
+		</schema>
+	</schemas>
+</FranTkData>

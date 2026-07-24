@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_IssueFillStaffRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_IssueFillStaffRequest" numMembers="3" base="none()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="736486973" minorVersionCRC="-1699045822">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="hiringPosition" idx="1" type="CoachPosition" default="CoachPosition:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

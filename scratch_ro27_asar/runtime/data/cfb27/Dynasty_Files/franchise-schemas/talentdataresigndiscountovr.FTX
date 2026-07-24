@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\TalentDataReSignDiscountOVR.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TalentData.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentDataReSignDiscountOVR" numMembers="2" base="TalentData" assetId="6495091" isRecordPersistent="true" majorVersionCRC="580187104" minorVersionCRC="433575720">
+			<attribute name="DiscountPercentageValue" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OVR" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

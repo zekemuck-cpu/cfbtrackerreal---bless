@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_MetersFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_MetersFlow" numMembers="13" base="FranTkServer_Flow" assetId="7709519" isRecordPersistent="true" majorVersionCRC="151659408" minorVersionCRC="1850251094">
+			<attribute name="BodyPartGroupsEnumTable" idx="0" type="record" />
+			<attribute name="BrandTierEnumTable" idx="1" type="EnumTable" />
+			<attribute name="CoachHappinessEnumTable" idx="2" type="EnumTable" />
+			<attribute name="Form" idx="3" type="UIForm" />
+			<attribute name="FormManager" idx="4" type="FranTkServer_FormManager" />
+			<attribute name="InjuryEval" idx="5" type="InjuryEval" />
+			<attribute name="MetersEval" idx="6" type="NarrativePlayerMetersEval" />
+			<attribute name="PlayerAbilityEnumTable" idx="7" type="EnumTable" />
+			<attribute name="PositionDepthStatusEnumTable" idx="8" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="9" type="EnumTable" />
+			<attribute name="SchoolYearEnumTable" idx="10" type="EnumTable" />
+			<attribute name="TransactionHistoryManager" idx="11" type="TransactionHistoryManager" />
+			<attribute name="UserRegistry" idx="12" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

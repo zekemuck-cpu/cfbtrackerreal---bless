@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\ChallengeSlot.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ChallengeSlot" numMembers="6" assetId="10834684" isRecordPersistent="true" majorVersionCRC="804834367" minorVersionCRC="-545297002">
+			<attribute name="Any" idx="0" value="0" />
+			<attribute name="Slot_1" idx="1" value="1" />
+			<attribute name="Slot_2" idx="2" value="2" />
+			<attribute name="Slot_3" idx="3" value="3" />
+			<attribute name="Slot_4" idx="4" value="4" />
+			<attribute name="Count_" idx="5" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

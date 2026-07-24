@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\StatManager_CalculatePlayerRankingPercentileWithStat.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManager_CalculatePlayerRankingPercentileWithStat" numMembers="4" base="float()" ownerAssetId="6493950" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1305950400" minorVersionCRC="-1408610085">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="position" idx="1" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="statType" idx="2" type="StatType" default="StatType:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolWeeklyReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolWeeklyReaction" numMembers="4" base="Reaction" assetId="6736465" isRecordPersistent="true" majorVersionCRC="-1730358712" minorVersionCRC="-1128609739">
+			<attribute name="EventRecord" idx="0" type="MySchoolWeeklyStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6736465-1895461" />
+			<attribute name="MySchoolGradeEvalRef" idx="2" type="MySchoolGradeEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

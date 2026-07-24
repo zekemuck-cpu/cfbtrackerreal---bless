@@ -1,0 +1,30 @@
+<FranTkData fileName="Franchise-Schemas\ImpactPlayersTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ImpactPlayersTuning" numMembers="19" base="BaseTuning" defaultStoreCapacity="1" assetId="8871444" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1102345888" minorVersionCRC="-1211704187">
+			<attribute name="Center" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Cornerback" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefensiveEnd" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefensiveTackle" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FreeSafety" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Kicker" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeftGuard" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeftTackle" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MiddleLinebacker" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NumberOfImpactPlayers" idx="9" type="int" minValue="1" maxValue="100" default="2" />
+			<attribute name="OutsideLinebacker" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Punter" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Quarterback" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Reciever" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RightGuard" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RightTackle" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RunningBack" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StrongSafety" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TightEnd" idx="18" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

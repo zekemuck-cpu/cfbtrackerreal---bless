@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\Activity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Activity" numMembers="12" defaultStoreCapacity="2" assetId="6377593" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="4" majorVersionCRC="-477479149" minorVersionCRC="146243959">
+			<attribute name="ActivityType" idx="0" type="ActivityType" default="ActivityType:XP" />
+			<attribute name="BaseConfidenceValue" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BaseExperienceValue" idx="2" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="BeginWeekType" idx="3" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="CostPerPlayer" idx="4" type="int" minValue="0" maxValue="60" default="0" />
+			<attribute name="CostType" idx="5" type="ConsumableTypeEnum" default="ConsumableTypeEnum:Hours" />
+			<attribute name="Description" idx="6" type="string" maxLen="126" />
+			<attribute name="EndWeekType" idx="7" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="ImageId" idx="8" type="int" minValue="0" maxValue="254" default="0" />
+			<attribute name="IsOpposingTeamRequired" idx="9" type="bool" default="False" />
+			<attribute name="PresentationId" idx="10" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="Title" idx="11" type="string" maxLen="33" />
+		</schema>
+	</schemas>
+</FranTkData>

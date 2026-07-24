@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolRankingRangesTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolRankingRangesTable" numMembers="14" base="BaseTuning" defaultStoreCapacity="21" assetId="6816607" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1611271440" minorVersionCRC="451805530">
+			<attribute name="A" idx="0" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="AMinus" idx="1" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="APlus" idx="2" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="B" idx="3" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="BMinus" idx="4" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="BPlus" idx="5" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="C" idx="6" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="CMinus" idx="7" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="CPlus" idx="8" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="D" idx="9" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="DMinus" idx="10" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="DPlus" idx="11" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="F" idx="12" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="IsRankingRangeDecreasing" idx="13" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

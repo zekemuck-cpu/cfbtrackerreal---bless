@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\ProgramPointsRoosterScreen.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ProgramPointsRoosterScreen" numMembers="9" assetId="12345472" isRecordPersistent="true" majorVersionCRC="949204927" minorVersionCRC="-69834014">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="None" idx="1" value="0" />
+			<attribute name="ManageStaff" idx="2" value="1" />
+			<attribute name="ManageFacilities" idx="3" value="2" />
+			<attribute name="RecruitsNIL" idx="4" value="3" />
+			<attribute name="RosterNIL" idx="5" value="4" />
+			<attribute name="Last_" idx="6" value="5" />
+			<attribute name="PointsBreakDown" idx="7" value="5" />
+			<attribute name="Count" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

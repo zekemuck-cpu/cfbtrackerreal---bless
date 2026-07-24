@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\StadiumRoof.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StadiumRoof" numMembers="12" assetId="6378374" isRecordPersistent="true" majorVersionCRC="2134523669" minorVersionCRC="1951001588">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Open" idx="1" value="0" />
+			<attribute name="Dome" idx="2" value="1" />
+			<attribute name="Dome2" idx="3" value="2" />
+			<attribute name="RoofFull" idx="4" value="3" />
+			<attribute name="PartialRoof1" idx="5" value="4" />
+			<attribute name="LastCATStadiumDome_" idx="6" value="5" />
+			<attribute name="PartialRoof2" idx="7" value="5" />
+			<attribute name="Either" idx="8" value="6" />
+			<attribute name="Open_Dome" idx="9" value="7" />
+			<attribute name="Max_" idx="10" value="8" />
+			<attribute name="Invalid_" idx="11" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

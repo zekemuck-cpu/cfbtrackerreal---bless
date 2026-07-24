@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\DraftPick.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftPick" numMembers="5" defaultStoreCapacity="1210" assetId="6377599" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-238610720" minorVersionCRC="-656297365">
+			<attribute name="PickNumber" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PositionGroup" idx="1" type="PositionGroupE" default="PositionGroupE:QB" />
+			<attribute name="Round" idx="2" type="int" minValue="0" maxValue="6" default="1" />
+			<attribute name="Team" idx="3" type="Team" />
+			<attribute name="YearOffset" idx="4" type="int" minValue="0" maxValue="5" default="1" />
+		</schema>
+	</schemas>
+</FranTkData>

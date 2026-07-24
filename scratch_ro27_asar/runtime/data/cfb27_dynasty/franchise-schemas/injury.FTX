@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\Injury.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Injury" numMembers="6" defaultStoreCapacity="2040" assetId="6377522" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1218550397" minorVersionCRC="-1651884648">
+			<attribute name="GameTeam" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxDuration" idx="1" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="MinDuration" idx="2" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="Player" idx="3" type="Player" />
+			<attribute name="Severity" idx="4" type="InjurySeverity" default="InjurySeverity:Invalid_" />
+			<attribute name="Type" idx="5" type="InjuryType" default="InjuryType:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

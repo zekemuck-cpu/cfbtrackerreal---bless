@@ -1,0 +1,43 @@
+<FranTkData fileName="Franchise-Schemas\Scout.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\StaffPerson.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Scout" numMembers="32" base="StaffPerson" defaultStoreCapacity="660" assetId="6378768" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-570243348" minorVersionCRC="1339939095">
+			<attribute name="Ability" idx="0" type="PlayerAbility" default="PlayerAbility:Invalid_" />
+			<attribute name="ActiveTalentTree" idx="1" type="ActiveTalentTree" />
+			<attribute name="Age" idx="2" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="AssignedRegion" idx="3" type="ScoutingRegion" default="ScoutingRegion:Invalid" />
+			<attribute name="ContractLength" idx="4" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="ContractSalary" idx="5" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="ContractStatus" idx="6" type="StaffPersonContractStatus" default="StaffPersonContractStatus:FreeAgent" />
+			<attribute name="ContractYearsRemaining" idx="7" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="Experience" idx="8" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="FirstName" idx="9" type="string" maxLen="17" />
+			<attribute name="Grade" idx="10" type="PlayerGrade" default="PlayerGrade:Invalid" />
+			<attribute name="IsCreated" idx="11" type="bool" default="False" />
+			<attribute name="IsLegend" idx="12" type="bool" default="False" />
+			<attribute name="IsUserControlled" idx="13" type="bool" default="False" />
+			<attribute name="LastName" idx="14" type="string" maxLen="21" />
+			<attribute name="Level" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Portrait" idx="16" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="Portrait_Force_Silhouette" idx="17" type="bool" default="False" />
+			<attribute name="Portrait_Swappable_Library_Path" idx="18" type="SwappableLibraryPath" default="SwappableLibraryPath:library_icons_brt" />
+			<attribute name="Position" idx="19" type="CoachPosition" default="CoachPosition:HeadCoach" />
+			<attribute name="PositionGroup" idx="20" type="PositionGroupE" default="PositionGroupE:Invalid_" />
+			<attribute name="PositionSpecialty" idx="21" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="PresentationId" idx="22" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PrevPosition" idx="23" type="CoachPosition" default="CoachPosition:Invalid_" />
+			<attribute name="PrevTeamIndex" idx="24" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="Probation" idx="25" type="bool" default="False" />
+			<attribute name="SeasonsWithTeam" idx="26" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SecondaryPositionSpecialty" idx="27" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="TeamIndex" idx="28" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="TeamSide" idx="29" type="TeamSide" default="TeamSide:Invalid" />
+			<attribute name="Tier" idx="30" type="ScoutTier" default="ScoutTier:TierInvalid" />
+			<attribute name="YearsScoutingExperience" idx="31" type="int" minValue="0" maxValue="63" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

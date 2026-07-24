@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffers_SortByInterestLevel_Comparator.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffers_SortByInterestLevel_Comparator" numMembers="3" base="int()" ownerAssetId="6539663" isRecordPersistent="true" isExpr="true" majorVersionCRC="614189494" minorVersionCRC="-317785195">
+			<attribute name="Subject" idx="0" type="ContractOffer" />
+			<attribute name="OtherSubject" idx="1" type="ContractOffer" />
+		</schema>
+	</schemas>
+</FranTkData>

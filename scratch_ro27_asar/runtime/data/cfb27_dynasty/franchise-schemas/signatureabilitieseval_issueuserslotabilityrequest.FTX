@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbilitiesEval_IssueUserSlotAbilityRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignatureAbilitiesEval_IssueUserSlotAbilityRequest" numMembers="4" base="none()" ownerAssetId="6495139" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1557737292" minorVersionCRC="-16980232">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="teamIndex" idx="1" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="isSlotUnlocked" idx="2" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

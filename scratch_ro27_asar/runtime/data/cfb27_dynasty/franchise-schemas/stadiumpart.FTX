@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\StadiumPart.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StadiumPart" numMembers="8" assetId="6378433" isRecordPersistent="true" majorVersionCRC="1189648865" minorVersionCRC="242134173">
+			<attribute name="Parking" idx="0" value="0" />
+			<attribute name="TeamStore" idx="1" value="1" />
+			<attribute name="FanZone" idx="2" value="2" />
+			<attribute name="Bathroom" idx="3" value="3" />
+			<attribute name="Concession" idx="4" value="4" />
+			<attribute name="Last_" idx="5" value="5" />
+			<attribute name="Seating" idx="6" value="5" />
+			<attribute name="Invalid_" idx="7" value="31" />
+		</enum>
+	</schemas>
+</FranTkData>

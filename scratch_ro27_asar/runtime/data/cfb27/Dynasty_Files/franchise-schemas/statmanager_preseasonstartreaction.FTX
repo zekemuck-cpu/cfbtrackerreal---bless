@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StatManager_PreSeasonStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManager_PreSeasonStartReaction" numMembers="4" base="Reaction" assetId="8569444" isRecordPersistent="true" majorVersionCRC="1719183725" minorVersionCRC="85737276">
+			<attribute name="EventRecord" idx="0" type="PreseasonStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="8569444-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="StatManager" idx="3" type="StatManager" />
+		</schema>
+	</schemas>
+</FranTkData>

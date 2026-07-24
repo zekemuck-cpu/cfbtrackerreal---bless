@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\Trade_TradeProposalEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Trade_TradeProposalEvent" numMembers="14" base="Event" assetId="6499065" isRecordPersistent="true" majorVersionCRC="326478381" minorVersionCRC="-809419579">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6499065-1895458" final="true" />
+			<attribute name="isCounterProposal" idx="1" type="bool" default="False" />
+			<attribute name="isModifiedProposal" idx="2" type="bool" default="False" />
+			<attribute name="isTradeAccepted" idx="3" type="bool" default="False" />
+			<attribute name="isTradeFinished" idx="4" type="bool" default="False" />
+			<attribute name="isWithdrawnProposal" idx="5" type="bool" default="False" />
+			<attribute name="PackageA" idx="6" type="TeamTradePackage" />
+			<attribute name="PackageB" idx="7" type="TeamTradePackage" />
+			<attribute name="RequestA" idx="8" type="Request" />
+			<attribute name="RequestB" idx="9" type="Request" />
+			<attribute name="Send" idx="10" type="none()" guid="6499065-1895455" final="true" />
+			<attribute name="TeamA" idx="11" type="Team" />
+			<attribute name="TeamB" idx="12" type="Team" />
+			<attribute name="TradeNegotiation" idx="13" type="TradeNegotiation" />
+		</schema>
+	</schemas>
+</FranTkData>

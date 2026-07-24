@@ -1,0 +1,30 @@
+<FranTkData fileName="Franchise-Schemas\Highlight.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Highlight" numMembers="23" assetId="6498673" isRecordPersistent="true" majorVersionCRC="2002459380" minorVersionCRC="1271130122">
+			<attribute name="AwayScore" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="AwayTeamId" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayTeamLogoId" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayTeamShortName" idx="3" type="string" maxLen="8" />
+			<attribute name="Filename" idx="4" type="string" maxLen="33" />
+			<attribute name="GreatnessScore" idx="5" type="int" minValue="0" maxValue="5000" default="0" />
+			<attribute name="HomeScore" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="HomeTeamId" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeTeamLogoId" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeTeamShortName" idx="9" type="string" maxLen="8" />
+			<attribute name="IsOverTimeGame" idx="10" type="bool" default="False" />
+			<attribute name="IsUserHome" idx="11" type="bool" default="False" />
+			<attribute name="PlayDescription" idx="12" type="string" maxLen="129" />
+			<attribute name="Quarter" idx="13" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="SeasonWeek" idx="14" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SeasonWeekType" idx="15" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="SeasonYear" idx="16" type="int" minValue="0" maxValue="60" default="0" />
+			<attribute name="Sequence" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Team" idx="18" type="Team" />
+			<attribute name="Time" idx="19" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Type" idx="20" type="HighlightType" default="HighlightType:Snapshot" />
+			<attribute name="UserIdHi" idx="21" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="UserIdLo" idx="22" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbilitiesEval_AdvancedFeatureSettingChangedReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignatureAbilitiesEval_AdvancedFeatureSettingChangedReaction" numMembers="4" base="Reaction" assetId="6498941" isRecordPersistent="true" majorVersionCRC="-996765152" minorVersionCRC="-35189925">
+			<attribute name="EventRecord" idx="0" type="AdvancedFeatureSettingChangedEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6498941-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SignatureAbilitiesEval" idx="3" type="SignatureAbilitiesEval" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,47 @@
+<FranTkData fileName="Franchise-Schemas\CustomSchedulesRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CustomSchedulesRequest" numMembers="36" base="UIRequestForm" defaultStoreCapacity="1" assetId="9085453" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="603491844" minorVersionCRC="1868321727">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="9085453-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="Description" idx="8" type="string" const="true" maxLen="24" default="Customize Your Schedule" />
+			<attribute name="Dismiss" idx="9" type="none()" guid="9085453-1895671" />
+			<attribute name="ExpirationDuration" idx="10" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="11" type="none()" guid="9085453-2279077" final="true" />
+			<attribute name="HasResolution" idx="12" type="bool()" guid="9085453-1895676" />
+			<attribute name="HubPanel" idx="13" type="HUBPanel" />
+			<attribute name="IsBlocking" idx="14" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="15" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="16" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="17" type="bool()" guid="9085453-1895678" />
+			<attribute name="IsResponseRequired" idx="18" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="19" type="bool" default="True" />
+			<attribute name="Issue" idx="20" type="Request_Issue" guid="9085453-1895668" />
+			<attribute name="IssueTime" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Priority" idx="22" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="23" type="none()" guid="9085453-1895686" final="true" />
+			<attribute name="RequestData" idx="24" type="record" />
+			<attribute name="RequestForm" idx="25" type="ResponseForm" />
+			<attribute name="RequestId" idx="26" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="27" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="28" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="30" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="31" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="32" type="bool" default="True" />
+			<attribute name="TargetUser" idx="33" type="User" />
+			<attribute name="Title" idx="34" type="string" const="true" maxLen="17" default="Custom Schedules" />
+			<attribute name="TypeName" idx="35" type="string" const="true" maxLen="16" default="CustomSchedules" />
+		</schema>
+	</schemas>
+</FranTkData>

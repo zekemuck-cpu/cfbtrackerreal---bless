@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DraftEval_FindUserByEntity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftEval_FindUserByEntity" numMembers="2" base="User()" ownerAssetId="6708560" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1876416162" minorVersionCRC="1289474983">
+			<attribute name="UserEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

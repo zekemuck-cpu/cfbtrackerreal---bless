@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\StadiumOrientation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StadiumOrientation" numMembers="5" assetId="6378361" isRecordPersistent="true" majorVersionCRC="-82318969" minorVersionCRC="192568014">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="North_South" idx="1" value="0" />
+			<attribute name="East_West" idx="2" value="1" />
+			<attribute name="Max_" idx="3" value="2" />
+			<attribute name="Invalid_" idx="4" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

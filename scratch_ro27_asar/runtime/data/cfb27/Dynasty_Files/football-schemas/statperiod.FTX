@@ -1,0 +1,17 @@
+<FranTkData fileName="Football-Schemas\StatPeriod.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StatPeriod" numMembers="10" assetId="9368" isRecordPersistent="true" majorVersionCRC="-691560112" minorVersionCRC="1391643503">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Season" idx="1" value="0" />
+			<attribute name="Career" idx="2" value="1" />
+			<attribute name="Game" idx="3" value="2" />
+			<attribute name="Last_Base_" idx="4" value="2" />
+			<attribute name="RookieGame" idx="5" value="3" />
+			<attribute name="Last_" idx="6" value="4" />
+			<attribute name="RookieSeason" idx="7" value="4" />
+			<attribute name="Count_" idx="8" value="5" />
+			<attribute name="Invalid_" idx="9" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

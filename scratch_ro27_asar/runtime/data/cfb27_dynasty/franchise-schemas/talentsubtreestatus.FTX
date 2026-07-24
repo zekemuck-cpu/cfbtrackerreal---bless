@@ -1,0 +1,42 @@
+<FranTkData fileName="Franchise-Schemas\TalentSubTreeStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentSubTreeStatus" numMembers="35" defaultStoreCapacity="6008" assetId="6378194" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="622848784" minorVersionCRC="817385349">
+			<attribute name="CoachPointsSpent" idx="0" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="TalentStatus0" idx="1" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus1" idx="2" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus10" idx="3" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus11" idx="4" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus12" idx="5" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus13" idx="6" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus14" idx="7" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus15" idx="8" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus16" idx="9" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus17" idx="10" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus18" idx="11" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus19" idx="12" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus2" idx="13" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus20" idx="14" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus21" idx="15" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus22" idx="16" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus23" idx="17" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus24" idx="18" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus25" idx="19" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus26" idx="20" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus27" idx="21" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus28" idx="22" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus29" idx="23" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus3" idx="24" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus30" idx="25" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus31" idx="26" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus32" idx="27" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus4" idx="28" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus5" idx="29" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus6" idx="30" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus7" idx="31" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus8" idx="32" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="TalentStatus9" idx="33" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="Version" idx="34" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

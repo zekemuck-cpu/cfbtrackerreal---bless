@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CrossArcData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CrossArcData" numMembers="2" defaultStoreCapacity="150" assetId="6495085" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2068530278" minorVersionCRC="278295402">
+			<attribute name="Id" idx="0" type="CrossArcDataId" default="CrossArcDataId:PLACEHOLDER" />
+			<attribute name="Value" idx="1" type="int" minValue="-32768" maxValue="32767" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

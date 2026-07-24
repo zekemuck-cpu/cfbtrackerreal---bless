@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\TeamBuildingPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamBuildingPhilosophy" numMembers="6" defaultStoreCapacity="5" assetId="6378219" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1960561540" minorVersionCRC="1893779397">
+			<attribute name="FreeAgentOfferIncreasePercent" idx="0" type="int" minValue="0" maxValue="100" default="34" />
+			<attribute name="FreeAgentOfferPremiumPerStage" idx="1" type="int[]" />
+			<attribute name="FreeAgentOfferStayPercent" idx="2" type="int" minValue="0" maxValue="100" default="33" />
+			<attribute name="FreeAgentOfferThresholdPerStage" idx="3" type="int[]" />
+			<attribute name="FreeAgentOfferWithdrawPercent" idx="4" type="int" minValue="0" maxValue="100" default="33" />
+			<attribute name="FreeAgentSpendingSharePerNeed" idx="5" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

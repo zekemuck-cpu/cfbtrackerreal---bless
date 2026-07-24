@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\PenaltySlider.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PenaltySlider" numMembers="22" defaultStoreCapacity="1" assetId="6320457" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-133257562" minorVersionCRC="588858374">
+			<attribute name="Clipping" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefaultToggleValue" idx="1" type="bool" default="False" />
+			<attribute name="DefaultValue" idx="2" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="DefensiveHolding" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefensivePassInterference" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FaceMask" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FalseStart" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Holding" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IllegalContact" idx="8" type="bool" default="False" />
+			<attribute name="IllegalContactDescription" idx="9" type="string" maxLen="72" />
+			<attribute name="IntentionalGrounding" idx="10" type="bool" default="False" />
+			<attribute name="IntentionalGroundingDescription" idx="11" type="string" maxLen="78" />
+			<attribute name="OffensivePassInterference" idx="12" type="bool" default="False" />
+			<attribute name="OffensivePassInterferenceDescription" idx="13" type="string" maxLen="127" />
+			<attribute name="Offside" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PuntCatchInterference" idx="15" type="bool" default="False" />
+			<attribute name="PuntCatchInterferenceDescription" idx="16" type="string" maxLen="80" />
+			<attribute name="RoughingKicker" idx="17" type="bool" default="False" />
+			<attribute name="RoughingKickerDescription" idx="18" type="string" maxLen="141" />
+			<attribute name="RoughingPasser" idx="19" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="RunningIntoKicker" idx="20" type="bool" default="False" />
+			<attribute name="RunningIntoKickerDescription" idx="21" type="string" maxLen="153" />
+		</schema>
+	</schemas>
+</FranTkData>

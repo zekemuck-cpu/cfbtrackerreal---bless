@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingActionIntensity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RecruitingActionIntensity" numMembers="7" assetId="7017442" isRecordPersistent="true" majorVersionCRC="475502178" minorVersionCRC="1488298258">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="SoftSell" idx="1" value="0" />
+			<attribute name="HardSell" idx="2" value="1" />
+			<attribute name="Last_" idx="3" value="2" />
+			<attribute name="Sway" idx="4" value="2" />
+			<attribute name="Count_" idx="5" value="3" />
+			<attribute name="Invalid_" idx="6" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\AdvanceSeasonWeekTransaction_PlayerSuspensionReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AdvanceSeasonWeekTransaction_PlayerSuspensionReaction" numMembers="4" base="Reaction" assetId="8519614" isRecordPersistent="true" majorVersionCRC="-493584902" minorVersionCRC="-341297303">
+			<attribute name="EventRecord" idx="0" type="Player_SuspensionEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="8519614-1895461" />
+			<attribute name="Module" idx="2" type="AdvanceSeasonWeekTransaction" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

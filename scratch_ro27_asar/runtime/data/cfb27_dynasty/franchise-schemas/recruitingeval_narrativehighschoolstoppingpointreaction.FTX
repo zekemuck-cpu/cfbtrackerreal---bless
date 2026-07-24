@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_NarrativeHighSchoolStoppingPointReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_NarrativeHighSchoolStoppingPointReaction" numMembers="5" base="Reaction" assetId="10605483" isRecordPersistent="true" majorVersionCRC="149559856" minorVersionCRC="1949318507">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="NarrativeHighSchoolStoppingPointEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="10605483-1895461" />
+			<attribute name="Module" idx="3" type="RecruitingEval" />
+			<attribute name="Priority" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CoachManager_UpdateScoutContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachManager_UpdateScoutContractStatus" numMembers="5" base="none()" ownerAssetId="6495150" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2005041909" minorVersionCRC="1288407111">
+			<attribute name="scout" idx="0" type="Scout" />
+			<attribute name="oldTeam" idx="1" type="Team" />
+			<attribute name="newTeam" idx="2" type="Team" />
+			<attribute name="newContractStatus" idx="3" type="StaffPersonContractStatus" default="StaffPersonContractStatus:Signed" />
+		</schema>
+	</schemas>
+</FranTkData>

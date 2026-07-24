@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGameStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGameStats" numMembers="5" assetId="6498665" isRecordPersistent="true" majorVersionCRC="808168304" minorVersionCRC="284216255">
+			<attribute name="BirthDate" idx="0" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="FirstName" idx="1" type="string" maxLen="14" />
+			<attribute name="GameStats" idx="2" type="GameStats" />
+			<attribute name="LastName" idx="3" type="string" maxLen="18" />
+			<attribute name="PlayerId" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

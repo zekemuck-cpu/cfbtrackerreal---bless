@@ -1,0 +1,44 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_ScoutingV2Flow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_ScoutingV2Flow" numMembers="33" base="FranTkServer_Flow" assetId="6499342" isRecordPersistent="true" majorVersionCRC="1860365887" minorVersionCRC="-362076049">
+			<attribute name="DraftClassScouting" idx="0" type="DraftClassScouting" />
+			<attribute name="DraftManager" idx="1" type="DraftManager" />
+			<attribute name="DraftPickStrengthSpline" idx="2" type="Spline" />
+			<attribute name="Form" idx="3" type="UIForm" />
+			<attribute name="FormManager" idx="4" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="HandednessEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PhysicalLevelEnumTable" idx="7" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="8" type="EnumTable" />
+			<attribute name="PlayerTypeEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PositionRatingEnumTable" idx="11" type="EnumTable" />
+			<attribute name="QBThrowingAnimationEnumTable" idx="12" type="EnumTable" />
+			<attribute name="RegionEnumTable" idx="13" type="EnumTable" />
+			<attribute name="RequestServer" idx="14" type="RequestServer" />
+			<attribute name="RosterEval" idx="15" type="RosterEval" />
+			<attribute name="ScoutRegionEnumTable" idx="16" type="EnumTable" />
+			<attribute name="ScoutTierEnumTable" idx="17" type="EnumTable" />
+			<attribute name="SkillGradeEnumTable" idx="18" type="EnumTable" />
+			<attribute name="StaffHiringEval" idx="19" type="StaffHiringEval" />
+			<attribute name="TeamPrestigeEval" idx="20" type="TeamPrestigeEval" />
+			<attribute name="TutorialListAssignScouts" idx="21" type="TutorialInfo[]" />
+			<attribute name="TutorialListCardMain" idx="22" type="TutorialInfo[]" />
+			<attribute name="TutorialListCardPhysicals" idx="23" type="TutorialInfo[]" />
+			<attribute name="TutorialListCardPhysicalsPostCombine" idx="24" type="TutorialInfo[]" />
+			<attribute name="TutorialListCardSkills" idx="25" type="TutorialInfo[]" />
+			<attribute name="TutorialListHub" idx="26" type="TutorialInfo[]" />
+			<attribute name="TutorialListMockDraft" idx="27" type="TutorialInfo[]" />
+			<attribute name="TutorialListProspects" idx="28" type="TutorialInfo[]" />
+			<attribute name="TutorialListRegionBreakdown" idx="29" type="TutorialInfo[]" />
+			<attribute name="TutorialListWorkouts" idx="30" type="TutorialInfo[]" />
+			<attribute name="TutorialManager" idx="31" type="TutorialManager" />
+			<attribute name="UserRegistry" idx="32" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

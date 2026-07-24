@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CreateOwner_LookupTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CreateOwner_LookupTableEntry" numMembers="2" defaultStoreCapacity="1" assetId="6499099" defaultStoreGroupId="2" isRecordPersistent="false" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1180104192" minorVersionCRC="417403024">
+			<attribute name="BackStory" idx="0" type="OwnerBackstory" default="OwnerBackstory:Mogul" />
+			<attribute name="Owner" idx="1" type="Owner" />
+		</schema>
+	</schemas>
+</FranTkData>

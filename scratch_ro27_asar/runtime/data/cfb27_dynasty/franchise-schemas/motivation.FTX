@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\Motivation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Motivation" numMembers="3" defaultStoreCapacity="1" assetId="6708605" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="19" majorVersionCRC="-588495296" minorVersionCRC="714223392">
+			<attribute name="Name" idx="0" type="string" maxLen="65" />
+			<attribute name="PositionFlagTable" idx="1" type="PositionFlagTable" />
+			<attribute name="Type" idx="2" type="MotivationType" default="MotivationType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

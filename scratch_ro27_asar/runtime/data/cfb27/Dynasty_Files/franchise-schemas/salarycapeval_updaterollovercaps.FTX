@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SalaryCapEval_UpdateRolloverCaps.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SalaryCapEval_UpdateRolloverCaps" numMembers="2" base="none()" ownerAssetId="6708633" isRecordPersistent="true" isExpr="true" majorVersionCRC="-146023446" minorVersionCRC="-1547206327">
+			<attribute name="teams" idx="0" type="Team[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\SchoolPipelineInfluence.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SchoolPipelineInfluence" numMembers="3" defaultStoreCapacity="1500" assetId="8224453" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1002019230" minorVersionCRC="174348201">
+			<attribute name="InfluenceLevel" idx="0" type="PipelineInfluenceLevel" default="PipelineInfluenceLevel:Invalid" />
+			<attribute name="InfluenceValue" idx="1" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Pipeline" idx="2" type="Pipeline" default="Pipeline:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

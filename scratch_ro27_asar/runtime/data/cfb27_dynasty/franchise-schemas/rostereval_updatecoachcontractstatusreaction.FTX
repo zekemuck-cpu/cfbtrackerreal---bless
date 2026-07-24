@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\RosterEval_UpdateCoachContractStatusReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterEval_UpdateCoachContractStatusReaction" numMembers="4" base="Reaction" assetId="6814655" isRecordPersistent="true" majorVersionCRC="1355962156" minorVersionCRC="-1893289110">
+			<attribute name="EventRecord" idx="0" type="Coach_UpdateCoachContractStatusEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814655-1895461" />
+			<attribute name="Module" idx="2" type="RosterEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

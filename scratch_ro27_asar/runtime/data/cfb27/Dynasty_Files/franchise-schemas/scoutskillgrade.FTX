@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\ScoutSkillGrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ScoutSkillGrade" numMembers="5" assetId="6571077" isRecordPersistent="true" majorVersionCRC="798616391" minorVersionCRC="-1691686646">
+			<attribute name="F" idx="0" value="0" />
+			<attribute name="D" idx="1" value="1" />
+			<attribute name="C" idx="2" value="2" />
+			<attribute name="B" idx="3" value="3" />
+			<attribute name="A" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

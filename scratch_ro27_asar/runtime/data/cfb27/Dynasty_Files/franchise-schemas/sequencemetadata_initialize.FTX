@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\SequenceMetadata_Initialize.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SequenceMetadata_Initialize" numMembers="3" base="none()" ownerAssetId="6498713" isRecordPersistent="true" isExpr="true" majorVersionCRC="5404635" minorVersionCRC="-1294646027">
+			<attribute name="StoryArcContext" idx="0" type="ArcContext" />
+			<attribute name="StoryArcUtil" idx="1" type="StoryArcUtil" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RosterEval_UpdateTeamRatings.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterEval_UpdateTeamRatings" numMembers="2" base="none()" ownerAssetId="6494681" isRecordPersistent="true" isExpr="true" majorVersionCRC="-871281546" minorVersionCRC="-1895201443">
+			<attribute name="teams" idx="0" type="Team[]" />
+		</schema>
+	</schemas>
+</FranTkData>

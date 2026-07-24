@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\WeatherInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WeatherInfo" numMembers="11" defaultStoreCapacity="52" assetId="6377611" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1626309134" minorVersionCRC="1072534797">
+			<attribute name="AveragePrecipitation" idx="0" type="Spline" />
+			<attribute name="AverageSustainedWindSpeed" idx="1" type="Spline" />
+			<attribute name="AverageTemperature" idx="2" type="Spline" />
+			<attribute name="ChanceOfHeavyPrecipitation" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ChanceOfMediumPrecipitation" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ChanceOfOvercastCloudCover" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ChanceOfPartialCloudCover" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ChanceOfWind" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrecipitationVariability" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TemperatureVariability" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WindSpeedVariability" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\BTRandomNode.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\TreeNode.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BTRandomNode" numMembers="2" base="TreeNode" assetId="12991554" isRecordPersistent="true" majorVersionCRC="-732985079" minorVersionCRC="978436128">
+			<attribute name="Children" idx="0" type="TreeNode[]" />
+			<attribute name="Run" idx="1" type="TreeNode_Run" guid="12991554-2618001" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

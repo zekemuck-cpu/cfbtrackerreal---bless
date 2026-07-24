@@ -1,0 +1,63 @@
+<FranTkData fileName="Franchise-Schemas\TeamTraditions.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamTraditions" numMembers="56" defaultStoreCapacity="138" assetId="8824182" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-672626418" minorVersionCRC="-648437363">
+			<attribute name="4Fingers" idx="0" type="bool" default="True" />
+			<attribute name="AlmaMater" idx="1" type="bool" default="True" />
+			<attribute name="BandFormation" idx="2" type="bool" default="True" />
+			<attribute name="Banner" idx="3" type="bool" default="True" />
+			<attribute name="Cannon" idx="4" type="bool" default="True" />
+			<attribute name="Cellphones" idx="5" type="bool" default="True" />
+			<attribute name="Chant" idx="6" type="bool" default="True" />
+			<attribute name="CheerHandSign" idx="7" type="bool" default="False" />
+			<attribute name="ConductBand" idx="8" type="bool" default="True" />
+			<attribute name="Costumed" idx="9" type="bool" default="True" />
+			<attribute name="CrowdHandSign" idx="10" type="bool" default="False" />
+			<attribute name="Drum" idx="11" type="bool" default="True" />
+			<attribute name="FirstDown" idx="12" type="bool" default="True" />
+			<attribute name="FlagRunners3" idx="13" type="bool" default="True" />
+			<attribute name="FlagRunners4" idx="14" type="bool" default="True" />
+			<attribute name="FlagRunners5" idx="15" type="bool" default="True" />
+			<attribute name="FlagRunners6" idx="16" type="bool" default="True" />
+			<attribute name="FlagRunners7" idx="17" type="bool" default="True" />
+			<attribute name="FlagRunners8" idx="18" type="bool" default="True" />
+			<attribute name="FlagRunnersCurlLeft" idx="19" type="bool" default="True" />
+			<attribute name="FlagRunnersCurlRight" idx="20" type="bool" default="True" />
+			<attribute name="FlagRunnersStraight" idx="21" type="bool" default="True" />
+			<attribute name="Flyover" idx="22" type="bool" default="True" />
+			<attribute name="HoldRail" idx="23" type="bool" default="True" />
+			<attribute name="Keys" idx="24" type="bool" default="True" />
+			<attribute name="Live" idx="25" type="bool" default="True" />
+			<attribute name="MascotHandSign" idx="26" type="bool" default="True" />
+			<attribute name="Painted3Fans" idx="27" type="bool" default="True" />
+			<attribute name="Painted4Fans" idx="28" type="bool" default="True" />
+			<attribute name="Painted5Fans" idx="29" type="bool" default="True" />
+			<attribute name="Painted6Fans" idx="30" type="bool" default="True" />
+			<attribute name="Painted7Fans" idx="31" type="bool" default="True" />
+			<attribute name="PlayerHandSign" idx="32" type="bool" default="False" />
+			<attribute name="PomPoms" idx="33" type="bool" default="True" />
+			<attribute name="PushupPlatform" idx="34" type="bool" default="True" />
+			<attribute name="Pushups" idx="35" type="bool" default="True" />
+			<attribute name="ROTC" idx="36" type="bool" default="True" />
+			<attribute name="RunoutCoachHoldback" idx="37" type="bool" default="True" />
+			<attribute name="RunoutCurlLeft" idx="38" type="bool" default="True" />
+			<attribute name="RunoutCurlRight" idx="39" type="bool" default="True" />
+			<attribute name="RunoutFlag" idx="40" type="bool" default="True" />
+			<attribute name="RunoutHeaderTouch" idx="41" type="bool" default="True" />
+			<attribute name="RunoutProp" idx="42" type="bool" default="True" />
+			<attribute name="RunoutTearBanner" idx="43" type="bool" default="True" />
+			<attribute name="RunoutTouchBanner" idx="44" type="bool" default="True" />
+			<attribute name="RunoutTunnelSway" idx="45" type="bool" default="True" />
+			<attribute name="RunoutTurnLeft" idx="46" type="bool" default="True" />
+			<attribute name="RunoutTurnRight" idx="47" type="bool" default="True" />
+			<attribute name="SetupGameStripeout" idx="48" type="TeamTraditions_SetupGameStripeout" guid="8824182-2293008" default=" SeasonGame.StripeOutType = StripeOut.Invalid_;" />
+			<attribute name="Shoes" idx="49" type="bool" default="True" />
+			<attribute name="SidelineProp" idx="50" type="bool" default="True" />
+			<attribute name="StickPomPoms" idx="51" type="bool" default="True" />
+			<attribute name="TDFlagRun" idx="52" type="bool" default="True" />
+			<attribute name="TDFlagWave" idx="53" type="bool" default="True" />
+			<attribute name="ThunderSticks" idx="54" type="bool" default="True" />
+			<attribute name="Towels" idx="55" type="bool" default="True" />
+		</schema>
+	</schemas>
+</FranTkData>

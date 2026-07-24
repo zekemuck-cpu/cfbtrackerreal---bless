@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetFlaggedPositionRangeFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntRangeFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetFlaggedPositionRangeFilter" numMembers="4" base="UISpreadsheetIntRangeFilter" defaultStoreCapacity="3" assetId="6572368" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="32" majorVersionCRC="-302622920" minorVersionCRC="1509625627">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="MaxValue" idx="2" type="FlaggedPosition" default="FlaggedPosition:Last_" />
+			<attribute name="MinValue" idx="3" type="FlaggedPosition" default="FlaggedPosition:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

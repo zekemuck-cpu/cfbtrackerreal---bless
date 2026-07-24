@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_InitNamedActor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_InitNamedActor" numMembers="6" base="bool()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="1538873646" minorVersionCRC="-534180207">
+			<attribute name="arcContext" idx="0" type="ArcContext" />
+			<attribute name="team" idx="1" type="Team" />
+			<attribute name="weeklyGame" idx="2" type="SeasonGame" />
+			<attribute name="eventRecord" idx="3" type="Event" />
+			<attribute name="ActorName" idx="4" type="ActorName" default="ActorName:None" />
+		</schema>
+	</schemas>
+</FranTkData>

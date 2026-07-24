@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\GoalRisk.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GoalRisk" numMembers="5" assetId="6493965" isRecordPersistent="true" majorVersionCRC="-1402625038" minorVersionCRC="-1533353632">
+			<attribute name="VeryLow" idx="0" value="0" />
+			<attribute name="Low" idx="1" value="1" />
+			<attribute name="Medium" idx="2" value="2" />
+			<attribute name="High" idx="3" value="3" />
+			<attribute name="VeryHigh" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

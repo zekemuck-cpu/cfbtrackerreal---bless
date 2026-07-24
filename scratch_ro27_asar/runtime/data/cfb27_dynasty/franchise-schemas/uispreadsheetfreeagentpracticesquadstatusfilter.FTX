@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetFreeAgentPracticeSquadStatusFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetFreeAgentPracticeSquadStatusFilter" numMembers="3" base="UISpreadsheetIntFilter" assetId="6572370" isRecordPersistent="true" majorVersionCRC="-1872732122" minorVersionCRC="-681070053">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="Value" idx="2" type="FreeAgentPracticeSquadStatus" default="FreeAgentPracticeSquadStatus:PracticeSquadEligible" />
+		</schema>
+	</schemas>
+</FranTkData>

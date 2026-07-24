@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerCoachGoalsEval_AssignSeasonalGoals_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerCoachGoalsEval_AssignSeasonalGoals_Formula" numMembers="3" base="none()" ownerAssetId="6499105" isRecordPersistent="true" isExpr="true" majorVersionCRC="2093094764" minorVersionCRC="-526445554">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="1000000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

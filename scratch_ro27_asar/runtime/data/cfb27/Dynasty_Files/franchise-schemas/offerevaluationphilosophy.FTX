@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\OfferEvaluationPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OfferEvaluationPhilosophy" numMembers="15" defaultStoreCapacity="1" assetId="6495227" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="965250206" minorVersionCRC="-890663084">
+			<attribute name="AcceptChanceSpline1" idx="0" type="Spline" />
+			<attribute name="AcceptChanceSpline2" idx="1" type="Spline" />
+			<attribute name="AcceptChanceSpline3" idx="2" type="Spline" />
+			<attribute name="AnnualBonus" idx="3" type="OfferEvaluationFactor" />
+			<attribute name="AnnualContract" idx="4" type="OfferEvaluationFactor" />
+			<attribute name="CoachAbilityPackagePurchased" idx="5" type="OfferEvaluationFactor" />
+			<attribute name="CoachLevel" idx="6" type="OfferEvaluationFactor" />
+			<attribute name="CoachPackageUnpurchasedPercentage" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ContractLength" idx="8" type="OfferEvaluationFactor" />
+			<attribute name="GetTotalInterestWeight" idx="9" type="int()" guid="6495227-1922247" final="true" default="// Return the sum of all interest weights on this OfferEvaluationPhilosophy record.&#xD;&#xA;int totalWeight = AnnualContract.Weight + AnnualBonus.Weight + ContractLength.Weight +&#xD;&#xA;    CoachAbilityPackagePurchased.Weight + CoachLevel.Weight + HometownDiscount.Weight +&#xD;&#xA;    SchemeFit.Weight + TeamNeed.Weight + TeamPrestige.Weight;&#xD;&#xA;&#xD;&#xA;totalWeight;" />
+			<attribute name="HometownDiscount" idx="10" type="OfferEvaluationFactor" />
+			<attribute name="MinOfferThreshold" idx="11" type="int" minValue="0" maxValue="100" default="90" />
+			<attribute name="SchemeFit" idx="12" type="OfferEvaluationFactor" />
+			<attribute name="TeamNeed" idx="13" type="OfferEvaluationFactor" />
+			<attribute name="TeamPrestige" idx="14" type="OfferEvaluationFactor" />
+		</schema>
+	</schemas>
+</FranTkData>

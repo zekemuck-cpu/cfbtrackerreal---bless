@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingClassGenerationManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingClassGenerationManager" numMembers="21" base="Module" assetId="6733458" isRecordPersistent="true" majorVersionCRC="88719839" minorVersionCRC="-154341204">
+			<attribute name="CoachManager" idx="0" type="CoachManager" />
+			<attribute name="Dynasty" idx="1" type="Franchise" />
+			<attribute name="FinishGenerateRecruitingClass" idx="2" type="none()" guid="6733458-2086079" final="true" />
+			<attribute name="GenerateCoachAssets" idx="3" type="none()" guid="6733458-2293044" final="true" />
+			<attribute name="GeneratePlayerAssets" idx="4" type="RecruitingClassGenerationManager_GeneratePlayerAssets" guid="6733458-2086061" final="true" />
+			<attribute name="GenerationManager" idx="5" type="GenerationManager" />
+			<attribute name="MaxFreeAgentCoaches" idx="6" type="int" minValue="0" maxValue="64" default="64" />
+			<attribute name="NextPresentationId" idx="7" type="int" minValue="0" maxValue="32766" default="10000" />
+			<attribute name="PlayerGradeEval" idx="8" type="PlayerGradeEval" />
+			<attribute name="PlayerProgressionEval" idx="9" type="PlayerProgressionEval" />
+			<attribute name="PostGeneratePlayerAssets" idx="10" type="RecruitingClassGenerationManager_PostGeneratePlayerAssets" guid="6733458-2293029" final="true" />
+			<attribute name="PrepareGenerator" idx="11" type="RecruitingClassGenerationManager_PrepareGenerator" guid="6733458-2293033" final="true" />
+			<attribute name="Random" idx="12" type="Random" />
+			<attribute name="RecruitingTunables" idx="13" type="RecruitingTunables" />
+			<attribute name="RecruitManager" idx="14" type="RecruitManager" />
+			<attribute name="ShutdownGenerator" idx="15" type="none()" guid="6733458-2293039" final="true" />
+			<attribute name="SignatureAbilitiesEval" idx="16" type="SignatureAbilitiesEval" />
+			<attribute name="SkillGroupUpgradesTable" idx="17" type="SkillGroupCapUpgradeGenerationTable" />
+			<attribute name="StartRecruitGenerationTransactionEvent" idx="18" type="StartRecruitGenerationTransactionEvent" />
+			<attribute name="TalentTreeEval" idx="19" type="TalentTreeEval" />
+			<attribute name="TeamRevenueEval" idx="20" type="TeamRevenueEval" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseDebugModule.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\DebugModule.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseDebugModule" numMembers="8" base="DebugModule" assetId="6495333" isRecordPersistent="true" majorVersionCRC="1943516896" minorVersionCRC="1422504408">
+			<attribute name="CurrentArcToForce" idx="0" type="FranchiseSeasonStoryArc" default="FranchiseSeasonStoryArc:INVALID" />
+			<attribute name="DebugAssert" idx="1" type="DebugModule_DebugAssert" guid="6495333-1937819" />
+			<attribute name="DebugTrace" idx="2" type="DebugModule_DebugTrace" guid="6495333-1937816" />
+			<attribute name="ExportDebugVariableEnumeration" idx="3" type="DebugVariable" default="DebugVariable:Force_User_Win" />
+			<attribute name="GetBool" idx="4" type="DebugModule_GetBool" guid="6495333-1937813" />
+			<attribute name="GetInt" idx="5" type="DebugModule_GetInt" guid="6495333-1937810" />
+			<attribute name="IsDebugArcActive" idx="6" type="bool" default="False" />
+			<attribute name="ShouldForceArc" idx="7" type="FranchiseDebugModule_ShouldForceArc" guid="6495333-1922251" />
+		</schema>
+	</schemas>
+</FranTkData>

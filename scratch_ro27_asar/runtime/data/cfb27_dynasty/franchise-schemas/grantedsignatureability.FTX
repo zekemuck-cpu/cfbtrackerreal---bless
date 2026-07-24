@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\GrantedSignatureAbility.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GrantedSignatureAbility" numMembers="2" assetId="6495137" isRecordPersistent="true" majorVersionCRC="-2073543743" minorVersionCRC="-575026237">
+			<attribute name="Player" idx="0" type="Player" />
+			<attribute name="PositionSignatureAbility" idx="1" type="PositionSignatureAbility" />
+		</schema>
+	</schemas>
+</FranTkData>

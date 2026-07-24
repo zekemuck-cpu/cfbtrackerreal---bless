@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingClassGenerationManager_GeneratePlayerAssets.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingClassGenerationManager_GeneratePlayerAssets" numMembers="2" base="none()" ownerAssetId="6733458" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1983533450" minorVersionCRC="-1902659629">
+			<attribute name="generatorIndex" idx="0" type="int" minValue="0" maxValue="511" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

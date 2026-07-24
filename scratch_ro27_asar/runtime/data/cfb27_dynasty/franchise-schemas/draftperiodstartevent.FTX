@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DraftPeriodStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftPeriodStartEvent" numMembers="2" base="Event" assetId="6598552" isRecordPersistent="true" majorVersionCRC="1929030664" minorVersionCRC="-2032904575">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598552-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598552-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

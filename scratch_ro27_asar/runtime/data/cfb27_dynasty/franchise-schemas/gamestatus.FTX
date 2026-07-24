@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\GameStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GameStatus" numMembers="16" assetId="6321351" isRecordPersistent="true" majorVersionCRC="-206717623" minorVersionCRC="1921448787">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Unscheduled" idx="1" value="0" />
+			<attribute name="Unplayed" idx="2" value="1" />
+			<attribute name="AwayWon" idx="3" value="2" />
+			<attribute name="FirstComplete_" idx="4" value="2" />
+			<attribute name="HomeWon" idx="5" value="3" />
+			<attribute name="LastComplete_" idx="6" value="4" />
+			<attribute name="Tied" idx="7" value="4" />
+			<attribute name="AwayScheduled" idx="8" value="5" />
+			<attribute name="FirstPartiallyScheduled_" idx="9" value="5" />
+			<attribute name="HomeScheduled" idx="10" value="6" />
+			<attribute name="LastPartiallyScheduled_" idx="11" value="6" />
+			<attribute name="Last_" idx="12" value="7" />
+			<attribute name="StatsReported" idx="13" value="7" />
+			<attribute name="Max_" idx="14" value="8" />
+			<attribute name="Invalid_" idx="15" value="15" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,81 @@
+<FranTkData fileName="Franchise-Schemas\TeamStatTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamStatTable" numMembers="74" defaultStoreCapacity="1" assetId="6495152" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-572952033" minorVersionCRC="-1772877594">
+			<attribute name="2PTConversionAttempts" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="2PTConversionsMade" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BowlsMade" idx="2" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="BowlsWon" idx="3" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="CFPSMade" idx="4" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="CFPSWon" idx="5" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="ConfChampsMade" idx="6" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="ConfChampsWon" idx="7" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="CurrentHomeWinStreak" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefInts" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefPassYards" idx="10" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="DefPassYardsPerGame" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefRedZoneFGs" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefRedZones" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefRedZoneTDs" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefRushYards" idx="15" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="DefRushYardsPerGame" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefYards" idx="17" type="int" minValue="0" maxValue="1300" default="0" />
+			<attribute name="DefYardsPerGame" idx="18" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FirstDowns" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FourthDownConversions" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FourthDowns" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FumbleRecoveries" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FumblesLost" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Giveaways" idx="24" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HeismanWinners" idx="25" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="HomeLosses" idx="26" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeTies" idx="27" type="int" minValue="0" maxValue="0" default="0" />
+			<attribute name="HomeWins" idx="28" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="KRYards" idx="29" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="LongestHomeWinStreak" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Losses" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MarginOfVictory" idx="32" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="NatChampsMade" idx="33" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="NatChampsWon" idx="34" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="NY6BowlsMade" idx="35" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="NY6BowlsWon" idx="36" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="OffPassYards" idx="37" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="OffPassYardsPerGame" idx="38" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffRedZoneFGs" idx="39" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffRedZones" idx="40" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffRedZoneTDs" idx="41" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffRushYards" idx="42" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="OffRushYardsPerGame" idx="43" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffYards" idx="44" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="OffYardsPerGame" idx="45" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffYardsPerPlay" idx="46" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="PassAttempts" idx="47" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PassCompletions" idx="48" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassDeflections" idx="49" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassesTipped" idx="50" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassInts" idx="51" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassTDs" idx="52" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Penalties" idx="53" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PenaltyYards" idx="54" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="PossessionTime" idx="55" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PPG" idx="56" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PPGAllowed" idx="57" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PRYards" idx="58" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="Punts" idx="59" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="PuntYards" idx="60" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="RushAttempts" idx="61" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="RushTDs" idx="62" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Sacks" idx="63" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SacksAllowed" idx="64" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SpecialTeamYards" idx="65" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Takeaways" idx="66" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ThirdDownConversions" idx="67" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ThirdDownPercentage" idx="68" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ThirdDowns" idx="69" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Ties" idx="70" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TotalYards" idx="71" type="int" minValue="0" maxValue="1500" default="0" />
+			<attribute name="TurnoverDifference" idx="72" type="int" minValue="0" maxValue="50" default="0" />
+			<attribute name="Wins" idx="73" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

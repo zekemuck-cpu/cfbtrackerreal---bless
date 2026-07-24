@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassScouting_HandleLoadDraftClass.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassScouting_HandleLoadDraftClass" numMembers="2" base="none()" ownerAssetId="6708687" isRecordPersistent="true" isExpr="true" majorVersionCRC="-864650964" minorVersionCRC="-1159548768">
+			<attribute name="EventRecord" idx="0" type="LoadDraftClassEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

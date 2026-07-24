@@ -1,0 +1,11 @@
+<FranTkData fileName="Core-Schemas\UISpreadsheetHeaderImageInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetHeaderImageInfo" numMembers="4" assetId="6210718" isRecordPersistent="true" majorVersionCRC="1526301948" minorVersionCRC="-48330950">
+			<attribute name="ColumnName" idx="0" type="string" maxLen="1" />
+			<attribute name="DefaultValue" idx="1" type="string" maxLen="1" />
+			<attribute name="ImageLibrary" idx="2" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="ImageLibraryName" idx="3" type="string" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

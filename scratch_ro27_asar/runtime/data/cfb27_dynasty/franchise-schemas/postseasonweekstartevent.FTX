@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PostSeasonWeekStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PostSeasonWeekStartEvent" numMembers="2" base="Event" assetId="6498911" isRecordPersistent="true" majorVersionCRC="1230350455" minorVersionCRC="-764113527">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498911-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6498911-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

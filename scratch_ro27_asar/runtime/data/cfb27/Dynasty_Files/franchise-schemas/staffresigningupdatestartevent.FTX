@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffResigningUpdateStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffResigningUpdateStartEvent" numMembers="2" base="Event" assetId="6598540" isRecordPersistent="true" majorVersionCRC="-1222913459" minorVersionCRC="-2064754752">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598540-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598540-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

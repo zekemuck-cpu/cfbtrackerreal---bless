@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\ForcedUserTeamChangeEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ForcedUserTeamChangeEvent" numMembers="5" base="Event" assetId="6498726" isRecordPersistent="true" majorVersionCRC="730313093" minorVersionCRC="120893755">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498726-1895458" final="true" />
+			<attribute name="OriginalTeam" idx="1" type="Team" />
+			<attribute name="Player" idx="2" type="Player" />
+			<attribute name="Send" idx="3" type="none()" guid="6498726-1895455" final="true" />
+			<attribute name="TargetTeam" idx="4" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

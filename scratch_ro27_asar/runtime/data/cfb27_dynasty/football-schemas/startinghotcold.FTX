@@ -1,0 +1,14 @@
+<FranTkData fileName="Football-Schemas\StartingHotCold.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StartingHotCold" numMembers="7" assetId="12178455" isRecordPersistent="true" majorVersionCRC="1566922121" minorVersionCRC="583575988">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Neutral" idx="1" value="0" />
+			<attribute name="Hot" idx="2" value="1" />
+			<attribute name="Cold" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="2" />
+			<attribute name="Count_" idx="5" value="3" />
+			<attribute name="Invalid_" idx="6" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

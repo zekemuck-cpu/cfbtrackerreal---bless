@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\FootballNotification.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FootballNotification" numMembers="8" defaultStoreCapacity="18" assetId="10620522" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="843" majorVersionCRC="-132688616" minorVersionCRC="-1785319435">
+			<attribute name="Description" idx="0" type="string" maxLen="127" />
+			<attribute name="ImageId" idx="1" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="LibraryId" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NotificationType" idx="3" type="FootballNotificationType" default="FootballNotificationType:First_" />
+			<attribute name="ShowRoosterOnMenuButton" idx="4" type="HUBMenuType" default="HUBMenuType:Invalid" />
+			<attribute name="ShowRoosterOnMenuTab" idx="5" type="HUBTabType" default="HUBTabType:Invalid" />
+			<attribute name="Title" idx="6" type="string" maxLen="41" />
+			<attribute name="UIDisplayStyle" idx="7" type="UIDisplayStyle" default="UIDisplayStyle:FullScreen" />
+		</schema>
+	</schemas>
+</FranTkData>

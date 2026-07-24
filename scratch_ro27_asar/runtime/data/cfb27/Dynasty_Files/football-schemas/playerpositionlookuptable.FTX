@@ -1,0 +1,29 @@
+<FranTkData fileName="Football-Schemas\PlayerPositionLookupTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerPositionLookupTable" numMembers="22" assetId="7330" isRecordPersistent="true" majorVersionCRC="2069897388" minorVersionCRC="-1421127075">
+			<attribute name="C" idx="0" type="record" />
+			<attribute name="CB" idx="1" type="record" />
+			<attribute name="DT" idx="2" type="record" />
+			<attribute name="FB" idx="3" type="record" />
+			<attribute name="FS" idx="4" type="record" />
+			<attribute name="HB" idx="5" type="record" />
+			<attribute name="K" idx="6" type="record" />
+			<attribute name="LE" idx="7" type="record" />
+			<attribute name="LG" idx="8" type="record" />
+			<attribute name="LOLB" idx="9" type="record" />
+			<attribute name="LS" idx="10" type="record" />
+			<attribute name="LT" idx="11" type="record" />
+			<attribute name="MLB" idx="12" type="record" />
+			<attribute name="P" idx="13" type="record" />
+			<attribute name="QB" idx="14" type="record" />
+			<attribute name="RE" idx="15" type="record" />
+			<attribute name="RG" idx="16" type="record" />
+			<attribute name="ROLB" idx="17" type="record" />
+			<attribute name="RT" idx="18" type="record" />
+			<attribute name="SS" idx="19" type="record" />
+			<attribute name="TE" idx="20" type="record" />
+			<attribute name="WR" idx="21" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

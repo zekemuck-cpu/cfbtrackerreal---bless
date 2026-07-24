@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\LegacyScoreEval_LegacyScoreReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LegacyScoreEval_LegacyScoreReaction" numMembers="4" base="Reaction" assetId="11827542" isRecordPersistent="true" majorVersionCRC="356437524" minorVersionCRC="-746156718">
+			<attribute name="EventRecord" idx="0" type="LegacyScoreEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="11827542-1895461" />
+			<attribute name="LegacyScoreEval" idx="2" type="LegacyScoreEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

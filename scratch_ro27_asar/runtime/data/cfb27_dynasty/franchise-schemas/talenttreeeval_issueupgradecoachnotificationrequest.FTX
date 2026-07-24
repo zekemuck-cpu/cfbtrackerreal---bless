@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TalentTreeEval_IssueUpgradeCoachNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentTreeEval_IssueUpgradeCoachNotificationRequest" numMembers="2" base="none()" ownerAssetId="6495415" isRecordPersistent="true" isExpr="true" majorVersionCRC="1886735032" minorVersionCRC="1704433200">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

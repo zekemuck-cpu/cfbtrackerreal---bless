@@ -1,0 +1,16 @@
+<FranTkData fileName="Football-Schemas\FootballSeasonGame.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FootballSeasonGame" numMembers="9" assetId="12671891" isRecordPersistent="true" majorVersionCRC="-29319680" minorVersionCRC="1336095580">
+			<attribute name="CloudCover" idx="0" type="CloudCover" default="CloudCover:Invalid_" />
+			<attribute name="Precipitation" idx="1" type="Precipitation" default="Precipitation:Invalid_" />
+			<attribute name="PrecipitationChance" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrecipitationIntensity" idx="3" type="float" default="0" />
+			<attribute name="Temperature" idx="4" type="int" minValue="-40" maxValue="120" default="0" />
+			<attribute name="Weather" idx="5" type="Weather" default="Weather:Invalid_" />
+			<attribute name="WeatherIconId" idx="6" type="WeatherIconId" default="WeatherIconId:ICON_INVALID" />
+			<attribute name="Wind" idx="7" type="Wind" default="Wind:Invalid_" />
+			<attribute name="WindSpeed" idx="8" type="int" minValue="0" maxValue="25" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

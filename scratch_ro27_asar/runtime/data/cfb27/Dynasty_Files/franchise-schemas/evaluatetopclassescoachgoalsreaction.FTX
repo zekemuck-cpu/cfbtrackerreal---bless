@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateTopClassesCoachGoalsReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateTopClassesCoachGoalsReaction" numMembers="4" base="Reaction" assetId="8656517" isRecordPersistent="true" majorVersionCRC="91359735" minorVersionCRC="-2113761238">
+			<attribute name="CoachGoalsEvalRef" idx="0" type="CoachGoalsEval" />
+			<attribute name="EventRecord" idx="1" type="EvaluateTopClassesCoachGoalsEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="8656517-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

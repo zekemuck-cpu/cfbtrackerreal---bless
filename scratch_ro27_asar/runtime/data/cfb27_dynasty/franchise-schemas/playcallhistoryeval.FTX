@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\PlaycallHistoryEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlaycallHistoryEval" numMembers="10" base="Module" assetId="6495009" isRecordPersistent="true" majorVersionCRC="1886589398" minorVersionCRC="2050750779">
+			<attribute name="DefensivePlaycallHistorySeed" idx="0" type="PlaycallHistoryAiGroupDetails[]" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="GetConceptUsageRank" idx="2" type="PlaycallHistoryEval_GetConceptUsageRank" guid="6495009-1913517" />
+			<attribute name="GetLeastSuccessfulConcept" idx="3" type="PlaycallHistoryEval_GetLeastSuccessfulConcept" guid="6495009-1913507" final="true" />
+			<attribute name="GetLeastUsedConcept" idx="4" type="PlaycallHistoryEval_GetLeastUsedConcept" guid="6495009-1913495" final="true" />
+			<attribute name="GetMostSuccessfulConcept" idx="5" type="PlaycallHistoryEval_GetMostSuccessfulConcept" guid="6495009-1913501" final="true" />
+			<attribute name="GetMostUsedConcept" idx="6" type="PlaycallHistoryEval_GetMostUsedConcept" guid="6495009-1913489" final="true" />
+			<attribute name="MinimumPlaysToStore" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffensivePlaycallHistorySeed" idx="8" type="PlaycallHistoryAiGroupDetails[]" />
+			<attribute name="ValidateExpressions" idx="9" type="none()" guid="6495009-1913523" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

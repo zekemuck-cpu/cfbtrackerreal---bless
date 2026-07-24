@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\CollegeConference.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CollegeConference" numMembers="10" assetId="6321259" isRecordPersistent="true" majorVersionCRC="1771353394" minorVersionCRC="-2036170798">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="West" idx="1" value="0" />
+			<attribute name="East" idx="2" value="1" />
+			<attribute name="Central" idx="3" value="2" />
+			<attribute name="Northeast" idx="4" value="3" />
+			<attribute name="Northwest" idx="5" value="4" />
+			<attribute name="Southeast" idx="6" value="5" />
+			<attribute name="Southwest" idx="7" value="6" />
+			<attribute name="Max_" idx="8" value="7" />
+			<attribute name="Invalid_" idx="9" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

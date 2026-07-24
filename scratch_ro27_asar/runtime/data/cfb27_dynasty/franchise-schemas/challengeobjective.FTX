@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\ChallengeObjective.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ChallengeObjective" numMembers="4" assetId="10834484" isRecordPersistent="true" majorVersionCRC="-860888806" minorVersionCRC="-86238389">
+			<attribute name="Description" idx="0" type="string" maxLen="62" />
+			<attribute name="Guid" idx="1" type="string" maxLen="37" />
+			<attribute name="IsObjectiveInverted" idx="2" type="bool" default="False" />
+			<attribute name="Points" idx="3" type="int" minValue="-100" maxValue="1000" default="100" />
+		</schema>
+	</schemas>
+</FranTkData>

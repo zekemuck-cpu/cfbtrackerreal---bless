@@ -1,0 +1,54 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_DraftFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_DraftFlow" numMembers="43" base="FranTkServer_Flow" assetId="6495398" isRecordPersistent="true" majorVersionCRC="-1832106942" minorVersionCRC="548110451">
+			<attribute name="DefaultTeam" idx="0" type="Team" />
+			<attribute name="DraftBoardRequest_ViewResponse" idx="1" type="ResponseForm" />
+			<attribute name="DraftClassScouting" idx="2" type="DraftClassScouting" />
+			<attribute name="DraftManager" idx="3" type="DraftManager" />
+			<attribute name="DraftPickRequest" idx="4" type="Draft_DraftPickRequest" />
+			<attribute name="DraftPickSelectPlayerResponse" idx="5" type="ResponseForm" />
+			<attribute name="DraftPickStrengthSpline" idx="6" type="Spline" />
+			<attribute name="Form" idx="7" type="UIForm" />
+			<attribute name="FormManager" idx="8" type="FranTkServer_FormManager" />
+			<attribute name="HandednessEnumTable" idx="9" type="EnumTable" />
+			<attribute name="HandleDraftBegin" idx="10" type="FranchiseServer_DraftFlow_HandleDraftBegin" guid="6495398-1922978" final="true" />
+			<attribute name="HandleDraftEnd" idx="11" type="FranchiseServer_DraftFlow_HandleDraftEnd" guid="6495398-1922982" final="true" />
+			<attribute name="HandleDraftPlayer" idx="12" type="FranchiseServer_DraftFlow_HandleDraftPlayer" guid="6495398-1922970" final="true" />
+			<attribute name="HandlePause" idx="13" type="none()" guid="6495398-1923012" final="true" />
+			<attribute name="HandlePickBegin" idx="14" type="FranchiseServer_DraftFlow_HandlePickBegin" guid="6495398-1922994" final="true" />
+			<attribute name="HandlePickEnd" idx="15" type="FranchiseServer_DraftFlow_HandlePickEnd" guid="6495398-1922998" final="true" />
+			<attribute name="HandleResume" idx="16" type="none()" guid="6495398-1923015" final="true" />
+			<attribute name="HandleRoundBegin" idx="17" type="FranchiseServer_DraftFlow_HandleRoundBegin" guid="6495398-1922986" final="true" />
+			<attribute name="HandleRoundEnd" idx="18" type="FranchiseServer_DraftFlow_HandleRoundEnd" guid="6495398-1922990" final="true" />
+			<attribute name="HandleStageBegin" idx="19" type="FranchiseServer_DraftFlow_HandleStageBegin" guid="6495398-1923023" final="true" />
+			<attribute name="HandleStageEnd" idx="20" type="FranchiseServer_DraftFlow_HandleStageEnd" guid="6495398-1923027" final="true" />
+			<attribute name="HandleTradeCurrentPick" idx="21" type="FranchiseServer_DraftFlow_HandleTradeCurrentPick" guid="6495398-1922974" final="true" />
+			<attribute name="IssueDraftBoardRequest" idx="22" type="FranchiseServer_DraftFlow_IssueDraftBoardRequest" guid="6495398-1923018" final="true" default="Draft_DraftBoardRequest request = new Draft_DraftBoardRequest;&#xD;&#xA;&#xD;&#xA;// Set up the request parameters.&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.IsSubmittable = false;&#xD;&#xA;request.RequestData = team;&#xD;&#xA;&#xD;&#xA;// Add the response form.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;request.ResponseForms.Append(DraftBoardRequest_ViewResponse);&#xD;&#xA;&#xD;&#xA;// Issue the draft board to the team's user character. Note that players can view the&#xD;&#xA;// draft board even though only coaches can make draft picks.&#xD;&#xA;request.Issue(team.UserCharacter);&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;&#xD;&#xA;" />
+			<attribute name="PauseDraftRequest" idx="23" type="Draft_PauseDraftRequest" />
+			<attribute name="PhysicalLevelEnumTable" idx="24" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="25" type="EnumTable" />
+			<attribute name="PlayerGradeEval" idx="26" type="PlayerGradeEval" />
+			<attribute name="PlayerTraitDevelopmentEnumTable" idx="27" type="EnumTable" />
+			<attribute name="PlayerTypeEnumTable" idx="28" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="29" type="EnumTable" />
+			<attribute name="PositionRatingEnumTable" idx="30" type="EnumTable" />
+			<attribute name="PositionStrengthLetterGradeEnumTable" idx="31" type="EnumTable" />
+			<attribute name="RefreshOnSubmitPick" idx="32" type="bool" default="False" />
+			<attribute name="ResumeDraftRequest" idx="33" type="Draft_ResumeDraftRequest" />
+			<attribute name="RosterEval" idx="34" type="RosterEval" />
+			<attribute name="SchemeEnumTable" idx="35" type="EnumTable" />
+			<attribute name="ScoutingGradeEnumTable" idx="36" type="EnumTable" />
+			<attribute name="SignatureAbilitiesEval" idx="37" type="SignatureAbilitiesEval" />
+			<attribute name="SkillGradeEnumTable" idx="38" type="EnumTable" />
+			<attribute name="TeamPrestigeEval" idx="39" type="TeamPrestigeEval" />
+			<attribute name="TrueTalentComparisonEnumTable" idx="40" type="EnumTable" />
+			<attribute name="TutorialManager" idx="41" type="TutorialManager" />
+			<attribute name="UserRegistry" idx="42" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

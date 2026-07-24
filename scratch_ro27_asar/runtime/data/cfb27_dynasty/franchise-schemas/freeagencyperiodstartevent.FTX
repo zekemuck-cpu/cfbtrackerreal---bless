@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\FreeAgencyPeriodStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FreeAgencyPeriodStartEvent" numMembers="2" base="Event" assetId="6598588" isRecordPersistent="true" majorVersionCRC="-375731754" minorVersionCRC="820155703">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598588-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598588-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

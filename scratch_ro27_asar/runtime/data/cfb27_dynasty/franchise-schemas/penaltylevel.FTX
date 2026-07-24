@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PenaltyLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PenaltyLevel" numMembers="5" assetId="6494011" isRecordPersistent="true" majorVersionCRC="-845539078" minorVersionCRC="-1443534183">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Undisciplined" idx="1" value="0" />
+			<attribute name="Normal" idx="2" value="1" />
+			<attribute name="Disciplined" idx="3" value="2" />
+			<attribute name="Invalid_" idx="4" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

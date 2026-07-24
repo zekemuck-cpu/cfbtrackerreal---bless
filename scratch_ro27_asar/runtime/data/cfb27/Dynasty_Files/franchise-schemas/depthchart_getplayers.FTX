@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DepthChart_GetPlayers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChart_GetPlayers" numMembers="2" base="Player[]()" ownerAssetId="6378775" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1883579964" minorVersionCRC="-1382590243">
+			<attribute name="position" idx="0" type="PositionE" default="PositionE:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

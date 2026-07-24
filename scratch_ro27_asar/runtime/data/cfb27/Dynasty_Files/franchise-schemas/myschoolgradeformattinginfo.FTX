@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolGradeFormattingInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolGradeFormattingInfo" numMembers="4" defaultStoreCapacity="16" assetId="6816517" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="205" majorVersionCRC="1662217768" minorVersionCRC="2014538244">
+			<attribute name="Columns" idx="0" type="ColumnNameAndFormat[]" />
+			<attribute name="ListTitle" idx="1" type="string" maxLen="27" />
+			<attribute name="NumberOfRows" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RowOrientation" idx="3" type="int" minValue="0" maxValue="1" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\TradeManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeManager" numMembers="7" base="Module" assetId="6495352" isRecordPersistent="true" majorVersionCRC="1981846673" minorVersionCRC="-1686004671">
+			<attribute name="ExecuteTrade" idx="0" type="TradeManager_ExecuteTrade" guid="6495352-1922557" final="true" default="bool processedTrade = true;&#xD;&#xA;&#xD;&#xA;// If the trade is not valid, don't process it.&#xD;&#xA;if (!IsTradeValid(packageA, packageB))&#xD;&#xA;{&#xD;&#xA;    processedTrade = false;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// If the trade is valid, execute it.&#xD;&#xA;if (processedTrade)&#xD;&#xA;{&#xD;&#xA;    TradePlayersToTeam(packageA, packageB);&#xD;&#xA;&#xD;&#xA;    // Construct and send the event.    &#xD;&#xA;    TradeEvent.TeamA = packageA.Team;&#xD;&#xA;    TradeEvent.TeamB = packageB.Team;&#xD;&#xA;    TradeEvent.PackageA = packageA;&#xD;&#xA;    TradeEvent.PackageB = packageB;&#xD;&#xA;    TradeEvent.Send();&#xD;&#xA;&#xD;&#xA;    // Clear the event members to prevent memory leaks.&#xD;&#xA;    TradeEvent.TeamA = null;&#xD;&#xA;    TradeEvent.TeamB = null;&#xD;&#xA;    TradeEvent.PackageA = null;&#xD;&#xA;    TradeEvent.PackageB = null;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;processedTrade;" />
+			<attribute name="IsTradeValid" idx="1" type="TradeManager_IsTradeValid" guid="6495352-1922552" final="true" />
+			<attribute name="IsTradingActive" idx="2" type="bool" default="False" />
+			<attribute name="RosterInfo" idx="3" type="RosterInfo" />
+			<attribute name="TeamManager" idx="4" type="TeamManager" />
+			<attribute name="TradeEvent" idx="5" type="Trade_TradeEvent" />
+			<attribute name="TradePlayersToTeam" idx="6" type="TradeManager_TradePlayersToTeam" guid="6495352-1922563" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

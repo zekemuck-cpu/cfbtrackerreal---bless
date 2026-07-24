@@ -1,0 +1,45 @@
+<FranTkData fileName="Franchise-Schemas\SeasonKickingStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SeasonStats.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonKickingStats" numMembers="34" base="SeasonStats" defaultStoreCapacity="1100" assetId="6320468" defaultStoreGroupId="64" isRecordPersistent="false" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1724313772" minorVersionCRC="-1842027697">
+			<attribute name="DOWNSPLAYED" idx="0" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="GAMERATING" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESPLAYED" idx="2" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="GAMESSTARTED" idx="3" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="GAMEWINFGATTEMPTS" idx="4" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="GAMEWINFGSMADE" idx="5" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="KICKEPATTEMPTS" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="KICKEPBLOCKED" idx="7" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="KICKEPMADE" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="KICKFGATTEMPTS" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="KICKFGATTEMPTS29ORLESS" idx="10" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGATTEMPTS30TO39" idx="11" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGATTEMPTS40TO49" idx="12" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGATTEMPTS50ORMORE" idx="13" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGBLOCKED" idx="14" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="KICKFGLONGEST" idx="15" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGMADE" idx="16" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGMADE29ORLESS" idx="17" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGMADE30TO39" idx="18" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGMADE40TO49" idx="19" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKFGMADE50ORMORE" idx="20" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KICKNUMKICKOFFS" idx="21" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="KICKTOUCHBACKS" idx="22" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PUNTATTEMPTS" idx="23" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PUNTBLOCKED" idx="24" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="PUNTIN20" idx="25" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PUNTLONGEST" idx="26" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="PUNTNETYARDS" idx="27" type="int" minValue="-8192" maxValue="8191" default="0" />
+			<attribute name="PUNTTOUCHBACKS" idx="28" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PUNTYARDS" idx="29" type="int" minValue="-8192" maxValue="8191" default="0" />
+			<attribute name="SEAS_YEAR" idx="30" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="STAT_KEEP" idx="31" type="bool" default="True" />
+			<attribute name="TeamPrefixName" idx="32" type="string" maxLen="8" />
+			<attribute name="YEARBYYEARTEAMINDEX" idx="33" type="int" minValue="0" maxValue="133" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

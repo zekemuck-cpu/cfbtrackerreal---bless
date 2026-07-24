@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\ChallengesWeek.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ChallengesWeek" numMembers="19" assetId="10489465" isRecordPersistent="true" majorVersionCRC="-195107016" minorVersionCRC="1168962341">
+			<attribute name="DefQuarter1stChallenge" idx="0" type="Quarter" default="Quarter:First" />
+			<attribute name="DefQuarter2ndChallenge" idx="1" type="Quarter" default="Quarter:Second" />
+			<attribute name="DefQuarter3rdChallenge" idx="2" type="Quarter" default="Quarter:Third" />
+			<attribute name="DefQuarter4thChallenge" idx="3" type="Quarter" default="Quarter:Fourth" />
+			<attribute name="DefTimeRemaining1stChallenge" idx="4" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="DefTimeRemaining2ndChallenge" idx="5" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="DefTimeRemaining3rdChallenge" idx="6" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="DefTimeRemaining4thChallenge" idx="7" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="OffQuarter1stChallenge" idx="8" type="Quarter" default="Quarter:First" />
+			<attribute name="OffQuarter2ndChallenge" idx="9" type="Quarter" default="Quarter:Second" />
+			<attribute name="OffQuarter3rdChallenge" idx="10" type="Quarter" default="Quarter:Third" />
+			<attribute name="OffQuarter4thChallenge" idx="11" type="Quarter" default="Quarter:Fourth" />
+			<attribute name="OffTimeRemaining1stChallenge" idx="12" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="OffTimeRemaining2ndChallenge" idx="13" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="OffTimeRemaining3rdChallenge" idx="14" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="OffTimeRemaining4thChallenge" idx="15" type="int" minValue="0" maxValue="720" default="720" />
+			<attribute name="SeasonWeek" idx="16" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="WeekIndex" idx="17" type="HSWeekIndex" default="HSWeekIndex:First_" />
+			<attribute name="WeekThemeInfoList" idx="18" type="WeekThemeInfo[]" />
+		</schema>
+	</schemas>
+</FranTkData>

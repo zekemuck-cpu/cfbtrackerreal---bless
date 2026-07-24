@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleNewsTweetUpdate.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleNewsTweetUpdate" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="709737785" minorVersionCRC="-298891996">
+			<attribute name="event" idx="0" type="NewsTweetUpdateEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

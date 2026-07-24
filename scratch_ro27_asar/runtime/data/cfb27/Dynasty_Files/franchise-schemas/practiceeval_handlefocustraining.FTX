@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_HandleFocusTraining.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_HandleFocusTraining" numMembers="4" base="none()" ownerAssetId="6708631" isRecordPersistent="true" isExpr="true" majorVersionCRC="-98249264" minorVersionCRC="1411869756">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="xpMultiplier" idx="2" type="int" minValue="0" maxValue="300" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

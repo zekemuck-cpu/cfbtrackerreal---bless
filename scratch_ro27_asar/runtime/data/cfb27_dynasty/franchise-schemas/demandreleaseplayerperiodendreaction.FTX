@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\DemandReleasePlayerPeriodEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DemandReleasePlayerPeriodEndReaction" numMembers="4" base="Reaction" assetId="6499174" isRecordPersistent="true" majorVersionCRC="-1235638316" minorVersionCRC="1465975157">
+			<attribute name="EventRecord" idx="0" type="DemandReleasePlayerEndEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499174-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfo" idx="3" type="SeasonInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PlayerNames.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayerNames" numMembers="5" assetId="6571235" isRecordPersistent="true" majorVersionCRC="-509214153" minorVersionCRC="91931935">
+			<attribute name="Always" idx="0" value="0" />
+			<attribute name="PreSnap" idx="1" value="1" />
+			<attribute name="Off" idx="2" value="2" />
+			<attribute name="Max" idx="3" value="3" />
+			<attribute name="Invalid" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\CollegeConferences.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CollegeConferences" numMembers="17" assetId="6378776" isRecordPersistent="true" majorVersionCRC="-182990385" minorVersionCRC="-633294341">
+			<attribute name="ACC" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="BigTen" idx="2" value="1" />
+			<attribute name="Big12" idx="3" value="2" />
+			<attribute name="AAC" idx="4" value="3" />
+			<attribute name="CUSA" idx="5" value="4" />
+			<attribute name="Independents" idx="6" value="5" />
+			<attribute name="MAC" idx="7" value="6" />
+			<attribute name="MWC" idx="8" value="7" />
+			<attribute name="Pac12" idx="9" value="8" />
+			<attribute name="SEC" idx="10" value="9" />
+			<attribute name="Last_" idx="11" value="10" />
+			<attribute name="SunBelt" idx="12" value="10" />
+			<attribute name="None" idx="13" value="13" />
+			<attribute name="DefunctConference" idx="14" value="14" />
+			<attribute name="Max_" idx="15" value="15" />
+			<attribute name="Invalid_" idx="16" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseStyle.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="FranchiseStyle" numMembers="3" assetId="6378573" isRecordPersistent="true" majorVersionCRC="-804210760" minorVersionCRC="223005701">
+			<attribute name="Classic" idx="0" value="0" />
+			<attribute name="Legacy" idx="1" value="1" />
+			<attribute name="RoadToCanton" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

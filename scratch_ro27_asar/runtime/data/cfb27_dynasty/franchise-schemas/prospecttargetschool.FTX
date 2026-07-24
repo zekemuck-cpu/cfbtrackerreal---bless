@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ProspectTargetSchool.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProspectTargetSchool" numMembers="2" assetId="6716465" isRecordPersistent="true" majorVersionCRC="90692806" minorVersionCRC="-1573859961">
+			<attribute name="TeamId" idx="0" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="TeamInfluence" idx="1" type="int" minValue="0" maxValue="65535" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

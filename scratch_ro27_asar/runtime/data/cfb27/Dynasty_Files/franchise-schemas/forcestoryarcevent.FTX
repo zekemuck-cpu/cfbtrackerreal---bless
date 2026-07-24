@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\ForceStoryArcEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ForceStoryArcEvent" numMembers="4" base="Event" assetId="6499237" isRecordPersistent="true" majorVersionCRC="-692512068" minorVersionCRC="1742365053">
+			<attribute name="ArcGuid" idx="0" type="FranchiseSeasonStoryArc" default="FranchiseSeasonStoryArc:INVALID" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6499237-1895458" final="true" />
+			<attribute name="Send" idx="2" type="none()" guid="6499237-1895455" final="true" />
+			<attribute name="User" idx="3" type="User" />
+		</schema>
+	</schemas>
+</FranTkData>

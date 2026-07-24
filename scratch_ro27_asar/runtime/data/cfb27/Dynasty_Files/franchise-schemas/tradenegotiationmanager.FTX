@@ -1,0 +1,42 @@
+<FranTkData fileName="Franchise-Schemas\TradeNegotiationManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeNegotiationManager" numMembers="35" base="Module" assetId="6495355" isRecordPersistent="true" majorVersionCRC="-1451893060" minorVersionCRC="1329151548">
+			<attribute name="BeginDraftPickTradeNegotiation" idx="0" type="TradeNegotiationManager_BeginDraftPickTradeNegotiation" guid="6495355-1922611" final="true" />
+			<attribute name="BeginPlayerTradeNegotiation" idx="1" type="TradeNegotiationManager_BeginPlayerTradeNegotiation" guid="6495355-1922590" final="true" />
+			<attribute name="BeginTeamTradeNegotiation" idx="2" type="TradeNegotiationManager_BeginTeamTradeNegotiation" guid="6495355-1922616" final="true" />
+			<attribute name="CanExecuteTrade" idx="3" type="TradeNegotiationManager_CanExecuteTrade" guid="6495355-1922627" final="true" />
+			<attribute name="EndTradeNegotiation" idx="4" type="TradeNegotiationManager_EndTradeNegotiation" guid="6495355-1922622" final="true" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="HandleTradeDraftPick" idx="6" type="TradeNegotiationManager_HandleTradeDraftPick" guid="6495355-1922671" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="7" type="TradeNegotiationManager_HandleUpdatePlayerContractStatus" guid="6495355-1922667" final="true" />
+			<attribute name="IsDelegateResponseAvailable" idx="8" type="bool" default="False" />
+			<attribute name="IsNotificationEnabled" idx="9" type="bool" default="True" />
+			<attribute name="IssueNegotiationAcceptRequest" idx="10" type="TradeNegotiationManager_IssueNegotiationAcceptRequest" guid="6495355-1922640" final="true" />
+			<attribute name="IssueNegotiationUpdateRequest" idx="11" type="TradeNegotiationManager_IssueNegotiationUpdateRequest" guid="6495355-1922635" final="true" />
+			<attribute name="IssueTradeNegotiationNotification" idx="12" type="TradeNegotiationManager_IssueTradeNegotiationNotification" guid="6495355-1922662" final="true" />
+			<attribute name="ProcessAcceptOfferRequest" idx="13" type="TradeNegotiationManager_ProcessAcceptOfferRequest" guid="6495355-1922605" final="true" />
+			<attribute name="ProcessMakeOfferRequest" idx="14" type="TradeNegotiationManager_ProcessMakeOfferRequest" guid="6495355-1922595" final="true" />
+			<attribute name="ProcessNegotiation" idx="15" type="TradeNegotiationManager_ProcessNegotiation" guid="6495355-1922655" final="true" />
+			<attribute name="ProcessNegotiationRequest" idx="16" type="TradeNegotiationManager_ProcessNegotiationRequest" guid="6495355-1922651" final="true" />
+			<attribute name="ProcessNegotiations" idx="17" type="none()" guid="6495355-1922601" final="true" />
+			<attribute name="TeamRequestManagerRef" idx="18" type="TeamRequestManager" />
+			<attribute name="TradeAcceptedDescription" idx="19" type="string" maxLen="33" default="accepted" />
+			<attribute name="TradeAcceptedText" idx="20" type="string" maxLen="33" default="Trade Accepted" />
+			<attribute name="TradeDeclinedDescription" idx="21" type="string" maxLen="33" default="rejected" />
+			<attribute name="TradeDeclinedText" idx="22" type="string" maxLen="33" default="Trade Declined" />
+			<attribute name="TradeDisallowedDescription" idx="23" type="string" maxLen="33" default="not allowed" />
+			<attribute name="TradeDisallowedText" idx="24" type="string" maxLen="33" default="Trade Disallowed" />
+			<attribute name="TradeEvalRef" idx="25" type="TradeEval" />
+			<attribute name="TradeManagerRef" idx="26" type="TradeManager" />
+			<attribute name="TradeNegotiation_AcceptResponse" idx="27" type="ResponseForm" />
+			<attribute name="TradeNegotiation_AcknowledgeResponse" idx="28" type="ResponseForm" />
+			<attribute name="TradeNegotiation_CounterResponse" idx="29" type="ResponseForm" />
+			<attribute name="TradeNegotiation_DeclineResponse" idx="30" type="ResponseForm" />
+			<attribute name="TradeNegotiation_DelegateResponse" idx="31" type="ResponseForm" />
+			<attribute name="TradeNegotiation_ModifyResponse" idx="32" type="ResponseForm" />
+			<attribute name="TradeNegotiation_WithdrawResponse" idx="33" type="ResponseForm" />
+			<attribute name="TradeNegotiationList" idx="34" type="TradeNegotiation[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartConfig.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartConfig" numMembers="8" defaultStoreCapacity="145" assetId="6378740" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="930444981" minorVersionCRC="-915572137">
+			<attribute name="DefensiveDepthChartConfigRef" idx="0" type="DefensiveDepthChartConfig" />
+			<attribute name="K" idx="1" type="DepthChartConfigEntry" />
+			<attribute name="KOS" idx="2" type="DepthChartConfigEntry" />
+			<attribute name="KR" idx="3" type="DepthChartConfigEntry" />
+			<attribute name="LS" idx="4" type="DepthChartConfigEntry" />
+			<attribute name="OffensiveDepthChartConfigRef" idx="5" type="OffensiveDepthChartConfig" />
+			<attribute name="P" idx="6" type="DepthChartConfigEntry" />
+			<attribute name="PR" idx="7" type="DepthChartConfigEntry" />
+		</schema>
+	</schemas>
+</FranTkData>

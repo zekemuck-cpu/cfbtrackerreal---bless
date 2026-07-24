@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\ScheduleStructureEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScheduleStructureEntry" numMembers="3" defaultStoreCapacity="4786" assetId="6845442" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1773576008" minorVersionCRC="-669940012">
+			<attribute name="AwayTeam" idx="0" type="Team" />
+			<attribute name="HomeTeam" idx="1" type="Team" />
+			<attribute name="IsEnabled" idx="2" type="bool" default="True" />
+		</schema>
+	</schemas>
+</FranTkData>

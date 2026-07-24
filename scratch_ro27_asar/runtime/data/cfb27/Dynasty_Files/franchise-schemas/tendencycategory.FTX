@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\TendencyCategory.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TendencyCategory" numMembers="19" assetId="6495168" isRecordPersistent="true" majorVersionCRC="-467970994" minorVersionCRC="50366334">
+			<attribute name="First" idx="0" value="0" />
+			<attribute name="FirstOffense" idx="1" value="0" />
+			<attribute name="OutsideRun" idx="2" value="0" />
+			<attribute name="InsideRun" idx="3" value="1" />
+			<attribute name="DeepPass" idx="4" value="2" />
+			<attribute name="MediumPass" idx="5" value="3" />
+			<attribute name="ShortPass" idx="6" value="4" />
+			<attribute name="LastOffense" idx="7" value="5" />
+			<attribute name="QBScramble" idx="8" value="5" />
+			<attribute name="Blitz" idx="9" value="6" />
+			<attribute name="FirstDefense" idx="10" value="6" />
+			<attribute name="DefDeepPass" idx="11" value="7" />
+			<attribute name="DefMediumPass" idx="12" value="8" />
+			<attribute name="DefInsideRun" idx="13" value="9" />
+			<attribute name="DefShortPass" idx="14" value="10" />
+			<attribute name="DefOutsideRun" idx="15" value="11" />
+			<attribute name="Last" idx="16" value="11" />
+			<attribute name="LastDefense" idx="17" value="11" />
+			<attribute name="Invalid" idx="18" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

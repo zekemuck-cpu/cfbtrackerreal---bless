@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\TriggerPlayableMomentAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TriggerPlayableMomentAction" numMembers="5" base="SequenceAction" assetId="6539674" isRecordPersistent="true" majorVersionCRC="20786310" minorVersionCRC="452103144">
+			<attribute name="Default" idx="0" type="bool" default="False" />
+			<attribute name="Drill" idx="1" type="DrillActivity" />
+			<attribute name="Enabled" idx="2" type="bool" default="True" />
+			<attribute name="GameSetup" idx="3" type="GameSetup" />
+			<attribute name="NavigateToHub" idx="4" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\TeamHistoricSeriesYear.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamHistoricSeriesYear" numMembers="25" defaultStoreCapacity="4140" assetId="8203481" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1031173230" minorVersionCRC="-640931883">
+			<attribute name="CoachName" idx="0" type="string" maxLen="19" />
+			<attribute name="ConfChampionshipConferenceEnum" idx="1" type="CollegeConferences" default="CollegeConferences:None" />
+			<attribute name="ConferenceLogoId" idx="2" type="int" minValue="-1" maxValue="2000" default="-1" />
+			<attribute name="ConferenceLosses" idx="3" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="ConferenceName" idx="4" type="string" maxLen="18" />
+			<attribute name="ConferenceTies" idx="5" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="ConferenceWins" idx="6" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="DivisionName" idx="7" type="string" maxLen="21" />
+			<attribute name="FinalConferenceStanding" idx="8" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="FinalMediaRank" idx="9" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="FirstRoundCFPBowlGameResult" idx="10" type="GameResult" default="GameResult:Invalid_" />
+			<attribute name="FirstRoundCFPBowlPresentationId" idx="11" type="BowlPresentationId" default="BowlPresentationId:None" />
+			<attribute name="IsConfRankTied" idx="12" type="bool" default="False" />
+			<attribute name="JobSecurityPercentage" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Losses" idx="14" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="NationalBowlGameResult" idx="15" type="GameResult" default="GameResult:Invalid_" />
+			<attribute name="NationalBowlPresentationId" idx="16" type="BowlPresentationId" default="BowlPresentationId:None" />
+			<attribute name="QuarterFinalsBowlGameResult" idx="17" type="GameResult" default="GameResult:Invalid_" />
+			<attribute name="QuarterFinalsBowlPresentationId" idx="18" type="BowlPresentationId" default="BowlPresentationId:None" />
+			<attribute name="SemiFinalsBowlGameResult" idx="19" type="GameResult" default="GameResult:Invalid_" />
+			<attribute name="SemiFinalsBowlPresentationId" idx="20" type="BowlPresentationId" default="BowlPresentationId:None" />
+			<attribute name="Ties" idx="21" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="UserRef" idx="22" type="UserEntity" />
+			<attribute name="Wins" idx="23" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="Year" idx="24" type="int" minValue="0" maxValue="3000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

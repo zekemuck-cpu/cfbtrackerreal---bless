@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSkillGroupBucket.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSkillGroupBucket" numMembers="11" defaultStoreCapacity="471" assetId="8210443" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="4247" majorVersionCRC="-354135320" minorVersionCRC="1545974789">
+			<attribute name="DisplayInTopAttributes" idx="0" type="bool" default="True" />
+			<attribute name="GroupColorBlue" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="GroupColorGreen" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="GroupColorRed" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="LinkedSkills" idx="4" type="PlayerAbilityCorrelation[]" />
+			<attribute name="MaxPotentialCost" idx="5" type="Spline" />
+			<attribute name="Name" idx="6" type="string" maxLen="19" />
+			<attribute name="PrimarySkills" idx="7" type="PlayerSkill[]" />
+			<attribute name="SecondarySkills" idx="8" type="PlayerSkill[]" />
+			<attribute name="SPCost" idx="9" type="Spline" />
+			<attribute name="TertiarySkills" idx="10" type="PlayerSkill[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,23 @@
+<FranTkData fileName="Core-Schemas\UISpreadsheetEnumColumnInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetColumnInfo.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetEnumColumnInfo" numMembers="12" base="UISpreadsheetColumnInfo" defaultStoreCapacity="84" assetId="6210720" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="3160" majorVersionCRC="-899471605" minorVersionCRC="2129521927">
+			<attribute name="DataType" idx="0" type="UIDataType" default="UIDataType:Boolean" />
+			<attribute name="DisplayFormat" idx="1" type="UIDataFormat" default="UIDataFormat:None" />
+			<attribute name="DisplayHint" idx="2" type="string" maxLen="33" />
+			<attribute name="DisplayName" idx="3" type="string" maxLen="33" />
+			<attribute name="EnumTable" idx="4" type="EnumTable" />
+			<attribute name="IsStatic" idx="5" type="bool" default="False" />
+			<attribute name="IsVisible" idx="6" type="bool" default="True" />
+			<attribute name="Name" idx="7" type="string" maxLen="65" />
+			<attribute name="Path" idx="8" type="string" maxLen="65" />
+			<attribute name="SortDirection" idx="9" type="UISortDirection" default="UISortDirection:None" />
+			<attribute name="SortProperty" idx="10" type="string" maxLen="27" />
+			<attribute name="Width" idx="11" type="int" minValue="0" maxValue="530" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

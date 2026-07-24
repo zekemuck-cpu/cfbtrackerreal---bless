@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RivalryManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RivalryManager" numMembers="1" base="Module" assetId="6809449" isRecordPersistent="true" majorVersionCRC="907465676" minorVersionCRC="1511428133">
+			<attribute name="UpdateRivalry" idx="0" type="RivalryManager_UpdateRivalry" guid="6809449-1972036" />
+		</schema>
+	</schemas>
+</FranTkData>

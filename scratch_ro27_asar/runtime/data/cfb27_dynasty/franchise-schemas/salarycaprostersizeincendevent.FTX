@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\SalaryCapRosterSizeIncEndEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SalaryCapRosterSizeIncEndEvent" numMembers="2" base="Event" assetId="6598571" isRecordPersistent="true" majorVersionCRC="-1346868665" minorVersionCRC="-1672871419">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598571-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598571-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

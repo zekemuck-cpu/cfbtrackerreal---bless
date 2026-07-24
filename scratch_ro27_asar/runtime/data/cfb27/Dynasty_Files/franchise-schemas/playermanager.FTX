@@ -1,0 +1,56 @@
+<FranTkData fileName="Franchise-Schemas\PlayerManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerManager" numMembers="49" base="Module" assetId="6498478" isRecordPersistent="true" majorVersionCRC="1741741744" minorVersionCRC="-1146591411">
+			<attribute name="AddToTransferPortalEvent" idx="0" type="AddToTransferPortalEvent" />
+			<attribute name="AdvanceRedshirtStatus" idx="1" type="PlayerManager_AdvanceRedshirtStatus" guid="6498478-2018098" />
+			<attribute name="AdvanceSchoolYear" idx="2" type="PlayerManager_AdvanceSchoolYear" guid="6498478-2018095" />
+			<attribute name="AgePlayer" idx="3" type="PlayerManager_AgePlayer" guid="6498478-1925205" final="true" default="// Age player by one year&#xD;&#xA;if (player.Age &lt; 63)&#xD;&#xA;{&#xD;&#xA;    player.Age = player.Age + 1;&#xD;&#xA;}" />
+			<attribute name="ApplyPositionalImpact" idx="4" type="PlayerManager_ApplyPositionalImpact" guid="6498478-1925243" final="true" />
+			<attribute name="AwardsEvalRef" idx="5" type="AwardsEval" />
+			<attribute name="ChangePosition" idx="6" type="PlayerManager_ChangePosition" guid="6498478-1925265" final="true" />
+			<attribute name="ConvertPlayerPosition" idx="7" type="PlayerManager_ConvertPlayerPosition" guid="6498478-1925235" final="true" default="PositionE oldPosition = player.Position;&#xD;&#xA;PlayerType oldPlayerType = player.PlayerType;&#xD;&#xA;&#xD;&#xA;// Set the player position and player type.&#xD;&#xA;player.Position = newPosition;&#xD;&#xA;player.PlayerType = newPlayerType;&#xD;&#xA;&#xD;&#xA;// Send the convert position event.&#xD;&#xA;ConvertPlayerPositionEvent.Team = team;&#xD;&#xA;ConvertPlayerPositionEvent.Player = player;&#xD;&#xA;ConvertPlayerPositionEvent.OldPosition = oldPosition;&#xD;&#xA;ConvertPlayerPositionEvent.NewPosition = newPosition;&#xD;&#xA;ConvertPlayerPositionEvent.OldPlayerType = oldPlayerType;&#xD;&#xA;ConvertPlayerPositionEvent.NewPlayerType = newPlayerType;&#xD;&#xA;ConvertPlayerPositionEvent.Send();&#xD;&#xA;&#xD;&#xA;// Clear the convert position event members.&#xD;&#xA;ConvertPlayerPositionEvent.Team = null;&#xD;&#xA;ConvertPlayerPositionEvent.Player = null;&#xD;&#xA;" />
+			<attribute name="ConvertPlayerPositionEvent" idx="8" type="Player_ConvertPositionEvent" />
+			<attribute name="DBPortalRatingBoost" idx="9" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="DeletePlayer" idx="10" type="PlayerManager_DeletePlayer" guid="6498478-1925195" final="true" default="// If the player is a free agent, remove him from the free agent pool.&#xD;&#xA;if (Franchise.FreeAgents.Contains(player))&#xD;&#xA;{&#xD;&#xA;    Franchise.FreeAgents.FindAndErase(player);&#xD;&#xA;}&#xD;&#xA;// If the player is retired, remove him from the retired pool.&#xD;&#xA;else if ( Franchise.RetiredPlayers.Contains(player))&#xD;&#xA;{&#xD;&#xA;    Franchise.RetiredPlayers.FindAndErase(player);&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="DLPortalRatingBoost" idx="11" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="FilterPlayerPosFromEnumView" idx="12" type="FilterPlayerPosFromEnum" />
+			<attribute name="Franchise" idx="13" type="Franchise" />
+			<attribute name="GetDominantAbility" idx="14" type="PlayerManager_GetDominantAbility" guid="6498478-1925270" />
+			<attribute name="IntensityModerateMax" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IntensityModerateMin" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IntensityStrongMax" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IntensityStrongMin" idx="18" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IntensityWeakMax" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IntensityWeakMin" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="KPPortalRatingBoost" idx="21" type="int" minValue="-10" maxValue="10" default="0" />
+			<attribute name="LBPortalRatingBoost" idx="22" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="LogLeaguePlayerInfo" idx="23" type="none()" guid="6498478-1925230" final="true" />
+			<attribute name="LogUpdatePlayerContractStatus" idx="24" type="PlayerManager_LogUpdatePlayerContractStatus" guid="6498478-1925225" final="true" />
+			<attribute name="MapEnumToPlayerPosition" idx="25" type="PlayerManager_MapEnumToPlayerPosition" guid="6498478-1925209" final="true" default="FilterPlayerPosFromEnumView = new FilterPlayerPosFromEnum ;&#xD;&#xA;FilterPlayerPosFromEnumView.PositionEnum = Position ;&#xD;&#xA;FilterPlayerPosFromEnumView.Subjects = Franchise.League.PlayerPositions ;&#xD;&#xA;FilterPlayerPosFromEnumView.Update() ;&#xD;&#xA;&#xD;&#xA;PlayerPosition position = FilterPlayerPosFromEnumView.Results[0] ;&#xD;&#xA;FilterPlayerPosFromEnumView = null ;&#xD;&#xA;position;" />
+			<attribute name="ModificationTypeArray" idx="26" type="PositionAbilityTable[]" />
+			<attribute name="OLPortalRatingBoost" idx="27" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="OvrToStarRating" idx="28" type="int[]" />
+			<attribute name="PlayerContractManager" idx="29" type="PlayerContractManager" />
+			<attribute name="PositionChangeModificationTable" idx="30" type="PositionRecordTable" />
+			<attribute name="PositionChangesTunables" idx="31" type="PositionChangesTunables" />
+			<attribute name="PositionToAbilityTable" idx="32" type="PositionToAbilityTable" />
+			<attribute name="QBPortalRatingBoost" idx="33" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="RandomRef" idx="34" type="Random" />
+			<attribute name="RBPortalRatingBoost" idx="35" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="ReSignPlayer" idx="36" type="PlayerManager_ReSignPlayer" guid="6498478-1925218" final="true" default="// TODO: Remove this call. All callers should call TeamManager directly.&#xD;&#xA;TeamManager.ReSignPlayer(team, player, contract, wasFranchiseTagged);" />
+			<attribute name="RetirePlayer" idx="37" type="PlayerManager_RetirePlayer" guid="6498478-1925180" final="true" default="// If the player is a free agent, retire him from the league.&#xD;&#xA;if (Franchise.FreeAgents.Contains(player))&#xD;&#xA;{&#xD;&#xA;    Franchise.FreeAgents.FindAndErase(player);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (player.GameStats != null)&#xD;&#xA;{&#xD;&#xA;  player.GameStats.EraseAll();&#xD;&#xA;  player.GameStats = null;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// If the player is currently on a team, retire him from the team.&#xD;&#xA;// Otherwise, just set the player's contract to retired.&#xD;&#xA;if (team == null)&#xD;&#xA;{&#xD;&#xA;    Team nullTeam = null;&#xD;&#xA;    UpdatePlayerContractStatus(player, team, nullTeam, PlayerContractStatus.None, PlayerContractStatus.Retired, false, false) ;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    TeamManager.RetirePlayer(team, player) ;&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="SchoolYearTransferBonus" idx="38" type="int[]" />
+			<attribute name="SignPlayer" idx="39" type="PlayerManager_SignPlayer" guid="6498478-1925199" final="true" default="// TODO: Remove this call. All callers should call TeamManager directly.&#xD;&#xA;TeamManager.SignPlayer(team, player, contract);&#xD;&#xA;" />
+			<attribute name="StatManagerRef" idx="40" type="StatManager" />
+			<attribute name="TeamManager" idx="41" type="TeamManager" />
+			<attribute name="TEPortalRatingBoost" idx="42" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="TraitModificationTable" idx="43" type="PositionRecordTable" />
+			<attribute name="TransferPlayerToPortal" idx="44" type="PlayerManager_TransferPlayerToPortal" guid="6498478-2083040" />
+			<attribute name="UnRetirePlayer" idx="45" type="PlayerManager_UnRetirePlayer" guid="6498478-1925214" final="true" default="Franchise.FreeAgents.Append(player);&#xD;&#xA;&#xD;&#xA;if (Franchise.HallOfFamePlayers.Contains(player))&#xD;&#xA;{&#xD;&#xA;    Franchise.HallOfFamePlayers.FindAndErase(player);&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="UpdatePlayerContractStatus" idx="46" type="PlayerManager_UpdatePlayerContractStatus" guid="6498478-1925185" final="true" default="// If the player changed teams, clear his consecutive years with team.&#xD;&#xA;if ((oldTeam != newTeam) || (newTeam == null))&#xD;&#xA;{&#xD;&#xA;    player.PLYR_CONSECYEARSWITHTEAM = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// If the team has changed teams and the old team is non-null, store it as the previous team.&#xD;&#xA;if ((oldTeam != null) &amp;&amp; (oldTeam != newTeam))&#xD;&#xA;{&#xD;&#xA;    player.PrevTeamIndex = oldTeam.TeamIndex;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// If the new team is valid, set the player's team index.&#xD;&#xA;if (newTeam != null)&#xD;&#xA;{&#xD;&#xA;    player.TeamIndex = newTeam.TeamIndex;&#xD;&#xA;}&#xD;&#xA;// Otherwise, clear the team index.&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    player.TeamIndex = TeamIndex.None;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;Team playerPrevTeam = null;&#xD;&#xA;if ( newTeam == null &amp;&amp; oldTeam == null &amp;&amp; player.PrevTeamIndex != TeamIndex.None )&#xD;&#xA;{&#xD;&#xA;     // Get Player's Previous Team Asset for Free Agents&#xD;&#xA;     playerPrevTeam = TeamManager.FindTeamByTeamIndex(player.PrevTeamIndex);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Construct the event.&#xD;&#xA;Player_UpdatePlayerContractStatusEvent event = new Player_UpdatePlayerContractStatusEvent;&#xD;&#xA;event.Player = player;&#xD;&#xA;event.OldTeam = oldTeam;&#xD;&#xA;event.NewTeam = newTeam;&#xD;&#xA;event.PlayerPrevTeam = playerPrevTeam;&#xD;&#xA;event.OldContractStatus = oldContractStatus;&#xD;&#xA;event.NewContractStatus = newContractStatus;&#xD;&#xA;event.WasFranchiseTagged = wasFranchiseTagged;&#xD;&#xA;&#xD;&#xA;// Log the event.&#xD;&#xA;LogUpdatePlayerContractStatus(event);&#xD;&#xA;&#xD;&#xA;// Send the event.&#xD;&#xA;event.Send();" />
+			<attribute name="UserPlayerRetirementEvent" idx="47" type="UserPlayerRetirementEvent" />
+			<attribute name="WRPortalRatingBoost" idx="48" type="int" minValue="0" maxValue="10" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

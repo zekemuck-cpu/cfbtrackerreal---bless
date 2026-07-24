@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_IssueMentalAbilityRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_IssueMentalAbilityRequest" numMembers="2" base="none()" ownerAssetId="6812765" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1715564776" minorVersionCRC="-690781770">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\LeaveType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="LeaveType" numMembers="21" assetId="6820611" isRecordPersistent="true" majorVersionCRC="-1834911672" minorVersionCRC="951150370">
+			<attribute name="Graduation" idx="0" value="0" />
+			<attribute name="EarlyNFL_1" idx="1" value="1" />
+			<attribute name="First_EarlyNFL_" idx="2" value="1" />
+			<attribute name="EarlyNFL_2" idx="3" value="2" />
+			<attribute name="EarlyNFL_3" idx="4" value="3" />
+			<attribute name="EarlyNFL_4" idx="5" value="4" />
+			<attribute name="EarlyNFL_5" idx="6" value="5" />
+			<attribute name="EarlyNFL_6" idx="7" value="6" />
+			<attribute name="EarlyNFL_7" idx="8" value="7" />
+			<attribute name="Last_EarlyNFL_" idx="9" value="7" />
+			<attribute name="First_Transfer_" idx="10" value="8" />
+			<attribute name="Transfer_BrandExposure" idx="11" value="8" />
+			<attribute name="Transfer_ChampionshipContenter" idx="12" value="9" />
+			<attribute name="Transfer_CoachPrestige" idx="13" value="10" />
+			<attribute name="Transfer_PlayingTime" idx="14" value="11" />
+			<attribute name="Transfer_ProPotential" idx="15" value="12" />
+			<attribute name="Transfer_ProximityToHome" idx="16" value="13" />
+			<attribute name="Transfer_PlayingStyle" idx="17" value="14" />
+			<attribute name="Last_Transfer_" idx="18" value="15" />
+			<attribute name="Transfer_ConferencePrestige" idx="19" value="15" />
+			<attribute name="Invalid_" idx="20" value="30" />
+		</enum>
+	</schemas>
+</FranTkData>

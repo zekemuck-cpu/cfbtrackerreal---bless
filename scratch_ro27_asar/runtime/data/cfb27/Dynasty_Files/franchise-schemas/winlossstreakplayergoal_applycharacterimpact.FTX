@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\WinLossStreakPlayerGoal_ApplyCharacterImpact.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WinLossStreakPlayerGoal_ApplyCharacterImpact" numMembers="7" base="none()" ownerAssetId="6495432" isRecordPersistent="true" isExpr="true" majorVersionCRC="1545939095" minorVersionCRC="91456562">
+			<attribute name="evalInfo" idx="0" type="PlayerGoalEvalInfo" />
+			<attribute name="rewardValue" idx="1" type="RewardValue" />
+			<attribute name="player" idx="2" type="Player" />
+			<attribute name="team" idx="3" type="Team" />
+			<attribute name="winningStreak" idx="4" type="bool" default="False" />
+			<attribute name="streakLength" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

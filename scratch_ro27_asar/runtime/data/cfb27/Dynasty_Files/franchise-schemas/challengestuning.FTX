@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\ChallengesTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ChallengesTuning" numMembers="5" base="BaseTuning" defaultStoreCapacity="1" assetId="10489452" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="18337657" minorVersionCRC="1881719646">
+			<attribute name="BonusChallengeObjectives" idx="0" type="PlayerPositionLookupTable" />
+			<attribute name="ChallengeRetriesSpline" idx="1" type="record" />
+			<attribute name="LosingTeamScoreDifferential" idx="2" type="int[]" />
+			<attribute name="SelectableChallengesAmount" idx="3" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="WinningTeamScoreDifferential" idx="4" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

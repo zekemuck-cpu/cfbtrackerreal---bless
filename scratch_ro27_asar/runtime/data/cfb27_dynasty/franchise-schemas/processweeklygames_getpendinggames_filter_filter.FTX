@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\ProcessWeeklyGames_GetPendingGames_Filter_Filter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProcessWeeklyGames_GetPendingGames_Filter_Filter" numMembers="2" base="bool()" ownerAssetId="6499009" isRecordPersistent="true" isExpr="true" majorVersionCRC="-82336240" minorVersionCRC="1739672378">
+			<attribute name="Subject" idx="0" type="PendingSeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

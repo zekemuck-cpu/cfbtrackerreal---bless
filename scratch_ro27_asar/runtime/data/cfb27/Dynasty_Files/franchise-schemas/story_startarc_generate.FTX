@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\Story_StartArc_Generate.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Story_StartArc_Generate" numMembers="7" base="GeneratorView" assetId="6498887" isRecordPersistent="true" majorVersionCRC="449036890" minorVersionCRC="1974845464">
+			<attribute name="Clear" idx="0" type="none()" guid="6498887-1937749" />
+			<attribute name="CreateTransaction" idx="1" type="Story_StartArc_Generate_CreateTransaction" guid="6498887-1927554" default="// Create a new Transaction instance from the Template.&#xD;&#xA;Transaction transaction =  Env.StoryArcUtil.CloneTransaction(Env.TemplateTransaction);&#xD;&#xA;&#xD;&#xA;if (transaction != null)&#xD;&#xA;{&#xD;&#xA; // Transaction init&#xD;&#xA; TeamStoryArcTransaction teamArc = transaction;&#xD;&#xA; if (teamArc != null)&#xD;&#xA; {&#xD;&#xA;  teamArc.StoryArcContext = Env.StoryArcContext;&#xD;&#xA; } &#xD;&#xA;}&#xD;&#xA;transaction;" />
+			<attribute name="Generator" idx="2" type="Story_StartArc_Generate_Generator" guid="6498887-1927549" default="Transaction transaction = CreateTransaction(Subject, Env);&#xD;&#xA;if (transaction != null)&#xD;&#xA;{&#xD;&#xA;    Subject.ActiveStoryArcs.Append(Env.StoryArcContext);&#xD;&#xA;    transaction.Start();&#xD;&#xA;}" />
+			<attribute name="Results" idx="3" type="Transaction[]" />
+			<attribute name="Source" idx="4" type="Story_StartArc_Filter" />
+			<attribute name="Subjects" idx="5" type="Team[]" />
+			<attribute name="Update" idx="6" type="none()" guid="6498887-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

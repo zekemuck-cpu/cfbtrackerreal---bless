@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\TreeBlackboard.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TreeBlackboard" numMembers="8" assetId="12273725" isRecordPersistent="true" majorVersionCRC="838998931" minorVersionCRC="-1304284350">
+			<attribute name="GetBoolValue" idx="0" type="TreeBlackboard_GetBoolValue" guid="12273725-2623315" final="true" />
+			<attribute name="GetEnumValue" idx="1" type="TreeBlackboard_GetEnumValue" guid="12273725-2623316" final="true" />
+			<attribute name="GetFloatValue" idx="2" type="TreeBlackboard_GetFloatValue" guid="12273725-2623318" final="true" />
+			<attribute name="GetIntValue" idx="3" type="TreeBlackboard_GetIntValue" guid="12273725-2623314" final="true" />
+			<attribute name="SetBoolValue" idx="4" type="TreeBlackboard_SetBoolValue" guid="12273725-2623404" final="true" />
+			<attribute name="SetEnumValue" idx="5" type="TreeBlackboard_SetEnumValue" guid="12273725-2623408" final="true" />
+			<attribute name="SetFloatValue" idx="6" type="TreeBlackboard_SetFloatValue" guid="12273725-2623412" final="true" />
+			<attribute name="SetIntValue" idx="7" type="TreeBlackboard_SetIntValue" guid="12273725-2623400" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

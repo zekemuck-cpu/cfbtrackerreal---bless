@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\AssignWeeklyGoalsTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AssignWeeklyGoalsTransaction" numMembers="21" base="Transaction" assetId="6498880" isRecordPersistent="true" majorVersionCRC="1761602688" minorVersionCRC="254253352">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="CoachProgressionEval" idx="1" type="CoachProgressionEval" />
+			<attribute name="CurrentStage" idx="2" type="Stage" />
+			<attribute name="IsBlocking" idx="3" type="bool" default="True" />
+			<attribute name="IsDone" idx="4" type="bool()" guid="6498880-1895538" />
+			<attribute name="IsDynamic" idx="5" type="bool" default="False" />
+			<attribute name="PlayerGoalsEval" idx="6" type="PlayerGoalsEval" />
+			<attribute name="PlayerProgressionEval" idx="7" type="PlayerProgressionEval" />
+			<attribute name="Process" idx="8" type="none()" guid="6498880-1895540" />
+			<attribute name="ProcessStage" idx="9" type="Stage" />
+			<attribute name="SeasonGameIndex" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SeasonGames" idx="11" type="SeasonGame[]" />
+			<attribute name="SeasonInfo" idx="12" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="13" type="SeasonManager" />
+			<attribute name="Sleep" idx="14" type="ITransaction_Sleep" guid="6498880-1895548" />
+			<attribute name="Start" idx="15" type="none()" guid="6498880-1895544" />
+			<attribute name="StartStage" idx="16" type="Stage" />
+			<attribute name="TalentTreeEval" idx="17" type="TalentTreeEval" />
+			<attribute name="TimeScale" idx="18" type="float" default="0" />
+			<attribute name="TransitionPending" idx="19" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="20" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

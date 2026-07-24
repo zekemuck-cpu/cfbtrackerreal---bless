@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringRatingData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringRatingData" numMembers="4" defaultStoreCapacity="3" assetId="6494887" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1604910208" minorVersionCRC="-693640966">
+			<attribute name="GetRating" idx="0" type="StaffHiringRatingData_GetRating" guid="6494887-1912830" />
+			<attribute name="StaffAgeSpline" idx="1" type="Spline" />
+			<attribute name="StaffTalentCountSpline" idx="2" type="Spline" />
+			<attribute name="StaffWinsSpline" idx="3" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

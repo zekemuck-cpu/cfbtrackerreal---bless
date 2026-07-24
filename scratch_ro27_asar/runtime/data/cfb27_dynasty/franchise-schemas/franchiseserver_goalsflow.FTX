@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_GoalsFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_GoalsFlow" numMembers="21" base="FranTkServer_Flow" assetId="6499306" isRecordPersistent="true" majorVersionCRC="-160452509" minorVersionCRC="-1225022310">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="CoachProgressionEval" idx="1" type="CoachProgressionEval" />
+			<attribute name="CoachTypeEnumTable" idx="2" type="EnumTable" />
+			<attribute name="Form" idx="3" type="UIForm" />
+			<attribute name="FormManager" idx="4" type="FranTkServer_FormManager" />
+			<attribute name="InjuryEvalRef" idx="5" type="InjuryEval" />
+			<attribute name="JobSecurityEnumTable" idx="6" type="EnumTable" />
+			<attribute name="League" idx="7" type="League" />
+			<attribute name="LetterGradeEnumTable" idx="8" type="EnumTable" />
+			<attribute name="PlayerGoalsEval" idx="9" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEval" idx="10" type="PlayerGradeEval" />
+			<attribute name="PlayerTypeEnumTable" idx="11" type="EnumTable" />
+			<attribute name="PlayoffRoundTypeEnumTable" idx="12" type="EnumTable" />
+			<attribute name="RosterEval" idx="13" type="record" />
+			<attribute name="SchemeEnumTable" idx="14" type="EnumTable" />
+			<attribute name="SeasonManager" idx="15" type="SeasonManager" />
+			<attribute name="SeasonScheduleManager" idx="16" type="SeasonScheduleManager" />
+			<attribute name="SignatureAbilitiesEval" idx="17" type="SignatureAbilitiesEval" />
+			<attribute name="StaffPositionEnumTable" idx="18" type="EnumTable" />
+			<attribute name="StringManager" idx="19" type="StringManager" />
+			<attribute name="UserRegistry" idx="20" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

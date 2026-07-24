@@ -1,0 +1,18 @@
+<FranTkData fileName="Football-Schemas\CoachContractGoalEvalFrequency.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachContractGoalEvalFrequency" numMembers="11" assetId="12178711" isRecordPersistent="true" majorVersionCRC="-481612391" minorVersionCRC="-1440240470">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Weekly" idx="1" value="0" />
+			<attribute name="GameWeek" idx="2" value="1" />
+			<attribute name="RivalGameWeek" idx="3" value="2" />
+			<attribute name="EndRegSeason" idx="4" value="3" />
+			<attribute name="ContractEnd" idx="5" value="4" />
+			<attribute name="OffSeason" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="6" />
+			<attribute name="LastOffSeason" idx="8" value="6" />
+			<attribute name="Count_" idx="9" value="7" />
+			<attribute name="Invalid_" idx="10" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,74 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGoalsEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGoalsEval" numMembers="67" base="Module" assetId="6498442" isRecordPersistent="true" majorVersionCRC="-771217032" minorVersionCRC="-1718722945">
+			<attribute name="AssignWeeklyGoals" idx="0" type="PlayerGoalsEval_AssignWeeklyGoals" guid="6498442-1924350" final="true" />
+			<attribute name="AwardsEvalModule" idx="1" type="AwardsEval" />
+			<attribute name="AwardsGoalTable" idx="2" type="PlayerAwardGoalTable" />
+			<attribute name="ClearCompletedQuestlineGoals" idx="3" type="none()" guid="6498442-1924484" final="true" />
+			<attribute name="ClearWeeklyGoals" idx="4" type="none()" guid="6498442-1924451" final="true" />
+			<attribute name="CoachManagerRef" idx="5" type="CoachManager" />
+			<attribute name="ContractChangePlayerGoals" idx="6" type="ContractChangePlayerGoal[]" />
+			<attribute name="CreateResources" idx="7" type="none()" guid="6498442-1924380" final="true" />
+			<attribute name="DepthChartGoal" idx="8" type="DepthChartMovePlayerGoal" />
+			<attribute name="DestroyResources" idx="9" type="none()" guid="6498442-1924383" final="true" />
+			<attribute name="EvaluateAwardsGoal" idx="10" type="PlayerGoalsEval_EvaluateAwardsGoal" guid="6498442-1924418" final="true" />
+			<attribute name="EvaluateFantasyGoalsForPlayer" idx="11" type="PlayerGoalsEval_EvaluateFantasyGoalsForPlayer" guid="6498442-1924390" final="true" />
+			<attribute name="EvaluateFootballRecordsGoalsForPlayer" idx="12" type="PlayerGoalsEval_EvaluateFootballRecordsGoalsForPlayer" guid="6498442-1924410" final="true" />
+			<attribute name="EvaluateMilestoneGoalsForPlayer" idx="13" type="PlayerGoalsEval_EvaluateMilestoneGoalsForPlayer" guid="6498442-1924399" final="true" />
+			<attribute name="EvaluateWeeklyGoalsForPlayer" idx="14" type="PlayerGoalsEval_EvaluateWeeklyGoalsForPlayer" guid="6498442-1924356" final="true" />
+			<attribute name="FantasyGoalsTable" idx="15" type="PlayerFantasyGoalTable" />
+			<attribute name="Franchise" idx="16" type="Franchise" />
+			<attribute name="GetWeeklyGoalActor" idx="17" type="PlayerGoalsEval_GetWeeklyGoalActor" guid="6498442-1924526" final="true" default="Player player = StoryArcUtil.GetWeeklyGoalActor(team, goal);&#xD;&#xA;&#xD;&#xA;player;" />
+			<attribute name="GetWeeklyGoalsForPosition" idx="18" type="PlayerGoalsEval_GetWeeklyGoalsForPosition" guid="6498442-1924346" final="true" />
+			<attribute name="GoalAwardRequest_Dismiss" idx="19" type="UISelectForm" />
+			<attribute name="GoalRewardValue" idx="20" type="RewardValue" />
+			<attribute name="GoalsRequestManager" idx="21" type="GoalsRequestManager" />
+			<attribute name="GoalTypeEnumTableRef" idx="22" type="EnumTable" />
+			<attribute name="HandleActivityCompleted" idx="23" type="PlayerGoalsEval_HandleActivityCompleted" guid="6498442-1924456" final="true" />
+			<attribute name="HandleConfidenceUpdateEvent" idx="24" type="PlayerGoalsEval_HandleConfidenceUpdateEvent" guid="6498442-1924492" final="true" />
+			<attribute name="HandleConvertPlayerPosition" idx="25" type="PlayerGoalsEval_HandleConvertPlayerPosition" guid="6498442-1924487" final="true" />
+			<attribute name="HandleDepthChartStarterChange" idx="26" type="PlayerGoalsEval_HandleDepthChartStarterChange" guid="6498442-1924467" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="27" type="PlayerGoalsEval_HandleUpdatePlayerContractStatus" guid="6498442-1924442" final="true" />
+			<attribute name="HandleUpdatePlayerGameStats" idx="28" type="PlayerGoalsEval_HandleUpdatePlayerGameStats" guid="6498442-1924447" final="true" />
+			<attribute name="HandleUpdateTeamGameStats" idx="29" type="PlayerGoalsEval_HandleUpdateTeamGameStats" guid="6498442-1924462" final="true" />
+			<attribute name="HandleUserEndRegister" idx="30" type="PlayerGoalsEval_HandleUserEndRegister" guid="6498442-1924509" final="true" default="User user = event.User;&#xD;&#xA;Team team = event.Team;&#xD;&#xA;&#xD;&#xA;RegisterUser(user, team);" />
+			<attribute name="IncreaseUserLegacyScoreEvent" idx="31" type="IncreaseUserLegacyScoreEvent" />
+			<attribute name="InGameGoalPlayerStatThreshold" idx="32" type="PlayerStatTable" />
+			<attribute name="InGameGoalTeamStatThreshold" idx="33" type="TeamStatTable" />
+			<attribute name="InjuryEval" idx="34" type="InjuryEval" />
+			<attribute name="IssueCreateGoalsRequest" idx="35" type="PlayerGoalsEval_IssueCreateGoalsRequest" guid="6498442-1924499" final="true" default="CreateGoalsRequest request = new CreateGoalsRequest;&#xD;&#xA;GoalsRequestManager.Issue(Player, request);" />
+			<attribute name="LeagueSettingRef" idx="36" type="LeagueSetting" />
+			<attribute name="LegacyScoreEval" idx="37" type="LegacyScoreEval" />
+			<attribute name="LegacyScoreUpdateEvent" idx="38" type="PlayerLegacyScoreUpdateEvent" />
+			<attribute name="MarketplaceRepeatableRewardEvent" idx="39" type="MarketplaceRepeatableRewardEvent" />
+			<attribute name="MarketplaceRewardsEvent" idx="40" type="MarketplaceRewardsEvent" />
+			<attribute name="MentalMilestoneGoalDataList" idx="41" type="MentalAbilityGoalData[]" />
+			<attribute name="MilestoneGoalsTable" idx="42" type="PlayerMilestoneGoalTable" />
+			<attribute name="NarrativePlayerMetersEval" idx="43" type="NarrativePlayerMetersEval" />
+			<attribute name="PlayerGoalEvalInfo" idx="44" type="PlayerGoalEvalInfo" />
+			<attribute name="PlayerGoalsTuning" idx="45" type="PlayerGoalsTuning" />
+			<attribute name="PlayerProgressionEval" idx="46" type="PlayerProgressionEval" />
+			<attribute name="PlayerRegressionRef" idx="47" type="PlayerRegressionEval" />
+			<attribute name="PlayerRewardNotificationEvent" idx="48" type="PersonHistoryTrackerNotificationEvent" />
+			<attribute name="ProgressionXPSliderRef" idx="49" type="ProgressionXPSlider" />
+			<attribute name="RandomRef" idx="50" type="Random" />
+			<attribute name="RegisterUser" idx="51" type="PlayerGoalsEval_RegisterUser" guid="6498442-1924504" final="true" />
+			<attribute name="RegressionPointsIncreasedEvent" idx="52" type="RegressionPointsIncreasedEvent" />
+			<attribute name="ScheduleManager" idx="53" type="SeasonScheduleManager" />
+			<attribute name="SeasonManager" idx="54" type="SeasonManager" />
+			<attribute name="StatManager" idx="55" type="StatManager" />
+			<attribute name="StoryArcUtil" idx="56" type="StoryArcUtil" />
+			<attribute name="TalentTreeEval" idx="57" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="58" type="TeamManager" />
+			<attribute name="UserRegistry" idx="59" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="60" type="none()" guid="6498442-1924513" final="true" />
+			<attribute name="WeeklyGoalsTable" idx="61" type="PlayerGoalTable" />
+			<attribute name="WinLossStreakGoals" idx="62" type="WinLossStreakPlayerGoal[]" />
+			<attribute name="ZeroDefensiveStat" idx="63" type="SeasonDefensiveKPReturnStats" />
+			<attribute name="ZeroKickingStat" idx="64" type="SeasonKickingStats" />
+			<attribute name="ZeroOffensiveStat" idx="65" type="SeasonOffensiveKPReturnStats" />
+			<attribute name="ZeroOLineStat" idx="66" type="SeasonOLineStats" />
+		</schema>
+	</schemas>
+</FranTkData>

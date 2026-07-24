@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingQuickAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingQuickAction" numMembers="6" defaultStoreCapacity="5" assetId="12164471" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="25" majorVersionCRC="-789100392" minorVersionCRC="-1955952954">
+			<attribute name="ActionType" idx="0" type="RecruitingQuickActionType" default="RecruitingQuickActionType:Invalid" />
+			<attribute name="Explanation" idx="1" type="string" maxLen="1" />
+			<attribute name="FailureMsg" idx="2" type="string" maxLen="1" />
+			<attribute name="PositionScopedExplanation" idx="3" type="string" maxLen="1" />
+			<attribute name="StarScopedExplanation" idx="4" type="string" maxLen="1" />
+			<attribute name="SuccessMsg" idx="5" type="string" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

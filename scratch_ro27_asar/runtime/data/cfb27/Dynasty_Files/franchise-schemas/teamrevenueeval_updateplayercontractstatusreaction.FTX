@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueEval_UpdatePlayerContractStatusReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueEval_UpdatePlayerContractStatusReaction" numMembers="4" base="Reaction" assetId="13735446" isRecordPersistent="true" majorVersionCRC="179944986" minorVersionCRC="-1034118222">
+			<attribute name="EventRecord" idx="0" type="Player_UpdatePlayerContractStatusEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="13735446-1895461" />
+			<attribute name="Module" idx="2" type="TeamRevenueEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

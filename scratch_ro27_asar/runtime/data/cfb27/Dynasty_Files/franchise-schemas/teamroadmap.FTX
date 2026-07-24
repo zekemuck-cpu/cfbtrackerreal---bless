@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\TeamRoadmap.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRoadmap" numMembers="25" defaultStoreCapacity="32" assetId="6494873" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1656782418" minorVersionCRC="801799193">
+			<attribute name="C" idx="0" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="CB" idx="1" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="DT" idx="2" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="FB" idx="3" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="FindBestPlayerEvaluation" idx="4" type="TeamRoadmap_FindBestPlayerEvaluation" guid="6494873-1912775" final="true" />
+			<attribute name="FS" idx="5" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="HB" idx="6" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="K" idx="7" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="LE" idx="8" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="LG" idx="9" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="LOLB" idx="10" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="LT" idx="11" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="MLB" idx="12" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="Needs" idx="13" type="TeamNeedEvaluation[]" />
+			<attribute name="P" idx="14" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="QB" idx="15" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="RE" idx="16" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="RG" idx="17" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="ROLB" idx="18" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="RT" idx="19" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="SS" idx="20" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="TE" idx="21" type="PlayerAcquisitionEvaluation[][]" />
+			<attribute name="TeamPhilosophy" idx="22" type="TeamPhilosophy" />
+			<attribute name="TeamRoadmapEval" idx="23" type="TeamRoadmapEval" />
+			<attribute name="WR" idx="24" type="PlayerAcquisitionEvaluation[][]" />
+		</schema>
+	</schemas>
+</FranTkData>

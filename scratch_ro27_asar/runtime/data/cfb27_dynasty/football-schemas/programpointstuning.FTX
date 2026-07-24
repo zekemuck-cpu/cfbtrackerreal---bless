@@ -1,0 +1,54 @@
+<FranTkData fileName="Football-Schemas\ProgramPointsTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProgramPointsTuning" numMembers="43" base="BaseTuning" defaultStoreCapacity="1" assetId="12069455" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1275075732" minorVersionCRC="-554851189">
+			<attribute name="AwardsWonModifier" idx="0" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="BaseNILValueSpline" idx="1" type="Spline" />
+			<attribute name="BrandExposureCategoryInfo" idx="2" type="ProgramPointsCategoryInfo" />
+			<attribute name="BrandExposureModifier" idx="3" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="BudgetAllocationInfoList" idx="4" type="BudgetAllocationInfo[]" />
+			<attribute name="BuildingTeamUpgrade" idx="5" type="BuildingTeamUpgrade[]" />
+			<attribute name="ConferencePrestigeCategoryInfo" idx="6" type="ProgramPointsCategoryInfo" />
+			<attribute name="ContractGoalsCategoryInfo" idx="7" type="ProgramPointsCategoryInfo" />
+			<attribute name="CostReductionAfterDowngrade" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="EquipmentBonusThresholdTable" idx="9" type="Spline" />
+			<attribute name="EquipmentDecayEnabled" idx="10" type="bool" default="False" />
+			<attribute name="EquipmentDecayThresholdTable" idx="11" type="Spline" />
+			<attribute name="EquipmentLifePercentageAlert" idx="12" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="EquipmentList" idx="13" type="Equipment[]" />
+			<attribute name="HeismanWonModifier" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaximumEquipmentSlots" idx="15" type="int" minValue="0" maxValue="10" default="5" />
+			<attribute name="MaximumSupportStaffSlots" idx="16" type="int" minValue="0" maxValue="10" default="5" />
+			<attribute name="MaxProgramPoints" idx="17" type="int" minValue="0" maxValue="30000" default="25000" />
+			<attribute name="MinimumStartingPoints" idx="18" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="MinProgramPoints" idx="19" type="int" minValue="0" maxValue="30000" default="10000" />
+			<attribute name="NILDealbreakerModifierSpline" idx="20" type="Spline" />
+			<attribute name="NILDealbreakerModInputOffsetForSpline" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NILOfferRelativeMultMax" idx="22" type="int" minValue="0" maxValue="5" default="2" />
+			<attribute name="NILPositionValueTable" idx="23" type="DraftPositionTable" />
+			<attribute name="OfferFeedbackThresholdInfoList" idx="24" type="ThresholdTableEntry[]" />
+			<attribute name="OfferInterestThresholdInfoList" idx="25" type="OfferInterestLevelThreshold[]" />
+			<attribute name="PrestigeModifierSplineArray" idx="26" type="Spline[]" />
+			<attribute name="ProgramPointsToGradeArray" idx="27" type="int[]" />
+			<attribute name="ProgramTraditionsCategoryInfo" idx="28" type="ProgramPointsCategoryInfo" />
+			<attribute name="RecruitingMaxAdjustmentPercentage" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RecruitingMinAdjustmentPercentage" idx="30" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="RecruitRankToDummyOVRSpline" idx="31" type="Spline" />
+			<attribute name="RiskOfEarlyNFLDraftModSpline" idx="32" type="Spline" />
+			<attribute name="RiskOfTransferModSpline" idx="33" type="Spline" />
+			<attribute name="RolloverCategoryInfo" idx="34" type="ProgramPointsCategoryInfo" />
+			<attribute name="RoundCostValue" idx="35" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="SchoolYearValueTable" idx="36" type="ClassYearValueTable" />
+			<attribute name="StadiumAtmosphereCategoryInfo" idx="37" type="ProgramPointsCategoryInfo" />
+			<attribute name="SupportStaffList" idx="38" type="SupportStaff[]" />
+			<attribute name="SupportStaffRefundSpline" idx="39" type="Spline" />
+			<attribute name="TeamPrestigeToSupportStaffSlotSpline" idx="40" type="Spline" />
+			<attribute name="TeamUpgradeEffectTypeIconIds" idx="41" type="int[]" />
+			<attribute name="TeamUpgradeEffectTypeIconLibraryId" idx="42" type="int" minValue="0" maxValue="2047" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

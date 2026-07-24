@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_ProcessGameplanningRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_ProcessGameplanningRequest" numMembers="2" base="none()" ownerAssetId="6708631" isRecordPersistent="true" isExpr="true" majorVersionCRC="993708839" minorVersionCRC="1786705259">
+			<attribute name="gameplanningRequest" idx="0" type="GameplanningRequest" />
+		</schema>
+	</schemas>
+</FranTkData>

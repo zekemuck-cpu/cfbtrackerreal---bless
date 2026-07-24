@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandlePurchasePackageUpdate.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandlePurchasePackageUpdate" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="1962615464" minorVersionCRC="840958888">
+			<attribute name="Event" idx="0" type="PurchasePackageUpdateEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

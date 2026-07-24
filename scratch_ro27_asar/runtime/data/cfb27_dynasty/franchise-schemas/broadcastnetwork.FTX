@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\BroadcastNetwork.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BroadcastNetwork" numMembers="7" assetId="6820577" isRecordPersistent="true" majorVersionCRC="-986549813" minorVersionCRC="729947016">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="National" idx="1" value="0" />
+			<attribute name="Streaming" idx="2" value="1" />
+			<attribute name="TBD" idx="3" value="2" />
+			<attribute name="None" idx="4" value="3" />
+			<attribute name="Max_" idx="5" value="4" />
+			<attribute name="Invalid_" idx="6" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\CoachHappinessLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachHappinessLevel" numMembers="9" assetId="10805501" isRecordPersistent="true" majorVersionCRC="2130662849" minorVersionCRC="1591372646">
+			<attribute name="CoachHappiness_First" idx="0" value="0" />
+			<attribute name="CoachHappiness_Max" idx="1" value="0" />
+			<attribute name="CoachHappiness_High" idx="2" value="1" />
+			<attribute name="CoachHappiness_Normal" idx="3" value="2" />
+			<attribute name="CoachHappiness_Low" idx="4" value="3" />
+			<attribute name="CoachHappiness_Bottom" idx="5" value="4" />
+			<attribute name="CoachHappiness_Last" idx="6" value="4" />
+			<attribute name="CoachHappiness_Count" idx="7" value="5" />
+			<attribute name="CoachHappiness_Invalid" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

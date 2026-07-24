@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartSpecialTeamsPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartSpecialTeamsPhilosophy" numMembers="18" assetId="6378212" isRecordPersistent="true" majorVersionCRC="-1125127045" minorVersionCRC="-1635678262">
+			<attribute name="3DRB" idx="0" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="ActiveImportanceThreshold" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAD" idx="2" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="K" idx="3" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="KOS" idx="4" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="KR" idx="5" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="LS" idx="6" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="NT" idx="7" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="P" idx="8" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="PR" idx="9" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="PWHB" idx="10" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="RDT" idx="11" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="RLE" idx="12" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="RosterImportanceThreshold" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RRE" idx="14" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="SLCB" idx="15" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="SLWR" idx="16" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="SUBLB" idx="17" type="DepthChartPositionPhilosophy[]" />
+		</schema>
+	</schemas>
+</FranTkData>

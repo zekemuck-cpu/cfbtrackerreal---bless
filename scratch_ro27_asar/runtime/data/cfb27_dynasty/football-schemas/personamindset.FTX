@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\PersonaMindset.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaMindset" numMembers="2" assetId="12581454" isRecordPersistent="true" majorVersionCRC="-1081720552" minorVersionCRC="144239649">
+			<attribute name="Description" idx="0" type="string" maxLen="128" />
+			<attribute name="ImportantDNA" idx="1" type="PersonaDNA[]" />
+		</schema>
+	</schemas>
+</FranTkData>

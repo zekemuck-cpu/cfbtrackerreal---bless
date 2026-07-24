@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\Precipitation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Precipitation" numMembers="8" assetId="12671850" isRecordPersistent="true" majorVersionCRC="-708361632" minorVersionCRC="-1939019880">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="None" idx="1" value="0" />
+			<attribute name="Light" idx="2" value="1" />
+			<attribute name="Medium" idx="3" value="2" />
+			<attribute name="Heavy" idx="4" value="3" />
+			<attribute name="Count" idx="5" value="4" />
+			<attribute name="Max_" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

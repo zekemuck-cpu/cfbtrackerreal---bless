@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\TendencyStatTypeEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TendencyStatTypeEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="119" assetId="6571169" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="6408" majorVersionCRC="69941957" minorVersionCRC="-1241202202">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="TendencyStatType" default="TendencyStatType:AirYards" />
+		</schema>
+	</schemas>
+</FranTkData>

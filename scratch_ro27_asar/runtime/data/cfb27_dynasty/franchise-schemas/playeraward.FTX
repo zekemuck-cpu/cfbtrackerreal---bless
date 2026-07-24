@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\PlayerAward.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\Award.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerAward" numMembers="8" base="Award" defaultStoreCapacity="8505" assetId="6494674" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1199218976" minorVersionCRC="172441806">
+			<attribute name="AwardScore" idx="0" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="AwardType" idx="1" type="AwardType" default="AwardType:First_" />
+			<attribute name="Conference" idx="2" type="Conference" />
+			<attribute name="Period" idx="3" type="StatPeriod" default="StatPeriod:Season" />
+			<attribute name="PeriodIndex" idx="4" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="Player" idx="5" type="Player" />
+			<attribute name="Position" idx="6" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="Team" idx="7" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

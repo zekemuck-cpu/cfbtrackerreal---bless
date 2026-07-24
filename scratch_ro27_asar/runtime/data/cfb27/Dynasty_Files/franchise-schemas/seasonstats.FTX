@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStats" numMembers="8" base="Enum" assetId="6320466" isRecordPersistent="false" majorVersionCRC="1247465518" minorVersionCRC="1921873052">
+			<attribute name="DOWNSPLAYED" idx="0" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="GAMERATING" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESPLAYED" idx="2" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="GAMESSTARTED" idx="3" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SEAS_YEAR" idx="4" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="STAT_KEEP" idx="5" type="bool" default="True" />
+			<attribute name="TeamPrefixName" idx="6" type="string" maxLen="8" />
+			<attribute name="YEARBYYEARTEAMINDEX" idx="7" type="int" minValue="0" maxValue="133" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

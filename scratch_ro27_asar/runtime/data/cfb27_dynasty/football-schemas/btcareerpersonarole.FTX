@@ -1,0 +1,22 @@
+<FranTkData fileName="Football-Schemas\BTCareerPersonaRole.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BTCareerPersonaRole" numMembers="15" assetId="12895691" isRecordPersistent="true" majorVersionCRC="1890996973" minorVersionCRC="-913358370">
+			<attribute name="DepthFiller" idx="0" value="0" />
+			<attribute name="FutureHoF" idx="1" value="1" />
+			<attribute name="FranchiseQB" idx="2" value="2" />
+			<attribute name="QBofFuture" idx="3" value="3" />
+			<attribute name="ElitePlayer" idx="4" value="4" />
+			<attribute name="RisingStar" idx="5" value="5" />
+			<attribute name="ProjectPlayer" idx="6" value="6" />
+			<attribute name="ImpactStarter" idx="7" value="7" />
+			<attribute name="SpecialtyPlayer" idx="8" value="8" />
+			<attribute name="SpecialTeamsStar" idx="9" value="9" />
+			<attribute name="Mentor" idx="10" value="10" />
+			<attribute name="VeteranPrescence" idx="11" value="11" />
+			<attribute name="BorderlineStarter" idx="12" value="12" />
+			<attribute name="QualityBackup" idx="13" value="13" />
+			<attribute name="PracticeSquad" idx="14" value="14" />
+		</enum>
+	</schemas>
+</FranTkData>

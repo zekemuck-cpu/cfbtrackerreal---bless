@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseDebugModule_ShouldForceArc.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseDebugModule_ShouldForceArc" numMembers="2" base="bool()" ownerAssetId="6495333" isRecordPersistent="true" isExpr="true" majorVersionCRC="-157410467" minorVersionCRC="1557004419">
+			<attribute name="storyArcMetadata" idx="0" type="StoryArcMetadata" />
+		</schema>
+	</schemas>
+</FranTkData>

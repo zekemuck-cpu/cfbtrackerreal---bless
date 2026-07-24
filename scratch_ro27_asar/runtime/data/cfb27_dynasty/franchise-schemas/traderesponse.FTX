@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\TradeResponse.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeResponse" numMembers="10" assetId="5699508" isRecordPersistent="true" majorVersionCRC="-1669456989" minorVersionCRC="-1124971758">
+			<attribute name="Accept" idx="0" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="Decline" idx="1" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="DeclineBetterOffer" idx="2" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="DeclineDraftPicks" idx="3" type="int" minValue="0" maxValue="100" default="7" />
+			<attribute name="DeclineMinimumRosterSize" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DeclinePlayerMovementLimit" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DeclineRoster" idx="6" type="int" minValue="0" maxValue="100" default="4" />
+			<attribute name="DeclineRosterSize" idx="7" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="DeclineSalaryCap" idx="8" type="int" minValue="0" maxValue="100" default="6" />
+			<attribute name="None" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

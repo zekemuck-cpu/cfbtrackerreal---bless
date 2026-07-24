@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitManager_HandleRecruitPeriodStart.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitManager_HandleRecruitPeriodStart" numMembers="2" base="none()" ownerAssetId="6733442" isRecordPersistent="true" isExpr="true" majorVersionCRC="1503581163" minorVersionCRC="336327327">
+			<attribute name="event" idx="0" type="RecruitPeriodStartEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

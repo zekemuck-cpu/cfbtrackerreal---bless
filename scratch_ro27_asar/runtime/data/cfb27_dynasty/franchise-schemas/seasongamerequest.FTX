@@ -1,0 +1,53 @@
+<FranTkData fileName="Franchise-Schemas\SeasonGameRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonGameRequest" numMembers="42" base="UIRequestForm" defaultStoreCapacity="810" assetId="6494641" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1063852770" minorVersionCRC="-1160124647">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6494641-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DeclineResponse" idx="7" type="UISelectForm" />
+			<attribute name="DefaultResponse" idx="8" type="ResponseForm" />
+			<attribute name="Description" idx="9" type="string" const="true" maxLen="56" default="Choose Full Game, Offense, Defense, or Play The Moments" />
+			<attribute name="Dismiss" idx="10" type="none()" guid="6494641-1895671" />
+			<attribute name="ExpirationDuration" idx="11" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="12" type="none()" guid="6494641-1912278" default="if (IsPractice)&#xD;&#xA;{&#xD;&#xA;PracticeEvalRef.ProcessSeasonGameRequest(this);&#xD;&#xA;}" />
+			<attribute name="HasResolution" idx="13" type="bool()" guid="6494641-1895676" />
+			<attribute name="IsBlocking" idx="14" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="15" type="bool" default="False" />
+			<attribute name="IsLocked" idx="16" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="17" type="bool" default="False" />
+			<attribute name="IsPractice" idx="18" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="19" type="bool()" guid="6494641-1895678" />
+			<attribute name="IsResponseRequired" idx="20" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="21" type="bool" default="True" />
+			<attribute name="Issue" idx="22" type="Request_Issue" guid="6494641-1895668" />
+			<attribute name="IssueTime" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxStoriesToShow" idx="24" type="int" minValue="0" maxValue="4" default="1" />
+			<attribute name="PlayTheMoment" idx="25" type="PlayTheMomentContextualOptions" default="PlayTheMomentContextualOptions:IsPlayTheMoment" />
+			<attribute name="PracticeEvalRef" idx="26" type="PracticeEval" />
+			<attribute name="Priority" idx="27" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="28" type="none()" guid="6494641-1895686" final="true" />
+			<attribute name="RequestData" idx="29" type="record" />
+			<attribute name="RequestForm" idx="30" type="ResponseForm" />
+			<attribute name="RequestId" idx="31" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="32" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="33" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="34" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="35" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="36" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="37" type="bool" default="True" />
+			<attribute name="TargetUser" idx="38" type="User" />
+			<attribute name="Team" idx="39" type="Team" />
+			<attribute name="Title" idx="40" type="string" const="true" maxLen="12" default="Season Game" />
+			<attribute name="TypeName" idx="41" type="string" const="true" maxLen="11" default="SeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

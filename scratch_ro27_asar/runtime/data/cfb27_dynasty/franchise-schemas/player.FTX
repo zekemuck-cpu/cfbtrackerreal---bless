@@ -1,0 +1,299 @@
+<FranTkData fileName="Franchise-Schemas\Player.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\FootballPlayer.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Player" numMembers="288" base="FootballPlayer" defaultStoreCapacity="16500" assetId="6494552" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-770541706" minorVersionCRC="-421985041">
+			<attribute name="AbsoluteGoProChance" idx="0" type="int" minValue="-1" maxValue="100" default="-1" />
+			<attribute name="AbsoluteTransferChance" idx="1" type="int" minValue="-1" maxValue="100" default="-1" />
+			<attribute name="AccelerationRating" idx="2" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="Age" idx="3" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="AgilityRating" idx="4" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="AwarenessRating" idx="5" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BaseNILValue" idx="6" type="int" minValue="-255" maxValue="1023" default="0" />
+			<attribute name="BCVisionRating" idx="7" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BlockSheddingRating" idx="8" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BreakSackRating" idx="9" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BreakTackleRating" idx="10" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CaptainsPatch" idx="11" type="CaptainPatch" default="CaptainPatch:None" />
+			<attribute name="CareerStats" idx="12" type="CareerStats" />
+			<attribute name="CarryingRating" idx="13" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CatchingRating" idx="14" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CatchInTrafficRating" idx="15" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ChangeOfDirectionRating" idx="16" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CharacterBodyType" idx="17" type="CharacterBodyType" default="CharacterBodyType:Standard" />
+			<attribute name="CharacterGameplay" idx="18" type="CharacterGameplay" />
+			<attribute name="CharacterVisuals" idx="19" type="CharacterVisuals" />
+			<attribute name="ConfidenceRating" idx="20" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CurrentNILCompensation" idx="21" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="CurrentYearSeasonEndingInjuryWeek" idx="22" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="DeepRouteRunningRating" idx="23" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ExperiencePoints" idx="24" type="int" minValue="0" maxValue="1000000" default="0" />
+			<attribute name="Fatigue" idx="25" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FinesseMovesRating" idx="26" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="FirstName" idx="27" type="string" maxLen="17" />
+			<attribute name="GameStats" idx="28" type="GameStats[]" />
+			<attribute name="GenericHeadAssetName" idx="29" type="string" maxLen="33" />
+			<attribute name="GetAbilityValue" idx="30" type="Player_GetAbilityValue" guid="6494552-1909803" final="true" />
+			<attribute name="GetBalancedOverallGrade" idx="31" type="int()" guid="6494552-1909819" final="true" />
+			<attribute name="GetBestOverallGrade" idx="32" type="int()" guid="6494552-1909828" final="true" />
+			<attribute name="GetOverallDraftPick" idx="33" type="int()" guid="6494552-1909979" final="true" />
+			<attribute name="GetOverallGrade" idx="34" type="Player_GetOverallGrade" guid="6494552-1909815" final="true" />
+			<attribute name="Height" idx="35" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="HitPowerRating" idx="36" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="HomePipeline" idx="37" type="Pipeline" default="Pipeline:Invalid" />
+			<attribute name="IdealRecruitingPitch" idx="38" type="RecruitingPitchType" default="RecruitingPitchType:Invalid" />
+			<attribute name="ImpactBlockingRating" idx="39" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="InjuryRating" idx="40" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="InjurySeverity" idx="41" type="InjurySeverity" default="InjurySeverity:Invalid_" />
+			<attribute name="InjuryStatus" idx="42" type="InjuryStatus" default="InjuryStatus:Uninjured" />
+			<attribute name="InjuryType" idx="43" type="InjuryType" default="InjuryType:Invalid_" />
+			<attribute name="IronManPosition" idx="44" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="IsCreated" idx="45" type="bool" default="False" />
+			<attribute name="IsImpactPlayer" idx="46" type="bool" default="False" />
+			<attribute name="IsInjuredReserve" idx="47" type="bool" default="False" />
+			<attribute name="IsLegend" idx="48" type="bool" default="False" />
+			<attribute name="IsNIL" idx="49" type="bool" default="False" />
+			<attribute name="IsUserControlled" idx="50" type="bool" default="False" />
+			<attribute name="JerseyNum" idx="51" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="JukeMoveRating" idx="52" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="JumpingRating" idx="53" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KickAccuracyRating" idx="54" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KickPowerRating" idx="55" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KickReturnRating" idx="56" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="LastName" idx="57" type="string" maxLen="21" />
+			<attribute name="LastYearSeasonEndingInjuryWeek" idx="58" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="LatestInjuryStage" idx="59" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="LatestInjuryWeek" idx="60" type="int" minValue="0" maxValue="22" default="0" />
+			<attribute name="LatestInjuryYear" idx="61" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="LeadBlockRating" idx="62" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="LegacyScore" idx="63" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="LongSnapRating" idx="64" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ManCoverageRating" idx="65" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="MaxInjuryDuration" idx="66" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="MediumRouteRunningRating" idx="67" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="MentalAbility1" idx="68" type="MentalAbilities" default="MentalAbilities:None" />
+			<attribute name="MentalAbility2" idx="69" type="MentalAbilities" default="MentalAbilities:None" />
+			<attribute name="MentalAbility3" idx="70" type="MentalAbilities" default="MentalAbilities:None" />
+			<attribute name="MentalAbilityRank1" idx="71" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="MentalAbilityRank2" idx="72" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="MentalAbilityRank3" idx="73" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="MinInjuryDuration" idx="74" type="int" minValue="-32" maxValue="63" default="0" />
+			<attribute name="Motivation1" idx="75" type="MotivationType" default="MotivationType:None" />
+			<attribute name="Motivation2" idx="76" type="MotivationType" default="MotivationType:None" />
+			<attribute name="Motivation3" idx="77" type="MotivationType" default="MotivationType:None" />
+			<attribute name="NarrativeLock" idx="78" type="bool" default="False" />
+			<attribute name="NearestCity" idx="79" type="City" />
+			<attribute name="NumPrideStickers" idx="80" type="int" minValue="0" maxValue="48" default="0" />
+			<attribute name="OverallRating" idx="81" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassBlockFinesseRating" idx="82" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PassBlockPowerRating" idx="83" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PassBlockRating" idx="84" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="Personality" idx="85" type="Personality" default="Personality:Unpredictable" />
+			<attribute name="PhysicalAbility1" idx="86" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="PhysicalAbility2" idx="87" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="PhysicalAbility3" idx="88" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="PhysicalAbility4" idx="89" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="PhysicalAbility5" idx="90" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="PlayActionRating" idx="91" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PlayerType" idx="92" type="PlayerType" default="PlayerType:QB_FieldGeneral" />
+			<attribute name="PlayerVisMoveType" idx="93" type="PlayerVisMoveType" default="PlayerVisMoveType:Default" />
+			<attribute name="PlayoffRoundReached" idx="94" type="PlayoffRoundType" default="PlayoffRoundType:None" />
+			<attribute name="PlayRecognitionRating" idx="95" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PLYR_ASSETNAME" idx="96" type="string" maxLen="41" />
+			<attribute name="PLYR_BIRTHDATE" idx="97" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="PLYR_CELEBRATION" idx="98" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PLYR_COMMENT" idx="99" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="PLYR_CONSECYEARSWITHTEAM" idx="100" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="PLYR_DRAFTPICK" idx="101" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="PLYR_DRAFTROUND" idx="102" type="int" minValue="0" maxValue="63" default="63" />
+			<attribute name="PLYR_GENERICHEAD" idx="103" type="GenericHead" default="GenericHead:NoHead" />
+			<attribute name="PLYR_HANDEDNESS" idx="104" type="Handedness" default="Handedness:Right" />
+			<attribute name="PLYR_HOME_STATE" idx="105" type="StateName" default="StateName:Alabama" />
+			<attribute name="PLYR_HOME_TOWN" idx="106" type="string" maxLen="26" />
+			<attribute name="PLYR_ICON" idx="107" type="bool" default="True" />
+			<attribute name="PLYR_ISCAPTAIN" idx="108" type="bool" default="False" />
+			<attribute name="PLYR_PERFORMLEVEL" idx="109" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PLYR_PORTRAIT" idx="110" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="PLYR_PREVTEAMID" idx="111" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PLYR_QBSTYLE" idx="112" type="QBStyle" default="QBStyle:Generic3QH" />
+			<attribute name="PLYR_SLEEVETEMPERATURE" idx="113" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PLYR_STANCE" idx="114" type="Stance" default="Stance:Generic" />
+			<attribute name="PLYR_STYLE" idx="115" type="PlayerStyle" default="PlayerStyle:Normal" />
+			<attribute name="PLYR_TENDENCY" idx="116" type="int" minValue="0" maxValue="3" default="0" />
+			<attribute name="PortraitForceSilhouette" idx="117" type="bool" default="False" />
+			<attribute name="PortraitSwappableLibraryPath" idx="118" type="SwappableLibraryPath" default="SwappableLibraryPath:library_icons_brt" />
+			<attribute name="Position" idx="119" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="PowerMovesRating" idx="120" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PracticePlan" idx="121" type="PracticePlan" default="PracticePlan:Invalid_" />
+			<attribute name="PresentationId" idx="122" type="int" minValue="0" maxValue="1048575" default="0" />
+			<attribute name="PressRating" idx="123" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PrevTeamIndex" idx="124" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="ProspectStarRating" idx="125" type="ProspectQuality" default="ProspectQuality:Invalid" />
+			<attribute name="PT_28_3" idx="126" type="bool" default="False" />
+			<attribute name="PT_AGGRESSIVERECEIVER" idx="127" type="bool" default="False" />
+			<attribute name="PT_ANCHORED" idx="128" type="bool" default="False" />
+			<attribute name="PT_BIGHITTER" idx="129" type="bool" default="False" />
+			<attribute name="PT_BOUNCER" idx="130" type="bool" default="False" />
+			<attribute name="PT_BULLISH" idx="131" type="bool" default="False" />
+			<attribute name="PT_CANNON" idx="132" type="bool" default="False" />
+			<attribute name="PT_CANNONBALL" idx="133" type="bool" default="False" />
+			<attribute name="PT_CONSERVATIVE" idx="134" type="bool" default="False" />
+			<attribute name="PT_COVERBALL" idx="135" type="bool" default="False" />
+			<attribute name="PT_DISCIPLINED" idx="136" type="bool" default="False" />
+			<attribute name="PT_DLPOWERRUSHER" idx="137" type="bool" default="False" />
+			<attribute name="PT_DLPUREPOWER" idx="138" type="bool" default="False" />
+			<attribute name="PT_DLRUNSTOPPER" idx="139" type="bool" default="False" />
+			<attribute name="PT_DLSPEEDRUSHER" idx="140" type="bool" default="False" />
+			<attribute name="PT_DOUBLEBACK" idx="141" type="bool" default="False" />
+			<attribute name="PT_ELUSIVEINSTINCT" idx="142" type="bool" default="False" />
+			<attribute name="PT_EYESUP" idx="143" type="bool" default="False" />
+			<attribute name="PT_FINESSERUSHER" idx="144" type="bool" default="False" />
+			<attribute name="PT_FLYSWATTER" idx="145" type="bool" default="False" />
+			<attribute name="PT_FORTIFIER" idx="146" type="bool" default="False" />
+			<attribute name="PT_FREEPLAYFINDER" idx="147" type="bool" default="False" />
+			<attribute name="PT_FREESTYLER" idx="148" type="bool" default="False" />
+			<attribute name="PT_FROZENSOLID" idx="149" type="bool" default="False" />
+			<attribute name="PT_GASGUZZLER" idx="150" type="bool" default="False" />
+			<attribute name="PT_HAPPYFEET" idx="151" type="bool" default="False" />
+			<attribute name="PT_HBELUSIVEBACK" idx="152" type="bool" default="False" />
+			<attribute name="PT_HBELUSIVEPOWER" idx="153" type="bool" default="False" />
+			<attribute name="PT_HBPOWERBACK" idx="154" type="bool" default="False" />
+			<attribute name="PT_HBPOWERBLOCKING" idx="155" type="bool" default="False" />
+			<attribute name="PT_HBPOWERRECEIVING" idx="156" type="bool" default="False" />
+			<attribute name="PT_HBRECEIVINGBACK" idx="157" type="bool" default="False" />
+			<attribute name="PT_HEROBALL" idx="158" type="bool" default="False" />
+			<attribute name="PT_HIGHLIGHTREEL" idx="159" type="bool" default="False" />
+			<attribute name="PT_INVINCIBLE" idx="160" type="bool" default="False" />
+			<attribute name="PT_LBFIELDGENERAL" idx="161" type="bool" default="False" />
+			<attribute name="PT_LBPASSCOVERAGE" idx="162" type="bool" default="False" />
+			<attribute name="PT_LBRUNSUPPORT" idx="163" type="bool" default="False" />
+			<attribute name="PT_LONGARMOFTHELAW" idx="164" type="bool" default="False" />
+			<attribute name="PT_LOOKFORSTARS" idx="165" type="bool" default="False" />
+			<attribute name="PT_NOSEDIVE" idx="166" type="bool" default="False" />
+			<attribute name="PT_OBLIVIOUS" idx="167" type="bool" default="False" />
+			<attribute name="PT_PANICBUTTON" idx="168" type="bool" default="False" />
+			<attribute name="PT_PARANOID" idx="169" type="bool" default="False" />
+			<attribute name="PT_PLAYBALL" idx="170" type="bool" default="False" />
+			<attribute name="PT_PLAYRECEIVER" idx="171" type="bool" default="False" />
+			<attribute name="PT_POSSESSIONRECEIVER" idx="172" type="bool" default="False" />
+			<attribute name="PT_POWERRUSHER" idx="173" type="bool" default="False" />
+			<attribute name="PT_PUNCHITOUT" idx="174" type="bool" default="False" />
+			<attribute name="PT_QBBACKFIELDCREATOR" idx="175" type="bool" default="False" />
+			<attribute name="PT_QBCOMMIT" idx="176" type="bool" default="False" />
+			<attribute name="PT_QBDUALTHREAT" idx="177" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEBACKFIELDCREATOR" idx="178" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEDUALTHREAT" idx="179" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEPOCKETPASSER" idx="180" type="bool" default="False" />
+			<attribute name="PT_QBDYNAMICPERFORMANCEPURERUNNER" idx="181" type="bool" default="False" />
+			<attribute name="PT_QBPOCKETPASSER" idx="182" type="bool" default="False" />
+			<attribute name="PT_QBPURERUNNER" idx="183" type="bool" default="False" />
+			<attribute name="PT_QUICKCLOCK" idx="184" type="bool" default="False" />
+			<attribute name="PT_QUICKTRIGGER" idx="185" type="bool" default="False" />
+			<attribute name="PT_RACRECEIVER" idx="186" type="bool" default="False" />
+			<attribute name="PT_REDZONEJAMMER" idx="187" type="bool" default="False" />
+			<attribute name="PT_RIPCORD" idx="188" type="bool" default="False" />
+			<attribute name="PT_RISKTAKER" idx="189" type="bool" default="False" />
+			<attribute name="PT_RUNOVER" idx="190" type="bool" default="False" />
+			<attribute name="PT_SAFETACKLER" idx="191" type="bool" default="False" />
+			<attribute name="PT_SEEINGGHOSTS" idx="192" type="bool" default="False" />
+			<attribute name="PT_SHOWBOAT" idx="193" type="bool" default="False" />
+			<attribute name="PT_SNAPMISCHIEF" idx="194" type="bool" default="False" />
+			<attribute name="PT_SNOWBALL" idx="195" type="bool" default="False" />
+			<attribute name="PT_SRUNSUPPORT" idx="196" type="bool" default="False" />
+			<attribute name="PT_STEERINGCLEAR" idx="197" type="bool" default="False" />
+			<attribute name="PT_STRONGARM" idx="198" type="bool" default="False" />
+			<attribute name="PT_TEBLOCKING" idx="199" type="bool" default="False" />
+			<attribute name="PT_TEPHYSICALBLOCKER" idx="200" type="bool" default="False" />
+			<attribute name="PT_TEPHYSICALROUTERUNNER" idx="201" type="bool" default="False" />
+			<attribute name="PT_TEVERTICALTHREAT" idx="202" type="bool" default="False" />
+			<attribute name="PT_THROWAWAY" idx="203" type="bool" default="False" />
+			<attribute name="PT_THROWITUP" idx="204" type="bool" default="False" />
+			<attribute name="PT_TRAVELINGSHOWMEN" idx="205" type="bool" default="False" />
+			<attribute name="PT_TWISTER" idx="206" type="bool" default="False" />
+			<attribute name="PT_UNDERCUT" idx="207" type="bool" default="False" />
+			<attribute name="PT_UNDISCIPLINED" idx="208" type="bool" default="False" />
+			<attribute name="PT_UNUSEDTRAIT1" idx="209" type="bool" default="False" />
+			<attribute name="PT_UNUSEDTRAIT2" idx="210" type="bool" default="False" />
+			<attribute name="PT_UPANDOVER" idx="211" type="bool" default="False" />
+			<attribute name="PT_WHIRLWIND" idx="212" type="bool" default="False" />
+			<attribute name="PT_WRELUSIVEROUTERUNNER" idx="213" type="bool" default="False" />
+			<attribute name="PT_WRGADGET" idx="214" type="bool" default="False" />
+			<attribute name="PT_WRPHYSICALBLOCKER" idx="215" type="bool" default="False" />
+			<attribute name="PT_WRPHYSICALRECEIVER" idx="216" type="bool" default="False" />
+			<attribute name="PT_WRPHYSICALROUTERUNNER" idx="217" type="bool" default="False" />
+			<attribute name="PT_WRPLAYMAKER" idx="218" type="bool" default="False" />
+			<attribute name="PT_WRPOWERBLOCKING" idx="219" type="bool" default="False" />
+			<attribute name="PursuitRating" idx="220" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RecruitingDealbreaker" idx="221" type="RecruitingMotivationType" default="RecruitingMotivationType:Invalid" />
+			<attribute name="RedshirtStatus" idx="222" type="RedshirtStatus" default="RedshirtStatus:Eligible" />
+			<attribute name="ReleaseRating" idx="223" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="Role" idx="224" type="FranchiseRole" default="FranchiseRole:NoRole" />
+			<attribute name="RunBlockFinesseRating" idx="225" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RunBlockPowerRating" idx="226" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RunBlockRating" idx="227" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RunningStyleRating" idx="228" type="RunningStyle" default="RunningStyle:Default" />
+			<attribute name="Scheme" idx="229" type="BaseScheme" default="BaseScheme:OFF_WEST_COAST_ZONE_RUN" />
+			<attribute name="SchoolYear" idx="230" type="SchoolYear" default="SchoolYear:Freshman" />
+			<attribute name="SeasonHealthPool" idx="231" type="int" minValue="0" maxValue="1000" default="1000" />
+			<attribute name="SeasonHealthPoolMax" idx="232" type="int" minValue="0" maxValue="1000" default="1000" />
+			<attribute name="SeasonStats" idx="233" type="SeasonStats[]" />
+			<attribute name="SetOverallDraftPick" idx="234" type="Player_SetOverallDraftPick" guid="6494552-1909982" final="true" />
+			<attribute name="ShortRouteRunningRating" idx="235" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SkillGroupCap1" idx="236" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="SkillGroupCap2" idx="237" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="SkillGroupCap3" idx="238" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="SkillGroupCap4" idx="239" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="SkillGroupCap5" idx="240" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="SkillGroupCap6" idx="241" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="SkillPoints" idx="242" type="int" minValue="0" maxValue="16384" default="0" />
+			<attribute name="SpectacularCatchRating" idx="243" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SpeedRating" idx="244" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SpinMoveRating" idx="245" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="StaminaRating" idx="246" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="StartingHotCold" idx="247" type="StartingHotCold" default="StartingHotCold:Neutral" />
+			<attribute name="StiffArmRating" idx="248" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="StrengthRating" idx="249" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TackleRating" idx="250" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_TYPE" idx="251" type="TeamType" default="TeamType:Current" />
+			<attribute name="TeamIndex" idx="252" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="ThrowAccuracyDeepRating" idx="253" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowAccuracyMidRating" idx="254" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowAccuracyRating" idx="255" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowAccuracyShortRating" idx="256" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowOnTheRunRating" idx="257" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowPowerRating" idx="258" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowUnderPressureRating" idx="259" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TotalInjuryDuration" idx="260" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="ToughnessRating" idx="261" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TraitDevelopment" idx="262" type="TraitDevelopment" default="TraitDevelopment:Star" />
+			<attribute name="TruckingRating" idx="263" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="WasPreviouslyInjured" idx="264" type="bool" default="False" />
+			<attribute name="WearAndTear_Back" idx="265" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LAnkle" idx="266" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LArm" idx="267" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LElbow" idx="268" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LFoot" idx="269" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LHand" idx="270" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LHip" idx="271" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LKnee" idx="272" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LLeg" idx="273" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_LShoulder" idx="274" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RAnkle" idx="275" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RArm" idx="276" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RElbow" idx="277" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RFoot" idx="278" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RHand" idx="279" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RHip" idx="280" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_Rib" idx="281" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RKnee" idx="282" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RLeg" idx="283" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="WearAndTear_RShoulder" idx="284" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="Weight" idx="285" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="YearlyAwardCount" idx="286" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="ZoneCoverageRating" idx="287" type="int" minValue="0" maxValue="127" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

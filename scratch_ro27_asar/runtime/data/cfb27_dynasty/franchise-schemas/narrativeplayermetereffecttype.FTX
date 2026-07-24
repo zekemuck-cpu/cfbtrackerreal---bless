@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMeterEffectType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="NarrativePlayerMeterEffectType" numMembers="14" assetId="7709466" isRecordPersistent="true" majorVersionCRC="1949138173" minorVersionCRC="1016002048">
+			<attribute name="Ratings" idx="0" value="0" />
+			<attribute name="Leadership" idx="1" value="1" />
+			<attribute name="Academics" idx="2" value="2" />
+			<attribute name="XP" idx="3" value="3" />
+			<attribute name="WearAndTear" idx="4" value="4" />
+			<attribute name="WearAndTearPercent" idx="5" value="5" />
+			<attribute name="Fatigue" idx="6" value="6" />
+			<attribute name="TestReadinessScore" idx="7" value="7" />
+			<attribute name="GainFollowers" idx="8" value="8" />
+			<attribute name="LoseFollowers" idx="9" value="9" />
+			<attribute name="ContentMultiplier" idx="10" value="10" />
+			<attribute name="CoachHappinessScore" idx="11" value="11" />
+			<attribute name="CrammingCoachHappinessPenalty" idx="12" value="12" />
+			<attribute name="FitnessScore" idx="13" value="13" />
+		</enum>
+	</schemas>
+</FranTkData>

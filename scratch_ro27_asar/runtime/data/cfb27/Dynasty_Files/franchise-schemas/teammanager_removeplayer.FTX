@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_RemovePlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_RemovePlayer" numMembers="4" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="742912784" minorVersionCRC="509337803">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="applyPenalty" idx="2" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

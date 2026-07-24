@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\FieldType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="FieldType" numMembers="5" assetId="6378387" isRecordPersistent="true" majorVersionCRC="335202304" minorVersionCRC="1347757513">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Grass" idx="1" value="0" />
+			<attribute name="Turf" idx="2" value="1" />
+			<attribute name="Max_" idx="3" value="2" />
+			<attribute name="Invalid_" idx="4" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

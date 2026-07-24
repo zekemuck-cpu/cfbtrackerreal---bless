@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\ReleasePlayers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReleasePlayers" numMembers="7" base="ModifierView" assetId="6709405" isRecordPersistent="true" majorVersionCRC="-1412781290" minorVersionCRC="-463410701">
+			<attribute name="Formula" idx="0" type="ReleasePlayers_Formula" guid="6709405-1949255" default="bool cutPlayer = true;&#xD;&#xA;&#xD;&#xA;if (TeamManager.SeasonInfoRef.IsPracticeSquadPeriodActive) &#xD;&#xA;{&#xD;&#xA;    if (PlayerSigningEval.CanTeamSignPlayerToPracticeSquad(Team, Subject))&#xD;&#xA;    {&#xD;&#xA;        // Move player to practice squad.&#xD;&#xA;        TeamManager.SignPlayerToPracticeSquad(Team, Subject);&#xD;&#xA;        cutPlayer = false;&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (cutPlayer)&#xD;&#xA;{&#xD;&#xA;    // Cut player.&#xD;&#xA;    TeamManager.ReleasePlayer(Team, Subject, false);&#xD;&#xA;}" />
+			<attribute name="PlayerSigningEval" idx="1" type="PlayerSigningEval" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Player[]" />
+			<attribute name="Team" idx="4" type="Team" />
+			<attribute name="TeamManager" idx="5" type="TeamManager" />
+			<attribute name="Update" idx="6" type="none()" guid="6709405-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

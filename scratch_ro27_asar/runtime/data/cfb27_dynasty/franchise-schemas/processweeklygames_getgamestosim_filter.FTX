@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\ProcessWeeklyGames_GetGamesToSim_Filter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProcessWeeklyGames_GetGamesToSim_Filter" numMembers="6" base="FilterView" assetId="6499007" isRecordPersistent="true" majorVersionCRC="-2041166540" minorVersionCRC="1068812457">
+			<attribute name="Clear" idx="0" type="none()" guid="6499007-1937749" />
+			<attribute name="Filter" idx="1" type="ProcessWeeklyGames_GetGamesToSim_Filter_Filter" guid="6499007-1931541" default="// The game can be simmed if it hasn't already been completed and both teams decline to play.&#xD;&#xA;GameStatus gameStatus = Subject.SeasonGame.GameStatus;&#xD;&#xA;&#xD;&#xA;bool simAwayTeam = false;&#xD;&#xA;if(Subject.AwayTeamRequest == null)&#xD;&#xA;{&#xD;&#xA;  simAwayTeam = true;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  simAwayTeam = (Subject.AwayTeamRequest.Response == Subject.AwayTeamRequest.DeclineResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;bool simHomeTeam = false;&#xD;&#xA;if(Subject.HomeTeamRequest == null)&#xD;&#xA;{&#xD;&#xA;  simHomeTeam = true;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  simHomeTeam = (Subject.HomeTeamRequest.Response == Subject.HomeTeamRequest.DeclineResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;!(gameStatus &gt;= GameStatus.FirstComplete_ &amp;&amp; gameStatus &lt;= GameStatus.LastComplete_) &amp;&amp; &#xD;&#xA;(simAwayTeam) &amp;&amp;&#xD;&#xA;(simHomeTeam);&#xD;&#xA;" />
+			<attribute name="Results" idx="2" type="PendingSeasonGame[]" />
+			<attribute name="Source" idx="3" type="record" />
+			<attribute name="Subjects" idx="4" type="PendingSeasonGame[]" />
+			<attribute name="Update" idx="5" type="none()" guid="6499007-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

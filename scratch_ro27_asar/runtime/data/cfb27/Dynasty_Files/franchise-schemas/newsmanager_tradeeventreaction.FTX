@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NewsManager_TradeEventReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsManager_TradeEventReaction" numMembers="4" base="Reaction" assetId="6598626" isRecordPersistent="true" majorVersionCRC="-1652179120" minorVersionCRC="-177925475">
+			<attribute name="EventRecord" idx="0" type="Trade_TradeEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6598626-1895461" />
+			<attribute name="NewsManager" idx="2" type="NewsManager" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

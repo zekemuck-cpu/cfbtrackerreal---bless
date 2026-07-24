@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_HandleChooseEarlyReturnResponse.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_HandleChooseEarlyReturnResponse" numMembers="3" base="none()" ownerAssetId="6498459" isRecordPersistent="true" isExpr="true" majorVersionCRC="1521451513" minorVersionCRC="819389973">
+			<attribute name="injuredPlayer" idx="0" type="Player" />
+			<attribute name="backupPlayer" idx="1" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

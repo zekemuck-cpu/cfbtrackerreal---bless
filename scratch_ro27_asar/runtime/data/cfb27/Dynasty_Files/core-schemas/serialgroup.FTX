@@ -1,0 +1,52 @@
+<FranTkData fileName="Core-Schemas\SerialGroup.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SerialGroup" numMembers="45" assetId="6210530" isRecordPersistent="true" majorVersionCRC="1094572919" minorVersionCRC="1319510420">
+			<attribute name="League" idx="0" value="0" />
+			<attribute name="StaticFirst_" idx="1" value="0" />
+			<attribute name="SeasonStats" idx="2" value="1" />
+			<attribute name="Tuning" idx="3" value="2" />
+			<attribute name="DraftClass1" idx="4" value="3" />
+			<attribute name="DraftClass2" idx="5" value="4" />
+			<attribute name="DraftClass3" idx="6" value="5" />
+			<attribute name="DraftClass4" idx="7" value="6" />
+			<attribute name="DraftClass5" idx="8" value="7" />
+			<attribute name="DraftClass6" idx="9" value="8" />
+			<attribute name="DraftClass7" idx="10" value="9" />
+			<attribute name="DraftClass8" idx="11" value="10" />
+			<attribute name="DraftClass9" idx="12" value="11" />
+			<attribute name="DraftClass10" idx="13" value="12" />
+			<attribute name="DraftClass11" idx="14" value="13" />
+			<attribute name="DraftClass12" idx="15" value="14" />
+			<attribute name="DraftClass13" idx="16" value="15" />
+			<attribute name="DraftClass14" idx="17" value="16" />
+			<attribute name="DraftClass15" idx="18" value="17" />
+			<attribute name="DraftClass16" idx="19" value="18" />
+			<attribute name="DraftClass17" idx="20" value="19" />
+			<attribute name="DraftClass18" idx="21" value="20" />
+			<attribute name="DraftClass19" idx="22" value="21" />
+			<attribute name="DraftClass20" idx="23" value="22" />
+			<attribute name="DraftClass21" idx="24" value="23" />
+			<attribute name="DraftClass22" idx="25" value="24" />
+			<attribute name="DraftClass23" idx="26" value="25" />
+			<attribute name="DraftClass24" idx="27" value="26" />
+			<attribute name="DraftClass25" idx="28" value="27" />
+			<attribute name="DraftClass26" idx="29" value="28" />
+			<attribute name="DraftClass27" idx="30" value="29" />
+			<attribute name="DraftClass28" idx="31" value="30" />
+			<attribute name="DraftClass29" idx="32" value="31" />
+			<attribute name="DraftClass30" idx="33" value="32" />
+			<attribute name="GeneratorData" idx="34" value="33" />
+			<attribute name="StaticLast_" idx="35" value="63" />
+			<attribute name="ActiveFirst_" idx="36" value="64" />
+			<attribute name="Franchise" idx="37" value="64" />
+			<attribute name="ReferencedByStatic" idx="38" value="65" />
+			<attribute name="TitleUpdate1" idx="39" value="66" />
+			<attribute name="TitleUpdate2" idx="40" value="67" />
+			<attribute name="TitleUpdate3" idx="41" value="68" />
+			<attribute name="TitleUpdate4" idx="42" value="69" />
+			<attribute name="TitleUpdate5" idx="43" value="70" />
+			<attribute name="ActiveLast_" idx="44" value="127" />
+		</enum>
+	</schemas>
+</FranTkData>

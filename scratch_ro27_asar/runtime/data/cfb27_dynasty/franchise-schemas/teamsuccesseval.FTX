@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\TeamSuccessEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamSuccessEval" numMembers="14" base="Module" assetId="6494943" isRecordPersistent="true" majorVersionCRC="-709982704" minorVersionCRC="1871642751">
+			<attribute name="CalculateCurrentSeasonSuccessValue" idx="0" type="TeamSuccessEval_CalculateCurrentSeasonSuccessValue" guid="6494943-1913309" final="true" />
+			<attribute name="CalculateHistoricSuccessComponentValue" idx="1" type="TeamSuccessEval_CalculateHistoricSuccessComponentValue" guid="6494943-1913313" final="true" default="int historicWinWeighted = ((historicStats.NationalChampionshipsWon * 9 + historicStats.NationalChampionshipsMade * 7 + historicStats.ConferenceChampionshipsWon * 5 + historicStats.CFPSMade * 3 + historicStats.Wins * 2 + historicStats.Ties * 1) / 6);&#xD;&#xA;historicWinWeighted;" />
+			<attribute name="CalculateHistoricSuccessValue" idx="2" type="TeamSuccessEval_CalculateHistoricSuccessValue" guid="6494943-1913301" final="true" />
+			<attribute name="CalculateRecentSuccessValue" idx="3" type="TeamSuccessEval_CalculateRecentSuccessValue" guid="6494943-1913305" final="true" />
+			<attribute name="CalculateSeasonSuccessComponentValue" idx="4" type="TeamSuccessEval_CalculateSeasonSuccessComponentValue" guid="6494943-1913317" final="true" default="int winningPercentage = ((seasonStats.WINS * 3 + seasonStats.TIES) * 50) / (seasonStats.WINS + seasonStats.LOSSES + seasonStats.TIES);&#xD;&#xA;int seasonOffYards = seasonStats.OFFRUSHYARDS + seasonStats.OFFPASSYARDS; &#xD;&#xA;int seasonDefYards = seasonStats.DEFPASSYARDS + seasonStats.DEFRUSHYARDS;&#xD;&#xA;int seasonYards = ((seasonOffYards + seasonDefYards) / 100);&#xD;&#xA;int seasonTDS = seasonStats.PASSTDS + seasonStats.RUSHTDS;&#xD;&#xA;int seasonTurnoverDif = (seasonStats.DEFINTS + seasonStats.FUMBLEREC) - (seasonStats.PASSINTS + seasonStats.FUMBLESLOST);&#xD;&#xA;int seasonSacksDif = seasonStats.SACKS - seasonStats.SACKSALLOWED;&#xD;&#xA;&#xD;&#xA;int teamSuccess = (((seasonYards + seasonTDS + seasonTurnoverDif + seasonSacksDif) / 4) * winningPercentage);&#xD;&#xA;teamSuccess;" />
+			<attribute name="CalculateTeamValueComponentValue" idx="5" type="TeamSuccessEval_CalculateTeamValueComponentValue" guid="6494943-1913297" final="true" />
+			<attribute name="CurrentSeasonGamesPlayedWeightModifier" idx="6" type="Spline" />
+			<attribute name="CurrentSeasonWeight" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GetWeightByYearOffsetFromPresent" idx="8" type="TeamSuccessEval_GetWeightByYearOffsetFromPresent" guid="6494943-1913324" final="true" />
+			<attribute name="HistoricWeight" idx="9" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="RecentSeasonWeightsByYear" idx="10" type="int[]" />
+			<attribute name="RecentWeight" idx="11" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="SeasonInfo" idx="12" type="SeasonInfo" />
+			<attribute name="ValidateExpressions" idx="13" type="none()" guid="6494943-1913331" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

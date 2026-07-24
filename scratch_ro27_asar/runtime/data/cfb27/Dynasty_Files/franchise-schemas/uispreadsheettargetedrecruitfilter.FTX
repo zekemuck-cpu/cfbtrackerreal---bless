@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetTargetedRecruitFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetTargetedRecruitFilter" numMembers="3" base="UISpreadsheetIntFilter" defaultStoreCapacity="30" assetId="7742270" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="198" majorVersionCRC="-307934090" minorVersionCRC="636938062">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="Value" idx="2" type="TargetedRecruitFilter" default="TargetedRecruitFilter:All" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\Tweet.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Tweet" numMembers="14" defaultStoreCapacity="101" assetId="5556477" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="474596515" minorVersionCRC="1965808187">
+			<attribute name="AuthorName" idx="0" type="string" maxLen="41" />
+			<attribute name="Category" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CurrentStage" idx="2" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="CurrentWeek" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Identity" idx="4" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="ImageData" idx="5" type="string" maxLen="65" />
+			<attribute name="IsNew" idx="6" type="bool" default="True" />
+			<attribute name="Priority" idx="7" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Published" idx="8" type="bool" default="False" />
+			<attribute name="SeasonWeek" idx="9" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="SeasonYear" idx="10" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="Team" idx="11" type="Team" />
+			<attribute name="Tweet" idx="12" type="string" maxLen="141" />
+			<attribute name="TweetHash" idx="13" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

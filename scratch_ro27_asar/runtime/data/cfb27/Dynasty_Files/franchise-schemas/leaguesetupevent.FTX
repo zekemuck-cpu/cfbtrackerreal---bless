@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\LeagueSetupEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LeagueSetupEvent" numMembers="3" base="Event" assetId="12640443" isRecordPersistent="true" majorVersionCRC="1852305488" minorVersionCRC="633570896">
+			<attribute name="Enqueue" idx="0" type="none()" guid="12640443-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="12640443-1895455" final="true" />
+			<attribute name="SetupHighSchoolTeams" idx="2" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

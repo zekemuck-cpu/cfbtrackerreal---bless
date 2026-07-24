@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\PlayerStrengthsAndWeaknessesType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayerStrengthsAndWeaknessesType" numMembers="2" assetId="12641007" isRecordPersistent="true" majorVersionCRC="422988687" minorVersionCRC="-1512317181">
+			<attribute name="Strength" idx="0" value="0" />
+			<attribute name="Weakness" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

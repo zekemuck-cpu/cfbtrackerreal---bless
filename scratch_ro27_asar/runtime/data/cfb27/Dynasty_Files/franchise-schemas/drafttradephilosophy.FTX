@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\DraftTradePhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftTradePhilosophy" numMembers="9" defaultStoreCapacity="8" assetId="6378216" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-2009390898" minorVersionCRC="-1458214857">
+			<attribute name="AddedValueThreshold" idx="0" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="DraftPickToPickValueSpline" idx="1" type="Spline" />
+			<attribute name="DraftPickToPlayerValueSpline" idx="2" type="Spline" />
+			<attribute name="MaxPackageValueThreshold" idx="3" type="int" minValue="0" maxValue="200" default="120" />
+			<attribute name="MinPackageValueThreshold" idx="4" type="int" minValue="0" maxValue="200" default="100" />
+			<attribute name="TradeChanceModifierPerRound" idx="5" type="int[]" />
+			<attribute name="TradeDownChanceSpline" idx="6" type="Spline" />
+			<attribute name="TradeUpChanceSpline" idx="7" type="Spline" />
+			<attribute name="TradeValueThreshold" idx="8" type="int" minValue="0" maxValue="200" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

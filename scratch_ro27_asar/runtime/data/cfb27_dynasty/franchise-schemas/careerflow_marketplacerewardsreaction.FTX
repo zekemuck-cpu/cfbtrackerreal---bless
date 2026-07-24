@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CareerFlow_MarketplaceRewardsReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerFlow_MarketplaceRewardsReaction" numMembers="4" base="Reaction" assetId="6499291" isRecordPersistent="true" majorVersionCRC="-1491221868" minorVersionCRC="-834258604">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="MarketplaceRewardsEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6499291-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

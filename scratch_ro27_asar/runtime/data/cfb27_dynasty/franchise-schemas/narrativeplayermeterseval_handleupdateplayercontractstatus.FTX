@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersEval_HandleUpdatePlayerContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersEval_HandleUpdatePlayerContractStatus" numMembers="2" base="none()" ownerAssetId="7692449" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1473554864" minorVersionCRC="-1476057084">
+			<attribute name="event" idx="0" type="Player_UpdatePlayerContractStatusEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

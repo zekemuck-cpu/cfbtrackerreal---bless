@@ -1,0 +1,30 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGoalsTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGoalsTuning" numMembers="19" base="BaseTuning" defaultStoreCapacity="1" assetId="9834442" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="0" defaultStoreOptimizationName="Fast" majorVersionCRC="1200791720" minorVersionCRC="-64971771">
+			<attribute name="ConfChange0Goals" idx="0" type="int" minValue="-5" maxValue="5" default="0" />
+			<attribute name="ConfChange1Goals" idx="1" type="int" minValue="-5" maxValue="5" default="0" />
+			<attribute name="ConfChange2Goals" idx="2" type="int" minValue="-5" maxValue="5" default="0" />
+			<attribute name="ConfChange3Goals" idx="3" type="int" minValue="-5" maxValue="5" default="0" />
+			<attribute name="DevelopmentTraitXPModifer" idx="4" type="int[]" />
+			<attribute name="DynamicGoal_Conf_High" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_Conf_Low" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_Conf_Medium" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_Conf_VeryHigh" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_Conf_VeryLow" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_XP_High" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_XP_Low" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_XP_Medium" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_XP_VeryHigh" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DynamicGoal_XP_VeryLow" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GetQuarterLengthXPScalePercentage" idx="15" type="PlayerGoalsTuning_GetQuarterLengthXPScalePercentage" guid="9834442-2341024" final="true" default="int percentage = QuarterLengthXPSpline.CalculateY(quarterLength);&#xD;&#xA;percentage;" />
+			<attribute name="GoalNotificationXPThreshold" idx="16" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="MaxConfidenceStreak" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="QuarterLengthXPSpline" idx="18" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

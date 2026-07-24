@@ -1,0 +1,46 @@
+<FranTkData fileName="Franchise-Schemas\PrologueProgress.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PrologueProgress" numMembers="39" defaultStoreCapacity="1" assetId="6498720" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-260765440" minorVersionCRC="12672410">
+			<attribute name="AgreeableRating" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AvatarBodyType" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AvatarPlayerClass" idx="2" type="string" maxLen="41" />
+			<attribute name="CheckPoint" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CollegeExperienceInfo" idx="4" type="CollegeExperienceInfo" />
+			<attribute name="CombineAnswer1" idx="5" type="int" minValue="-1" maxValue="3" default="-1" />
+			<attribute name="CombineAnswer2A" idx="6" type="int" minValue="-1" maxValue="3" default="-1" />
+			<attribute name="CombineAnswer2B" idx="7" type="int" minValue="-1" maxValue="3" default="-1" />
+			<attribute name="CurrentActivity" idx="8" type="string" maxLen="65" />
+			<attribute name="DidChooseSideActivity" idx="9" type="bool" default="False" />
+			<attribute name="DidPlayHawaiiGame" idx="10" type="bool" default="False" />
+			<attribute name="DidSkipSideActivity" idx="11" type="bool" default="False" />
+			<attribute name="DraftPick" idx="12" type="int" minValue="0" maxValue="100" default="32" />
+			<attribute name="DraftRound" idx="13" type="int" minValue="0" maxValue="100" default="7" />
+			<attribute name="DraftTeam" idx="14" type="Team" />
+			<attribute name="DraftTeamPresentationId" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="EntertainerRating" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FeatureCategory" idx="17" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="FitnessComposureChangeModifier" idx="18" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="IntenseRating" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IsComplete" idx="20" type="bool" default="False" />
+			<attribute name="JerseyNumber" idx="21" type="int" minValue="0" maxValue="100" default="19" />
+			<attribute name="LastActivity" idx="22" type="string" maxLen="65" />
+			<attribute name="LeaderRating" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeadershipComposureChangeModifier" idx="24" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="OriginalFirstName" idx="25" type="string" maxLen="21" />
+			<attribute name="OriginalLastName" idx="26" type="string" maxLen="21" />
+			<attribute name="PerfectionistRating" idx="27" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayerClassDisplayName" idx="28" type="string" maxLen="41" />
+			<attribute name="Position" idx="29" type="PositionE" default="PositionE:QB" />
+			<attribute name="SanitizedFirstName" idx="30" type="string" maxLen="21" />
+			<attribute name="SanitizedLastName" idx="31" type="string" maxLen="21" />
+			<attribute name="Sequence" idx="32" type="int" minValue="0" maxValue="9999" default="0" />
+			<attribute name="StoryNarrativeCharacter1" idx="33" type="Player" />
+			<attribute name="SuperstarPlayer" idx="34" type="Player" />
+			<attribute name="SuperstarPlayerTeam" idx="35" type="Team" />
+			<attribute name="TeamPlayerRating" idx="36" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TempBuffsApplied" idx="37" type="int[]" />
+			<attribute name="UnpredictableRating" idx="38" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\BranchingStoryBranch.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BranchingStoryBranch" numMembers="16" assetId="6498518" isRecordPersistent="true" majorVersionCRC="-1082884334" minorVersionCRC="-806585884">
+			<attribute name="ApplyCharacterImpact" idx="0" type="BranchingStoryBranch_ApplyCharacterImpact" guid="6498518-1925275" />
+			<attribute name="Branch1" idx="1" type="BranchingStoryBranch" />
+			<attribute name="Branch1Chance" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Branch2" idx="3" type="BranchingStoryBranch" />
+			<attribute name="Branch2Chance" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Branch3" idx="5" type="BranchingStoryBranch" />
+			<attribute name="Branch3Chance" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ClampGrade" idx="7" type="BranchingStoryBranch_ClampGrade" guid="6498518-1925302" final="true" default="//Clamp a grade value in the 0 to 99 range&#xD;&#xA;int newValue = gradeValue;&#xD;&#xA;if (newValue &gt; 99)&#xD;&#xA;{&#xD;&#xA;  newValue = 99;&#xD;&#xA;}&#xD;&#xA;else if (newValue &lt; 0)&#xD;&#xA;{&#xD;&#xA;  newValue = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;newValue;&#xD;&#xA;" />
+			<attribute name="ClampRating" idx="8" type="BranchingStoryBranch_ClampRating" guid="6498518-1925294" final="true" default="//Clamp a player rating in the 15 to 99 range&#xD;&#xA;int newValue = ratingValue;&#xD;&#xA;if (newValue &gt; 99)&#xD;&#xA;{&#xD;&#xA;  newValue = 99; &#xD;&#xA;}&#xD;&#xA;else if (newValue &lt; 15)&#xD;&#xA;{&#xD;&#xA;  newValue = 15;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;newValue;&#xD;&#xA;" />
+			<attribute name="ClampTrait" idx="9" type="BranchingStoryBranch_ClampTrait" guid="6498518-1925298" final="true" default="//Clamp a trait value in the 1 to 7 range&#xD;&#xA;int newValue = traitValue;&#xD;&#xA;if (newValue &gt; 7)&#xD;&#xA;{&#xD;&#xA;  newValue = 7;&#xD;&#xA;}&#xD;&#xA;else if (newValue &lt; 1)&#xD;&#xA;{&#xD;&#xA;  newValue = 1;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;newValue;&#xD;&#xA;" />
+			<attribute name="EvaluateImmediately" idx="10" type="bool" default="False" />
+			<attribute name="Event" idx="11" type="BranchingStoryEvent" default="BranchingStoryEvent:RegularSeasonWeek1" />
+			<attribute name="ModifyAudioByPositionalGroup" idx="12" type="bool" default="True" />
+			<attribute name="PrimaryDraftPlayerChangeStatus" idx="13" type="DraftChangeStatus" default="DraftChangeStatus:NoChange" />
+			<attribute name="SecondaryDraftPlayerChangeStatus" idx="14" type="DraftChangeStatus" default="DraftChangeStatus:NoChange" />
+			<attribute name="StoryId" idx="15" type="int" minValue="0" maxValue="5000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

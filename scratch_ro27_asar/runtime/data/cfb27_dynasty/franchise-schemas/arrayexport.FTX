@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\ArrayExport.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ArrayExport" numMembers="4" assetId="6709340" isRecordPersistent="true" majorVersionCRC="1712173927" minorVersionCRC="253350890">
+			<attribute name="PlayerAbilityAdjustment" idx="0" type="PlayerAbilityAdjustment[]" />
+			<attribute name="PlayerAbilityCorrelations" idx="1" type="PlayerAbilityCorrelation[]" />
+			<attribute name="PlayerAbilityRanges" idx="2" type="PlayerAbilityRanges[]" />
+			<attribute name="PlayerStrengthsAndWeaknessesTunings" idx="3" type="PlayerStrengthsAndWeaknessesConfig[]" />
+		</schema>
+	</schemas>
+</FranTkData>

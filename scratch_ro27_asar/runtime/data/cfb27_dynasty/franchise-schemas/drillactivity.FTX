@@ -1,0 +1,30 @@
+<FranTkData fileName="Franchise-Schemas\DrillActivity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\Activity.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DrillActivity" numMembers="19" base="Activity" defaultStoreCapacity="1" assetId="6377919" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="0" defaultStoreOptimizationName="Fast" defaultStoreStringCapacity="88" majorVersionCRC="2131831604" minorVersionCRC="519771268">
+			<attribute name="ActivityType" idx="0" type="ActivityType" default="ActivityType:XP" />
+			<attribute name="BaseConfidenceValue" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BaseExperienceValue" idx="2" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="BeginWeekType" idx="3" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="CostPerPlayer" idx="4" type="int" minValue="0" maxValue="60" default="0" />
+			<attribute name="CostType" idx="5" type="ConsumableTypeEnum" default="ConsumableTypeEnum:Hours" />
+			<attribute name="Description" idx="6" type="string" maxLen="126" />
+			<attribute name="DrillAsset" idx="7" type="string" maxLen="31" />
+			<attribute name="DrillAssetMaxRandomIndex" idx="8" type="int" minValue="0" maxValue="99" default="0" />
+			<attribute name="EndWeekType" idx="9" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="GameplanTokenDescription" idx="10" type="string" maxLen="1" />
+			<attribute name="ImageId" idx="11" type="int" minValue="0" maxValue="254" default="0" />
+			<attribute name="InGameAbilityBoost" idx="12" type="InGameAbilityBoost" />
+			<attribute name="IsOpposingTeamRequired" idx="13" type="bool" default="False" />
+			<attribute name="PositionGroupFirst" idx="14" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="PositionGroupLast" idx="15" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="PresentationId" idx="16" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="Title" idx="17" type="string" maxLen="33" />
+			<attribute name="TutorialAsset" idx="18" type="string" maxLen="31" />
+		</schema>
+	</schemas>
+</FranTkData>

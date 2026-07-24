@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\SchoolYear.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SchoolYear" numMembers="8" assetId="6983443" isRecordPersistent="true" majorVersionCRC="-1610662670" minorVersionCRC="-1729331172">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Freshman" idx="1" value="0" />
+			<attribute name="Sophomore" idx="2" value="1" />
+			<attribute name="Junior" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="3" />
+			<attribute name="Senior" idx="5" value="3" />
+			<attribute name="Count_" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,52 @@
+<FranTkData fileName="Franchise-Schemas\DepthChart.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChart" numMembers="45" base="Module" assetId="6378775" isRecordPersistent="true" majorVersionCRC="1279387149" minorVersionCRC="1002546394">
+			<attribute name="3DRB" idx="0" type="Player[]" />
+			<attribute name="C" idx="1" type="Player[]" />
+			<attribute name="CB" idx="2" type="Player[]" />
+			<attribute name="Clear" idx="3" type="none()" guid="6378775-1909074" final="true" />
+			<attribute name="ClearPosition" idx="4" type="DepthChart_ClearPosition" guid="6378775-1909077" final="true" />
+			<attribute name="DT" idx="5" type="Player[]" />
+			<attribute name="FB" idx="6" type="Player[]" />
+			<attribute name="FS" idx="7" type="Player[]" />
+			<attribute name="GAD" idx="8" type="Player[]" />
+			<attribute name="GetPlayer" idx="9" type="DepthChart_GetPlayer" guid="6378775-1909059" final="true" />
+			<attribute name="GetPlayerDepth" idx="10" type="DepthChart_GetPlayerDepth" guid="6378775-1909091" final="true" />
+			<attribute name="GetPlayers" idx="11" type="DepthChart_GetPlayers" guid="6378775-1909055" final="true" />
+			<attribute name="HB" idx="12" type="Player[]" />
+			<attribute name="InsertPlayer" idx="13" type="DepthChart_InsertPlayer" guid="6378775-1909064" final="true" />
+			<attribute name="IsPlayerListed" idx="14" type="DepthChart_IsPlayerListed" guid="6378775-1909081" final="true" />
+			<attribute name="IsPlayerStarting" idx="15" type="DepthChart_IsPlayerStarting" guid="6378775-1909086" final="true" />
+			<attribute name="K" idx="16" type="Player[]" />
+			<attribute name="KOS" idx="17" type="Player[]" />
+			<attribute name="KR" idx="18" type="Player[]" />
+			<attribute name="LE" idx="19" type="Player[]" />
+			<attribute name="LG" idx="20" type="Player[]" />
+			<attribute name="LockedEntries" idx="21" type="ForcedDepthChartEntry[]" />
+			<attribute name="LOLB" idx="22" type="Player[]" />
+			<attribute name="LS" idx="23" type="Player[]" />
+			<attribute name="LT" idx="24" type="Player[]" />
+			<attribute name="MLB" idx="25" type="Player[]" />
+			<attribute name="NT" idx="26" type="Player[]" />
+			<attribute name="P" idx="27" type="Player[]" />
+			<attribute name="PR" idx="28" type="Player[]" />
+			<attribute name="PWHB" idx="29" type="Player[]" />
+			<attribute name="QB" idx="30" type="Player[]" />
+			<attribute name="RDT" idx="31" type="Player[]" />
+			<attribute name="RE" idx="32" type="Player[]" />
+			<attribute name="RemovePlayer" idx="33" type="DepthChart_RemovePlayer" guid="6378775-1909070" final="true" />
+			<attribute name="RG" idx="34" type="Player[]" />
+			<attribute name="RLE" idx="35" type="Player[]" />
+			<attribute name="ROLB" idx="36" type="Player[]" />
+			<attribute name="RRE" idx="37" type="Player[]" />
+			<attribute name="RT" idx="38" type="Player[]" />
+			<attribute name="SLCB" idx="39" type="Player[]" />
+			<attribute name="SLWR" idx="40" type="Player[]" />
+			<attribute name="SS" idx="41" type="Player[]" />
+			<attribute name="SUBLB" idx="42" type="Player[]" />
+			<attribute name="TE" idx="43" type="Player[]" />
+			<attribute name="WR" idx="44" type="Player[]" />
+		</schema>
+	</schemas>
+</FranTkData>

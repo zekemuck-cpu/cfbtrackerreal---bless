@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SwitchFranchiseStyleEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SwitchFranchiseStyleEvent" numMembers="4" base="Event" assetId="6494646" isRecordPersistent="true" majorVersionCRC="460026852" minorVersionCRC="522047657">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6494646-1895458" final="true" />
+			<attribute name="NewFranchiseStyle" idx="1" type="FranchiseStyle" default="FranchiseStyle:Classic" />
+			<attribute name="Send" idx="2" type="none()" guid="6494646-1895455" final="true" />
+			<attribute name="User" idx="3" type="User" />
+		</schema>
+	</schemas>
+</FranTkData>

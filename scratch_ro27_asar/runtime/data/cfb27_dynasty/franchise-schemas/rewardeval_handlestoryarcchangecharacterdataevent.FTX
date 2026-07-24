@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RewardEval_HandleStoryArcChangeCharacterDataEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RewardEval_HandleStoryArcChangeCharacterDataEvent" numMembers="2" base="none()" ownerAssetId="6499231" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1540798216" minorVersionCRC="-1874813870">
+			<attribute name="event" idx="0" type="StoryArcChangeCharacterDataEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

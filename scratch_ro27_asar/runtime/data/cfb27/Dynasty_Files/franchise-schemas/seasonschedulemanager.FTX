@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\SeasonScheduleManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonScheduleManager" numMembers="16" base="Module" assetId="6378772" isRecordPersistent="true" majorVersionCRC="1175622784" minorVersionCRC="-2031966472">
+			<attribute name="Cities" idx="0" type="City[]" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="GenerateSchedules" idx="2" type="none()" guid="6378772-1909020" final="true" />
+			<attribute name="HighSchoolCity" idx="3" type="City" />
+			<attribute name="HighSchoolDepthChartPool" idx="4" type="DepthChart[]" />
+			<attribute name="HighSchoolSchedule" idx="5" type="ScheduleKnownGame[]" />
+			<attribute name="HighSchoolSeasonGame" idx="6" type="SeasonGame" />
+			<attribute name="HighSchoolStadium" idx="7" type="Stadium" />
+			<attribute name="HighSchoolTeam" idx="8" type="Team" />
+			<attribute name="HighSchoolTeamAppearances" idx="9" type="TeamAppearance[]" />
+			<attribute name="Random" idx="10" type="Random" />
+			<attribute name="ScheduleKnownGames" idx="11" type="ScheduleKnownGames[]" />
+			<attribute name="Schedules" idx="12" type="SeasonGame[]" />
+			<attribute name="ScheduleStructure" idx="13" type="ScheduleStructure" />
+			<attribute name="TranslateSchedules" idx="14" type="none()" guid="6378772-1909023" final="true" />
+			<attribute name="TunableRuleSets" idx="15" type="SeasonScheduleManager.SeasonScheduleTunableData[]" />
+		</schema>
+	</schemas>
+</FranTkData>

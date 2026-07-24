@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\RivalryManager_GameEndEventReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RivalryManager_GameEndEventReaction" numMembers="4" base="Reaction" assetId="6809451" isRecordPersistent="true" majorVersionCRC="1534118510" minorVersionCRC="1545602581">
+			<attribute name="EventRecord" idx="0" type="GameEndEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6809451-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="RivalryManager" idx="3" type="RivalryManager" />
+		</schema>
+	</schemas>
+</FranTkData>

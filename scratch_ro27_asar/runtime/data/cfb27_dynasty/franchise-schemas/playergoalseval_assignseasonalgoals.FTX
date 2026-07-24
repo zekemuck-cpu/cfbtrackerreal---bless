@@ -1,0 +1,6 @@
+<!--SCHEMAS-->
+<schemas>
+	<schema name="PlayerGoalsEval_AssignSeasonalGoals" numMembers="2" base="none()" ownerAssetId="6498442" isRecordPersistent="true" isExpr="true">
+		<attribute name="team" idx="0" type="Team" />
+	</schema>
+</schemas>

@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CoachDetailsFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CoachDetailsFlow" numMembers="15" base="FranTkServer_Flow" assetId="6499343" isRecordPersistent="true" majorVersionCRC="-760083258" minorVersionCRC="-225140">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="CoachTypeEnumTable" idx="1" type="EnumTable" />
+			<attribute name="ContractExpectationsEnumTable" idx="2" type="EnumTable" />
+			<attribute name="DefensivePlaybookArray" idx="3" type="DefensivePlaybookDataType[]" />
+			<attribute name="Form" idx="4" type="UIForm" />
+			<attribute name="FormManager" idx="5" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="6" type="Franchise" />
+			<attribute name="JobSecurityEnumTable" idx="7" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="8" type="EnumTable" />
+			<attribute name="OffensivePlaybookArray" idx="9" type="OffensivePlaybookDataType[]" />
+			<attribute name="RequestServer" idx="10" type="RequestServer" />
+			<attribute name="SchemeEnumTable" idx="11" type="EnumTable" />
+			<attribute name="StaffHiringEval" idx="12" type="StaffHiringEval" />
+			<attribute name="StaffPositionEnumTable" idx="13" type="EnumTable" />
+			<attribute name="UserRegistry" idx="14" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

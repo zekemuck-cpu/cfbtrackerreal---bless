@@ -1,0 +1,36 @@
+<FranTkData fileName="Franchise-Schemas\TeamHistoricalData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamHistoricalData" numMembers="29" assetId="10604474" isRecordPersistent="true" majorVersionCRC="674702143" minorVersionCRC="-807243400">
+			<attribute name="AllAmericans1stAnd2nd" idx="0" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="BowlsMade" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BowlsWon" idx="2" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CFPSMade" idx="3" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CFPSWon" idx="4" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ConferenceChampionshipsMade" idx="5" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="ConferenceChampionshipsWon" idx="6" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="CurrentHomeWinStreak" idx="7" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="HeismanWinners" idx="8" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="HomeLosses" idx="9" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="HomeTies" idx="10" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="HomeWins" idx="11" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="LongestHomeWinStreak" idx="12" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Losses" idx="13" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="NationalChampionshipsMade" idx="14" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="NationalChampionshipsWon" idx="15" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="NY6BowlsMade" idx="16" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="NY6BowlsWon" idx="17" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PlayersDrafted" idx="18" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RivalryLosses" idx="19" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RivalryWins" idx="20" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="TeamSeriesHistory" idx="21" type="TeamHistoricSeriesYear[]" />
+			<attribute name="Ties" idx="22" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="Top10RecruitingClasses" idx="23" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Top25RecruitingClasses" idx="24" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Top5RecruitingClasses" idx="25" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TopRecruitingClasses" idx="26" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="WeeksRankedTop25InMediaPoll" idx="27" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="Wins" idx="28" type="int" minValue="0" maxValue="2047" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

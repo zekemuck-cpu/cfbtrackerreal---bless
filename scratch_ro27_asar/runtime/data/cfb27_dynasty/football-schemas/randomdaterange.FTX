@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\RandomDateRange.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\PropertySetterBase.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RandomDateRange" numMembers="2" base="PropertySetterBase" assetId="6702157" isRecordPersistent="true" majorVersionCRC="19619062" minorVersionCRC="337125002">
+			<attribute name="MaximumDate" idx="0" type="int" minValue="0" maxValue="44195" default="34433" />
+			<attribute name="MinimumDate" idx="1" type="int" minValue="0" maxValue="44195" default="32587" />
+		</schema>
+	</schemas>
+</FranTkData>

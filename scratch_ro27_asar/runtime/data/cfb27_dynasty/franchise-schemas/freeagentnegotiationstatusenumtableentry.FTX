@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\FreeAgentNegotiationStatusEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FreeAgentNegotiationStatusEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="6" assetId="6570291" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="0" defaultStoreOptimizationName="Fast" defaultStoreStringCapacity="321" majorVersionCRC="-1035029481" minorVersionCRC="-606179338">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="FreeAgentNegotiationStatus" default="FreeAgentNegotiationStatus:Available" />
+		</schema>
+	</schemas>
+</FranTkData>

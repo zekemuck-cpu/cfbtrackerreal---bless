@@ -1,0 +1,30 @@
+<FranTkData fileName="Franchise-Schemas\CoachRecruitingGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachMilestoneGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachRecruitingGoal" numMembers="19" base="CoachMilestoneGoal" defaultStoreCapacity="8" assetId="8532637" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="262" majorVersionCRC="-1926662209" minorVersionCRC="-1985835652">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachExperienceAward" idx="1" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="CoachPrestigeScore" idx="2" type="int" minValue="-1000" maxValue="1000" default="0" />
+			<attribute name="CompletionValue" idx="3" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="Description" idx="4" type="string" maxLen="81" />
+			<attribute name="DynastyPointAward" idx="5" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="FromStats" idx="6" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="7" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="8" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="9" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="10" type="bool" default="False" />
+			<attribute name="LegacyScoreAward" idx="11" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="12" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="13" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="14" type="string" maxLen="31" />
+			<attribute name="RecruitGoalType" idx="15" type="RecruitGoalType" default="RecruitGoalType:First_" />
+			<attribute name="SendEvent" idx="16" type="bool" default="False" />
+			<attribute name="StaffPointAward" idx="17" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="Title" idx="18" type="string" maxLen="61" />
+		</schema>
+	</schemas>
+</FranTkData>

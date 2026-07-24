@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ComebackPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ComebackPlayer" numMembers="2" assetId="6495046" isRecordPersistent="true" majorVersionCRC="-221041416" minorVersionCRC="-573086623">
+			<attribute name="ComebackChance" idx="0" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="Player" idx="1" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

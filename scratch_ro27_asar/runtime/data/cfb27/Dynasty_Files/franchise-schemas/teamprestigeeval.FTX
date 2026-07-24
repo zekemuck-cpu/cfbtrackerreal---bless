@@ -1,0 +1,36 @@
+<FranTkData fileName="Franchise-Schemas\TeamPrestigeEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamPrestigeEval" numMembers="29" base="Module" assetId="6495397" isRecordPersistent="true" majorVersionCRC="-748389712" minorVersionCRC="241743035">
+			<attribute name="AGrade" idx="0" type="string" maxLen="2" default="A" />
+			<attribute name="AMinusGrade" idx="1" type="string" maxLen="3" default="A-" />
+			<attribute name="APlusGrade" idx="2" type="string" maxLen="3" default="A+" />
+			<attribute name="BGrade" idx="3" type="string" maxLen="2" default="B" />
+			<attribute name="BMinusGrade" idx="4" type="string" maxLen="3" default="B-" />
+			<attribute name="BPlusGrade" idx="5" type="string" maxLen="3" default="B+" />
+			<attribute name="CalculateDefensiveRating" idx="6" type="TeamPrestigeEval_CalculateDefensiveRating" guid="6495397-1922957" final="true" />
+			<attribute name="CalculateOffensiveRating" idx="7" type="TeamPrestigeEval_CalculateOffensiveRating" guid="6495397-1922953" final="true" />
+			<attribute name="CalculateSpecialTeamRating" idx="8" type="TeamPrestigeEval_CalculateSpecialTeamRating" guid="6495397-1922961" final="true" />
+			<attribute name="CalculateTeamPrestige" idx="9" type="TeamPrestigeEval_CalculateTeamPrestige" guid="6495397-1922924" final="true" default="// this expression is deprecated, Use RosterEval::CalculateTeamOverallRating&#xD;&#xA;RosterEval.CalculateTeamOverallRating(team);" />
+			<attribute name="CGrade" idx="10" type="string" maxLen="2" default="C" />
+			<attribute name="CMinusGrade" idx="11" type="string" maxLen="3" default="C-" />
+			<attribute name="CoachWeight" idx="12" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="CPlusGrade" idx="13" type="string" maxLen="3" default="C+" />
+			<attribute name="DefensiveWeight" idx="14" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="DGrade" idx="15" type="string" maxLen="2" default="D" />
+			<attribute name="DMinusGrade" idx="16" type="string" maxLen="3" default="D-" />
+			<attribute name="DPlusGrade" idx="17" type="string" maxLen="3" default="D+" />
+			<attribute name="FGrade" idx="18" type="string" maxLen="2" default="F" />
+			<attribute name="FMinusGrade" idx="19" type="string" maxLen="3" default="F-" />
+			<attribute name="FPlusGrade" idx="20" type="string" maxLen="3" default="F+" />
+			<attribute name="GetLetterGradeFromRank" idx="21" type="TeamPrestigeEval_GetLetterGradeFromRank" guid="6495397-1922949" final="true" default="// this expression is deprecated, Use RosterEval::GetLetterGradeFromRank&#xD;&#xA;RosterEval.GetLetterGradeFromRank(rank);" />
+			<attribute name="OffensiveWeight" idx="22" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="PlayerGradeEval" idx="23" type="PlayerGradeEval" />
+			<attribute name="PositionStrengthLetterGradeSpline" idx="24" type="Spline" />
+			<attribute name="RosterEval" idx="25" type="RosterEval" />
+			<attribute name="SpecialTeamsWeight" idx="26" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="TeamHistoryWeight" idx="27" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="ValidateExpressions" idx="28" type="none()" guid="6495397-1922967" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,31 @@
+<FranTkData fileName="Franchise-Schemas\MetersPotentialAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MetersPotentialAction" numMembers="24" defaultStoreCapacity="323" assetId="7709527" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="318" majorVersionCRC="-1416891932" minorVersionCRC="-933741182">
+			<attribute name="Action" idx="0" type="NarrativePlayerMeterAction" default="NarrativePlayerMeterAction:Invalid_" />
+			<attribute name="CoachHappinessChange" idx="1" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="ContentMultiplierChange" idx="2" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="Description" idx="3" type="string" maxLen="1" />
+			<attribute name="EndOfWeekAcademicsChange" idx="4" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="EndOfWeekContentMultiplierChange" idx="5" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="EndOfWeekFollowersChange" idx="6" type="int" minValue="-1000000" maxValue="1000000" default="0" />
+			<attribute name="EndOfWeekLeadershipChange" idx="7" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="EndOfWeekTestReadinessChange" idx="8" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="EnergyCost" idx="9" type="int" minValue="-10" maxValue="10" default="0" />
+			<attribute name="FatigueChance" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FatigueChange" idx="11" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="FitnessScoreChange" idx="12" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="FollowersChange" idx="13" type="int" minValue="-4000000" maxValue="4000000" default="0" />
+			<attribute name="LeadershipChange" idx="14" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="MaxFollowersChange" idx="15" type="int" minValue="0" maxValue="2500000" default="2500000" />
+			<attribute name="RatingAffected" idx="16" type="PlayerAbility" default="PlayerAbility:Acceleration" />
+			<attribute name="RatingChange" idx="17" type="int" minValue="-10" maxValue="10" default="0" />
+			<attribute name="SkillPointChange" idx="18" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="TestReadinessScoreChange" idx="19" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="WearAndTearBodyPart" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WearAndTearChance" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WearAndTearChange" idx="22" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="XPChange" idx="23" type="int" minValue="-2000" maxValue="5000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

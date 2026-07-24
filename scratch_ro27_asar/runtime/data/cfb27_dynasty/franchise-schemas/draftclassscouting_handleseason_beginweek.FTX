@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassScouting_HandleSeason_BeginWeek.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassScouting_HandleSeason_BeginWeek" numMembers="2" base="none()" ownerAssetId="6708687" isRecordPersistent="true" isExpr="true" majorVersionCRC="766896849" minorVersionCRC="-2049900736">
+			<attribute name="event" idx="0" type="Season_BeginWeekEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

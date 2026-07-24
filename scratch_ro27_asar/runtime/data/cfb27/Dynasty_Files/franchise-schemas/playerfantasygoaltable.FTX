@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayerFantasyGoalTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerFantasyGoalTable" numMembers="4" defaultStoreCapacity="1" assetId="6494671" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1892887624" minorVersionCRC="205899645">
+			<attribute name="DefensiveGoals" idx="0" type="PlayerGoal[]" />
+			<attribute name="KickingGoals" idx="1" type="PlayerGoal[]" />
+			<attribute name="OffensiveGoals" idx="2" type="PlayerGoal[]" />
+			<attribute name="OLineGoals" idx="3" type="PlayerGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

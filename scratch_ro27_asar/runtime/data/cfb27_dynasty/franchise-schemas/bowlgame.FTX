@@ -1,0 +1,38 @@
+<FranTkData fileName="Franchise-Schemas\BowlGame.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\BowlInfo.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BowlGame" numMembers="27" base="BowlInfo" defaultStoreCapacity="45" assetId="6816679" defaultStoreGroupId="65" isRecordPersistent="true" defaultStoreGroupName="ReferencedByStatic" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-227197844" minorVersionCRC="-476811701">
+			<attribute name="AssetName" idx="0" type="string" maxLen="32" />
+			<attribute name="BOWL_PRIMARY_COLOR_B" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_PRIMARY_COLOR_G" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_PRIMARY_COLOR_R" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_SECONDARY_COLOR_B" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_SECONDARY_COLOR_G" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_SECONDARY_COLOR_R" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_TERTIARY_COLOR_B" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_TERTIARY_COLOR_G" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BOWL_TERTIARY_COLOR_R" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BowlLogoId" idx="10" type="int" minValue="0" maxValue="115" default="0" />
+			<attribute name="CanPlayXmas" idx="11" type="bool" default="False" />
+			<attribute name="Conference1" idx="12" type="Conference" />
+			<attribute name="Conference1Rank" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Conference2" idx="14" type="Conference" />
+			<attribute name="Conference2Rank" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DaysOffset" idx="16" type="int" minValue="0" maxValue="18" default="0" />
+			<attribute name="GameTime" idx="17" type="GameTimeRange" default="GameTimeRange:DAY_FIRST" />
+			<attribute name="IsPlayoffBowl" idx="18" type="bool" default="False" />
+			<attribute name="Name" idx="19" type="string" maxLen="33" />
+			<attribute name="NoSatNoSun" idx="20" type="bool" default="False" />
+			<attribute name="PlayoffBracketSlot" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PresentationId" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RelativeAppt" idx="23" type="Scheduler.Appointment" />
+			<attribute name="ShouldPlayNewYears" idx="24" type="bool" default="False" />
+			<attribute name="Stadium" idx="25" type="Stadium" />
+			<attribute name="Trophy" idx="26" type="Trophy" />
+		</schema>
+	</schemas>
+</FranTkData>

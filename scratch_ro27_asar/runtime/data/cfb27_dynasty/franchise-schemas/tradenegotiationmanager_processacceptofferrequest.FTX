@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TradeNegotiationManager_ProcessAcceptOfferRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeNegotiationManager_ProcessAcceptOfferRequest" numMembers="3" base="none()" ownerAssetId="6495355" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1618110136" minorVersionCRC="-2040608301">
+			<attribute name="request" idx="0" type="TradeAcceptOfferRequest" />
+			<attribute name="negotiation" idx="1" type="TradeNegotiation" />
+		</schema>
+	</schemas>
+</FranTkData>

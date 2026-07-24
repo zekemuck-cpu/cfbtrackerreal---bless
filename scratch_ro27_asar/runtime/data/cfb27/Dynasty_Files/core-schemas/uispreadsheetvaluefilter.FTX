@@ -1,0 +1,13 @@
+<FranTkData fileName="Core-Schemas\UISpreadsheetValueFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetValueFilter" numMembers="2" base="UISpreadsheetFilter" assetId="6210721" isRecordPersistent="true" majorVersionCRC="1436627282" minorVersionCRC="-1248134846">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+		</schema>
+	</schemas>
+</FranTkData>

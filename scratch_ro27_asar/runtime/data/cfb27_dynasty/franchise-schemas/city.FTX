@@ -1,0 +1,37 @@
+<FranTkData fileName="Franchise-Schemas\City.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="City" numMembers="26" base="Enum" assetId="6377677" isRecordPersistent="true" majorVersionCRC="2139860805" minorVersionCRC="539546247">
+			<attribute name="CITY_AVGTEMPJAN" idx="0" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_AVGTEMPSEPT" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_FALLPRECIPPCT" idx="2" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="CITY_NEWSPAPER" idx="3" type="string" maxLen="65" />
+			<attribute name="CITY_OWNERMODE" idx="4" type="bool" default="True" />
+			<attribute name="CITY_POPULATION" idx="5" type="int" minValue="0" maxValue="33554431" default="0" />
+			<attribute name="CITY_REGION" idx="6" type="CityRegion" default="CityRegion:South" />
+			<attribute name="CITY_STATE" idx="7" type="string" maxLen="16" />
+			<attribute name="CITY_TEAMDESIRE" idx="8" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_TEMPVARIANCE" idx="9" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_TIMEZONE" idx="10" type="TimeZone" default="TimeZone:Pacific" />
+			<attribute name="CITY_WEATHERFAIRPCT" idx="11" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_WEATHERRAINPCT" idx="12" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_WEATHERSNOWPCT" idx="13" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_WEATHERWINDYPCT" idx="14" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CITY_WINTERPRECIPPCT" idx="15" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CostOfLiving" idx="16" type="int" minValue="0" maxValue="511" default="100" />
+			<attribute name="Latitude" idx="17" type="float" default="0" />
+			<attribute name="Longitude" idx="18" type="float" default="0" />
+			<attribute name="Name" idx="19" type="string" maxLen="23" />
+			<attribute name="OWNER_CITY_ID" idx="20" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Personality" idx="21" type="CityPersonality" default="CityPersonality:FairWeather" />
+			<attribute name="PresentationId" idx="22" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Size" idx="23" type="CitySize" default="CitySize:CitySize1" />
+			<attribute name="State" idx="24" type="StateName" default="StateName:Alabama" />
+			<attribute name="WeatherInfo" idx="25" type="WeatherInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

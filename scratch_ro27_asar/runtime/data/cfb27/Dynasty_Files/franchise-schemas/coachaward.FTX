@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\CoachAward.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\Award.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachAward" numMembers="5" base="Award" defaultStoreCapacity="62" assetId="6708693" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1096300909" minorVersionCRC="-297462211">
+			<attribute name="AwardType" idx="0" type="AwardType" default="AwardType:First_" />
+			<attribute name="Coach" idx="1" type="Coach" />
+			<attribute name="Period" idx="2" type="StatPeriod" default="StatPeriod:Season" />
+			<attribute name="PeriodIndex" idx="3" type="int" minValue="0" maxValue="2055" default="0" />
+			<attribute name="Team" idx="4" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

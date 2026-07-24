@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TradeEval_CreateDraftPickNegotiation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeEval_CreateDraftPickNegotiation" numMembers="3" base="TradeNegotiation()" ownerAssetId="6495411" isRecordPersistent="true" isExpr="true" majorVersionCRC="-696349824" minorVersionCRC="396414241">
+			<attribute name="teamA" idx="0" type="Team" />
+			<attribute name="draftPickA" idx="1" type="DraftPick" />
+		</schema>
+	</schemas>
+</FranTkData>

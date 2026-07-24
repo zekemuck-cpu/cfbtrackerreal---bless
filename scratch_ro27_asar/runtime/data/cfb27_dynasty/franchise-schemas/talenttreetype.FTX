@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TalentTreeType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TalentTreeType" numMembers="3" assetId="9066459" isRecordPersistent="true" majorVersionCRC="-136931550" minorVersionCRC="-85252839">
+			<attribute name="Base" idx="0" value="0" />
+			<attribute name="Hybrid" idx="1" value="1" />
+			<attribute name="Specialty" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

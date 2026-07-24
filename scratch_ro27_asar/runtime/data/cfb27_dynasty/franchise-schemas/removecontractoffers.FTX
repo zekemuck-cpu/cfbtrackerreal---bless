@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\RemoveContractOffers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RemoveContractOffers" numMembers="7" base="ModifierView" assetId="6709342" isRecordPersistent="true" majorVersionCRC="-210993287" minorVersionCRC="410358980">
+			<attribute name="Formula" idx="0" type="RemoveContractOffers_Formula" guid="6709342-1949180" default="if( OutstandingOffers.Contains( Subject) )&#xD;&#xA;{&#xD;&#xA;  OutstandingOffers.FindAndErase(Subject);&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="OutstandingOffers" idx="1" type="ContractOffer[]" />
+			<attribute name="PlayerContractManagerRef" idx="2" type="PlayerContractManager" />
+			<attribute name="PlayerRef" idx="3" type="Player" />
+			<attribute name="Source" idx="4" type="record" />
+			<attribute name="Subjects" idx="5" type="ContractOffer[]" />
+			<attribute name="Update" idx="6" type="none()" guid="6709342-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

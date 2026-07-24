@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\GrantMarketplaceRewardAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GrantMarketplaceRewardAction" numMembers="4" base="SequenceAction" assetId="6536976" isRecordPersistent="true" majorVersionCRC="-449887498" minorVersionCRC="147839195">
+			<attribute name="Default" idx="0" type="bool" default="False" />
+			<attribute name="Enabled" idx="1" type="bool" default="True" />
+			<attribute name="MarketplaceRewardType" idx="2" type="MarketplaceRewardType" default="MarketplaceRewardType:Invalid" />
+			<attribute name="Value" idx="3" type="int" minValue="0" maxValue="50000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

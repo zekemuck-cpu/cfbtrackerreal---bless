@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NewsManager_RecordHolderReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsManager_RecordHolderReaction" numMembers="4" base="Reaction" assetId="6499044" isRecordPersistent="true" majorVersionCRC="82674148" minorVersionCRC="-362364247">
+			<attribute name="EventRecord" idx="0" type="FootballRecordEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499044-1895461" />
+			<attribute name="NewsManager" idx="2" type="NewsManager" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

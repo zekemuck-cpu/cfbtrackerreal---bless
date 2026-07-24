@@ -1,0 +1,16 @@
+<FranTkData fileName="Core-Schemas\UISelectControl.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIControl.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISelectControl" numMembers="5" base="UIControl" defaultStoreCapacity="55" assetId="6210697" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1641" majorVersionCRC="-986838144" minorVersionCRC="-1907588484">
+			<attribute name="DisplayName" idx="0" type="string" maxLen="33" />
+			<attribute name="IsEnabled" idx="1" type="bool" default="True" />
+			<attribute name="Items" idx="2" type="UISelectItem[]" />
+			<attribute name="Name" idx="3" type="string" maxLen="33" />
+			<attribute name="Selection" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

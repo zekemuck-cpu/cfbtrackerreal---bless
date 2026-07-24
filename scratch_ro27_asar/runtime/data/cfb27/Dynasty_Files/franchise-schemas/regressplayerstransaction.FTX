@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\RegressPlayersTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RegressPlayersTransaction" numMembers="15" base="Transaction" assetId="6814613" isRecordPersistent="true" majorVersionCRC="1544192241" minorVersionCRC="-857667127">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="IsBlocking" idx="2" type="bool" default="True" />
+			<attribute name="IsDone" idx="3" type="bool()" guid="6814613-1895538" />
+			<attribute name="IsDynamic" idx="4" type="bool" default="False" />
+			<attribute name="PlayerRegressionEval" idx="5" type="PlayerRegressionEval" />
+			<attribute name="Process" idx="6" type="none()" guid="6814613-1895540" />
+			<attribute name="ProcessStage" idx="7" type="Stage" />
+			<attribute name="Sleep" idx="8" type="ITransaction_Sleep" guid="6814613-1895548" />
+			<attribute name="Start" idx="9" type="none()" guid="6814613-1895544" />
+			<attribute name="StartStage" idx="10" type="Stage" />
+			<attribute name="TeamIndex" idx="11" type="int" minValue="0" maxValue="133" default="0" />
+			<attribute name="TimeScale" idx="12" type="float" default="0" />
+			<attribute name="TransitionPending" idx="13" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="14" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

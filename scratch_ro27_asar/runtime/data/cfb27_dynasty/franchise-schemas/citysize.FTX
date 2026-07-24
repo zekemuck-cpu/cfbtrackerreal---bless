@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\CitySize.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CitySize" numMembers="6" assetId="6377612" isRecordPersistent="true" majorVersionCRC="-1961932379" minorVersionCRC="1424162923">
+			<attribute name="CitySize1" idx="0" value="0" />
+			<attribute name="CitySize2" idx="1" value="1" />
+			<attribute name="CitySize3" idx="2" value="2" />
+			<attribute name="CitySize4" idx="3" value="3" />
+			<attribute name="CitySize5" idx="4" value="4" />
+			<attribute name="Count_" idx="5" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\OffensivePlaybookDataType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OffensivePlaybookDataType" numMembers="6" defaultStoreCapacity="158" assetId="6378302" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="26779" majorVersionCRC="-1821152572" minorVersionCRC="-1615111551">
+			<attribute name="Description" idx="0" type="string" maxLen="288" />
+			<attribute name="IsEnabled" idx="1" type="bool" default="True" />
+			<attribute name="Name" idx="2" type="string" maxLen="26" />
+			<attribute name="OffensiveScheme" idx="3" type="BaseScheme" default="BaseScheme:OFF_WEST_COAST_ZONE_RUN" />
+			<attribute name="PlaybookID" idx="4" type="int" minValue="0" maxValue="1023" default="200" />
+			<attribute name="Value" idx="5" type="OffensivePlaybook" default="OffensivePlaybook:AirForce" />
+		</schema>
+	</schemas>
+</FranTkData>

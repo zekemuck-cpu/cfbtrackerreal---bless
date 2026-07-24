@@ -1,0 +1,16 @@
+<FranTkData fileName="Football-Schemas\WeatherIconId.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="WeatherIconId" numMembers="9" assetId="12671893" isRecordPersistent="true" majorVersionCRC="-420471433" minorVersionCRC="241910968">
+			<attribute name="ICON_INVALID" idx="0" value="-1" />
+			<attribute name="ICON_CLEAR" idx="1" value="300" />
+			<attribute name="ICON_OVERCAST" idx="2" value="301" />
+			<attribute name="ICON_PARTLYCLOUDY" idx="3" value="302" />
+			<attribute name="ICON_RAIN" idx="4" value="303" />
+			<attribute name="ICON_SNOW" idx="5" value="304" />
+			<attribute name="ICON_WINDY" idx="6" value="305" />
+			<attribute name="ICON_WINDDIRECTION" idx="7" value="306" />
+			<attribute name="ICON_DRIZZLE" idx="8" value="307" />
+		</enum>
+	</schemas>
+</FranTkData>

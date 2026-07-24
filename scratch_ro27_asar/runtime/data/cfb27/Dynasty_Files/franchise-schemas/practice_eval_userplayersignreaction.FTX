@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\Practice_Eval_UserPlayerSignReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Practice_Eval_UserPlayerSignReaction" numMembers="4" base="Reaction" assetId="12641059" isRecordPersistent="true" majorVersionCRC="-84872634" minorVersionCRC="-1056308142">
+			<attribute name="EventRecord" idx="0" type="UserPlayerSignEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="12641059-1895461" />
+			<attribute name="Module" idx="2" type="PracticeEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

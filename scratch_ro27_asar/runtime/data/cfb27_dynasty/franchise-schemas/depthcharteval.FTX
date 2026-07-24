@@ -1,0 +1,49 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartEval" numMembers="42" base="Module" assetId="6498463" isRecordPersistent="true" majorVersionCRC="1833776196" minorVersionCRC="1764237073">
+			<attribute name="AwardAutomaticRedshirtsForAllTeams" idx="0" type="none()" guid="6498463-2018138" />
+			<attribute name="AwardAutomaticRedshirtsForTeam" idx="1" type="DepthChartEval_AwardAutomaticRedshirtsForTeam" guid="6498463-2065053" />
+			<attribute name="BuildIssueAutoRequest" idx="2" type="DepthChartEval_BuildIssueAutoRequest" guid="6498463-2065087" />
+			<attribute name="ClearDepthChart" idx="3" type="DepthChartEval_ClearDepthChart" guid="6498463-1925071" final="true" />
+			<attribute name="ConfidenceManager" idx="4" type="ConfidenceManager" />
+			<attribute name="FillDepthChart" idx="5" type="DepthChartEval_FillDepthChart" guid="6498463-1925062" final="true" />
+			<attribute name="FillDepthChartPosition" idx="6" type="DepthChartEval_FillDepthChartPosition" guid="6498463-1925066" final="true" />
+			<attribute name="ForcedDepthChartAssignments" idx="7" type="PlayerPositionLookupTable" />
+			<attribute name="Franchise" idx="8" type="Franchise" />
+			<attribute name="HandleAutoRedshirtsResponse" idx="9" type="DepthChartEval_HandleAutoRedshirtsResponse" guid="6498463-2065038" />
+			<attribute name="HandleChooseEarlyReturnEvent" idx="10" type="DepthChartEval_HandleChooseEarlyReturnEvent" guid="6498463-1925113" final="true" />
+			<attribute name="HandleConvertPositionEvent" idx="11" type="DepthChartEval_HandleConvertPositionEvent" guid="6498463-1925109" final="true" />
+			<attribute name="HandleEndFantasyDraft" idx="12" type="none()" guid="6498463-1925088" final="true" />
+			<attribute name="HandleNFLSeasonEnd" idx="13" type="DepthChartEval_HandleNFLSeasonEnd" guid="6498463-1925122" final="true" />
+			<attribute name="HandlePlayerInjuredEvent" idx="14" type="DepthChartEval_HandlePlayerInjuredEvent" guid="6498463-1925092" final="true" />
+			<attribute name="HandlePlayerInjuryHealedEvent" idx="15" type="DepthChartEval_HandlePlayerInjuryHealedEvent" guid="6498463-1925096" final="true" />
+			<attribute name="HandlePlayerSuspensionEvent" idx="16" type="DepthChartEval_HandlePlayerSuspensionEvent" guid="6498463-2151043" final="true" />
+			<attribute name="HandleSwitchFranchiseStyle" idx="17" type="DepthChartEval_HandleSwitchFranchiseStyle" guid="6498463-1925126" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="18" type="DepthChartEval_HandleUpdatePlayerContractStatus" guid="6498463-1925083" final="true" />
+			<attribute name="HandleUserEndRegister" idx="19" type="DepthChartEval_HandleUserEndRegister" guid="6498463-1925100" final="true" default="User user = event.User;&#xD;&#xA;Team team = event.Team;&#xD;&#xA;&#xD;&#xA;RegisterUser(user, team);&#xD;&#xA;" />
+			<attribute name="IssueRedshirtsForTeams" idx="20" type="none()" guid="6498463-2065075" />
+			<attribute name="IssueRedshirtsRequest" idx="21" type="DepthChartEval_IssueRedshirtsRequest" guid="6498463-2065023" />
+			<attribute name="LeagueSetting" idx="22" type="LeagueSetting" />
+			<attribute name="NarrativePlayerMetersEval" idx="23" type="NarrativePlayerMetersEval" />
+			<attribute name="PlayerEligibilityTunables" idx="24" type="PlayerEligibilityTunables" />
+			<attribute name="PlayerGradeEval" idx="25" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="26" type="PlayerManager" />
+			<attribute name="ProcessManageRedshirtsRequest" idx="27" type="DepthChartEval_ProcessManageRedshirtsRequest" guid="6498463-2065042" />
+			<attribute name="RedshirtsRequest" idx="28" type="ManageRedshirtsRequest" />
+			<attribute name="RedshirtsResponse_AutoManage" idx="29" type="UISelectForm" />
+			<attribute name="RedshirtsResponse_AutoRedshirtAndEndSeason" idx="30" type="UISelectForm" />
+			<attribute name="RedshirtsResponse_DoNothing" idx="31" type="UISelectForm" />
+			<attribute name="RedshirtsResponse_EnterManagement" idx="32" type="UIFlowForm" />
+			<attribute name="RegisterUser" idx="33" type="DepthChartEval_RegisterUser" guid="6498463-1925104" final="true" />
+			<attribute name="ReorderDepthChart" idx="34" type="DepthChartEval_ReorderDepthChart" guid="6498463-1925075" final="true" />
+			<attribute name="SeasonInfo" idx="35" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="36" type="SeasonManager" />
+			<attribute name="SignatureAbilitiesEval" idx="37" type="SignatureAbilitiesEval" />
+			<attribute name="StarterChangeEvent" idx="38" type="DepthChartStarterChangeEvent" />
+			<attribute name="TeamRequestManager" idx="39" type="TeamRequestManager" />
+			<attribute name="TempBuffEval" idx="40" type="TempBuffEval" />
+			<attribute name="ValidateExpressions" idx="41" type="none()" guid="6498463-1925117" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,34 @@
+<FranTkData fileName="Franchise-Schemas\YearSummaryHistorical.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\YearSummary.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="YearSummaryHistorical" numMembers="23" base="YearSummary" defaultStoreCapacity="194" assetId="6499338" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="4417" majorVersionCRC="-326723118" minorVersionCRC="1542213341">
+			<attribute name="AnnualAwards" idx="0" type="LeagueHistoryAward[]" />
+			<attribute name="ConferenceChampions" idx="1" type="LeagueHistoryConferenceChampion[]" />
+			<attribute name="LosingTeamIdentity" idx="2" type="Team" />
+			<attribute name="LosingTeamLogo" idx="3" type="int" minValue="-1" maxValue="255" default="-1" />
+			<attribute name="LosingTeamLosses" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LosingTeamName" idx="5" type="string" maxLen="23" />
+			<attribute name="LosingTeamRank" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="LosingTeamScore" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="LosingTeamTies" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LosingTeamUser" idx="9" type="UserEntity" />
+			<attribute name="LosingTeamWins" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PeriodIndex" idx="11" type="int" minValue="0" maxValue="2100" default="0" />
+			<attribute name="WinningCoachFirstName" idx="12" type="string" maxLen="18" />
+			<attribute name="WinningCoachLastName" idx="13" type="string" maxLen="21" />
+			<attribute name="WinningTeamIdentity" idx="14" type="Team" />
+			<attribute name="WinningTeamLogo" idx="15" type="int" minValue="-1" maxValue="255" default="-1" />
+			<attribute name="WinningTeamLosses" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WinningTeamName" idx="17" type="string" maxLen="23" />
+			<attribute name="WinningTeamRank" idx="18" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="WinningTeamScore" idx="19" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="WinningTeamTies" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WinningTeamUser" idx="21" type="UserEntity" />
+			<attribute name="WinningTeamWins" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

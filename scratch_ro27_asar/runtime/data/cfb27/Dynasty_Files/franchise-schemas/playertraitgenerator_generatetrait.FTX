@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTraitGenerator_GenerateTrait.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTraitGenerator_GenerateTrait" numMembers="3" base="int()" ownerAssetId="6708810" isRecordPersistent="true" isExpr="true" majorVersionCRC="471735648" minorVersionCRC="1635350089">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="random" idx="1" type="Random" />
+		</schema>
+	</schemas>
+</FranTkData>

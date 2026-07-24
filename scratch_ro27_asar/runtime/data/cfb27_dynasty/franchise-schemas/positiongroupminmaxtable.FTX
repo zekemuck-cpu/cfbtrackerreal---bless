@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\PositionGroupMinMaxTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionGroupMinMaxTable" numMembers="16" defaultStoreCapacity="7" assetId="6820676" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="946169986" minorVersionCRC="2128677860">
+			<attribute name="C" idx="0" type="int[]" />
+			<attribute name="DB" idx="1" type="int[]" />
+			<attribute name="DE" idx="2" type="int[]" />
+			<attribute name="DL" idx="3" type="int[]" />
+			<attribute name="DT" idx="4" type="int[]" />
+			<attribute name="G" idx="5" type="int[]" />
+			<attribute name="K" idx="6" type="int[]" />
+			<attribute name="LB" idx="7" type="int[]" />
+			<attribute name="LS" idx="8" type="int[]" />
+			<attribute name="OL" idx="9" type="int[]" />
+			<attribute name="P" idx="10" type="int[]" />
+			<attribute name="QB" idx="11" type="int[]" />
+			<attribute name="RB" idx="12" type="int[]" />
+			<attribute name="T" idx="13" type="int[]" />
+			<attribute name="TE" idx="14" type="int[]" />
+			<attribute name="WR" idx="15" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

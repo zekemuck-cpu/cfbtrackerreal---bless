@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_ChooseOfferToSign.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_ChooseOfferToSign" numMembers="3" base="ContractOffer()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1386628292" minorVersionCRC="863154164">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="offers" idx="1" type="ContractOffer[]" />
+		</schema>
+	</schemas>
+</FranTkData>

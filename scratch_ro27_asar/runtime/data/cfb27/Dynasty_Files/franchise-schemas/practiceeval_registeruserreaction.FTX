@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_RegisterUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_RegisterUserReaction" numMembers="4" base="Reaction" assetId="6814743" isRecordPersistent="true" majorVersionCRC="-453317246" minorVersionCRC="1922613835">
+			<attribute name="EventRecord" idx="0" type="RegisterUserEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814743-1895461" />
+			<attribute name="Module" idx="2" type="PracticeEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

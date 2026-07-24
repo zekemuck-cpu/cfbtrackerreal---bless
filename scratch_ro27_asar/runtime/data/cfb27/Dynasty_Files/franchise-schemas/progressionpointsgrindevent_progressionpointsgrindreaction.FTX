@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\ProgressionPointsGrindEvent_ProgressionPointsGrindReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProgressionPointsGrindEvent_ProgressionPointsGrindReaction" numMembers="4" base="Reaction" assetId="12139477" isRecordPersistent="true" majorVersionCRC="186657408" minorVersionCRC="-1075855359">
+			<attribute name="EventRecord" idx="0" type="ProgressionPointsGrindEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="12139477-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TelemetryManager" idx="3" type="TelemetryManager" />
+		</schema>
+	</schemas>
+</FranTkData>

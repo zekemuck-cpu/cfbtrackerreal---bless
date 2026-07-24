@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamRoadmapEval_CreatePlayerPool.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRoadmapEval_CreatePlayerPool" numMembers="2" base="none()" ownerAssetId="6494567" isRecordPersistent="true" isExpr="true" majorVersionCRC="1071661672" minorVersionCRC="520497393">
+			<attribute name="position" idx="0" type="PlayerPosition" />
+		</schema>
+	</schemas>
+</FranTkData>

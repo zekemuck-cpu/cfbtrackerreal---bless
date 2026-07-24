@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TradeNegotiationManager_CanExecuteTrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeNegotiationManager_CanExecuteTrade" numMembers="3" base="bool()" ownerAssetId="6495355" isRecordPersistent="true" isExpr="true" majorVersionCRC="81206646" minorVersionCRC="1220801884">
+			<attribute name="packageA" idx="0" type="TeamTradePackage" />
+			<attribute name="packageB" idx="1" type="TeamTradePackage" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CoachProgressionEval_HandleRecordBroken.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachProgressionEval_HandleRecordBroken" numMembers="2" base="none()" ownerAssetId="6498443" isRecordPersistent="true" isExpr="true" majorVersionCRC="1045391096" minorVersionCRC="-1733017824">
+			<attribute name="event" idx="0" type="FootballRecordEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

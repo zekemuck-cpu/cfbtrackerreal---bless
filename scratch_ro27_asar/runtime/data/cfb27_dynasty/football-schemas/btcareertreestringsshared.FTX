@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\BTCareerTreeStringsShared.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BTCareerTreeStringsShared" numMembers="3" assetId="13039978" isRecordPersistent="true" majorVersionCRC="-1882505128" minorVersionCRC="-405671491">
+			<attribute name="EQOYZWMPACZAJ2MABGMOZ6CCPY" idx="0" value="0" />
+			<attribute name="HHOWCATCBP5JC3STHJZYHPSQCI" idx="1" value="1" />
+			<attribute name="XTILDNN74E7MVVU46J3MOEOO3E" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

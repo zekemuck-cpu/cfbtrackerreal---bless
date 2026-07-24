@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\BtRollType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BtRollType" numMembers="3" assetId="12581447" isRecordPersistent="true" majorVersionCRC="539532310" minorVersionCRC="-1062282264">
+			<attribute name="ROLLTYPE_INVALID" idx="0" value="-1" />
+			<attribute name="ROLLTYPE_ONCE" idx="1" value="0" />
+			<attribute name="ROLLTYPE_ALWAYS" idx="2" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

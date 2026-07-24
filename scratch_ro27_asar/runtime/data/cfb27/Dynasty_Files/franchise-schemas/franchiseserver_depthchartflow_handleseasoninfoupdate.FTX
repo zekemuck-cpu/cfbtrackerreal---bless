@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_DepthChartFlow_HandleSeasonInfoUpdate.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_DepthChartFlow_HandleSeasonInfoUpdate" numMembers="2" base="none()" ownerAssetId="6498985" isRecordPersistent="true" isExpr="true" majorVersionCRC="610184181" minorVersionCRC="-1399150633">
+			<attribute name="event" idx="0" type="SeasonInfoUpdateEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\ScoutingLocksType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ScoutingLocksType" numMembers="6" assetId="6495385" isRecordPersistent="true" majorVersionCRC="-600190159" minorVersionCRC="1925039124">
+			<attribute name="INVALID" idx="0" value="0" />
+			<attribute name="PHYSICAL" idx="1" value="1" />
+			<attribute name="WRITTENFORMTRAITS" idx="2" value="2" />
+			<attribute name="ARCHETYPE" idx="3" value="3" />
+			<attribute name="PLAYERTALENTRANGE" idx="4" value="4" />
+			<attribute name="COREATTRIBUTES" idx="5" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_CanTeamSignPlayerToPracticeSquad.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_CanTeamSignPlayerToPracticeSquad" numMembers="3" base="bool()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="1422244416" minorVersionCRC="580405679">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

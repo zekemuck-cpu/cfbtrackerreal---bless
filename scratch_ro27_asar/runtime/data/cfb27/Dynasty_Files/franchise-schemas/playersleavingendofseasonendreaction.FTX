@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEndOfSeasonEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEndOfSeasonEndReaction" numMembers="4" base="Reaction" assetId="7739464" isRecordPersistent="true" majorVersionCRC="-356125774" minorVersionCRC="-1384195437">
+			<attribute name="EventRecord" idx="0" type="PlayersLeavingEndOfSeasonEndEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="7739464-1895461" />
+			<attribute name="PlayersLeavingEval" idx="2" type="PlayersLeavingEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

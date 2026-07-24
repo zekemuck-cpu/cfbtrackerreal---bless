@@ -1,0 +1,48 @@
+<FranTkData fileName="Franchise-Schemas\StringManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StringManager" numMembers="41" base="Module" assetId="6320454" isRecordPersistent="true" majorVersionCRC="-1666506060" minorVersionCRC="-1417011193">
+			<attribute name="AbilityToken" idx="0" type="string" maxLen="10" />
+			<attribute name="ActorFirstName" idx="1" type="string" maxLen="13" />
+			<attribute name="ActorLastName" idx="2" type="string" maxLen="13" />
+			<attribute name="ActorPosition" idx="3" type="string" maxLen="9" />
+			<attribute name="ActorTeamName" idx="4" type="string" maxLen="16" />
+			<attribute name="AgeToken" idx="5" type="string" maxLen="6" />
+			<attribute name="CoachFirstName" idx="6" type="string" maxLen="13" />
+			<attribute name="CoachLastName" idx="7" type="string" maxLen="13" />
+			<attribute name="ConfStandingToken" idx="8" type="string" maxLen="15" />
+			<attribute name="ConfWinLossToken" idx="9" type="string" maxLen="14" />
+			<attribute name="ContractTimeMaintenanceToken" idx="10" type="string" maxLen="13" />
+			<attribute name="ContractTimeToken" idx="11" type="string" maxLen="7" />
+			<attribute name="ContractValueToken" idx="12" type="string" maxLen="8" />
+			<attribute name="DrillToken" idx="13" type="string" maxLen="8" />
+			<attribute name="Dynasty" idx="14" type="Franchise" />
+			<attribute name="FacilityLevelToken" idx="15" type="string" maxLen="16" />
+			<attribute name="FrequencyToken" idx="16" type="string" maxLen="12" />
+			<attribute name="HomeStateToken" idx="17" type="string" maxLen="12" />
+			<attribute name="OpposingCoachFirstName" idx="18" type="string" maxLen="16" />
+			<attribute name="OpposingCoachLastName" idx="19" type="string" maxLen="16" />
+			<attribute name="OpposingTeamLongName" idx="20" type="string" maxLen="18" />
+			<attribute name="OpposingTeamNickName" idx="21" type="string" maxLen="14" />
+			<attribute name="OvrToken" idx="22" type="string" maxLen="6" />
+			<attribute name="PlayerFirstNameToken" idx="23" type="string" maxLen="14" />
+			<attribute name="PlayerLastNameToken" idx="24" type="string" maxLen="14" />
+			<attribute name="PlayerToken" idx="25" type="string" maxLen="9" />
+			<attribute name="PluralToken" idx="26" type="string" maxLen="9" />
+			<attribute name="PositionFlagToken" idx="27" type="string" maxLen="16" />
+			<attribute name="PositionToken" idx="28" type="string" maxLen="11" />
+			<attribute name="ProgramPointsTuning" idx="29" type="ProgramPointsTuning" />
+			<attribute name="ReInjuryChanceToken" idx="30" type="string" maxLen="17" />
+			<attribute name="RivalText" idx="31" type="string" maxLen="6" />
+			<attribute name="SuccessRateToken" idx="32" type="string" maxLen="14" />
+			<attribute name="TalentValueToken" idx="33" type="string" maxLen="5" />
+			<attribute name="TeamLocationToken" idx="34" type="string" maxLen="10" />
+			<attribute name="TeamLongName" idx="35" type="string" maxLen="15" />
+			<attribute name="TeamNicknameToken" idx="36" type="string" maxLen="11" />
+			<attribute name="TeamRankToken" idx="37" type="string" maxLen="11" />
+			<attribute name="TeamToken" idx="38" type="string" maxLen="7" />
+			<attribute name="TraitDevelopmentToken" idx="39" type="string" maxLen="19" />
+			<attribute name="WinLossToken" idx="40" type="string" maxLen="10" />
+		</schema>
+	</schemas>
+</FranTkData>

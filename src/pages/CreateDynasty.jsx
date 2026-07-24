@@ -1,10 +1,22 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import SearchableSelect from '../components/SearchableSelect'
 import DropdownSelect from '../components/DropdownSelect'
 import TeambuilderTeamFields from '../components/TeambuilderTeamFields'
-import { initializeDynastyTeams, getFBSTeamTids } from '../data/teamRegistry'
+import { initializeDynastyTeams, getFBSTeamTids, getTidFromTeamName } from '../data/teamRegistry'
 import { getTeamName } from '../data/teamAbbreviations'
+import {
+  groupExtractedRowsByTid,
+  mapExtractedRowToAppPlayer,
+  buildRawTeamIdMap,
+  mapTeamRatings,
+  mapCoachingStaff,
+  mapConferences,
+  mapScheduleForTeam,
+  mapSeasonInfo,
+  mapPreseasonTop25,
+} from '../data/cfb27SaveImport'
+import { uploadAndParseCfb27Save } from '../utils/cfb27SaveUpload'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { Card, Button, Input } from '../components/ui'
@@ -64,6 +76,66 @@ export default function CreateDynasty() {
   }, [mode, teambuilders.length])
 
   const [creating, setCreating] = useState(false)
+
+  // ── CFB 27 PC save import (PC players only — console players never see
+  // this used; it's a full alternative to entering everything by hand: the
+  // save is the source of truth for the roster, team ratings, coaching
+  // staff, conferences, schedule, and the dynasty's actual starting
+  // year/week/phase). `cfb27Parsed` holds the RAW server response
+  // (players + teamRatings + coachingStaff + conferences + season + games)
+  // until submit time, so a later Game Edition change still resolves teams
+  // against the right edition's tid table — see cfb27Preview below.
+  const [cfb27FileName, setCfb27FileName] = useState('')
+  const [cfb27Parsed, setCfb27Parsed] = useState(null)
+  const [cfb27Status, setCfb27Status] = useState(null) // null | 'uploading' | 'parsing' | 'ready' | 'error'
+  const [cfb27Error, setCfb27Error] = useState('')
+  const cfb27FileInputRef = useRef(null)
+
+  const cfb27Preview = useMemo(() => {
+    const rows = cfb27Parsed?.players
+    if (!rows || !rows.length) return null
+    const editionTeams = initializeDynastyTeams(formData.gameEdition)
+    const { byTid, unresolvedTeamNames } = groupExtractedRowsByTid(rows, editionTeams)
+    const playerCount = [...byTid.values()].reduce((sum, r) => sum + r.length, 0)
+    return { teamCount: byTid.size, playerCount, unresolvedTeamNames }
+  }, [cfb27Parsed, formData.gameEdition])
+
+  const handleCfb27FileChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCfb27FileName(file.name)
+    setCfb27Parsed(null)
+    setCfb27Error('')
+    setCfb27Status('uploading')
+    try {
+      const result = await uploadAndParseCfb27Save(file, {
+        onProgress: (stage) => setCfb27Status(stage),
+      })
+      setCfb27Parsed(result)
+      setCfb27Status('ready')
+      // A CFB27 save always dictates its own edition and actual in-save
+      // year/week/phase — auto-fill both so nothing needs typing.
+      const season = mapSeasonInfo(result.season)
+      setFormData(prev => ({
+        ...prev,
+        gameEdition: 'cfb27',
+        startYear: season ? String(season.year) : prev.startYear,
+      }))
+    } catch (error) {
+      console.error('CFB 27 save import failed:', error)
+      setCfb27Error(error.message || 'Import failed')
+      setCfb27Status('error')
+    } finally {
+      e.target.value = '' // allow re-picking the same (or another) file
+    }
+  }
+
+  const clearCfb27Import = () => {
+    setCfb27FileName('')
+    setCfb27Parsed(null)
+    setCfb27Status(null)
+    setCfb27Error('')
+  }
 
   // FBS team-name options for the picker, gated to the chosen edition so
   // edition-only programs (e.g. CFB 27's North Dakota State / Sacramento State,
@@ -266,6 +338,55 @@ export default function CreateDynasty() {
         dynastyData.customTeams = buildCustomTeamsMap(effectiveTeambuilders)
       }
 
+      // Build everything from the imported save now (not at parse time) so
+      // it always uses the Starting Year / Game Edition / team the user
+      // actually submitted with — see cfb27Preview's comment above.
+      if (cfb27Parsed?.players?.length) {
+        const editionTeams = initializeDynastyTeams(dynastyData.gameEdition)
+        const { byTid } = groupExtractedRowsByTid(cfb27Parsed.players, editionTeams)
+        const year = Number(dynastyData.startYear)
+        let pid = 1
+        const seededPlayers = []
+        for (const [tid, rows] of byTid.entries()) {
+          for (const row of rows) {
+            seededPlayers.push(mapExtractedRowToAppPlayer(row, { year, pid, tid }))
+            pid++
+          }
+        }
+        dynastyData.cfb27SeededPlayers = seededPlayers
+
+        const rawTeamIdMap = buildRawTeamIdMap(cfb27Parsed.players, editionTeams)
+        const userTid = mode === 'teambuilder'
+          ? null // a TeamBuilder team has no real-world save counterpart
+          : getTidFromTeamName(dynastyData.teamName, editionTeams)
+        let userRawTeamId = null
+        if (userTid != null) {
+          for (const [rawId, tid] of rawTeamIdMap.entries()) {
+            if (tid === userTid) { userRawTeamId = rawId; break }
+          }
+        }
+
+        if (userRawTeamId != null) {
+          const ratings = mapTeamRatings(cfb27Parsed.teamRatings, userRawTeamId)
+          if (ratings) dynastyData.cfb27TeamRatings = ratings
+          const staff = mapCoachingStaff(cfb27Parsed.coachingStaff, userRawTeamId)
+          if (staff) dynastyData.cfb27CoachingStaff = staff
+        }
+        if (userTid != null) {
+          const scheduleEntries = mapScheduleForTeam(cfb27Parsed.games, rawTeamIdMap, userTid, editionTeams)
+          if (scheduleEntries.length) dynastyData.cfb27Schedule = scheduleEntries
+        }
+
+        const conferences = mapConferences(cfb27Parsed.conferences, rawTeamIdMap, editionTeams)
+        if (Object.keys(conferences).length) dynastyData.cfb27Conferences = conferences
+
+        const season = mapSeasonInfo(cfb27Parsed.season)
+        if (season) dynastyData.cfb27Season = season
+
+        const top25 = mapPreseasonTop25(cfb27Parsed.teamRankings, rawTeamIdMap, editionTeams)
+        if (top25.length) dynastyData.cfb27PreseasonTop25 = top25
+      }
+
       const newDynasty = await createDynasty(dynastyData)
       navigate(`/dynasty/${newDynasty.id}`)
     } catch (error) {
@@ -354,6 +475,9 @@ export default function CreateDynasty() {
             mis-picked. */}
         <div className="mb-6">
           <p className="block text-sm font-medium text-txt-primary mb-2">Game Edition</p>
+          {cfb27Parsed && (
+            <p className="text-xs text-txt-tertiary mb-2">Set from your imported save — remove the save to change it.</p>
+          )}
           <div className="flex w-full rounded-lg p-1 bg-surface-2 border border-surface-4">
             {EDITIONS.map((ed) => {
               const active = formData.gameEdition === ed.key
@@ -361,6 +485,7 @@ export default function CreateDynasty() {
                 <button
                   key={ed.key}
                   type="button"
+                  disabled={!!cfb27Parsed}
                   onClick={() => setFormData(prev => {
                     // Move the Starting Year to the new edition's release year,
                     // but only if the current value is still an edition default
@@ -374,7 +499,7 @@ export default function CreateDynasty() {
                     }
                   })}
                   aria-pressed={active}
-                  className={`flex-1 py-2 rounded-md text-sm font-semibold transition-colors ${
+                  className={`flex-1 py-2 rounded-md text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     active ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
                   }`}
                   style={active ? { backgroundColor: 'var(--surface-4)' } : undefined}
@@ -421,6 +546,65 @@ export default function CreateDynasty() {
                 required
                 teamColors={neutralColors}
               />
+
+              {/* PC-only, additive import: uploads a CFB 27 save file, parses
+                  it server-side, and seeds every resolved team's real roster
+                  instead of the bundled/default one. Console players simply
+                  have no save file to pick here — nothing else changes for
+                  them. */}
+              <div className="mt-4 p-4 rounded-lg" style={{ border: '1px dashed var(--surface-5)' }}>
+                <p className="text-sm font-semibold text-txt-primary mb-1">PC Players Only: Import CFB 27 Save</p>
+                <p className="text-xs text-txt-tertiary mb-3">
+                  Upload your DYNASTY-* save file to seed every team's real roster (ratings, archetypes, dev traits) instead of typing rosters in by hand.
+                </p>
+
+                <input
+                  ref={cfb27FileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleCfb27FileChange}
+                />
+
+                {!cfb27FileName && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => cfb27FileInputRef.current?.click()}
+                  >
+                    Choose Save File
+                  </Button>
+                )}
+
+                {cfb27FileName && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-txt-secondary">{cfb27FileName}</p>
+
+                    {(cfb27Status === 'uploading' || cfb27Status === 'parsing') && (
+                      <p className="text-sm text-txt-tertiary">
+                        {cfb27Status === 'uploading' ? 'Uploading save...' : 'Parsing save...'}
+                      </p>
+                    )}
+
+                    {cfb27Status === 'ready' && cfb27Preview && (
+                      <p className="text-sm text-txt-secondary">
+                        {cfb27Preview.playerCount.toLocaleString()} players parsed across {cfb27Preview.teamCount} teams, plus team ratings, coaching staff, conferences, and your schedule. Starting Year and Game Edition were set from the save.
+                        {cfb27Preview.unresolvedTeamNames.length > 0 && (
+                          <> {cfb27Preview.unresolvedTeamNames.length} team{cfb27Preview.unresolvedTeamNames.length === 1 ? '' : 's'} not recognized and will be skipped: {cfb27Preview.unresolvedTeamNames.join(', ')}.</>
+                        )}
+                      </p>
+                    )}
+
+                    {cfb27Status === 'error' && (
+                      <p className="text-sm" style={{ color: 'var(--danger)' }}>{cfb27Error}</p>
+                    )}
+
+                    <Button type="button" variant="outline" size="sm" onClick={clearCfb27Import}>
+                      Remove
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="p-4 rounded-lg" style={{ border: '1px dashed var(--surface-5)' }}>
@@ -479,6 +663,9 @@ export default function CreateDynasty() {
 
           <div>
             <label htmlFor="startYear" className="block text-sm font-medium text-txt-primary mb-2">Starting Year</label>
+            {cfb27Parsed && (
+              <p className="text-xs text-txt-tertiary mb-2">Set from your imported save — remove the save to change it.</p>
+            )}
             <Input
               type="number"
               id="startYear"
@@ -487,6 +674,7 @@ export default function CreateDynasty() {
               onChange={handleChange}
               max="2099"
               required
+              disabled={!!cfb27Parsed}
               className="tabular"
             />
           </div>
@@ -496,7 +684,7 @@ export default function CreateDynasty() {
               type="submit"
               variant="primary"
               className="flex-1"
-              disabled={creating || !isFormValid()}
+              disabled={creating || !isFormValid() || cfb27Status === 'uploading' || cfb27Status === 'parsing'}
             >
               {creating ? 'Creating Dynasty...' : 'Create Dynasty'}
             </Button>

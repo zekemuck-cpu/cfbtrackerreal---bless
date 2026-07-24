@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\StadiumEnvironment.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StadiumEnvironment" numMembers="7" assetId="6378401" isRecordPersistent="true" majorVersionCRC="-1962814241" minorVersionCRC="-122834866">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Urban" idx="1" value="0" />
+			<attribute name="Rural" idx="2" value="1" />
+			<attribute name="Waterfront" idx="3" value="2" />
+			<attribute name="Mountainous" idx="4" value="3" />
+			<attribute name="Max_" idx="5" value="4" />
+			<attribute name="Invalid_" idx="6" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

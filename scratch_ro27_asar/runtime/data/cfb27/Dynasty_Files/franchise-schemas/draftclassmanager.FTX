@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassManager" numMembers="15" base="Module" assetId="6498915" isRecordPersistent="true" majorVersionCRC="-2003313316" minorVersionCRC="-510963498">
+			<attribute name="BranchingStoryManager" idx="0" type="BranchingStoryManager" />
+			<attribute name="CoachManager" idx="1" type="CoachManager" />
+			<attribute name="DesiredFreeAgentCoachCount" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DraftClassGenerator" idx="3" type="DraftClassGeneratorManager" />
+			<attribute name="DraftClassInfo" idx="4" type="DraftClassInfo" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="ImportDraftClassIgnoreResponse" idx="6" type="ResponseForm" />
+			<attribute name="ImportDraftClassImportResponse" idx="7" type="ResponseForm" />
+			<attribute name="IssueImportDraftClassRequest" idx="8" type="DraftClassManager_IssueImportDraftClassRequest" guid="6498915-1927741" final="true" default="ImportDraftClassRequest request = new ImportDraftClassRequest;&#xD;&#xA;&#xD;&#xA;// Set the request data.&#xD;&#xA;request.Franchise = Franchise;&#xD;&#xA;request.DraftClassManager = this;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;&#xD;&#xA;// Set the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[2];&#xD;&#xA;request.ResponseForms.Append(ImportDraftClassImportResponse);&#xD;&#xA;request.ResponseForms.Append(ImportDraftClassIgnoreResponse);&#xD;&#xA;&#xD;&#xA;// Set the default response.&#xD;&#xA;request.DefaultResponse = ImportDraftClassIgnoreResponse;&#xD;&#xA;&#xD;&#xA;// Issue the request.&#xD;&#xA;request.Issue(character);&#xD;&#xA;&#xD;&#xA;// Return the request.&#xD;&#xA;request;&#xD;&#xA;" />
+			<attribute name="LoadDraftClass" idx="9" type="DraftClassManager_LoadDraftClass" guid="6498915-1927727" final="true" />
+			<attribute name="MaxPlayersGeneratedForClass" idx="10" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="MaxReturningPlayers" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayerEnteredDraftEvent" idx="12" type="PlayerEnteredDraftEvent" />
+			<attribute name="RandomRef" idx="13" type="Random" />
+			<attribute name="UnloadDraftClass" idx="14" type="none()" guid="6498915-1927732" />
+		</schema>
+	</schemas>
+</FranTkData>

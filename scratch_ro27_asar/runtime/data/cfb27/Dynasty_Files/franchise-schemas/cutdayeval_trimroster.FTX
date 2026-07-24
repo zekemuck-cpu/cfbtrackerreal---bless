@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CutDayEval_TrimRoster.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CutDayEval_TrimRoster" numMembers="2" base="none()" ownerAssetId="6495351" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1782998560" minorVersionCRC="1101967995">
+			<attribute name="Team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingQuickActionScope.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RecruitingQuickActionScope" numMembers="18" assetId="12164452" isRecordPersistent="true" majorVersionCRC="-522081471" minorVersionCRC="-1103017485">
+			<attribute name="AllRecruits" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="FiveStars" idx="2" value="1" />
+			<attribute name="FourStarsAndUp" idx="3" value="2" />
+			<attribute name="ThreeStarsAndUp" idx="4" value="3" />
+			<attribute name="TwoStarsAndUp" idx="5" value="4" />
+			<attribute name="PosGrp_QB" idx="6" value="5" />
+			<attribute name="PosGrp_RB" idx="7" value="6" />
+			<attribute name="PosGrp_WR" idx="8" value="7" />
+			<attribute name="PosGrp_TE" idx="9" value="8" />
+			<attribute name="PosGrp_OL" idx="10" value="9" />
+			<attribute name="PosGrp_DL" idx="11" value="10" />
+			<attribute name="PosGrp_LB" idx="12" value="11" />
+			<attribute name="PosGrp_DB" idx="13" value="12" />
+			<attribute name="Last_" idx="14" value="13" />
+			<attribute name="PosGrp_KP" idx="15" value="13" />
+			<attribute name="Count_" idx="16" value="14" />
+			<attribute name="Invalid" idx="17" value="15" />
+		</enum>
+	</schemas>
+</FranTkData>

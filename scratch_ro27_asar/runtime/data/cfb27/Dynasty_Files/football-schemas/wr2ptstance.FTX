@@ -1,0 +1,82 @@
+<FranTkData fileName="Football-Schemas\WR2PtStance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="WR2PtStance" numMembers="75" assetId="11334883" isRecordPersistent="true" majorVersionCRC="1811055134" minorVersionCRC="-315753988">
+			<attribute name="Default" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="LowHands" idx="2" value="1" />
+			<attribute name="LowFist" idx="3" value="2" />
+			<attribute name="LowHandLean" idx="4" value="3" />
+			<attribute name="UprightHandsonThigh" idx="5" value="4" />
+			<attribute name="HandsCrossedLean" idx="6" value="5" />
+			<attribute name="SlightLean" idx="7" value="6" />
+			<attribute name="HandsOut" idx="8" value="7" />
+			<attribute name="UprightLowFist" idx="9" value="8" />
+			<attribute name="OldSkool" idx="10" value="9" />
+			<attribute name="StackedHands" idx="11" value="10" />
+			<attribute name="UprightLowHands" idx="12" value="11" />
+			<attribute name="RelaxedLean" idx="13" value="12" />
+			<attribute name="UprightAction" idx="14" value="13" />
+			<attribute name="UprightRelaxed" idx="15" value="14" />
+			<attribute name="Compact" idx="16" value="15" />
+			<attribute name="AllPro" idx="17" value="16" />
+			<attribute name="HandsCrossedUpright" idx="18" value="17" />
+			<attribute name="Runner" idx="19" value="18" />
+			<attribute name="Conventional" idx="20" value="19" />
+			<attribute name="Unconventional" idx="21" value="20" />
+			<attribute name="Reserved1" idx="22" value="21" />
+			<attribute name="ReservedFirst_" idx="23" value="21" />
+			<attribute name="Reserved2" idx="24" value="22" />
+			<attribute name="Reserved3" idx="25" value="23" />
+			<attribute name="Reserved4" idx="26" value="24" />
+			<attribute name="Reserved5" idx="27" value="25" />
+			<attribute name="Reserved6" idx="28" value="26" />
+			<attribute name="Reserved7" idx="29" value="27" />
+			<attribute name="Reserved8" idx="30" value="28" />
+			<attribute name="Reserved9" idx="31" value="29" />
+			<attribute name="Reserved10" idx="32" value="30" />
+			<attribute name="Reserved11" idx="33" value="31" />
+			<attribute name="Reserved12" idx="34" value="32" />
+			<attribute name="Reserved13" idx="35" value="33" />
+			<attribute name="Reserved14" idx="36" value="34" />
+			<attribute name="Reserved15" idx="37" value="35" />
+			<attribute name="Reserved16" idx="38" value="36" />
+			<attribute name="Reserved17" idx="39" value="37" />
+			<attribute name="Reserved18" idx="40" value="38" />
+			<attribute name="Reserved19" idx="41" value="39" />
+			<attribute name="Reserved20" idx="42" value="40" />
+			<attribute name="Reserved21" idx="43" value="41" />
+			<attribute name="Reserved22" idx="44" value="42" />
+			<attribute name="Reserved23" idx="45" value="43" />
+			<attribute name="Reserved24" idx="46" value="44" />
+			<attribute name="Reserved25" idx="47" value="45" />
+			<attribute name="Reserved26" idx="48" value="46" />
+			<attribute name="Reserved27" idx="49" value="47" />
+			<attribute name="Reserved28" idx="50" value="48" />
+			<attribute name="Reserved29" idx="51" value="49" />
+			<attribute name="Reserved30" idx="52" value="50" />
+			<attribute name="Reserved31" idx="53" value="51" />
+			<attribute name="Reserved32" idx="54" value="52" />
+			<attribute name="Reserved33" idx="55" value="53" />
+			<attribute name="Reserved34" idx="56" value="53" />
+			<attribute name="Reserved35" idx="57" value="54" />
+			<attribute name="Reserved36" idx="58" value="255" />
+			<attribute name="Reserved37" idx="59" value="256" />
+			<attribute name="Reserved38" idx="60" value="257" />
+			<attribute name="Reserved39" idx="61" value="258" />
+			<attribute name="Reserved40" idx="62" value="259" />
+			<attribute name="Reserved41" idx="63" value="260" />
+			<attribute name="Reserved42" idx="64" value="261" />
+			<attribute name="Reserved43" idx="65" value="262" />
+			<attribute name="Reserved44" idx="66" value="263" />
+			<attribute name="Reserved45" idx="67" value="264" />
+			<attribute name="Reserved46" idx="68" value="265" />
+			<attribute name="Reserved47" idx="69" value="266" />
+			<attribute name="Reserved48" idx="70" value="267" />
+			<attribute name="Reserved49" idx="71" value="268" />
+			<attribute name="ReservedLast_" idx="72" value="269" />
+			<attribute name="Max_" idx="73" value="270" />
+			<attribute name="Invalid_" idx="74" value="271" />
+		</enum>
+	</schemas>
+</FranTkData>

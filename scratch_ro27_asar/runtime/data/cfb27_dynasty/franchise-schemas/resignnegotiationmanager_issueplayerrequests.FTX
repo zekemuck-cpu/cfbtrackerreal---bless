@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\ReSignNegotiationManager_IssuePlayerRequests.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReSignNegotiationManager_IssuePlayerRequests" numMembers="2" base="none()" ownerAssetId="6495334" isRecordPersistent="true" isExpr="true" majorVersionCRC="-544782413" minorVersionCRC="-313535684">
+			<attribute name="activeReSignNegotiations" idx="0" type="PlayerReSignNegotiation[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\TeamAppearance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamAppearance" numMembers="9" defaultStoreCapacity="6" assetId="10889759" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1133113647" minorVersionCRC="-624945770">
+			<attribute name="LogoId" idx="0" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PresentationId" idx="1" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PrimaryTeamColorBlue" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PrimaryTeamColorGreen" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PrimaryTeamColorRed" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SecondaryTeamColorBlue" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SecondaryTeamColorGreen" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SecondaryTeamColorRed" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamIdentity" idx="8" type="TeamIdentity" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,85 @@
+<FranTkData fileName="Franchise-Schemas\Stadium.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Stadium" numMembers="74" base="Enum" defaultStoreCapacity="183" assetId="6378454" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="100914508" minorVersionCRC="635107717">
+			<attribute name="City" idx="0" type="City" />
+			<attribute name="FieldType" idx="1" type="FieldType" default="FieldType:Grass" />
+			<attribute name="ImageId" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="IS_DOWNLOADED" idx="3" type="bool" default="True" />
+			<attribute name="Name" idx="4" type="string" maxLen="41" />
+			<attribute name="NickName" idx="5" type="string" maxLen="28" />
+			<attribute name="Orientation" idx="6" type="StadiumOrientation" default="StadiumOrientation:North_South" />
+			<attribute name="OverallRating" idx="7" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="PresentationId" idx="8" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RenovationRating" idx="9" type="int" minValue="0" maxValue="100" default="99" />
+			<attribute name="RoofType" idx="10" type="StadiumRoof" default="StadiumRoof:Open" />
+			<attribute name="SeatingType1Capacity" idx="11" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SeatingType2Capacity" idx="12" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SeatingType3Capacity" idx="13" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SeatingType4Capacity" idx="14" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SidelineType" idx="15" type="StadiumSidelines" default="StadiumSidelines:NoModification" />
+			<attribute name="Size" idx="16" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="SkyType" idx="17" type="SkyType" default="SkyType:LowCloud" />
+			<attribute name="STADIUM_50YDCOLORLEFT" idx="18" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_50YDCOLORLEFTLEFT" idx="19" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_50YDCOLORRIGHT" idx="20" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_50YDCOLORRIGHTRIGHT" idx="21" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_AIRPORTCODE" idx="22" type="string" maxLen="5" />
+			<attribute name="STADIUM_ASSETNAME" idx="23" type="string" maxLen="33" />
+			<attribute name="STADIUM_BASEBALLORIENT" idx="24" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="STADIUM_CALENDAR_YEARBUILT" idx="25" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="STADIUM_CAPACITY" idx="26" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="STADIUM_CAPACITYCLUBSEATS" idx="27" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="STADIUM_CAPACITYLOWERLEVEL" idx="28" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_CAPACITYLUXURYBOXES" idx="29" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="STADIUM_CAPACITYMIDLEVEL" idx="30" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_CAPACITYUPPERENDZONE" idx="31" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_CAPACITYUPPERLEVEL" idx="32" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_DEGRADATION_TEXTURE_NAME" idx="33" type="string" maxLen="17" />
+			<attribute name="STADIUM_DISPLAYNAME" idx="34" type="string" maxLen="41" />
+			<attribute name="STADIUM_ENVIRONMENT" idx="35" type="StadiumEnvironment" default="StadiumEnvironment:Urban" />
+			<attribute name="STADIUM_FAN_SECTION_NAME" idx="36" type="string" maxLen="21" />
+			<attribute name="STADIUM_FANTASYTOGGLE" idx="37" type="int" minValue="0" maxValue="3" default="0" />
+			<attribute name="STADIUM_FIELDRECIPENAME" idx="38" type="string" maxLen="24" />
+			<attribute name="STADIUM_FLAGBASEBALL" idx="39" type="bool" default="True" />
+			<attribute name="STADIUM_FORCETIME" idx="40" type="int" minValue="0" maxValue="3" default="0" />
+			<attribute name="STADIUM_FORCEWEATHER" idx="41" type="int" minValue="0" maxValue="3" default="0" />
+			<attribute name="STADIUM_G" idx="42" type="bool" default="True" />
+			<attribute name="STADIUM_GOALPOSTTYPE" idx="43" type="StadiumGoalPostType" default="StadiumGoalPostType:YStyle" />
+			<attribute name="STADIUM_GRASSTYPE" idx="44" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="STADIUM_ICON" idx="45" type="StadiumIcon" default="StadiumIcon:None" />
+			<attribute name="STADIUM_INTERFACELOGO" idx="46" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="STADIUM_KICKERXON30" idx="47" type="bool" default="True" />
+			<attribute name="STADIUM_LATITUDE" idx="48" type="float" default="0" />
+			<attribute name="STADIUM_LEFT20YDCOLORLEFT" idx="49" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_LEFT20YDCOLORLEFTLEFT" idx="50" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_LEFT20YDCOLORRIGHT" idx="51" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_LEFT20YDCOLORRIGHTRIGHT" idx="52" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_LONGITUDE" idx="53" type="float" default="0" />
+			<attribute name="STADIUM_ORDER" idx="54" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="STADIUM_PRACTICE" idx="55" type="bool" default="True" />
+			<attribute name="STADIUM_RATING" idx="56" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="STADIUM_RIGHT20YDCOLORLEFT" idx="57" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_RIGHT20YDCOLORLEFTLEFT" idx="58" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_RIGHT20YDCOLORRIGHT" idx="59" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_RIGHT20YDCOLORRIGHTRIGHT" idx="60" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_ROTATION" idx="61" type="float" default="0" />
+			<attribute name="STADIUM_SIDELINEOBJECTSTOGGLE" idx="62" type="bool" default="True" />
+			<attribute name="STADIUM_SPONSOR_ID" idx="63" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="STADIUM_SPONSOR_INCOME" idx="64" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="STADIUM_SPONSOR_OFFERID1" idx="65" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="STADIUM_SPONSOR_OFFERID2" idx="66" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="STADIUM_SPONSOR_OFFERID3" idx="67" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="STADIUM_SPONSOR_YRSLEFT" idx="68" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="STADIUM_TIMEZONEOFFSET" idx="69" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="STADIUM_UISRESINDEX" idx="70" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="STADIUM_VISIBLE" idx="71" type="bool" default="True" />
+			<attribute name="STADIUM_ZIPCODE" idx="72" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="Type" idx="73" type="StadiumType" default="StadiumType:Original" />
+		</schema>
+	</schemas>
+</FranTkData>

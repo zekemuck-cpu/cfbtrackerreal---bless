@@ -1,0 +1,11 @@
+<FranTkData fileName="Football-Schemas\FootballPlayerTrait.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FootballPlayerTrait" numMembers="4" defaultStoreCapacity="94" assetId="11055444" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="10042" majorVersionCRC="-1852606416" minorVersionCRC="-1250192842">
+			<attribute name="Description" idx="0" type="string" maxLen="236" />
+			<attribute name="GUID" idx="1" type="string" maxLen="37" />
+			<attribute name="Name" idx="2" type="string" maxLen="43" />
+			<attribute name="PositionFlagTable" idx="3" type="PositionFlagTable" />
+		</schema>
+	</schemas>
+</FranTkData>

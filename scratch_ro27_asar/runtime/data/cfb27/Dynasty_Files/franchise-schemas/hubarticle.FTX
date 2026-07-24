@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\HUBArticle.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HUBArticle" numMembers="2" defaultStoreCapacity="6" assetId="12369655" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-244914558" minorVersionCRC="-1303784537">
+			<attribute name="ArticleItemList" idx="0" type="HUBArticlePanelItem[]" />
+			<attribute name="NewsCategory" idx="1" type="NewsCategory" default="NewsCategory:PREVIOUS_GAME" />
+		</schema>
+	</schemas>
+</FranTkData>

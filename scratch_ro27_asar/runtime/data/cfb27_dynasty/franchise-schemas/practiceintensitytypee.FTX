@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PracticeIntensityTypeE.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PracticeIntensityTypeE" numMembers="2" assetId="6495191" isRecordPersistent="true" majorVersionCRC="406485025" minorVersionCRC="233345933">
+			<attribute name="FullPad" idx="0" value="0" />
+			<attribute name="HalfPad" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\ChallengeTier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ChallengeTier" numMembers="15" assetId="10489447" isRecordPersistent="true" majorVersionCRC="-1069639735" minorVersionCRC="-389997279">
+			<attribute name="DefensivePlayCategory" idx="0" type="DefensivePlayCategories" default="DefensivePlayCategories:AssetDriven" />
+			<attribute name="Description" idx="1" type="string" maxLen="337" />
+			<attribute name="Distance" idx="2" type="int" minValue="0" maxValue="20" default="10" />
+			<attribute name="Down" idx="3" type="int" minValue="1" maxValue="4" default="1" />
+			<attribute name="GameClock" idx="4" type="int" minValue="0" maxValue="720" default="0" />
+			<attribute name="GameClockVariance" idx="5" type="int" minValue="0" maxValue="120" default="5" />
+			<attribute name="LineOfScrimmage" idx="6" type="int" minValue="-50" maxValue="50" default="-40" />
+			<attribute name="LineOfScrimmageVariance" idx="7" type="int" minValue="0" maxValue="25" default="5" />
+			<attribute name="MaxDefTimeouts" idx="8" type="int" minValue="0" maxValue="3" default="3" />
+			<attribute name="MaxOffTimeouts" idx="9" type="int" minValue="0" maxValue="3" default="3" />
+			<attribute name="Objective1" idx="10" type="ChallengeObjective" />
+			<attribute name="Objective2" idx="11" type="ChallengeObjective" />
+			<attribute name="Objective3" idx="12" type="ChallengeObjective" />
+			<attribute name="OffensivePlayCategory" idx="13" type="OffensivePlayCategory" default="OffensivePlayCategory:AssetDriven" />
+			<attribute name="ScoreDifferential" idx="14" type="ChallengeScoreDifferential" default="ChallengeScoreDifferential:Even" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\StadiumSeatingTypeEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StadiumSeatingTypeEnumTableEntry" numMembers="4" base="EnumTableEntry" assetId="6571273" isRecordPersistent="true" majorVersionCRC="1027156669" minorVersionCRC="1610465762">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="StadiumSeatingType" default="StadiumSeatingType:Level1" />
+		</schema>
+	</schemas>
+</FranTkData>

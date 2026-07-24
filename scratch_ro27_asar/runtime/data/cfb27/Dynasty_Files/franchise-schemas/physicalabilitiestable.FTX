@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\PhysicalAbilitiesTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PhysicalAbilitiesTable" numMembers="11" defaultStoreCapacity="63" assetId="8091528" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-2063798857" minorVersionCRC="1639966959">
+			<attribute name="Archetype" idx="0" type="PlayerType" default="PlayerType:First_" />
+			<attribute name="NarrativePlayerSlot1Ability" idx="1" type="PositionSignatureAbility" />
+			<attribute name="NarrativePlayerSlot2Ability" idx="2" type="PositionSignatureAbility" />
+			<attribute name="NarrativePlayerSlot3Ability" idx="3" type="PositionSignatureAbility" />
+			<attribute name="NarrativePlayerSlot4Ability" idx="4" type="PositionSignatureAbility" />
+			<attribute name="NarrativePlayerSlot5Ability" idx="5" type="PositionSignatureAbility" />
+			<attribute name="Slot1Ability" idx="6" type="PositionSignatureAbility" />
+			<attribute name="Slot2Ability" idx="7" type="PositionSignatureAbility" />
+			<attribute name="Slot3Ability" idx="8" type="PositionSignatureAbility" />
+			<attribute name="Slot4Ability" idx="9" type="PositionSignatureAbility" />
+			<attribute name="Slot5Ability" idx="10" type="PositionSignatureAbility" />
+		</schema>
+	</schemas>
+</FranTkData>

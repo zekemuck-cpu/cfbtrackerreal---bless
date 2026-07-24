@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\LetterGradeFloatValueTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LetterGradeFloatValueTable" numMembers="13" defaultStoreCapacity="3" assetId="7692765" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1870151368" minorVersionCRC="676918801">
+			<attribute name="A" idx="0" type="float" default="0" />
+			<attribute name="AMinus" idx="1" type="float" default="0" />
+			<attribute name="APlus" idx="2" type="float" default="0" />
+			<attribute name="B" idx="3" type="float" default="0" />
+			<attribute name="BMinus" idx="4" type="float" default="0" />
+			<attribute name="BPlus" idx="5" type="float" default="0" />
+			<attribute name="C" idx="6" type="float" default="0" />
+			<attribute name="CMinus" idx="7" type="float" default="0" />
+			<attribute name="CPlus" idx="8" type="float" default="0" />
+			<attribute name="D" idx="9" type="float" default="0" />
+			<attribute name="DMinus" idx="10" type="float" default="0" />
+			<attribute name="DPlus" idx="11" type="float" default="0" />
+			<attribute name="F" idx="12" type="float" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

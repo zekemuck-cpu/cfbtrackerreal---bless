@@ -1,0 +1,53 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTraitTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTraitTable" numMembers="46" assetId="6498846" isRecordPersistent="true" majorVersionCRC="386335353" minorVersionCRC="-1419453158">
+			<attribute name="BigHitter" idx="0" type="bool" default="False" />
+			<attribute name="BigHitterValue" idx="1" type="bool" default="False" />
+			<attribute name="Clutch" idx="2" type="bool" default="False" />
+			<attribute name="ClutchValue" idx="3" type="bool" default="False" />
+			<attribute name="CoverBall" idx="4" type="bool" default="False" />
+			<attribute name="CoverBallValue" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DecisionMaker" idx="6" type="bool" default="False" />
+			<attribute name="DecisionMakerValue" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Development" idx="8" type="bool" default="False" />
+			<attribute name="DevelopmentValue" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DLBullRush" idx="10" type="bool" default="False" />
+			<attribute name="DLBullRushValue" idx="11" type="bool" default="False" />
+			<attribute name="DLSpin" idx="12" type="bool" default="False" />
+			<attribute name="DLSpinValue" idx="13" type="bool" default="False" />
+			<attribute name="DLSwim" idx="14" type="bool" default="False" />
+			<attribute name="DLSwimValue" idx="15" type="bool" default="False" />
+			<attribute name="DropOpenPass" idx="16" type="bool" default="False" />
+			<attribute name="DropOpenPassValue" idx="17" type="bool" default="False" />
+			<attribute name="FeetInBounds" idx="18" type="bool" default="False" />
+			<attribute name="FeetInBoundsValue" idx="19" type="bool" default="False" />
+			<attribute name="FightForYards" idx="20" type="bool" default="False" />
+			<attribute name="FightForYardsValue" idx="21" type="bool" default="False" />
+			<attribute name="HighMotor" idx="22" type="bool" default="False" />
+			<attribute name="HighMotorValue" idx="23" type="bool" default="False" />
+			<attribute name="HighPointCatch" idx="24" type="bool" default="False" />
+			<attribute name="LBStyle" idx="25" type="bool" default="False" />
+			<attribute name="LBStyleValue" idx="26" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Penalty" idx="27" type="bool" default="False" />
+			<attribute name="PenaltyValue" idx="28" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayBall" idx="29" type="bool" default="False" />
+			<attribute name="PlayBallValue" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PossessionCatch" idx="31" type="bool" default="False" />
+			<attribute name="Predictable" idx="32" type="bool" default="False" />
+			<attribute name="PredictableValue" idx="33" type="bool" default="False" />
+			<attribute name="QBStyle" idx="34" type="bool" default="False" />
+			<attribute name="QBStyleValue" idx="35" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SensePressure" idx="36" type="bool" default="False" />
+			<attribute name="SensePressureMax" idx="37" type="bool" default="False" />
+			<attribute name="SensePressureMaxValue" idx="38" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SensePressureValue" idx="39" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StripBall" idx="40" type="bool" default="False" />
+			<attribute name="ThrowAway" idx="41" type="bool" default="False" />
+			<attribute name="ThrowAwayValue" idx="42" type="bool" default="False" />
+			<attribute name="TightSpiral" idx="43" type="bool" default="False" />
+			<attribute name="TightSpiralValue" idx="44" type="bool" default="False" />
+			<attribute name="YACCatch" idx="45" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

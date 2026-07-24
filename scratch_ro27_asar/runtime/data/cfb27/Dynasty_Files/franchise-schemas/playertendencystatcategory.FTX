@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTendencyStatCategory.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayerTendencyStatCategory" numMembers="11" assetId="6379077" isRecordPersistent="true" majorVersionCRC="854766679" minorVersionCRC="-889011022">
+			<attribute name="Separation" idx="0" value="0" />
+			<attribute name="Pressure" idx="1" value="1" />
+			<attribute name="ManBox" idx="2" value="2" />
+			<attribute name="CoverageDepth" idx="3" value="3" />
+			<attribute name="PocketThrowAttempts" idx="4" value="4" />
+			<attribute name="PocketThrowCompletions" idx="5" value="5" />
+			<attribute name="PocketThrowInterceptions" idx="6" value="6" />
+			<attribute name="PocketThrowTD" idx="7" value="7" />
+			<attribute name="PocketThrowYards" idx="8" value="8" />
+			<attribute name="ThrowLocation" idx="9" value="9" />
+			<attribute name="Invalid" idx="10" value="15" />
+		</enum>
+	</schemas>
+</FranTkData>

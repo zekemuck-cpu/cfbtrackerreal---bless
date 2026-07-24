@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\OffensiveDepthChartConfig.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OffensiveDepthChartConfig" numMembers="14" defaultStoreCapacity="11" assetId="8828518" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1008174516" minorVersionCRC="64864959">
+			<attribute name="3DRB" idx="0" type="DepthChartConfigEntry" />
+			<attribute name="C" idx="1" type="DepthChartConfigEntry" />
+			<attribute name="FB" idx="2" type="DepthChartConfigEntry" />
+			<attribute name="GAD" idx="3" type="DepthChartConfigEntry" />
+			<attribute name="HB" idx="4" type="DepthChartConfigEntry" />
+			<attribute name="LG" idx="5" type="DepthChartConfigEntry" />
+			<attribute name="LT" idx="6" type="DepthChartConfigEntry" />
+			<attribute name="PWHB" idx="7" type="DepthChartConfigEntry" />
+			<attribute name="QB" idx="8" type="DepthChartConfigEntry" />
+			<attribute name="RG" idx="9" type="DepthChartConfigEntry" />
+			<attribute name="RT" idx="10" type="DepthChartConfigEntry" />
+			<attribute name="SLWR" idx="11" type="DepthChartConfigEntry" />
+			<attribute name="TE" idx="12" type="DepthChartConfigEntry" />
+			<attribute name="WR" idx="13" type="DepthChartConfigEntry" />
+		</schema>
+	</schemas>
+</FranTkData>

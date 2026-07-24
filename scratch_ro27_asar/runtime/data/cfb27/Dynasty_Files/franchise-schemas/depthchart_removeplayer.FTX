@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DepthChart_RemovePlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChart_RemovePlayer" numMembers="2" base="none()" ownerAssetId="6378775" isRecordPersistent="true" isExpr="true" majorVersionCRC="654473110" minorVersionCRC="-1218142224">
+			<attribute name="player" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\CoachFiringSetting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachFiringSetting" numMembers="3" assetId="6378518" isRecordPersistent="true" majorVersionCRC="-414941116" minorVersionCRC="-1773726127">
+			<attribute name="ON" idx="0" value="0" />
+			<attribute name="CPU_ONLY" idx="1" value="1" />
+			<attribute name="OFF" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

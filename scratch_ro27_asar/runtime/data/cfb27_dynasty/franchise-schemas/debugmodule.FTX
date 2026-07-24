@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\DebugModule.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DebugModule" numMembers="4" base="Module" assetId="6499370" isRecordPersistent="true" majorVersionCRC="-891198205" minorVersionCRC="-1118420031">
+			<attribute name="DebugAssert" idx="0" type="DebugModule_DebugAssert" guid="6499370-1937819" />
+			<attribute name="DebugTrace" idx="1" type="DebugModule_DebugTrace" guid="6499370-1937816" />
+			<attribute name="GetBool" idx="2" type="DebugModule_GetBool" guid="6499370-1937813" />
+			<attribute name="GetInt" idx="3" type="DebugModule_GetInt" guid="6499370-1937810" />
+		</schema>
+	</schemas>
+</FranTkData>

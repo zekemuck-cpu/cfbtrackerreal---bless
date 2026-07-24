@@ -1,0 +1,10 @@
+<FranTkData fileName="Core-Schemas\StoreOptimization.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StoreOptimization" numMembers="3" assetId="6210537" isRecordPersistent="true" majorVersionCRC="-1310697691" minorVersionCRC="-949779914">
+			<attribute name="Fast" idx="0" value="0" />
+			<attribute name="Default_" idx="1" value="1" />
+			<attribute name="Lite" idx="2" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

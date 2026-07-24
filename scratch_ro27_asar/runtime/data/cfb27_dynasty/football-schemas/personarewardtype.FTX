@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\PersonaRewardType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PersonaRewardType" numMembers="6" assetId="12853512" isRecordPersistent="true" majorVersionCRC="1330480039" minorVersionCRC="-1471926">
+			<attribute name="XP" idx="0" value="0" />
+			<attribute name="Morale" idx="1" value="1" />
+			<attribute name="DevTraitIncrease" idx="2" value="2" />
+			<attribute name="DepthChart" idx="3" value="3" />
+			<attribute name="TempAbility" idx="4" value="4" />
+			<attribute name="PermAbility" idx="5" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

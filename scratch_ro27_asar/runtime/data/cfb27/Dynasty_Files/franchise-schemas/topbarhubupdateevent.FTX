@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TopBarHubUpdateEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TopBarHubUpdateEvent" numMembers="3" base="Event" defaultStoreCapacity="10" assetId="9191454" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="502090668" minorVersionCRC="1867767738">
+			<attribute name="Enqueue" idx="0" type="none()" guid="9191454-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="9191454-1895455" final="true" />
+			<attribute name="User" idx="2" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

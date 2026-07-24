@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\LeagueHistoryManager_UpdateStaffPersonContractStatusReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LeagueHistoryManager_UpdateStaffPersonContractStatusReaction" numMembers="4" base="Reaction" assetId="12988610" isRecordPersistent="true" majorVersionCRC="1553923328" minorVersionCRC="1234773256">
+			<attribute name="EventRecord" idx="0" type="UpdateStaffPersonContractStatusEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="12988610-1895461" />
+			<attribute name="LeagueHistoryManager" idx="2" type="LeagueHistoryManager" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

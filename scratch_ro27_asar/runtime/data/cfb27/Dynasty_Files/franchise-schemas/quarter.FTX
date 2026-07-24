@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\Quarter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Quarter" numMembers="7" assetId="11016442" isRecordPersistent="true" majorVersionCRC="677594684" minorVersionCRC="-899558396">
+			<attribute name="PreGame" idx="0" value="0" />
+			<attribute name="First" idx="1" value="1" />
+			<attribute name="Second" idx="2" value="2" />
+			<attribute name="Third" idx="3" value="3" />
+			<attribute name="Fourth" idx="4" value="4" />
+			<attribute name="Overtime" idx="5" value="5" />
+			<attribute name="PostGame" idx="6" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

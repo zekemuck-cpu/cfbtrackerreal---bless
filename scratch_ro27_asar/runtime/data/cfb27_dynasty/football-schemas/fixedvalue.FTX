@@ -1,0 +1,12 @@
+<FranTkData fileName="Football-Schemas\FixedValue.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\PropertySetterBase.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FixedValue" numMembers="1" base="PropertySetterBase" assetId="6686863" isRecordPersistent="true" majorVersionCRC="-138647174" minorVersionCRC="-186734790">
+			<attribute name="Value" idx="0" type="string" maxLen="12" />
+		</schema>
+	</schemas>
+</FranTkData>

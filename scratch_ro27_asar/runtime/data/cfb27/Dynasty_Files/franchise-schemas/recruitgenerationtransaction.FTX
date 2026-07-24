@@ -1,0 +1,31 @@
+<FranTkData fileName="Franchise-Schemas\RecruitGenerationTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitGenerationTransaction" numMembers="24" base="Transaction" assetId="7697445" isRecordPersistent="true" majorVersionCRC="-1630269780" minorVersionCRC="-969586704">
+			<attribute name="CurrentSampleSize" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CurrentStage" idx="1" type="Stage" />
+			<attribute name="EndStage" idx="2" type="Stage" />
+			<attribute name="FinalizeRecruitStorageStage" idx="3" type="Stage" />
+			<attribute name="GenerateCoachesStage" idx="4" type="Stage" />
+			<attribute name="GeneratorIndex" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IsBlocking" idx="6" type="bool" default="True" />
+			<attribute name="IsDone" idx="7" type="bool()" guid="7697445-1895538" />
+			<attribute name="IsDynamic" idx="8" type="bool" default="False" />
+			<attribute name="NumTunables" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PostGenerateStage" idx="10" type="Stage" />
+			<attribute name="Process" idx="11" type="none()" guid="7697445-1895540" />
+			<attribute name="RecruitingClassGenerationManager" idx="12" type="RecruitingClassGenerationManager" />
+			<attribute name="RecruitingTunable" idx="13" type="RecruitingTunables" />
+			<attribute name="SampleSize" idx="14" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SampleSizeMax" idx="15" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Sleep" idx="16" type="ITransaction_Sleep" guid="7697445-1895548" />
+			<attribute name="Start" idx="17" type="none()" guid="7697445-1895544" />
+			<attribute name="StartStage" idx="18" type="Stage" />
+			<attribute name="TimeScale" idx="19" type="float" default="0" />
+			<attribute name="TotalRecruitsToGenerate" idx="20" type="int" minValue="0" maxValue="4500" default="0" />
+			<attribute name="TransitionPending" idx="21" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="22" type="Stage" />
+			<attribute name="UpdateStage" idx="23" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

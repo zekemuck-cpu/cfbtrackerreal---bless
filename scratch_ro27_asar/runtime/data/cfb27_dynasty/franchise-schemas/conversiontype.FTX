@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\ConversionType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ConversionType" numMembers="3" assetId="6321378" isRecordPersistent="true" majorVersionCRC="1456374873" minorVersionCRC="-931648606">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="FieldGoal" idx="1" value="1" />
+			<attribute name="Touchdown" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

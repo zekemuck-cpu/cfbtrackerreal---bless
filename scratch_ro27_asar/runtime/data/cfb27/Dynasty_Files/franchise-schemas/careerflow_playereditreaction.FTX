@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CareerFlow_PlayerEditReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerFlow_PlayerEditReaction" numMembers="4" base="Reaction" assetId="6498926" isRecordPersistent="true" majorVersionCRC="-1396313516" minorVersionCRC="934687947">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="PlayerEditEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6498926-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\PositionBasedPlayerActor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceActor.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionBasedPlayerActor" numMembers="5" base="SequenceActor" defaultStoreCapacity="6" assetId="11909959" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1462683952" minorVersionCRC="1201747424">
+			<attribute name="ActorName" idx="0" type="ActorName" default="ActorName:Player" />
+			<attribute name="Depth" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PluginType" idx="2" type="NarrativeActorPluginType" default="NarrativeActorPluginType:NarrativeTargetedActor" />
+			<attribute name="Position" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TeamActor" idx="4" type="ActorName" default="ActorName:None" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -53,6 +53,17 @@ export default defineConfig({
     strictPort: true,
     allowedHosts: true,
     hmr: false,
+    // The CFB27 portrait library is ~19,000 individual static image files
+    // that never change at runtime — no reason for Vite's file watcher
+    // (chokidar) to track them alongside actual source files. On Windows
+    // specifically, an untracked folder this size can make local dev
+    // noticeably slower (every watched file is also a target for realtime
+    // antivirus scanning) — production is unaffected either way, since
+    // Vercel serves these as plain static assets, not through this dev
+    // server or its watcher at all.
+    watch: {
+      ignored: ['**/public/cfb27-portraits/**'],
+    },
     // Dev-only: the ScoutScore proxy is a Vercel serverless function that
     // doesn't run under plain `npm run dev`. Forward that path straight to
     // MaxPlaysCFB's API so the feature is fully testable locally (server-side
@@ -63,6 +74,17 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: () => '/api/recruit-percentiles/preview',
       },
+      // Dev-only: the CFB 27 save import endpoints are real Vercel serverless
+      // functions (R2 upload + Firebase-token-gated parse) that don't run
+      // under plain `npm run dev`. Forward to a local stand-in server
+      // (scripts/dev-cfb27-server.cjs — run it separately, or via
+      // `npm run dev:cfb27-api`) that uses local disk instead of R2 and skips
+      // auth, so the feature is fully clickable locally. Production still
+      // uses the real functions untouched.
+      '/api/cfb27-save-upload-url': { target: 'http://localhost:5051', changeOrigin: true },
+      '/api/cfb27-save-parse': { target: 'http://localhost:5051', changeOrigin: true },
+      '/api/cfb27-bulk-seed-players': { target: 'http://localhost:5051', changeOrigin: true },
+      '/api/cfb27-save-sync-players': { target: 'http://localhost:5051', changeOrigin: true },
     },
   }
 })

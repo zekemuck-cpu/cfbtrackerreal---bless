@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\SchoolOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SchoolOffer" numMembers="7" defaultStoreCapacity="138" assetId="12287446" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="508460088" minorVersionCRC="-1338693823">
+			<attribute name="AdjustedOVR" idx="0" type="int" minValue="0" maxValue="256" default="0" />
+			<attribute name="EstimatedPlayerDepth" idx="1" type="int" minValue="0" maxValue="256" default="0" />
+			<attribute name="HasOffer" idx="2" type="bool" default="False" />
+			<attribute name="InterestLevel" idx="3" type="int" minValue="0" maxValue="65536" default="0" />
+			<attribute name="OfferInterestLevel" idx="4" type="int" minValue="0" maxValue="65536" default="0" />
+			<attribute name="OfferType" idx="5" type="RecruitOfferType" default="RecruitOfferType:Starter" />
+			<attribute name="Team" idx="6" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,31 @@
+<FranTkData fileName="Franchise-Schemas\TeamValueUpdateTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamValueUpdateTransaction" numMembers="24" base="Transaction" assetId="6498998" isRecordPersistent="true" majorVersionCRC="-1570743742" minorVersionCRC="1230912886">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="IsBlocking" idx="1" type="bool" default="True" />
+			<attribute name="IsDone" idx="2" type="bool()" guid="6498998-1895538" />
+			<attribute name="IsDynamic" idx="3" type="bool" default="False" />
+			<attribute name="MerchandiseList" idx="4" type="MerchandiseItemInfo[]" />
+			<attribute name="PlayerMarketingEval" idx="5" type="PlayerMarketingEval" />
+			<attribute name="Process" idx="6" type="none()" guid="6498998-1895540" />
+			<attribute name="ProcessTeamValueStage" idx="7" type="Stage" />
+			<attribute name="RosterEvalRef" idx="8" type="RosterEval" />
+			<attribute name="SeasonInfo" idx="9" type="SeasonInfo" />
+			<attribute name="Sleep" idx="10" type="ITransaction_Sleep" guid="6498998-1895548" />
+			<attribute name="Start" idx="11" type="none()" guid="6498998-1895544" />
+			<attribute name="StartStage" idx="12" type="Stage" />
+			<attribute name="TeamIndex" idx="13" type="int" minValue="0" maxValue="133" default="0" />
+			<attribute name="TeamPopularityEvalRef" idx="14" type="TeamPopularityEval" />
+			<attribute name="TeamRevenueEvalRef" idx="15" type="TeamRevenueEval" />
+			<attribute name="TeamRevenueManagerRef" idx="16" type="TeamRevenueManager" />
+			<attribute name="TeamRevenueUpdatedEvent" idx="17" type="TeamRevenueUpdatedEvent" />
+			<attribute name="Teams" idx="18" type="Team[]" />
+			<attribute name="TeamValueComponentValue" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TeamValueEvalRef" idx="20" type="TeamValueEval" />
+			<attribute name="TimeScale" idx="21" type="float" default="0" />
+			<attribute name="TransitionPending" idx="22" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="23" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

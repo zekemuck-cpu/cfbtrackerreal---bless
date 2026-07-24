@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\FreeAgentStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="FreeAgentStatus" numMembers="3" assetId="12019485" isRecordPersistent="true" majorVersionCRC="-1542080105" minorVersionCRC="-1680925712">
+			<attribute name="FreeAgents" idx="0" value="0" />
+			<attribute name="PracticeSquadEligible" idx="1" value="1" />
+			<attribute name="UpcomingFreeAgents" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

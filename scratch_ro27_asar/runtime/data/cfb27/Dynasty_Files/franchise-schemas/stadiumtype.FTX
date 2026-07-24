@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\StadiumType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StadiumType" numMembers="6" assetId="6378367" isRecordPersistent="true" majorVersionCRC="-1327970757" minorVersionCRC="-738161994">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Original" idx="1" value="0" />
+			<attribute name="Created" idx="2" value="1" />
+			<attribute name="Story" idx="3" value="2" />
+			<attribute name="Max_" idx="4" value="3" />
+			<attribute name="Invalid_" idx="5" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

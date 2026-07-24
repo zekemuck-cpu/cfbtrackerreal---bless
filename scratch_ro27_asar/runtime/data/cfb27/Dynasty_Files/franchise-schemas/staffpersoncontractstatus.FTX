@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\StaffPersonContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StaffPersonContractStatus" numMembers="15" assetId="6377528" isRecordPersistent="true" majorVersionCRC="-692321416" minorVersionCRC="1593160467">
+			<attribute name="First_Active" idx="0" value="0" />
+			<attribute name="Signed" idx="1" value="0" />
+			<attribute name="Expiring" idx="2" value="1" />
+			<attribute name="First_Pending" idx="3" value="2" />
+			<attribute name="PendingFire" idx="4" value="2" />
+			<attribute name="PendingNFL" idx="5" value="3" />
+			<attribute name="PendingRenewal" idx="6" value="4" />
+			<attribute name="Last_Active" idx="7" value="5" />
+			<attribute name="PendingRetire" idx="8" value="5" />
+			<attribute name="Last_Pending" idx="9" value="6" />
+			<attribute name="PendingHire" idx="10" value="6" />
+			<attribute name="FreeAgent" idx="11" value="7" />
+			<attribute name="Retired" idx="12" value="8" />
+			<attribute name="Deleted" idx="13" value="9" />
+			<attribute name="None" idx="14" value="10" />
+		</enum>
+	</schemas>
+</FranTkData>

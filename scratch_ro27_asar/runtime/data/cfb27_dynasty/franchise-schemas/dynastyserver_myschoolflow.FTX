@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_MySchoolFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_MySchoolFlow" numMembers="18" base="FranTkServer_Flow" assetId="6816451" isRecordPersistent="true" majorVersionCRC="1551912932" minorVersionCRC="1441659996">
+			<attribute name="ChangeFrequencyEnumTable" idx="0" type="EnumTable" />
+			<attribute name="Dynasty" idx="1" type="record" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="League" idx="4" type="League" />
+			<attribute name="LetterGradeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="MySchoolGradeEnumTable" idx="6" type="EnumTable" />
+			<attribute name="MySchoolGradeEval" idx="7" type="MySchoolGradeEval" />
+			<attribute name="MySchoolGradeInfoList" idx="8" type="MySchoolGradeInfo[]" />
+			<attribute name="PlayersLeavingEval" idx="9" type="PlayersLeavingEval" />
+			<attribute name="PlayerTypeEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PlayerTypeInfoList" idx="11" type="PlayerTypeInfo[]" />
+			<attribute name="PositionEnumTable" idx="12" type="EnumTable" />
+			<attribute name="PositionGroupEnumTable" idx="13" type="EnumTable" />
+			<attribute name="RecruitingEval" idx="14" type="RecruitingEval" />
+			<attribute name="SchoolYearEnumTable" idx="15" type="record" />
+			<attribute name="StatTypeEnumTable" idx="16" type="EnumTable" />
+			<attribute name="UserRegistry" idx="17" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

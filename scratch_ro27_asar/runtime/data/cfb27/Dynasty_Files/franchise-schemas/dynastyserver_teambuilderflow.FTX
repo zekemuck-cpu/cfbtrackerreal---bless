@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_TeamBuilderFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_TeamBuilderFlow" numMembers="10" base="FranTkServer_Flow" assetId="9102442" isRecordPersistent="true" majorVersionCRC="-1010488576" minorVersionCRC="-1191671203">
+			<attribute name="Dynasty" idx="0" type="Franchise" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="GenerationManager" idx="3" type="GenerationManager" />
+			<attribute name="PlayerManager" idx="4" type="PlayerManager" />
+			<attribute name="PlayerProgressionEval" idx="5" type="PlayerProgressionEval" />
+			<attribute name="PlayersLeavingEval" idx="6" type="PlayersLeavingEval" />
+			<attribute name="SignatureAbilitiesEval" idx="7" type="SignatureAbilitiesEval" />
+			<attribute name="TeamBuilderManager" idx="8" type="TeamBuilderManager" />
+			<attribute name="UserRegistry" idx="9" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

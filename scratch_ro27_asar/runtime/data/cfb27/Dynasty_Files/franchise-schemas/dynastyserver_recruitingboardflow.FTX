@@ -1,0 +1,44 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_RecruitingBoardFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_RecruitingBoardFlow" numMembers="33" base="FranTkServer_Flow" assetId="6812771" isRecordPersistent="true" majorVersionCRC="1193461776" minorVersionCRC="1304958214">
+			<attribute name="DevelopmentTraitEnumTable" idx="0" type="EnumTable" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="HandednessEnumTable" idx="4" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="MentalAbilitiesEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PlayerAbilitiesEnumTable" idx="7" type="EnumTable" />
+			<attribute name="PlayersLeavingEval" idx="8" type="PlayersLeavingEval" />
+			<attribute name="PlayerTypeEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="10" type="EnumTable" />
+			<attribute name="ProgramPointsEval" idx="11" type="TeamRevenueEval" />
+			<attribute name="ProgramPointsTuning" idx="12" type="ProgramPointsTuning" />
+			<attribute name="QuickActionList" idx="13" type="RecruitingQuickAction[]" />
+			<attribute name="QuickActionScopeEnumTable" idx="14" type="EnumTable" />
+			<attribute name="QuickActionTypeEnumTable" idx="15" type="EnumTable" />
+			<attribute name="RecruitingActionIntensityEnumTable" idx="16" type="EnumTable" />
+			<attribute name="RecruitingActionTypeEnumTable" idx="17" type="EnumTable" />
+			<attribute name="RecruitingBonusTypeEnumTable" idx="18" type="EnumTable" />
+			<attribute name="RecruitingBonusValueTypeEnumTable" idx="19" type="EnumTable" />
+			<attribute name="RecruitingClassEnumTable" idx="20" type="EnumTable" />
+			<attribute name="RecruitingEval" idx="21" type="RecruitingEval" />
+			<attribute name="RecruitingMotivationEnumTable" idx="22" type="EnumTable" />
+			<attribute name="RecruitingPitchTypeEnumTable" idx="23" type="EnumTable" />
+			<attribute name="RecruitManager" idx="24" type="RecruitManager" />
+			<attribute name="SeasonScheduleManager" idx="25" type="SeasonScheduleManager" />
+			<attribute name="StateNameEnumTable" idx="26" type="EnumTable" />
+			<attribute name="TeamManager" idx="27" type="TeamManager" />
+			<attribute name="UserRegistry" idx="28" type="UserRegistry" />
+			<attribute name="VisitActivityEnumTable" idx="29" type="EnumTable" />
+			<attribute name="VisitEval" idx="30" type="VisitEval" />
+			<attribute name="VisitGameStakesFactorEnumTable" idx="31" type="EnumTable" />
+			<attribute name="VisitWinMarginTypeEnumTable" idx="32" type="EnumTable" />
+		</schema>
+	</schemas>
+</FranTkData>

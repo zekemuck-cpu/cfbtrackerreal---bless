@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\Goal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGoal" numMembers="13" base="Goal" assetId="6377936" isRecordPersistent="true" majorVersionCRC="-1799607248" minorVersionCRC="-1354373512">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Description" idx="1" type="string" maxLen="111" />
+			<attribute name="FromStats" idx="2" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="3" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="4" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="5" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="6" type="bool" default="True" />
+			<attribute name="LegacyScoreAward" idx="7" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="8" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="9" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="10" type="string" maxLen="31" />
+			<attribute name="PositionCategory" idx="11" type="PositionCategory" default="PositionCategory:All" />
+			<attribute name="Title" idx="12" type="string" maxLen="51" />
+		</schema>
+	</schemas>
+</FranTkData>

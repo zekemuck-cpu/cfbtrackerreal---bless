@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\StripeOut.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StripeOut" numMembers="13" assetId="8211505" isRecordPersistent="true" majorVersionCRC="1668051011" minorVersionCRC="1308003259">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="FULLCOLOR" idx="1" value="0" />
+			<attribute name="STRIPE_OUT" idx="2" value="1" />
+			<attribute name="RINGS" idx="3" value="2" />
+			<attribute name="CHECKERBOARD" idx="4" value="3" />
+			<attribute name="VERTICAL_SPLIT" idx="5" value="4" />
+			<attribute name="HORIZONTAL_SPLIT" idx="6" value="5" />
+			<attribute name="DesignColor6" idx="7" value="6" />
+			<attribute name="DesignColor7" idx="8" value="7" />
+			<attribute name="DesignColor8" idx="9" value="8" />
+			<attribute name="DesignColor9" idx="10" value="9" />
+			<attribute name="Max_" idx="11" value="10" />
+			<attribute name="Invalid_" idx="12" value="11" />
+		</enum>
+	</schemas>
+</FranTkData>

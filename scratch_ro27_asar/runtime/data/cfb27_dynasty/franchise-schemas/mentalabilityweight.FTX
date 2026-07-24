@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\MentalAbilityWeight.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MentalAbilityWeight" numMembers="2" defaultStoreCapacity="153" assetId="8214847" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1432656450" minorVersionCRC="1853258576">
+			<attribute name="MentalAbility" idx="0" type="MentalAbilities" default="MentalAbilities:None" />
+			<attribute name="Weight" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

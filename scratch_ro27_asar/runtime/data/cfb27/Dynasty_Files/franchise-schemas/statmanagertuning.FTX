@@ -1,0 +1,70 @@
+<FranTkData fileName="Franchise-Schemas\StatManagerTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManagerTuning" numMembers="59" base="BaseTuning" defaultStoreCapacity="1" assetId="6379091" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1493654096" minorVersionCRC="899564607">
+			<attribute name="AvgPuntYardsFor1Sticker" idx="0" type="int" minValue="0" maxValue="100" default="40" />
+			<attribute name="AvgPuntYardsFor2Stickers" idx="1" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="AwayTeamAttendanceFactor" idx="2" type="float" default="0.33" />
+			<attribute name="CareerRecordThreshold" idx="3" type="FootballRecordStatThreshold" />
+			<attribute name="CatchesFor1Sticker" idx="4" type="int" minValue="0" maxValue="63" default="3" />
+			<attribute name="CatchesFor2Stickers" idx="5" type="int" minValue="0" maxValue="63" default="6" />
+			<attribute name="CatchesFor3Stickers" idx="6" type="int" minValue="0" maxValue="63" default="10" />
+			<attribute name="HomeTeamAttendanceFactor" idx="7" type="float" default="60" />
+			<attribute name="InitialAttendanceFactor" idx="8" type="float" default="20" />
+			<attribute name="InterceptionsMod" idx="9" type="float" default="200" />
+			<attribute name="MaxPrideStickers" idx="10" type="int" minValue="0" maxValue="100" default="48" />
+			<attribute name="MaxStickersEarnedPerGame" idx="11" type="int" minValue="0" maxValue="100" default="6" />
+			<attribute name="MaxStickersForTFL" idx="12" type="int" minValue="0" maxValue="6" default="6" />
+			<attribute name="MaxStickersFromFumbleInt" idx="13" type="int" minValue="0" maxValue="63" default="4" />
+			<attribute name="MaxStickersFromSacks" idx="14" type="int" minValue="0" maxValue="63" default="4" />
+			<attribute name="MaxStickersFromTouchdowns" idx="15" type="int" minValue="0" maxValue="31" default="3" />
+			<attribute name="MinPuntsForAvgStickers" idx="16" type="int" minValue="0" maxValue="31" default="4" />
+			<attribute name="NumCompletionsMod" idx="17" type="float" default="100" />
+			<attribute name="PancakesPerSticker" idx="18" type="int" minValue="0" maxValue="7" default="2" />
+			<attribute name="PassDefelctionsFor1Sticker" idx="19" type="int" minValue="0" maxValue="63" default="1" />
+			<attribute name="PassDefelctionsFor2Stickers" idx="20" type="int" minValue="0" maxValue="63" default="3" />
+			<attribute name="PassDefelctionsFor3Stickers" idx="21" type="int" minValue="0" maxValue="63" default="6" />
+			<attribute name="PassingYardsMod" idx="22" type="float" default="8.4" />
+			<attribute name="PassYardsFor1Sticker" idx="23" type="int" minValue="0" maxValue="511" default="100" />
+			<attribute name="PassYardsFor2Stickers" idx="24" type="int" minValue="0" maxValue="511" default="200" />
+			<attribute name="PassYardsFor3Stickers" idx="25" type="int" minValue="0" maxValue="511" default="300" />
+			<attribute name="PlayerGameplanTendencyStats" idx="26" type="PlayerGameplanTendencyStatGen[]" />
+			<attribute name="PlayerTendencyStatGens" idx="27" type="PlayerTendencyStatGen[]" />
+			<attribute name="PositionToKeyContextTable" idx="28" type="record" />
+			<attribute name="ReceivingYardsFor1Sticker" idx="29" type="int" minValue="0" maxValue="511" default="40" />
+			<attribute name="ReceivingYardsFor2Stickers" idx="30" type="int" minValue="0" maxValue="511" default="100" />
+			<attribute name="ReceivingYardsFor3Stickers" idx="31" type="int" minValue="0" maxValue="511" default="150" />
+			<attribute name="RedZonePuntsPerSticker" idx="32" type="int" minValue="0" maxValue="31" default="2" />
+			<attribute name="RelatedTeamTendencyStatGens" idx="33" type="TeamTendencyStatGen[]" />
+			<attribute name="ReturnYardsFor1Sticker" idx="34" type="int" minValue="0" maxValue="511" default="50" />
+			<attribute name="ReturnYardsFor2Stickers" idx="35" type="int" minValue="0" maxValue="511" default="100" />
+			<attribute name="ReturnYardsFor3Stickers" idx="36" type="int" minValue="0" maxValue="511" default="150" />
+			<attribute name="RivalyAttendanceBonus" idx="37" type="float" default="20" />
+			<attribute name="RushYardsFor1Sticker" idx="38" type="int" minValue="0" maxValue="511" default="40" />
+			<attribute name="RushYardsFor2Stickers" idx="39" type="int" minValue="0" maxValue="511" default="100" />
+			<attribute name="RushYardsFor3Stickers" idx="40" type="int" minValue="0" maxValue="511" default="150" />
+			<attribute name="SacksAllowedPerSticker" idx="41" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="SeasonRecordThreshold" idx="42" type="FootballRecordStatThreshold" />
+			<attribute name="StickersForFirstFumbleInt" idx="43" type="int" minValue="0" maxValue="63" default="2" />
+			<attribute name="StickersForFirstSack" idx="44" type="int" minValue="0" maxValue="63" default="2" />
+			<attribute name="StickersFromFirstTFL" idx="45" type="int" minValue="0" maxValue="6" default="2" />
+			<attribute name="StickersPerWin" idx="46" type="int" minValue="1" maxValue="2" default="1" />
+			<attribute name="TacklesFor1Sticker" idx="47" type="int" minValue="0" maxValue="63" default="3" />
+			<attribute name="TacklesFor2Stickers" idx="48" type="int" minValue="0" maxValue="63" default="5" />
+			<attribute name="TacklesFor3Stickers" idx="49" type="int" minValue="0" maxValue="63" default="8" />
+			<attribute name="TeamPassYardsFor1Sticker" idx="50" type="int" minValue="0" maxValue="511" default="200" />
+			<attribute name="TeamPassYardsFor2Stickers" idx="51" type="int" minValue="0" maxValue="511" default="250" />
+			<attribute name="TeamPassYardsFor3Stickers" idx="52" type="int" minValue="0" maxValue="300" default="300" />
+			<attribute name="TeamRushYardsFor1Sticker" idx="53" type="int" minValue="0" maxValue="511" default="100" />
+			<attribute name="TeamRushYardsFor2Stickers" idx="54" type="int" minValue="0" maxValue="511" default="150" />
+			<attribute name="TeamRushYardsFor3Stickers" idx="55" type="int" minValue="0" maxValue="511" default="200" />
+			<attribute name="TeamTendencyStatGens" idx="56" type="TeamTendencyStatGen[]" />
+			<attribute name="TouchbacksPerSticker" idx="57" type="int" minValue="0" maxValue="63" default="2" />
+			<attribute name="TouchdownPassesMod" idx="58" type="float" default="330" />
+		</schema>
+	</schemas>
+</FranTkData>

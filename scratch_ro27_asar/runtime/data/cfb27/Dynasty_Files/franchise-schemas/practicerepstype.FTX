@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PracticeRepsType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PracticeRepsType" numMembers="3" assetId="6495194" isRecordPersistent="true" majorVersionCRC="949832114" minorVersionCRC="1800826747">
+			<attribute name="Normal" idx="0" value="0" />
+			<attribute name="Limited" idx="1" value="1" />
+			<attribute name="None" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

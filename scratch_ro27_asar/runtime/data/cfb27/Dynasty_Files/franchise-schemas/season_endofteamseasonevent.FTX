@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\Season_EndOfTeamSeasonEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Season_EndOfTeamSeasonEvent" numMembers="3" base="Event" defaultStoreCapacity="133" assetId="6378164" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1618557180" minorVersionCRC="601552509">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6378164-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6378164-1895455" final="true" />
+			<attribute name="Team" idx="2" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

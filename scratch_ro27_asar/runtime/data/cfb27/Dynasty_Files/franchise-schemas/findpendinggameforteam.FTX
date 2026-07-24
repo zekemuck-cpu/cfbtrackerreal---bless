@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\FindPendingGameForTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FindPendingGameForTeam" numMembers="7" base="FilterView" assetId="6499011" isRecordPersistent="true" majorVersionCRC="1051353352" minorVersionCRC="-1807755874">
+			<attribute name="Clear" idx="0" type="none()" guid="6499011-1937749" />
+			<attribute name="Filter" idx="1" type="FindPendingGameForTeam_Filter" guid="6499011-1931567" default="SeasonGame seasonGame = Subject.SeasonGame;&#xD;&#xA;&#xD;&#xA;// Include this pending game if the home or away team matches the filter team.&#xD;&#xA;(seasonGame.HomeTeam == FilterTeam) || (seasonGame.AwayTeam == FilterTeam);&#xD;&#xA;" />
+			<attribute name="FilterTeam" idx="2" type="Team" />
+			<attribute name="Results" idx="3" type="PendingSeasonGame[]" />
+			<attribute name="Source" idx="4" type="record" />
+			<attribute name="Subjects" idx="5" type="PendingSeasonGame[]" />
+			<attribute name="Update" idx="6" type="none()" guid="6499011-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

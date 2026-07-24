@@ -1,0 +1,18 @@
+<FranTkData fileName="Core-Schemas\UISliderControlLargeValues.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIControl.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISliderControlLargeValues" numMembers="7" base="UIControl" defaultStoreCapacity="3" assetId="6210716" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="92" majorVersionCRC="-484681617" minorVersionCRC="55033025">
+			<attribute name="DisplayName" idx="0" type="string" maxLen="33" />
+			<attribute name="IsEnabled" idx="1" type="bool" default="True" />
+			<attribute name="MaxValue" idx="2" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="MinValue" idx="3" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="Name" idx="4" type="string" maxLen="33" />
+			<attribute name="StepSize" idx="5" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="Value" idx="6" type="int" minValue="0" maxValue="20000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

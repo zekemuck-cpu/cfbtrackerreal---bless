@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\ForceDraftPlayerAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ForceDraftPlayerAction" numMembers="7" base="SequenceAction" assetId="6543002" isRecordPersistent="true" majorVersionCRC="-1587727747" minorVersionCRC="950680589">
+			<attribute name="ActorPlayer" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="ActorTeam" idx="1" type="ActorName" default="ActorName:None" />
+			<attribute name="Default" idx="2" type="bool" default="False" />
+			<attribute name="Enabled" idx="3" type="bool" default="True" />
+			<attribute name="OverallPick" idx="4" type="int" minValue="0" maxValue="300" default="0" />
+			<attribute name="TargetPlayer" idx="5" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="TargetTeam" idx="6" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

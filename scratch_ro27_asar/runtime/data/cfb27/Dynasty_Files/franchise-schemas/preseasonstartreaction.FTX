@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\PreseasonStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PreseasonStartReaction" numMembers="12" base="Reaction" assetId="6499087" isRecordPersistent="true" majorVersionCRC="-826378237" minorVersionCRC="-1838822708">
+			<attribute name="DraftManagerRef" idx="0" type="DraftManager" />
+			<attribute name="EnableBalanceLogging" idx="1" type="bool" default="False" />
+			<attribute name="EventRecord" idx="2" type="PreseasonStartEvent" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="Handle" idx="4" type="bool()" guid="6499087-1895461" />
+			<attribute name="PlayerProgressionEvalRef" idx="5" type="PlayerProgressionEval" />
+			<attribute name="Priority" idx="6" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="ResetPlayoffRoundReachedView" idx="7" type="ResetPlayoffRoundReached" />
+			<attribute name="ResetSeasonStatsForTeam" idx="8" type="ResetSeasonStatsForTeams" />
+			<attribute name="RosterEvalRef" idx="9" type="RosterEval" />
+			<attribute name="SeasonManager" idx="10" type="SeasonManager" />
+			<attribute name="StatManagerRef" idx="11" type="StatManager" />
+		</schema>
+	</schemas>
+</FranTkData>

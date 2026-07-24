@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGradeEval_CalculatePlayerRankingPercentileByOverall.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGradeEval_CalculatePlayerRankingPercentileByOverall" numMembers="4" base="float()" ownerAssetId="6498460" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1084640546" minorVersionCRC="-557551180">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="position" idx="1" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="includeFreeAgents" idx="2" type="bool" default="True" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\Draft_TradeCurrentPickEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Draft_TradeCurrentPickEvent" numMembers="9" base="Event" assetId="6378596" isRecordPersistent="true" majorVersionCRC="-406717932" minorVersionCRC="-860704482">
+			<attribute name="Clear" idx="0" type="none()" guid="6378596-1904551" final="true" default="IsFantasyDraft = false;&#xD;&#xA;OldTeam = null;&#xD;&#xA;NewTeam = null;&#xD;&#xA;Pick = null;&#xD;&#xA;PackageA = null;&#xD;&#xA;PackageB = null;" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6378596-1895458" final="true" />
+			<attribute name="IsFantasyDraft" idx="2" type="bool" default="False" />
+			<attribute name="NewTeam" idx="3" type="Team" />
+			<attribute name="OldTeam" idx="4" type="Team" />
+			<attribute name="PackageA" idx="5" type="TeamTradePackage" />
+			<attribute name="PackageB" idx="6" type="TeamTradePackage" />
+			<attribute name="Pick" idx="7" type="DraftPick" />
+			<attribute name="Send" idx="8" type="none()" guid="6378596-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

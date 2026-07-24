@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SeasonGameFlow_RegisterUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonGameFlow_RegisterUserReaction" numMembers="4" base="Reaction" assetId="6708583" isRecordPersistent="true" majorVersionCRC="-1904768694" minorVersionCRC="1780530997">
+			<attribute name="AdvanceStageTransaction" idx="0" type="AdvanceSeasonWeekTransaction" />
+			<attribute name="EventRecord" idx="1" type="RegisterUserEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6708583-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

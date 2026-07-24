@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_GetStorySideActivityCompletions.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_GetStorySideActivityCompletions" numMembers="3" base="int()" ownerAssetId="6708631" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2007300644" minorVersionCRC="-491211506">
+			<attribute name="StorySideActivity" idx="0" type="StorySideActivity" />
+			<attribute name="TeamRecord" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

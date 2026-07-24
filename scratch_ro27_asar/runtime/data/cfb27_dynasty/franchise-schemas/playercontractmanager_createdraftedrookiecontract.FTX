@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerContractManager_CreateDraftedRookieContract.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerContractManager_CreateDraftedRookieContract" numMembers="2" base="PlayerContract()" ownerAssetId="6378594" isRecordPersistent="true" isExpr="true" majorVersionCRC="1192032496" minorVersionCRC="-2096875874">
+			<attribute name="overallPick" idx="0" type="int" minValue="0" maxValue="224" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

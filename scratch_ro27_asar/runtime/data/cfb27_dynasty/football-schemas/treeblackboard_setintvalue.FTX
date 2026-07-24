@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\TreeBlackboard_SetIntValue.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TreeBlackboard_SetIntValue" numMembers="4" base="none()" ownerAssetId="12273725" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1871416484" minorVersionCRC="-1576152040">
+			<attribute name="value" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="variableEnum" idx="1" type="TreeBlackboardMembers" default="TreeBlackboardMembers:INVALID" />
+			<attribute name="valueEnum" idx="2" type="TreeBlackboardMembers" default="TreeBlackboardMembers:INVALID" />
+		</schema>
+	</schemas>
+</FranTkData>

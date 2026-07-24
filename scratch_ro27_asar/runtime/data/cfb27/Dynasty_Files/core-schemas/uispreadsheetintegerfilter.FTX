@@ -1,0 +1,14 @@
+<FranTkData fileName="Core-Schemas\UISpreadsheetIntegerFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetIntegerFilter" numMembers="3" base="UISpreadsheetIntFilter" defaultStoreCapacity="200" assetId="6210727" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="2472" majorVersionCRC="-1962935862" minorVersionCRC="-1476364653">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="Value" idx="2" type="int" minValue="-1" maxValue="63" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

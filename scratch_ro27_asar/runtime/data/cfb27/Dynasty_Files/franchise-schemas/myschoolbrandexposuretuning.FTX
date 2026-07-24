@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolBrandExposureTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolBrandExposureTuning" numMembers="6" base="BaseTuning" defaultStoreCapacity="1" assetId="6816546" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1682224374" minorVersionCRC="-1299469207">
+			<attribute name="AverageToGradeRange" idx="0" type="MySchoolRankingRangesTable" />
+			<attribute name="GameOfTheWeekMod" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NationalTVMod" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NewYears6BowlMod" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayoffsMod" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StreamingMod" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

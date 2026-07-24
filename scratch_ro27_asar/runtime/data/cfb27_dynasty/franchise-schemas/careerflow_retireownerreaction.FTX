@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\CareerFlow_RetireOwnerReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerFlow_RetireOwnerReaction" numMembers="5" base="Reaction" assetId="6499270" isRecordPersistent="true" majorVersionCRC="489207184" minorVersionCRC="-906055692">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="RetireOwnerEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6499270-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="UserFlow" idx="4" type="FranchiseServer_UserFlow" />
+		</schema>
+	</schemas>
+</FranTkData>

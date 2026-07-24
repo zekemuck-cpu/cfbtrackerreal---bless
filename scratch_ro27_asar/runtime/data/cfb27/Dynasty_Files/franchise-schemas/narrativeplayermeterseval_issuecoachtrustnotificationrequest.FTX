@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersEval_IssueCoachTrustNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersEval_IssueCoachTrustNotificationRequest" numMembers="4" base="none()" ownerAssetId="7692449" isRecordPersistent="true" isExpr="true" majorVersionCRC="1264721256" minorVersionCRC="1636487414">
+			<attribute name="UserEntity" idx="0" type="UserEntity" />
+			<attribute name="CoachTrustRewardType" idx="1" type="CoachTrustRewardType" default="CoachTrustRewardType:ExtraPlays" />
+			<attribute name="UseFireworks" idx="2" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

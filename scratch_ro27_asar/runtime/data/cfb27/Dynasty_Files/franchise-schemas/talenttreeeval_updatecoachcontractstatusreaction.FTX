@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TalentTreeEval_UpdateCoachContractStatusReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentTreeEval_UpdateCoachContractStatusReaction" numMembers="4" base="Reaction" assetId="6814767" isRecordPersistent="true" majorVersionCRC="1142030330" minorVersionCRC="223356900">
+			<attribute name="EventRecord" idx="0" type="Coach_UpdateCoachContractStatusEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814767-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TalentTreeEval" idx="3" type="TalentTreeEval" />
+		</schema>
+	</schemas>
+</FranTkData>

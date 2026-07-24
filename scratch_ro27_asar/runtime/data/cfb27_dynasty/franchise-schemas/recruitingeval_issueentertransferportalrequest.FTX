@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_IssueEnterTransferPortalRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_IssueEnterTransferPortalRequest" numMembers="2" base="int()" ownerAssetId="6812765" isRecordPersistent="true" isExpr="true" majorVersionCRC="2139651310" minorVersionCRC="-1587691580">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

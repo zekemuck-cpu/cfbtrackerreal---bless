@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\AssignPlayerAbilityTempBuffAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\AssignAbilityTempBuffAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AssignPlayerAbilityTempBuffAction" numMembers="9" base="AssignAbilityTempBuffAction" defaultStoreCapacity="239" assetId="6539951" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-556210764" minorVersionCRC="402767201">
+			<attribute name="Ability" idx="0" type="PlayerAbility" default="PlayerAbility:None" />
+			<attribute name="Actor" idx="1" type="ActorName" default="ActorName:None" />
+			<attribute name="Amount" idx="2" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="Default" idx="3" type="bool" default="False" />
+			<attribute name="Enabled" idx="4" type="bool" default="True" />
+			<attribute name="OperationType" idx="5" type="TempBuffsOperationType" default="TempBuffsOperationType:Relative" />
+			<attribute name="PeriodTimeType" idx="6" type="DurationType" default="DurationType:Weeks" />
+			<attribute name="Target" idx="7" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="TimeValue" idx="8" type="int" minValue="0" maxValue="52" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

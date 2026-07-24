@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\NewCareerWaitingReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewCareerWaitingReaction" numMembers="6" base="Reaction" assetId="6499265" isRecordPersistent="true" majorVersionCRC="-987497040" minorVersionCRC="61388862">
+			<attribute name="AdvanceTransaction" idx="0" type="AdvanceSeasonWeekTransaction" />
+			<attribute name="CareerFlow" idx="1" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="2" type="NewCareerWaitingPeriodStartEvent" />
+			<attribute name="Handle" idx="3" type="bool()" guid="6499265-1895461" />
+			<attribute name="Priority" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfoUpdateEvent" idx="5" type="SeasonInfoUpdateEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerProgressionEval_CalculateDevTraitIncreaseChance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerProgressionEval_CalculateDevTraitIncreaseChance" numMembers="4" base="int()" ownerAssetId="6498681" isRecordPersistent="true" isExpr="true" majorVersionCRC="1133476950" minorVersionCRC="-422576675">
+			<attribute name="score" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="coachTalentEffects" idx="2" type="CoachTalentEffects" />
+		</schema>
+	</schemas>
+</FranTkData>

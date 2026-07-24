@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TempBuffEval_GameEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TempBuffEval_GameEndReaction" numMembers="4" base="Reaction" assetId="6814751" isRecordPersistent="true" majorVersionCRC="-779331648" minorVersionCRC="581740953">
+			<attribute name="EventRecord" idx="0" type="GameEndEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814751-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TempBuffEval" idx="3" type="TempBuffEval" />
+		</schema>
+	</schemas>
+</FranTkData>

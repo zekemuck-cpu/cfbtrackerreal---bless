@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamRoadmapReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamRoadmapReaction" numMembers="8" base="Reaction" assetId="6498962" isRecordPersistent="true" majorVersionCRC="1821737236" minorVersionCRC="1204705554">
+			<attribute name="EventRecord" idx="0" type="UpdateTeamRoadmapEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6498962-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TeamPrestigeEval" idx="4" type="TeamPrestigeEval" />
+			<attribute name="TradeEval" idx="5" type="TradeEval" />
+			<attribute name="TradeManager" idx="6" type="TradeManager" />
+			<attribute name="Transaction" idx="7" type="TeamRoadmapTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_StadiumFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_StadiumFlow" numMembers="12" base="FranTkServer_Flow" assetId="6499274" isRecordPersistent="true" majorVersionCRC="-1046764250" minorVersionCRC="-1596515437">
+			<attribute name="EquipmentBonusValueEnumTable" idx="0" type="EnumTable" />
+			<attribute name="EquipmentDecayRateEnumTable" idx="1" type="EnumTable" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="LetterGradeEnumTable" idx="4" type="EnumTable" />
+			<attribute name="PlayerProgressionEvalRef" idx="5" type="PlayerProgressionEval" />
+			<attribute name="SendRenovationEvent" idx="6" type="StadiumPartRenovateEvent" />
+			<attribute name="SendUpgradeEvent" idx="7" type="StadiumPartUpgradeEvent" />
+			<attribute name="StadiumEval" idx="8" type="StadiumEval" />
+			<attribute name="TeamRevenueEval" idx="9" type="TeamRevenueEval" />
+			<attribute name="TeamUpgradeEffectTypeEnumTable" idx="10" type="EnumTable" />
+			<attribute name="UserRegistry" idx="11" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

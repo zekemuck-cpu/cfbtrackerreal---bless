@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersEndSeasonReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersEndSeasonReaction" numMembers="4" base="Reaction" assetId="8527468" isRecordPersistent="true" majorVersionCRC="-701190702" minorVersionCRC="1187041692">
+			<attribute name="EventRecord" idx="0" type="NarrativePlayerMetersEndSeasonStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="8527468-1895461" />
+			<attribute name="NarrativePlayerMetersEval" idx="2" type="NarrativePlayerMetersEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

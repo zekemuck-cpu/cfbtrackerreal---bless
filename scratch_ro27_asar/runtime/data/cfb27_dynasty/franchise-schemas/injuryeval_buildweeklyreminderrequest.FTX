@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_BuildWeeklyReminderRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_BuildWeeklyReminderRequest" numMembers="3" base="Injury_WeeklyReminderRequest()" ownerAssetId="6498459" isRecordPersistent="true" isExpr="true" majorVersionCRC="768004788" minorVersionCRC="1253309632">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="numPlayersInjured" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

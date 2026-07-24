@@ -1,0 +1,6 @@
+<FranTkData fileName="Football-Schemas\PropertySetterBase.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PropertySetterBase" numMembers="0" assetId="6702155" isRecordPersistent="true" majorVersionCRC="1116360495" minorVersionCRC="2119450296" />
+	</schemas>
+</FranTkData>

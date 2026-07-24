@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_ContractNegotiationFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_ContractNegotiationFlow" numMembers="11" base="FranTkServer_Flow" assetId="6499315" isRecordPersistent="true" majorVersionCRC="490997832" minorVersionCRC="-964965178">
+			<attribute name="Form" idx="0" type="UIForm" />
+			<attribute name="FormManager" idx="1" type="FranTkServer_FormManager" />
+			<attribute name="InjuryEvalRef" idx="2" type="InjuryEval" />
+			<attribute name="PlayerContractManager" idx="3" type="PlayerContractManager" />
+			<attribute name="PlayerSigningEval" idx="4" type="PlayerSigningEval" />
+			<attribute name="PlayerTypeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="RequestServer" idx="6" type="RequestServer" />
+			<attribute name="ReSignNegotiationManager" idx="7" type="ReSignNegotiationManager" />
+			<attribute name="SalaryCapEval" idx="8" type="SalaryCapEval" />
+			<attribute name="SeasonInfo" idx="9" type="SeasonInfo" />
+			<attribute name="UserRegistry" idx="10" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

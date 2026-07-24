@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\JobDifficultyTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="JobDifficultyTuning" numMembers="4" base="BaseTuning" defaultStoreCapacity="1" assetId="13735476" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-630361937" minorVersionCRC="-2055725023">
+			<attribute name="ADDemeanorToJobDifficultyScore" idx="0" type="int[]" />
+			<attribute name="JobDifficultyScoreToEnumSpline" idx="1" type="Spline" />
+			<attribute name="TeamBudgetGradeToJobDifficultyScore" idx="2" type="int[]" />
+			<attribute name="TeamPrestigeToJobDifficultyScore" idx="3" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

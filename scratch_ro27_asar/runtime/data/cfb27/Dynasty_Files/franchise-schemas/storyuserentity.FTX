@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryUserEntity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryUserEntity" numMembers="2" defaultStoreCapacity="1" assetId="6498724" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="124720241" minorVersionCRC="-317264186">
+			<attribute name="TargetedActorType" idx="0" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="UserEntity" idx="1" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

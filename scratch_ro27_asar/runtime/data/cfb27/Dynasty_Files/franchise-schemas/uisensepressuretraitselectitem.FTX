@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UISensePressureTraitSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISensePressureTraitSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="5" assetId="6663027" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="47" majorVersionCRC="-1567432112" minorVersionCRC="-1732898279">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="SensePressureLevel" default="SensePressureLevel:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

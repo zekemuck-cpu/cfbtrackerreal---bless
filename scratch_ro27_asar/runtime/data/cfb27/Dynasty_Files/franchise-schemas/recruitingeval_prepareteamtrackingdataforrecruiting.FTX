@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_PrepareTeamTrackingDataForRecruiting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_PrepareTeamTrackingDataForRecruiting" numMembers="2" base="none()" ownerAssetId="6812765" isRecordPersistent="true" isExpr="true" majorVersionCRC="520733016" minorVersionCRC="74894710">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

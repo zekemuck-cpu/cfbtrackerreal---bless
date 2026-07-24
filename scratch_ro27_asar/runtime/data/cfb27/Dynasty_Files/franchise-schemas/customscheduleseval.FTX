@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\CustomSchedulesEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CustomSchedulesEval" numMembers="9" base="Module" assetId="9101449" isRecordPersistent="true" majorVersionCRC="1719045608" minorVersionCRC="1967149267">
+			<attribute name="CreateCustomSchedulesRequest" idx="0" type="CustomSchedulesRequest()" guid="9101449-2279081" final="true" />
+			<attribute name="CustomSchedulesDefaultResponse" idx="1" type="UISelectForm" />
+			<attribute name="CustomSchedulesPanel" idx="2" type="HUBPanel" />
+			<attribute name="CustomSchedulesResponse" idx="3" type="UIFlowForm" />
+			<attribute name="HandleCustomSchedulesStartEvent" idx="4" type="none()" guid="9101449-2279084" final="true" />
+			<attribute name="IssueCustomSchedulesRequest" idx="5" type="CustomSchedulesEval_IssueCustomSchedulesRequest" guid="9101449-2279087" final="true" default="if (userEntity != null)&#xD;&#xA;{&#xD;&#xA;    CustomSchedulesRequest request = CreateCustomSchedulesRequest();&#xD;&#xA;&#xD;&#xA;    if (request != null)&#xD;&#xA;    {&#xD;&#xA;        request.ResponseForms = new ResponseForm[1];&#xD;&#xA;        request.ResponseForms.Append(CustomSchedulesResponse);&#xD;&#xA;&#xD;&#xA;        request.DefaultResponse = CustomSchedulesDefaultResponse;&#xD;&#xA;        request.HubPanel = CustomSchedulesPanel;&#xD;&#xA;&#xD;&#xA;        request.Priority = 2;&#xD;&#xA;        request.IsPersistent = true;&#xD;&#xA;&#xD;&#xA;        request.Issue(userEntity);&#xD;&#xA;    }&#xD;&#xA;}" />
+			<attribute name="SeasonScheduleManager" idx="6" type="SeasonScheduleManager" />
+			<attribute name="UserRegistry" idx="7" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="8" type="none()" guid="9101449-2242011" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

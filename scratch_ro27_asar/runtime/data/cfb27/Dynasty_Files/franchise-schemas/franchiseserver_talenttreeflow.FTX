@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_TalentTreeFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_TalentTreeFlow" numMembers="15" base="FranTkServer_Flow" assetId="6499341" isRecordPersistent="true" majorVersionCRC="515187705" minorVersionCRC="1045241764">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="CoachTalentArcheTypeEnumTable" idx="1" type="EnumTable" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="4" type="Franchise" />
+			<attribute name="LeagueSetting" idx="5" type="LeagueSetting" />
+			<attribute name="LetterGradeEnumTable" idx="6" type="EnumTable" />
+			<attribute name="StaffHiringEval" idx="7" type="StaffHiringEval" />
+			<attribute name="StaffHiringTuning" idx="8" type="StaffHiringTuning" />
+			<attribute name="StatManager" idx="9" type="StatManager" />
+			<attribute name="StringManager" idx="10" type="StringManager" />
+			<attribute name="TalentTreeEval" idx="11" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="12" type="TeamManager" />
+			<attribute name="TutorialList" idx="13" type="TutorialInfo[]" />
+			<attribute name="UserRegistry" idx="14" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

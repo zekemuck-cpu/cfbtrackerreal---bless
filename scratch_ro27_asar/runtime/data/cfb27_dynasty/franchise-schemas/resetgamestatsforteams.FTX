@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\ResetGameStatsForTeams.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ResetGameStatsForTeams" numMembers="4" base="ModifierView" assetId="6814787" isRecordPersistent="true" majorVersionCRC="-1095414868" minorVersionCRC="-1221946624">
+			<attribute name="Formula" idx="0" type="ResetGameStatsForTeams_Formula" guid="6814787-1983238" default="ResetGameStatsForPlayers playersResetView = new ResetGameStatsForPlayers;&#xD;&#xA;playersResetView.Subjects = Subject.Roster;&#xD;&#xA;playersResetView.Update();" />
+			<attribute name="Source" idx="1" type="record" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6814787-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

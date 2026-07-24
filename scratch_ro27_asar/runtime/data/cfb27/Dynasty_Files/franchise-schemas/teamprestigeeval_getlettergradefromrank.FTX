@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamPrestigeEval_GetLetterGradeFromRank.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamPrestigeEval_GetLetterGradeFromRank" numMembers="2" base="string()" ownerAssetId="6495397" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1391475968" minorVersionCRC="154326337">
+			<attribute name="rank" idx="0" type="int" minValue="0" maxValue="31" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

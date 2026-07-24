@@ -19,6 +19,40 @@ import { computeSeasonAV, explainSeasonAV } from '../../utils/approximateValue'
 import { getPlayerTid } from '../../data/rosterModel'
 import AllTimeLineup from './AllTimeLineup'
 
+// A leaderboard row's avatar. Clearing a search bar (or typing one) swings
+// the visible list from ~1 matched row back to the full top-N in one React
+// render — every row outside the new set gets unmounted, and every row
+// entering it mounts a BRAND NEW <img>, all at once. Verified: that burst is
+// what leaves some images stuck broken (confirmed repro — searching a name
+// then clearing it breaks the top 25's photos). A plain <img> has no way to
+// recover from a failed/aborted load; this retries once (a fresh mount via
+// the `key` bump, not just re-setting the same src, since some failure modes
+// don't retry off an unchanged src) before falling back to the same
+// no-photo placeholder used everywhere else, instead of staying broken.
+function LeaderboardAvatar({ src, alt, className, style, fallback }) {
+  const [attempt, setAttempt] = useState(0)
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) return fallback ?? null
+  return (
+    <img
+      key={attempt}
+      src={src}
+      alt={alt || ''}
+      className={className}
+      style={style}
+      onError={() => {
+        if (attempt < 1) setTimeout(() => setAttempt((a) => a + 1), 250)
+        else setFailed(true)
+      }}
+    />
+  )
+}
+
+// Cap on how many players each per-stat leaderboard shows when unsearched.
+// A name search always searches the FULL underlying list regardless of this
+// cap — see the two `displayed`/`baseList` render-layer uses below.
+const LEADERBOARD_DISPLAY_CAP = 25
+
 // Stat category definitions
 const STAT_CATEGORIES = {
   // Approximate Value — single cross-position production metric.
@@ -185,20 +219,18 @@ export default function DynastyRecords() {
     return 'production'
   }
 
-  const [mode, setMode] = useState(() => localStorage.getItem('leaderboard-mode') || 'career')
+  const [mode, setMode] = useState(() => localStorage.getItem('leaderboard-mode') || 'season')
   const [activeCategory, setActiveCategory] = useState(() => resolveCategory(categoryParam))
   // Season-mode year scope. null = follow the dynasty's current year (the
   // leaderboard should open on the season you're playing, not all-time);
   // 'all' = every season; a number = that specific season. Only applies in
   // Season mode — Career is inherently all-time.
   const [seasonYearChoice, setSeasonYearChoice] = useState(null)
-  // Default season scope depends on the tab: Approximate Value opens on the
-  // season you're playing (most useful for a live race), every other tab
-  // opens all-time. An explicit dropdown pick (seasonYearChoice) overrides.
+  // Default season scope: the season you're currently playing, for every
+  // category (not just Approximate Value) — an explicit dropdown pick
+  // (seasonYearChoice) always overrides.
   const effectiveSeasonYear = seasonYearChoice ?? (
-    activeCategory === 'production' && currentDynasty?.currentYear != null
-      ? Number(currentDynasty.currentYear)
-      : 'all'
+    currentDynasty?.currentYear != null ? Number(currentDynasty.currentYear) : 'all'
   )
 
   // Keep state in sync with URL — covers back/forward navigation,
@@ -213,6 +245,11 @@ export default function DynastyRecords() {
   // inline 4-10 expansion only showed 7 more entries and felt cramped.
   // Modal-based reveal can show the full ranked list with breathing room.
   const [modalStat, setModalStat] = useState(null)
+  // "My Team Only" toggle — scopes every leaderboard to players currently
+  // rostered on the dynasty's own team (dynasty.currentTid), instead of the
+  // whole league (which can be thousands of players once CFB27 sync tracks
+  // every team).
+  const [myTeamOnly, setMyTeamOnly] = useState(false)
   // Free-text search inside the modal — filters the displayed list by
   // player-name substring while preserving each player's true rank in
   // the leaderboard. Reset on close.
@@ -223,10 +260,17 @@ export default function DynastyRecords() {
   const [avSearch, setAvSearch] = useState('')
   const [expandedRowKey, setExpandedRowKey] = useState(null)
 
-  // Get roster players
+  // Get roster players — scoped to the user's own current team when
+  // "My Team Only" is on.
   const getRosterPlayers = () => {
     if (!currentDynasty?.players) return []
-    return currentDynasty.players.filter(p => !p.isHonorOnly)
+    const all = currentDynasty.players.filter(p => !p.isHonorOnly)
+    if (!myTeamOnly || currentDynasty.currentTid == null) return all
+    const myTid = Number(currentDynasty.currentTid)
+    return all.filter(p => {
+      const tid = getPlayerTid(p, currentDynasty.currentYear, { currentYear: currentDynasty.currentYear })
+      return tid != null && Number(tid) === myTid
+    })
   }
 
   // Get player info. player.team may be a tid (modern format), an abbr
@@ -285,8 +329,14 @@ export default function DynastyRecords() {
     }
   }
 
-  // Calculate leaderboards
+  // Calculate leaderboards — scoped to the ACTIVE category only (see the
+  // Object.entries(STAT_CATEGORIES) loop below). The whole computation used
+  // to run for all ~9 categories on every render regardless of which tab
+  // was open — most of that work (an aggregation pass per category, a sort
+  // per stat) was thrown away unseen. Viewing Passing never needs Rushing/
+  // Receiving/Defense/etc. computed at all.
   const leaderboards = useMemo(() => {
+    if (activeCategory === ALL_TIME_KEY) return {} // AllTimeLineup fetches its own data
     const rosterPlayers = getRosterPlayers()
     if (rosterPlayers.length === 0) return {}
 
@@ -553,6 +603,7 @@ export default function DynastyRecords() {
     const result = {}
 
     Object.entries(STAT_CATEGORIES).forEach(([catKey, category]) => {
+      if (catKey !== activeCategory) return // only the visible tab's category is computed
       let baseStats =
         catKey === 'allPurpose' ? calcAllPurposeStats()
         : catKey === 'production' ? calcProductionStats()
@@ -697,17 +748,18 @@ export default function DynastyRecords() {
             return true
           })
           .sort((a, b) => stat.lowerIsBetter ? a.value - b.value : b.value - a.value)
-          // No cap. The card displays only the top 3 anyway; the modal
-          // shows the full list (with search) so capping at 10 was
-          // hiding entries from the modal — the user reported "only
-          // loading 10 players".
+          // NOT capped here — stored full so a name search can still find
+          // someone outside the top LEADERBOARD_DISPLAY_CAP. The cap is
+          // applied only at the DISPLAY layer (unsearched view), where it
+          // actually saves render cost; capping the computed array itself
+          // would make search unable to reach anyone below the cutoff.
 
         result[catKey][stat.key] = leaderboard
       })
     })
 
     return result
-  }, [currentDynasty, mode, effectiveSeasonYear])
+  }, [currentDynasty, mode, effectiveSeasonYear, myTeamOnly, activeCategory])
 
   // Distinct seasons that have any player stats — drives the Season-mode
   // year dropdown (newest first, with an "All-Time" option).
@@ -789,6 +841,15 @@ export default function DynastyRecords() {
           <option value="all">All-Time</option>
         </Select>
       )}
+      <Tabs
+        variant="pill"
+        value={myTeamOnly ? 'mine' : 'all'}
+        onChange={(v) => setMyTeamOnly(v === 'mine')}
+        options={[
+          { value: 'all', label: 'All Teams' },
+          { value: 'mine', label: 'My Team' },
+        ]}
+      />
     </div>
   )
 
@@ -843,13 +904,17 @@ export default function DynastyRecords() {
           // per-stat breakdown that built the number.
           const avEntries = catLeaderboards.av || []
           const q = avSearch.trim().toLowerCase()
+          // Ranks are computed against the FULL list (true rank #), then a
+          // search matches against that same full list — only the unsearched
+          // view gets capped, so searching a name always finds them even
+          // when they're outside the top LEADERBOARD_DISPLAY_CAP.
           const ranked = avEntries.map((entry, i) => ({ entry, rank: i + 1 }))
           const filtered = q
             ? ranked.filter(({ entry }) =>
                 (entry.name || '').toLowerCase().includes(q)
                 || (entry.position || '').toLowerCase().includes(q)
                 || (entry.teamAbbr || '').toLowerCase().includes(q))
-            : ranked
+            : ranked.slice(0, LEADERBOARD_DISPLAY_CAP)
           const playerById = Object.fromEntries((currentDynasty?.players || []).map(p => [p.pid, p]))
           const buildBreakdown = (entry) => {
             const player = playerById[entry.pid]
@@ -905,7 +970,14 @@ export default function DynastyRecords() {
                               corner — the on-air headshot + helmet treatment. */}
                           <div className={`relative flex-shrink-0 ${isFirst ? 'w-12 h-12' : isTop3 ? 'w-11 h-11' : 'w-10 h-10'}`}>
                             {entry.pictureUrl ? (
-                              <img src={proxyImageUrl(entry.pictureUrl, 300)} alt="" className="w-full h-full rounded-full object-cover" style={{ border: '1px solid var(--surface-4)' }} />
+                              <LeaderboardAvatar
+                                src={proxyImageUrl(entry.pictureUrl, 300)}
+                                className="w-full h-full rounded-full object-cover"
+                                style={{ border: '1px solid var(--surface-4)' }}
+                                fallback={entry.teamLogo
+                                  ? <img src={entry.teamLogo} alt="" className="w-full h-full object-contain" />
+                                  : <div className="w-full h-full rounded-full bg-surface-4" />}
+                              />
                             ) : entry.teamLogo ? (
                               <img src={entry.teamLogo} alt="" className="w-full h-full object-contain" />
                             ) : (
@@ -1042,11 +1114,13 @@ export default function DynastyRecords() {
                           </div>
 
                           {entry.pictureUrl ? (
-                            <img
+                            <LeaderboardAvatar
                               src={proxyImageUrl(entry.pictureUrl, 300)}
-                              alt=""
                               className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0 transition-all`}
                               style={{ border: '1px solid var(--surface-4)' }}
+                              fallback={entry.teamLogo
+                                ? <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-10 h-10' : 'w-7 h-7'} object-contain flex-shrink-0`} />
+                                : <div className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />}
                             />
                           ) : entry.teamLogo ? (
                             <img
@@ -1129,7 +1203,10 @@ export default function DynastyRecords() {
 
         // Tag every entry with its TRUE rank in the leaderboard before
         // filtering, so a search for "Crawford" still shows him as
-        // #6 instead of #1 in the filtered view.
+        // #6 instead of #1 in the filtered view. Only the unsearched view
+        // is capped to LEADERBOARD_DISPLAY_CAP — a search always matches
+        // against the full ranked list, so it can find someone outside
+        // that cap too.
         const ranked = fullLeaderboard.map((entry, idx) => ({ entry, rank: idx + 1 }))
         const q = modalSearch.trim().toLowerCase()
         const filtered = q
@@ -1138,7 +1215,7 @@ export default function DynastyRecords() {
               || (entry.position || '').toLowerCase().includes(q)
               || (entry.teamAbbr || '').toLowerCase().includes(q)
             )
-          : ranked
+          : ranked.slice(0, LEADERBOARD_DISPLAY_CAP)
 
         const handleClose = () => {
           setModalStat(null)
@@ -1310,15 +1387,17 @@ export default function DynastyRecords() {
                             </div>
 
                             {entry.pictureUrl ? (
-                              <img
+                              <LeaderboardAvatar
                                 src={proxyImageUrl(entry.pictureUrl, 300)}
-                                alt=""
                                 className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`}
                                 style={{
                                   border: isFirst
                                     ? '1.5px solid var(--accent-warning)'
                                     : '1px solid var(--surface-4)',
                                 }}
+                                fallback={entry.teamLogo
+                                  ? <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-9 h-9' : 'w-7 h-7'} object-contain flex-shrink-0`} />
+                                  : <div className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />}
                               />
                             ) : entry.teamLogo ? (
                               <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-9 h-9' : 'w-7 h-7'} object-contain flex-shrink-0`} />

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CoachAccomplishment.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachAccomplishment" numMembers="2" defaultStoreCapacity="2720" assetId="8532639" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-201529977" minorVersionCRC="1869322890">
+			<attribute name="CoachGoal" idx="0" type="CoachGoal" />
+			<attribute name="TimesEarned" idx="1" type="int" minValue="0" maxValue="20000" default="1" />
+		</schema>
+	</schemas>
+</FranTkData>

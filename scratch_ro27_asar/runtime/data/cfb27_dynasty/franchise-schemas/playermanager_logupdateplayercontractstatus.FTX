@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerManager_LogUpdatePlayerContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerManager_LogUpdatePlayerContractStatus" numMembers="2" base="none()" ownerAssetId="6498478" isRecordPersistent="true" isExpr="true" majorVersionCRC="-341887625" minorVersionCRC="136337012">
+			<attribute name="event" idx="0" type="Player_UpdatePlayerContractStatusEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

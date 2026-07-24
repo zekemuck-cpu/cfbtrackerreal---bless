@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\ReSignResponseText.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReSignResponseText" numMembers="1" defaultStoreCapacity="1" assetId="6494707" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="64" majorVersionCRC="-277215492" minorVersionCRC="989693965">
+			<attribute name="Text" idx="0" type="string" maxLen="64" />
+		</schema>
+	</schemas>
+</FranTkData>

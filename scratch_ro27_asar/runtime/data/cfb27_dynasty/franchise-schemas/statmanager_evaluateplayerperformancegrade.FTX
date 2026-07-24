@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StatManager_EvaluatePlayerPerformanceGrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManager_EvaluatePlayerPerformanceGrade" numMembers="3" base="none()" ownerAssetId="6493950" isRecordPersistent="true" isExpr="true" majorVersionCRC="1518310542" minorVersionCRC="1179187108">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="gameStats" idx="1" type="GameStats" />
+		</schema>
+	</schemas>
+</FranTkData>

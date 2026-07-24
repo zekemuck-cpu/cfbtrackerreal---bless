@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_ExecuteWeeklyPractice.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_ExecuteWeeklyPractice" numMembers="2" base="none()" ownerAssetId="6708631" isRecordPersistent="true" isExpr="true" majorVersionCRC="-486384728" minorVersionCRC="-439415970">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

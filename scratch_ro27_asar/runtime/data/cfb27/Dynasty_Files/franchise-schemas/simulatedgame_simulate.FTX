@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SimulatedGame_Simulate.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SimulatedGame_Simulate" numMembers="2" base="bool()" ownerAssetId="6499012" isRecordPersistent="true" isExpr="true" majorVersionCRC="-193735276" minorVersionCRC="1760096790">
+			<attribute name="timestep" idx="0" type="float" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

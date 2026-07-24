@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_IsTeamEligibleForScenarioArc.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_IsTeamEligibleForScenarioArc" numMembers="4" base="bool()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="-177934406" minorVersionCRC="-734724496">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="arcId" idx="1" type="StoryArcMetadata" />
+			<attribute name="maxArcInstances" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\PlayerMentalMilestoneGoalTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerMentalMilestoneGoalTable" numMembers="18" assetId="9077443" isRecordPersistent="true" majorVersionCRC="-1410658025" minorVersionCRC="-281107025">
+			<attribute name="AdrenalineMilestoneGoalsList" idx="0" type="PlayerGoal[]" />
+			<attribute name="BellCowMilestoneGoalsList" idx="1" type="PlayerGoal[]" />
+			<attribute name="BestFriendMilestoneGoalsList" idx="2" type="PlayerGoal[]" />
+			<attribute name="CaptainMilestoneGoalsList" idx="3" type="PlayerGoal[]" />
+			<attribute name="ClearHeadedMilestoneGoalsList" idx="4" type="PlayerGoal[]" />
+			<attribute name="ClutchMilestoneGoalsList" idx="5" type="PlayerGoal[]" />
+			<attribute name="DLRallyMilestoneGoalsList" idx="6" type="PlayerGoal[]" />
+			<attribute name="DynamicPersonalityMilestoneGoalsList" idx="7" type="PlayerGoal[]" />
+			<attribute name="FanFavoriteMilestoneGoalsList" idx="8" type="PlayerGoal[]" />
+			<attribute name="FieldGeneralMilestoneGoalsList" idx="9" type="PlayerGoal[]" />
+			<attribute name="HeadstrongMilestoneGoalsList" idx="10" type="PlayerGoal[]" />
+			<attribute name="LegionMilestoneGoalsList" idx="11" type="PlayerGoal[]" />
+			<attribute name="OLRallyMilestoneGoalsList" idx="12" type="PlayerGoal[]" />
+			<attribute name="RhythmMilestoneGoalsList" idx="13" type="PlayerGoal[]" />
+			<attribute name="RoadDogMilestoneGoalsList" idx="14" type="PlayerGoal[]" />
+			<attribute name="TeamPlayerMilestoneGoalsList" idx="15" type="PlayerGoal[]" />
+			<attribute name="TheNaturalMilestoneGoalsList" idx="16" type="PlayerGoal[]" />
+			<attribute name="ToughnessMilestoneGoalsList" idx="17" type="PlayerGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

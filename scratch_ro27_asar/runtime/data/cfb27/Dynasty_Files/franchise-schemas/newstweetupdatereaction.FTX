@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NewsTweetUpdateReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsTweetUpdateReaction" numMembers="4" base="Reaction" assetId="6499035" isRecordPersistent="true" majorVersionCRC="1796334624" minorVersionCRC="-1404288063">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="NewsTweetUpdateEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6499035-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

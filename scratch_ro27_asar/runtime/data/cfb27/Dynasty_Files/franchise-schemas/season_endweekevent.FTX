@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\Season_EndWeekEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Season_EndWeekEvent" numMembers="6" base="Event" assetId="6494573" isRecordPersistent="true" majorVersionCRC="-1633264711" minorVersionCRC="719974763">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6494573-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6494573-1895455" final="true" />
+			<attribute name="Stage" idx="2" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="Week" idx="3" type="int" minValue="0" maxValue="51" default="0" />
+			<attribute name="WeekType" idx="4" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="Year" idx="5" type="int" minValue="0" maxValue="50" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

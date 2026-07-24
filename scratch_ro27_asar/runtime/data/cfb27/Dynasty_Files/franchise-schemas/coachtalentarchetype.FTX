@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\CoachTalentArcheType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachTalentArcheType" numMembers="17" assetId="7742528" isRecordPersistent="true" majorVersionCRC="-154496584" minorVersionCRC="626399662">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Motivator" idx="1" value="0" />
+			<attribute name="Schemer" idx="2" value="1" />
+			<attribute name="Recruiter" idx="3" value="2" />
+			<attribute name="MasterMotivator" idx="4" value="3" />
+			<attribute name="Architect" idx="5" value="4" />
+			<attribute name="SchemeGuru" idx="6" value="5" />
+			<attribute name="Strategist" idx="7" value="6" />
+			<attribute name="EliteRecruiter" idx="8" value="7" />
+			<attribute name="TalentDeveloper" idx="9" value="8" />
+			<attribute name="Rainmaker" idx="10" value="9" />
+			<attribute name="Visionary" idx="11" value="10" />
+			<attribute name="ProgramBuilder" idx="12" value="11" />
+			<attribute name="CEO" idx="13" value="12" />
+			<attribute name="Last_" idx="14" value="12" />
+			<attribute name="Count_" idx="15" value="13" />
+			<attribute name="Invalid_" idx="16" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

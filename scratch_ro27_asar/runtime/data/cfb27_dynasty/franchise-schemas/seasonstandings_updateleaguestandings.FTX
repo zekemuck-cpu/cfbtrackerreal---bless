@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStandings_UpdateLeagueStandings.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStandings_UpdateLeagueStandings" numMembers="4" base="ModifierView" assetId="6708714" isRecordPersistent="true" majorVersionCRC="1611200488" minorVersionCRC="841815566">
+			<attribute name="Formula" idx="0" type="SeasonStandings_UpdateLeagueStandings_Formula" guid="6708714-1948934" default="Subject.CurSeasonLeagStanding = SubjectIndex;" />
+			<attribute name="Source" idx="1" type="record" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6708714-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

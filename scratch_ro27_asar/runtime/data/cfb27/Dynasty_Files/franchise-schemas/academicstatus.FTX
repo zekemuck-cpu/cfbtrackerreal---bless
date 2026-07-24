@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\AcademicStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="AcademicStatus" numMembers="9" assetId="12012593" isRecordPersistent="true" majorVersionCRC="-443553530" minorVersionCRC="1535597000">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Ineligible" idx="1" value="0" />
+			<attribute name="Critical" idx="2" value="1" />
+			<attribute name="AtRisk" idx="3" value="2" />
+			<attribute name="Eligible" idx="4" value="3" />
+			<attribute name="HighAchiever" idx="5" value="4" />
+			<attribute name="Last_" idx="6" value="4" />
+			<attribute name="Count_" idx="7" value="5" />
+			<attribute name="Invalid_" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

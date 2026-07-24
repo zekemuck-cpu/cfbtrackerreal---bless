@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\SkinTone.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SkinTone" numMembers="16" assetId="6378234" isRecordPersistent="true" majorVersionCRC="-1420822968" minorVersionCRC="-1984465461">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Lightest_" idx="1" value="0" />
+			<attribute name="SkinTone1" idx="2" value="0" />
+			<attribute name="SkinTone2" idx="3" value="1" />
+			<attribute name="SkinTone3" idx="4" value="2" />
+			<attribute name="SkinTone4" idx="5" value="3" />
+			<attribute name="SkinTone5" idx="6" value="4" />
+			<attribute name="SkinTone6" idx="7" value="5" />
+			<attribute name="CoachLast_" idx="8" value="6" />
+			<attribute name="GenericPlayerLast_" idx="9" value="6" />
+			<attribute name="SkinTone7" idx="10" value="6" />
+			<attribute name="Darkest_" idx="11" value="7" />
+			<attribute name="MorphHeadLast_" idx="12" value="7" />
+			<attribute name="SkinTone8" idx="13" value="7" />
+			<attribute name="Max_" idx="14" value="8" />
+			<attribute name="Invalid_" idx="15" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

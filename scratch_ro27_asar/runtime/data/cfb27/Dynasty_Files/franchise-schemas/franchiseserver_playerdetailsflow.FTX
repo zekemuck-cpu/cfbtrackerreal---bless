@@ -1,0 +1,72 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_PlayerDetailsFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_PlayerDetailsFlow" numMembers="61" base="FranTkServer_Flow" assetId="6498997" isRecordPersistent="true" majorVersionCRC="-205412920" minorVersionCRC="-1368025341">
+			<attribute name="AbilitiesRankEnumTable" idx="0" type="EnumTable" />
+			<attribute name="AllPossibleTeamLogosArray" idx="1" type="TeamLogo[]" />
+			<attribute name="ArchetypeOVRTutorial" idx="2" type="TutorialInfo" />
+			<attribute name="AwardsEvalRef" idx="3" type="AwardsEval" />
+			<attribute name="AwardTypeEnumTable" idx="4" type="EnumTable" />
+			<attribute name="BodyPartGroupsEnumTable" idx="5" type="EnumTable" />
+			<attribute name="ConfidenceManager" idx="6" type="ConfidenceManager" />
+			<attribute name="DefaultTeam" idx="7" type="Team" />
+			<attribute name="DepthChartEval" idx="8" type="DepthChartEval" />
+			<attribute name="DevelopmentTraitTutorial" idx="9" type="TutorialInfo" />
+			<attribute name="FatigueLevelInfoList" idx="10" type="FatigueLevelInfo[]" />
+			<attribute name="Form" idx="11" type="UIForm" />
+			<attribute name="FormManager" idx="12" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="13" type="Franchise" />
+			<attribute name="GamebreakerTutorial" idx="14" type="TutorialInfo" />
+			<attribute name="HandednessEnumTable" idx="15" type="EnumTable" />
+			<attribute name="HandleSeasonInfoUpdate" idx="16" type="FranchiseServer_PlayerDetailsFlow_HandleSeasonInfoUpdate" guid="6498997-1931398" final="true" />
+			<attribute name="HealthTabStaminaDescription" idx="17" type="string" maxLen="61" default="Determines how long a player can play at their max potential" />
+			<attribute name="HiddenDevelopmentTutorial" idx="18" type="TutorialInfo" />
+			<attribute name="InjuryEvalRef" idx="19" type="InjuryEval" />
+			<attribute name="InjuryTypeEnumTable" idx="20" type="EnumTable" />
+			<attribute name="LeagueSetting" idx="21" type="LeagueSetting" />
+			<attribute name="MentalAbilityGroupEnumTable" idx="22" type="EnumTable" />
+			<attribute name="MySchoolGradeEvalRef" idx="23" type="MySchoolGradeEval" />
+			<attribute name="NarrativePlayer" idx="24" type="NarrativePlayer" />
+			<attribute name="NarrativePlayerMetersEval" idx="25" type="NarrativePlayerMetersEval" />
+			<attribute name="PipelineEnumTable" idx="26" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="27" type="EnumTable" />
+			<attribute name="PlayerArchetypeOVRTutorial" idx="28" type="TutorialInfo" />
+			<attribute name="PlayerDevelopmentTraitTutorial" idx="29" type="TutorialInfo" />
+			<attribute name="PlayerGamebreakerTutorial" idx="30" type="TutorialInfo" />
+			<attribute name="PlayerGoalsEval" idx="31" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEvalRef" idx="32" type="PlayerGradeEval" />
+			<attribute name="PlayerProgressionEval" idx="33" type="PlayerProgressionEval" />
+			<attribute name="PlayerStarAbilitiesTutorial" idx="34" type="TutorialInfo" />
+			<attribute name="PlayerTraitDevelopmentEnumTable" idx="35" type="record" />
+			<attribute name="PlayerTraitEval" idx="36" type="PlayerTraitEval" />
+			<attribute name="PlayerTypeEnumTable" idx="37" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="38" type="EnumTable" />
+			<attribute name="PositionStrengthLetterGradeEnumTable" idx="39" type="EnumTable" />
+			<attribute name="PositionToPlayerStrengthsAndWeaknesses" idx="40" type="PositionRecordTable" />
+			<attribute name="PositionToSkillGroup" idx="41" type="PositionRecordTable" />
+			<attribute name="RecruitingMotivationEnumTable" idx="42" type="EnumTable" />
+			<attribute name="RecruitManagerRef" idx="43" type="RecruitManager" />
+			<attribute name="RequestServer" idx="44" type="RequestServer" />
+			<attribute name="RosterEval" idx="45" type="RosterEval" />
+			<attribute name="RosterInfo" idx="46" type="RosterInfo" />
+			<attribute name="SchemeEnumTable" idx="47" type="EnumTable" />
+			<attribute name="SchoolYearEnumTable" idx="48" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="49" type="SeasonInfo" />
+			<attribute name="SeasonManagerRef" idx="50" type="SeasonManager" />
+			<attribute name="SignatureAbilitiesEval" idx="51" type="SignatureAbilitiesEval" />
+			<attribute name="StarAbilitiesTutorial" idx="52" type="TutorialInfo" />
+			<attribute name="StateNameEnumTable" idx="53" type="EnumTable" />
+			<attribute name="StatManagerRef" idx="54" type="StatManager" />
+			<attribute name="TeamManagerRef" idx="55" type="TeamManager" />
+			<attribute name="TeamPrestigeEval" idx="56" type="TeamPrestigeEval" />
+			<attribute name="TempBuffEval" idx="57" type="TempBuffEval" />
+			<attribute name="UserRegistry" idx="58" type="UserRegistry" />
+			<attribute name="UserSignatureAbilitiesUpdatedEvent" idx="59" type="UserSignatureAbilitiesUpdatedEvent" />
+			<attribute name="WearAndTearTuning" idx="60" type="WearAndTearTuning" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartPositionSub.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartPositionSub" numMembers="7" assetId="6378217" isRecordPersistent="true" majorVersionCRC="-1033852616" minorVersionCRC="-953778412">
+			<attribute name="PlayerAttribute1" idx="0" type="PlayerAbility" default="PlayerAbility:Strength" />
+			<attribute name="PlayerAttribute1Penalty" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PlayerAttribute2" idx="2" type="PlayerAbility" default="PlayerAbility:Strength" />
+			<attribute name="PlayerAttribute2Penalty" idx="3" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PlayerAttribute3" idx="4" type="PlayerAbility" default="PlayerAbility:Strength" />
+			<attribute name="PlayerAttribute3Penalty" idx="5" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="Position" idx="6" type="PositionE" default="PositionE:QB" />
+		</schema>
+	</schemas>
+</FranTkData>

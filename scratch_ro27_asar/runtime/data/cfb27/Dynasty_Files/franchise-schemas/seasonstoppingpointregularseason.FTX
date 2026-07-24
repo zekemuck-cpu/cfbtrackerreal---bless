@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStoppingPointRegularseason.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStoppingPointRegularseason" numMembers="3" defaultStoreCapacity="22" assetId="10889466" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="121" majorVersionCRC="1058165228" minorVersionCRC="-1727817713">
+			<attribute name="Event" idx="0" type="Event" />
+			<attribute name="Week" idx="1" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="WeekName" idx="2" type="string" maxLen="28" />
+		</schema>
+	</schemas>
+</FranTkData>

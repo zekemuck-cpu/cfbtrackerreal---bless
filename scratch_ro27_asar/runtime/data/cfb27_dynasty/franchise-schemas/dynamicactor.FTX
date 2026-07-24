@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\DynamicActor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynamicActor" numMembers="3" assetId="6498731" isRecordPersistent="true" majorVersionCRC="-1736243216" minorVersionCRC="-956996210">
+			<attribute name="ActorName" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="ActorReference" idx="1" type="record" />
+			<attribute name="TargetedActor" idx="2" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

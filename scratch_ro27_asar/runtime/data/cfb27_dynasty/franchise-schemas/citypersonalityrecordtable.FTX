@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\CityPersonalityRecordTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CityPersonalityRecordTable" numMembers="6" assetId="6494946" isRecordPersistent="true" majorVersionCRC="632557840" minorVersionCRC="-1463971225">
+			<attribute name="Advisor" idx="0" type="record" />
+			<attribute name="FairWeather" idx="1" type="record" />
+			<attribute name="FrontRunner" idx="2" type="record" />
+			<attribute name="Hardcore" idx="3" type="record" />
+			<attribute name="LaidBack" idx="4" type="record" />
+			<attribute name="Loyal" idx="5" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

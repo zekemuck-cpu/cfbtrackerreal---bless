@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\JobOpening.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="JobOpening" numMembers="11" defaultStoreCapacity="408" assetId="8624654" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="295936185" minorVersionCRC="1653517394">
+			<attribute name="ContractOfferList" idx="0" type="StaffPersonContractOffer[]" />
+			<attribute name="Filled" idx="1" type="bool" default="False" />
+			<attribute name="FinalContractProgramPoints" idx="2" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="HighestOfferedProgramPoints" idx="3" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="InterestedUserTeamsList" idx="4" type="Team[]" />
+			<attribute name="IsEmergentJobOpening" idx="5" type="bool" default="False" />
+			<attribute name="Position" idx="6" type="CoachPosition" default="CoachPosition:First_" />
+			<attribute name="PrevCoach" idx="7" type="Coach" />
+			<attribute name="Reason" idx="8" type="CoachLeaveReason" default="CoachLeaveReason:None" />
+			<attribute name="SelectedCoach" idx="9" type="Coach" />
+			<attribute name="Team" idx="10" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

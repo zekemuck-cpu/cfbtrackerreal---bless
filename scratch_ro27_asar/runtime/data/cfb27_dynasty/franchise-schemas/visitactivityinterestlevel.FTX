@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\VisitActivityInterestLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="VisitActivityInterestLevel" numMembers="7" assetId="9196612" isRecordPersistent="true" majorVersionCRC="-1684266083" minorVersionCRC="20632045">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="NotInterested" idx="1" value="0" />
+			<attribute name="Interested" idx="2" value="1" />
+			<attribute name="Dealbreaker" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="2" />
+			<attribute name="Count_" idx="5" value="3" />
+			<attribute name="Invalid" idx="6" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

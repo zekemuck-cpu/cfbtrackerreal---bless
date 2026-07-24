@@ -1,0 +1,22 @@
+<FranTkData fileName="Core-Schemas\UISpreadsheetForm.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIDataForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetForm" numMembers="11" base="UIDataForm" assetId="6210745" isRecordPersistent="true" majorVersionCRC="-415439924" minorVersionCRC="-1702182957">
+			<attribute name="Commands" idx="0" type="Command[]" />
+			<attribute name="Control" idx="1" type="UIControl" />
+			<attribute name="DataSource" idx="2" type="DataSource" />
+			<attribute name="Description" idx="3" type="string" maxLen="256" />
+			<attribute name="FilterCacheSize" idx="4" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="IsFilter1OnDemand" idx="5" type="bool" default="False" />
+			<attribute name="IsFilter2OnDemand" idx="6" type="bool" default="False" />
+			<attribute name="IsFilterRequired" idx="7" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="8" type="bool" default="False" />
+			<attribute name="Name" idx="9" type="string" maxLen="33" />
+			<attribute name="Title" idx="10" type="string" maxLen="64" />
+		</schema>
+	</schemas>
+</FranTkData>

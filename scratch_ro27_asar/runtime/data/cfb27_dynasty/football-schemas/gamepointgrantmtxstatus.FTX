@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\GamePointGrantMtxStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GamePointGrantMtxStatus" numMembers="3" assetId="12287448" isRecordPersistent="true" majorVersionCRC="71203397" minorVersionCRC="1657319543">
+			<attribute name="READY" idx="0" value="0" />
+			<attribute name="GRANTING" idx="1" value="1" />
+			<attribute name="GRANTED" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

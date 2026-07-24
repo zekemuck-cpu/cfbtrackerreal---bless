@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\TeamApparel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TeamApparel" numMembers="9" assetId="8860364" isRecordPersistent="true" majorVersionCRC="1610112374" minorVersionCRC="-543854537">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Nike" idx="1" value="0" />
+			<attribute name="Adidas" idx="2" value="1" />
+			<attribute name="UnderArmour" idx="3" value="2" />
+			<attribute name="JordanBrand" idx="4" value="3" />
+			<attribute name="NewBalance" idx="5" value="4" />
+			<attribute name="Generic" idx="6" value="5" />
+			<attribute name="Max_" idx="7" value="6" />
+			<attribute name="Invalid_" idx="8" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\FilterPlayerPosFromEnum.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FilterPlayerPosFromEnum" numMembers="7" base="FilterView" assetId="6378038" isRecordPersistent="true" majorVersionCRC="-453136272" minorVersionCRC="-1755255385">
+			<attribute name="Clear" idx="0" type="none()" guid="6378038-1937749" />
+			<attribute name="Filter" idx="1" type="FilterPlayerPosFromEnum_Filter" guid="6378038-1902712" default="Subject.Position == PositionEnum ;" />
+			<attribute name="PositionEnum" idx="2" type="PositionE" default="PositionE:QB" />
+			<attribute name="Results" idx="3" type="PlayerPosition[]" />
+			<attribute name="Source" idx="4" type="record" />
+			<attribute name="Subjects" idx="5" type="PlayerPosition[]" />
+			<attribute name="Update" idx="6" type="none()" guid="6378038-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

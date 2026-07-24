@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_ShutdownArc.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_ShutdownArc" numMembers="3" base="none()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="878230144" minorVersionCRC="-659313738">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="arcContext" idx="1" type="ArcContext" />
+		</schema>
+	</schemas>
+</FranTkData>

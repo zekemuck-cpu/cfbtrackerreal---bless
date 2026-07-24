@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGradeEval_GetCaptainRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGradeEval_GetCaptainRating" numMembers="2" base="int()" ownerAssetId="6498460" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1354302612" minorVersionCRC="1077587378">
+			<attribute name="playerRecord" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

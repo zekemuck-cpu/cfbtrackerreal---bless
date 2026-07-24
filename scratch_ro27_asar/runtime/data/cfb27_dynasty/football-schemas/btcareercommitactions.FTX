@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\BTCareerCommitActions.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BTCareerCommitActions" numMembers="2" assetId="12355466" isRecordPersistent="true" majorVersionCRC="641891907" minorVersionCRC="-718155007">
+			<attribute name="CommitActions_Add" idx="0" value="0" />
+			<attribute name="CommitActions_Remove" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\ArcDirector.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ArcDirector" numMembers="8" base="Module" assetId="6708564" isRecordPersistent="true" majorVersionCRC="-2048165144" minorVersionCRC="-572759761">
+			<attribute name="DebugModule" idx="0" type="FranchiseDebugModule" />
+			<attribute name="EvaluateAndTriggerArc" idx="1" type="ArcDirector_EvaluateAndTriggerArc" guid="6708564-1941700" final="true" default="ArcContext result = null;&#xD;&#xA;if (arcMetadata.IsEnabled)&#xD;&#xA;{&#xD;&#xA;ArcContext arcContext = arcMetadata.EvaluateCondition(team, seasonGame, StoryArcUtil);&#xD;&#xA;if (arcContext != null)&#xD;&#xA;{&#xD;&#xA;    ScenarioTransaction transaction =  StoryArcUtil.CloneTransaction(TemplateTransaction);&#xD;&#xA;    if (transaction != null)&#xD;&#xA;    {&#xD;&#xA;        transaction.StoryArcContext = arcContext;&#xD;&#xA;        transaction.StoryArcMetadata = arcMetadata;&#xD;&#xA;        transaction.CurrentSequence = arcMetadata.Sequences[0];&#xD;&#xA;        StoryArcUtil.InitializeArc(team, arcContext);&#xD;&#xA;        transaction.Start();&#xD;&#xA;        result = arcContext;&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;}&#xD;&#xA;result;" />
+			<attribute name="HandleEvent" idx="2" type="ArcDirector_HandleEvent" guid="6708564-2154097" final="true" />
+			<attribute name="LeagueSettings" idx="3" type="LeagueSetting" />
+			<attribute name="NewArcsPerWeekLimit" idx="4" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="StoryArcUtil" idx="5" type="StoryArcUtil" />
+			<attribute name="TemplateTransaction" idx="6" type="ScenarioTransaction" />
+			<attribute name="UserRegistry" idx="7" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

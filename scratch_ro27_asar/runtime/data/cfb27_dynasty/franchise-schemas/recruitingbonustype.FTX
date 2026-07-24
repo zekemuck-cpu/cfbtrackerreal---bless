@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingBonusType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RecruitingBonusType" numMembers="6" assetId="8207456" isRecordPersistent="true" majorVersionCRC="2039657460" minorVersionCRC="192855521">
+			<attribute name="Coach" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Pipeline" idx="2" value="1" />
+			<attribute name="Invalid" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="2" />
+			<attribute name="Count_" idx="5" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

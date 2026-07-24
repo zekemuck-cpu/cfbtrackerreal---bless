@@ -1,0 +1,18 @@
+<FranTkData fileName="Football-Schemas\PositionCategoryTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionCategoryTable" numMembers="11" defaultStoreCapacity="1" assetId="4306605" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="745031262" minorVersionCRC="2016527124">
+			<attribute name="All" idx="0" type="PositionFlagTable" />
+			<attribute name="DB" idx="1" type="PositionFlagTable" />
+			<attribute name="Defense" idx="2" type="PositionFlagTable" />
+			<attribute name="DLine" idx="3" type="PositionFlagTable" />
+			<attribute name="Kicking" idx="4" type="PositionFlagTable" />
+			<attribute name="LB" idx="5" type="PositionFlagTable" />
+			<attribute name="Offense" idx="6" type="PositionFlagTable" />
+			<attribute name="OLine" idx="7" type="PositionFlagTable" />
+			<attribute name="QB" idx="8" type="PositionFlagTable" />
+			<attribute name="RB" idx="9" type="PositionFlagTable" />
+			<attribute name="Receiver" idx="10" type="PositionFlagTable" />
+		</schema>
+	</schemas>
+</FranTkData>

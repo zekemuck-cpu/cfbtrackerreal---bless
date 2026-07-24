@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\ReSignStatusEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReSignStatusEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="12" assetId="6571190" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="914" majorVersionCRC="-1075987395" minorVersionCRC="382825434">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="ReSignStatus" default="ReSignStatus:NotReady" />
+		</schema>
+	</schemas>
+</FranTkData>

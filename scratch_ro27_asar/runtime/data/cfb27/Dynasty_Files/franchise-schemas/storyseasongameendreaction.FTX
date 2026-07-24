@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\StorySeasonGameEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StorySeasonGameEndReaction" numMembers="10" base="Reaction" assetId="6498892" isRecordPersistent="true" majorVersionCRC="1491153680" minorVersionCRC="-974456288">
+			<attribute name="EventRecord" idx="0" type="GameEndEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6498892-1895461" />
+			<attribute name="HandlePerTeam" idx="3" type="StorySeasonGameEndReaction_HandlePerTeam" guid="6498892-1927619" />
+			<attribute name="Priority" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfo" idx="5" type="SeasonInfo" />
+			<attribute name="StoryArcMetadata" idx="6" type="StoryArcMetadata" />
+			<attribute name="StoryArcTransaction" idx="7" type="TeamStoryArcTransaction" />
+			<attribute name="StoryArcUtil" idx="8" type="StoryArcUtil" />
+			<attribute name="TemplateTransaction" idx="9" type="ScenarioTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

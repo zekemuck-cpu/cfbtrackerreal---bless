@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_CreateContractOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_CreateContractOffer" numMembers="3" base="none()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="611595016" minorVersionCRC="1891991517">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="staffPosition" idx="1" type="CoachPosition" default="CoachPosition:HeadCoach" />
+		</schema>
+	</schemas>
+</FranTkData>

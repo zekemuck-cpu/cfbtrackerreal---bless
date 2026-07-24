@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\SetCustomChallengeAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SetCustomChallengeAction" numMembers="4" base="SequenceAction" defaultStoreCapacity="37" assetId="10944492" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1677087480" minorVersionCRC="-361150149">
+			<attribute name="Actor" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="Default" idx="1" type="bool" default="False" />
+			<attribute name="Enabled" idx="2" type="bool" default="True" />
+			<attribute name="Target" idx="3" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

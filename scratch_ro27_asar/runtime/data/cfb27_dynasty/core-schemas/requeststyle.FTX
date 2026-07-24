@@ -1,0 +1,11 @@
+<FranTkData fileName="Core-Schemas\RequestStyle.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RequestStyle" numMembers="4" assetId="6210747" isRecordPersistent="true" majorVersionCRC="-2004684292" minorVersionCRC="-1001333975">
+			<attribute name="Default" idx="0" value="0" />
+			<attribute name="Primary" idx="1" value="1" />
+			<attribute name="Notification" idx="2" value="2" />
+			<attribute name="Blocker" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

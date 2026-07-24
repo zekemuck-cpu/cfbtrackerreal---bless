@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersActivityCompletedReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersActivityCompletedReaction" numMembers="4" base="Reaction" assetId="7692512" isRecordPersistent="true" majorVersionCRC="2123610936" minorVersionCRC="-897592259">
+			<attribute name="EventRecord" idx="0" type="ActivityCompletedEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="7692512-1895461" />
+			<attribute name="NarrativePlayerMetersEval" idx="2" type="NarrativePlayerMetersEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

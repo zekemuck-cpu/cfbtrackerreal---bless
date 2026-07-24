@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolGradeSwappableLibraryType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MySchoolGradeSwappableLibraryType" numMembers="7" assetId="8213507" isRecordPersistent="true" majorVersionCRC="-150466080" minorVersionCRC="-1352245751">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Standard" idx="1" value="0" />
+			<attribute name="Team" idx="2" value="1" />
+			<attribute name="Conference" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="2" />
+			<attribute name="Count_" idx="5" value="3" />
+			<attribute name="Invalid" idx="6" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

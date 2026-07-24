@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\CoachBackstoryInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachBackstoryInfo" numMembers="6" base="EnumTableEntry" assetId="6662813" isRecordPersistent="true" majorVersionCRC="1608635256" minorVersionCRC="-803786317">
+			<attribute name="BackgroundId" idx="0" type="int" minValue="0" maxValue="1650" default="0" />
+			<attribute name="Description" idx="1" type="string" maxLen="193" />
+			<attribute name="IconId" idx="2" type="int" minValue="0" maxValue="1513" default="0" />
+			<attribute name="LongName" idx="3" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="4" type="string" maxLen="33" />
+			<attribute name="Value" idx="5" type="CoachBackstory" default="CoachBackstory:Strategist" />
+		</schema>
+	</schemas>
+</FranTkData>

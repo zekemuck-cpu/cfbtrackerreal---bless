@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiring_FilterOffersForCoach.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiring_FilterOffersForCoach" numMembers="7" base="FilterView" assetId="6572344" isRecordPersistent="true" majorVersionCRC="-970320968" minorVersionCRC="1971448601">
+			<attribute name="Clear" idx="0" type="none()" guid="6572344-1937749" />
+			<attribute name="CoachRef" idx="1" type="StaffPerson" />
+			<attribute name="Filter" idx="2" type="StaffHiring_FilterOffersForCoach_Filter" guid="6572344-1939058" default="(Subject.StaffPerson == CoachRef &amp;&amp; Subject.Status == ContractOfferStatus.Pending);&#xD;&#xA;" />
+			<attribute name="Results" idx="3" type="StaffPersonContractOffer[]" />
+			<attribute name="Source" idx="4" type="record" />
+			<attribute name="Subjects" idx="5" type="StaffPersonContractOffer[]" />
+			<attribute name="Update" idx="6" type="none()" guid="6572344-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

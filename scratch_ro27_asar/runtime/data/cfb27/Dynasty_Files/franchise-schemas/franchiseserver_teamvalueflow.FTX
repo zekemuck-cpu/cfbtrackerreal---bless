@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_TeamValueFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_TeamValueFlow" numMembers="8" base="FranTkServer_Flow" assetId="6499321" isRecordPersistent="true" majorVersionCRC="961843263" minorVersionCRC="1845167049">
+			<attribute name="Form" idx="0" type="UIForm" />
+			<attribute name="FormManager" idx="1" type="FranTkServer_FormManager" />
+			<attribute name="NewsManager" idx="2" type="NewsManager" />
+			<attribute name="TeamArray" idx="3" type="Team[]" />
+			<attribute name="TeamRevenueEval" idx="4" type="TeamRevenueEval" />
+			<attribute name="TeamValueEval" idx="5" type="TeamValueEval" />
+			<attribute name="Tutorial" idx="6" type="TutorialInfo" />
+			<attribute name="UserRegistry" idx="7" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

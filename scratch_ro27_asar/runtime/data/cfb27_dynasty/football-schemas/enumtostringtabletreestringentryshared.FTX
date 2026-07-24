@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\EnumToStringTableTreeStringEntryShared.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\EnumToStringTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EnumToStringTableTreeStringEntryShared" numMembers="2" base="EnumToStringTableEntry" assetId="13039999" isRecordPersistent="true" majorVersionCRC="-794690384" minorVersionCRC="1831112113">
+			<attribute name="Text" idx="0" type="string" maxLen="257" />
+			<attribute name="Value" idx="1" type="BTCareerTreeStringsShared" default="BTCareerTreeStringsShared:EQOYZWMPACZAJ2MABGMOZ6CCPY" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\HistoryManager_HandleDevelopmentTraitUpdatedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HistoryManager_HandleDevelopmentTraitUpdatedEvent" numMembers="2" base="none()" ownerAssetId="6495141" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1058295554" minorVersionCRC="1007626890">
+			<attribute name="event" idx="0" type="DevelopmentTraitUpdatedEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

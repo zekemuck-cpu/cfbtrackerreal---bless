@@ -1,0 +1,34 @@
+<FranTkData fileName="Franchise-Schemas\GameDefensiveStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\GameStats.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameDefensiveStats" numMembers="23" base="GameStats" defaultStoreCapacity="45600" assetId="6615644" defaultStoreGroupId="64" isRecordPersistent="false" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="92852824" minorVersionCRC="1844288438">
+			<attribute name="ASSDEFTACKLES" idx="0" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="BIGHITS" idx="1" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="CTHALLOWED" idx="2" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="DEFPASSDEFLECTIONS" idx="3" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="DEFTACKLES" idx="4" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="DEFTACKLESFORLOSS" idx="5" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="DLINEBLOCKS" idx="6" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="DLINEFORCEDFUMBLES" idx="7" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="DLINEFUMBLERECOVERIES" idx="8" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="DLINEFUMBLERECOVERYYARDS" idx="9" type="int" minValue="-256" maxValue="255" default="0" />
+			<attribute name="DLINEFUMBLETDS" idx="10" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="DLINEHALFSACK" idx="11" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="DLINESACKS" idx="12" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="DLINESAFETIES" idx="13" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="DOWNSPLAYED" idx="14" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DSECINTLONGESTRETURN" idx="15" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="DSECINTRETURNYARDS" idx="16" type="int" minValue="-256" maxValue="255" default="0" />
+			<attribute name="DSECINTS" idx="17" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="DSECINTTDS" idx="18" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="GAMERATING" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESSTARTED" idx="20" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="OpposingTeam" idx="21" type="Team" />
+			<attribute name="SeasonGame" idx="22" type="SeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

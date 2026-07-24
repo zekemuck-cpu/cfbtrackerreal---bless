@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_CanFireStaffPerson.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_CanFireStaffPerson" numMembers="3" base="bool()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="307623118" minorVersionCRC="1843533626">
+			<attribute name="coach" idx="0" type="Coach" />
+			<attribute name="currentTeam" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\LineOfScrimmage.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="LineOfScrimmage" numMembers="9" assetId="10834498" isRecordPersistent="true" majorVersionCRC="-1833345597" minorVersionCRC="-1638343560">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="OffOwnTen" idx="1" value="0" />
+			<attribute name="OffOwnTwentyFive" idx="2" value="1" />
+			<attribute name="OffOwnFortyFive" idx="3" value="2" />
+			<attribute name="OffOtherTwenty" idx="4" value="3" />
+			<attribute name="Last_" idx="5" value="4" />
+			<attribute name="OffOtherThirtyFive" idx="6" value="4" />
+			<attribute name="Count_" idx="7" value="5" />
+			<attribute name="Invalid_" idx="8" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

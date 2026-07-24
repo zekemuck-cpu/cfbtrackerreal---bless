@@ -1,0 +1,50 @@
+<FranTkData fileName="Franchise-Schemas\PipelineValueTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PipelineValueTable" numMembers="43" defaultStoreCapacity="139" assetId="7741514" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="6215692" minorVersionCRC="-1074987622">
+			<attribute name="Alabama" idx="0" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Arizona" idx="1" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Arkansas" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="BigApple" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="BigSky" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="CentalFlorida" idx="5" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Colorado" idx="6" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="EastTexas" idx="7" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Hawaii" idx="8" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Illinois" idx="9" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Indiana" idx="10" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="International" idx="11" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Iowa" idx="12" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Kansas" idx="13" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Kentucky" idx="14" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Louisiana" idx="15" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="MetroAtlanta" idx="16" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Michigan" idx="17" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Minnesota" idx="18" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Mississippi" idx="19" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Missouri" idx="20" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Nebraska" idx="21" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Nevada" idx="22" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="NewEngland" idx="23" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="NewMexico" idx="24" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="NorthCarolina" idx="25" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="NorthernCalifornia" idx="26" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="NorthFlorida" idx="27" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="NorthTexas" idx="28" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Ohio" idx="29" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Oklahoma" idx="30" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="PacificNorthwest" idx="31" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Pennsylvania" idx="32" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SouthCarolina" idx="33" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SouthernCalifornia" idx="34" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SouthFlorida" idx="35" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SouthGeorgia" idx="36" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SouthwestTexas" idx="37" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Tennessee" idx="38" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Tidewater" idx="39" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Utah" idx="40" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="WestVirginia" idx="41" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Wisconsin" idx="42" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

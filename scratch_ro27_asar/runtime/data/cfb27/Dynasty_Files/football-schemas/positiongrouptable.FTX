@@ -1,0 +1,23 @@
+<FranTkData fileName="Football-Schemas\PositionGroupTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionGroupTable" numMembers="16" assetId="10605578" isRecordPersistent="true" majorVersionCRC="253089480" minorVersionCRC="1275393050">
+			<attribute name="C" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DB" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DE" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DL" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DT" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="G" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="K" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LB" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LS" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OL" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="P" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="QB" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RB" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="T" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TE" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WR" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

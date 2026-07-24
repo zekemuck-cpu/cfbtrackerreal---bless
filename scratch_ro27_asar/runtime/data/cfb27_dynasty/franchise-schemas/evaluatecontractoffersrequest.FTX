@@ -1,0 +1,52 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffersRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffersRequest" numMembers="41" base="UIRequestForm" assetId="6495337" isRecordPersistent="true" majorVersionCRC="-524822795" minorVersionCRC="1327374491">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6495337-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="DelegateResponse" idx="8" type="UISelectForm" />
+			<attribute name="Description" idx="9" type="string" const="true" maxLen="43" default="Evaluate your outstanding contract offers." />
+			<attribute name="Dismiss" idx="10" type="none()" guid="6495337-1895671" />
+			<attribute name="ExpirationDuration" idx="11" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="12" type="none()" guid="6495337-1922393" final="true" default="PlayerSigningEvalRef.ProcessEvaluateContractOffersRequest(this);" />
+			<attribute name="HasResolution" idx="13" type="bool()" guid="6495337-1895676" />
+			<attribute name="IgnoreResponse" idx="14" type="UISelectForm" />
+			<attribute name="IsBlocking" idx="15" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="16" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="17" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="18" type="bool()" guid="6495337-1895678" />
+			<attribute name="IsResponseRequired" idx="19" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="20" type="bool" default="True" />
+			<attribute name="Issue" idx="21" type="Request_Issue" guid="6495337-1895668" />
+			<attribute name="IssueTime" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OfferList" idx="23" type="ContractOffer[]" />
+			<attribute name="player" idx="24" type="Player" />
+			<attribute name="PlayerSigningEvalRef" idx="25" type="PlayerSigningEval" />
+			<attribute name="Priority" idx="26" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="27" type="none()" guid="6495337-1895686" final="true" />
+			<attribute name="RequestData" idx="28" type="record" />
+			<attribute name="RequestForm" idx="29" type="ResponseForm" />
+			<attribute name="RequestId" idx="30" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="31" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="33" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="34" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="35" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="36" type="bool" default="True" />
+			<attribute name="SelectOfferResponse" idx="37" type="UIFlowForm" />
+			<attribute name="TargetUser" idx="38" type="User" />
+			<attribute name="Title" idx="39" type="string" const="true" maxLen="16" default="Contract Offers" />
+			<attribute name="TypeName" idx="40" type="string" const="true" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

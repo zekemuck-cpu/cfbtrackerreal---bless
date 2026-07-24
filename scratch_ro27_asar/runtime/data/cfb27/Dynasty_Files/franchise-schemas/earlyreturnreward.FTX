@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\EarlyReturnReward.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EarlyReturnReward" numMembers="8" defaultStoreCapacity="50" assetId="6547777" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1601982436" minorVersionCRC="1407081371">
+			<attribute name="earlyReturnCoachXPMultiplier" idx="0" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="earlyReturnPlayerConfidenceBonus" idx="1" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="earlyReturnPlayerXPMultiplier" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="earlyReturnTeamConfidenceBonus" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="startBackupCoachXPMultiplier" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="startBackupPlayerConfidenceBonus" idx="5" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="startBackupPlayerXPMultiplier" idx="6" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="startBackupTeamConfidenceBonus" idx="7" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

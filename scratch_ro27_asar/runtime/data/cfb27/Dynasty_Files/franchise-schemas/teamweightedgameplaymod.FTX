@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamWeightedGameplayMod.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamWeightedGameplayMod" numMembers="2" assetId="6498643" isRecordPersistent="true" majorVersionCRC="827433994" minorVersionCRC="1553255825">
+			<attribute name="GameplayModifier" idx="0" type="GameplayModifier" />
+			<attribute name="GetRating" idx="1" type="TeamWeightedGameplayMod_GetRating" guid="6498643-1925738" />
+		</schema>
+	</schemas>
+</FranTkData>

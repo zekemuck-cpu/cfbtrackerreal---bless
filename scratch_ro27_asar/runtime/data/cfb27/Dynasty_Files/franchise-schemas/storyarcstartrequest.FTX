@@ -1,0 +1,48 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcStartRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcStartRequest" numMembers="37" base="UIRequestForm" defaultStoreCapacity="320" assetId="6498682" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1646852480" minorVersionCRC="494547317">
+			<attribute name="ArcContext" idx="0" type="ArcContext" />
+			<attribute name="ArcMetadata" idx="1" type="StoryArcMetadata" />
+			<attribute name="CanSubmitResponse" idx="2" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="3" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="4" type="none()" guid="6498682-1895689" final="true" />
+			<attribute name="Commands" idx="5" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="7" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="8" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="9" type="ResponseForm" />
+			<attribute name="Description" idx="10" type="string" maxLen="51" />
+			<attribute name="Dismiss" idx="11" type="none()" guid="6498682-1895671" />
+			<attribute name="ExpirationDuration" idx="12" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="13" type="none()" guid="6498682-1926234" final="true" />
+			<attribute name="HasResolution" idx="14" type="bool()" guid="6498682-1895676" />
+			<attribute name="IsBlocking" idx="15" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="16" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="17" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="18" type="bool()" guid="6498682-1895678" />
+			<attribute name="IsResponseRequired" idx="19" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="20" type="bool" default="True" />
+			<attribute name="Issue" idx="21" type="Request_Issue" guid="6498682-1895668" />
+			<attribute name="IssueTime" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Priority" idx="23" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="24" type="none()" guid="6498682-1895686" final="true" />
+			<attribute name="RequestData" idx="25" type="record" />
+			<attribute name="RequestForm" idx="26" type="ResponseForm" />
+			<attribute name="RequestId" idx="27" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="28" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="31" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="32" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="33" type="bool" default="True" />
+			<attribute name="TargetUser" idx="34" type="User" />
+			<attribute name="Title" idx="35" type="string" maxLen="51" />
+			<attribute name="TypeName" idx="36" type="string" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

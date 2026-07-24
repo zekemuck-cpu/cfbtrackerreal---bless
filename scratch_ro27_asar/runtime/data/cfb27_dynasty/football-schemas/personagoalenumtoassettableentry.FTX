@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\PersonaGoalEnumToAssetTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\EnumToAssetTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaGoalEnumToAssetTableEntry" numMembers="2" base="EnumToAssetTableEntry" assetId="12853547" isRecordPersistent="true" majorVersionCRC="750430743" minorVersionCRC="551691972">
+			<attribute name="Asset" idx="0" type="record" />
+			<attribute name="Value" idx="1" type="BTCareerPersonaGoalAsset" default="BTCareerPersonaGoalAsset:DurationSeasonDummyGoal" />
+		</schema>
+	</schemas>
+</FranTkData>

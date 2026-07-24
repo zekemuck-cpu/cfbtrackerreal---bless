@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEndOfSeasonStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEndOfSeasonStartEvent" numMembers="2" base="Event" assetId="7739450" isRecordPersistent="true" majorVersionCRC="1767679471" minorVersionCRC="555901804">
+			<attribute name="Enqueue" idx="0" type="none()" guid="7739450-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="7739450-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

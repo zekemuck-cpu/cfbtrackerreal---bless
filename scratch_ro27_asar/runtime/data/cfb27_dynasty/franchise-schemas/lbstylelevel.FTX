@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\LBStyleLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="LBStyleLevel" numMembers="5" assetId="6494005" isRecordPersistent="true" majorVersionCRC="-766504020" minorVersionCRC="864881705">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="PassRush" idx="1" value="0" />
+			<attribute name="Balanced" idx="2" value="1" />
+			<attribute name="CoverLB" idx="3" value="2" />
+			<attribute name="Invalid_" idx="4" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

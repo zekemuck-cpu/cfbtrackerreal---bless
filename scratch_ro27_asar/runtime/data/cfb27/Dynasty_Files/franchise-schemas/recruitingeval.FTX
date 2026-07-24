@@ -1,0 +1,77 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval" numMembers="70" base="Module" assetId="6812765" isRecordPersistent="true" majorVersionCRC="631223854" minorVersionCRC="-701821209">
+			<attribute name="ApplyWeeklyRecruitingHours" idx="0" type="RecruitingEval_ApplyWeeklyRecruitingHours" guid="6812765-2293090" final="true" />
+			<attribute name="AwardsEval" idx="1" type="AwardsEval" />
+			<attribute name="ChallengesEval" idx="2" type="ChallengesEval" />
+			<attribute name="ClearTransferPlayerDealbreakerFailTrackingData" idx="3" type="none()" guid="6812765-2416142" final="true" />
+			<attribute name="CreatePlayerTemplateList" idx="4" type="CreatePlayer_LookupTableEntry[]" />
+			<attribute name="CutDayEval" idx="5" type="CutDayEval" />
+			<attribute name="EnterRecruitingResponse" idx="6" type="UIFlowForm" />
+			<attribute name="EnterSigningDayResponse" idx="7" type="UIFlowForm" />
+			<attribute name="EnterTransferPortalResponse" idx="8" type="UIFlowForm" />
+			<attribute name="EvaluateNarrativePlayerOffers" idx="9" type="RecruitingEval_EvaluateNarrativePlayerOffers" guid="6812765-2437091" />
+			<attribute name="EvaluateNarrativePlayerStarLevel" idx="10" type="none()" guid="6812765-2436120" />
+			<attribute name="EvaluateProspectInteractions" idx="11" type="RecruitingEval_EvaluateProspectInteractions" guid="6812765-2293086" final="true" />
+			<attribute name="EvaluateTeamRecruitingBoard" idx="12" type="RecruitingEval_EvaluateTeamRecruitingBoard" guid="6812765-2293082" final="true" />
+			<attribute name="EvaluateTopClassesCoachGoalsEvent" idx="13" type="EvaluateTopClassesCoachGoalsEvent" />
+			<attribute name="FinishWeeklyProcessing" idx="14" type="none()" guid="6812765-2293094" final="true" />
+			<attribute name="Franchise" idx="15" type="Franchise" />
+			<attribute name="HandleNarrativeHighSchoolStoppingPoint" idx="16" type="RecruitingEval_HandleNarrativeHighSchoolStoppingPoint" guid="6812765-2436117" final="true" />
+			<attribute name="HandleOffseasonStart" idx="17" type="none()" guid="6812765-2249036" final="true" />
+			<attribute name="HandleOffseasonWeekStart" idx="18" type="RecruitingEval_HandleOffseasonWeekStart" guid="6812765-2689003" final="true" />
+			<attribute name="HandleProspectGenerationCompleted" idx="19" type="RecruitingEval_HandleProspectGenerationCompleted" guid="6812765-2143168" final="true" />
+			<attribute name="HandleRecruitAddedToBoard" idx="20" type="RecruitingEval_HandleRecruitAddedToBoard" guid="6812765-2317005" final="true" />
+			<attribute name="HandleRecruitCommitted" idx="21" type="RecruitingEval_HandleRecruitCommitted" guid="6812765-2429061" final="true" />
+			<attribute name="HandleRegisterUser" idx="22" type="RecruitingEval_HandleRegisterUser" guid="6812765-2238201" final="true" />
+			<attribute name="HandleTransferAddedToPortal" idx="23" type="RecruitingEval_HandleTransferAddedToPortal" guid="6812765-2083208" final="true" />
+			<attribute name="HandleUnregisterUser" idx="24" type="RecruitingEval_HandleUnregisterUser" guid="6812765-2270048" final="true" />
+			<attribute name="HandleUpdateCoachContractStatus" idx="25" type="RecruitingEval_HandleUpdateCoachContractStatus" guid="6812765-2270042" final="true" />
+			<attribute name="InitializeHighSchoolExperience" idx="26" type="none()" guid="6812765-2436035" final="true" />
+			<attribute name="InitializeProspectTopSchools" idx="27" type="none()" guid="6812765-2021032" final="true" />
+			<attribute name="IssueEnterRecruitingRequest" idx="28" type="RecruitingEval_IssueEnterRecruitingRequest" guid="6812765-2079013" final="true" default="EnterRecruitingRequest request = new EnterRecruitingRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( EnterRecruitingResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueEnterRecruitingRequestToTeams" idx="29" type="none()" guid="6812765-2079019" final="true" />
+			<attribute name="IssueEnterSigningDayRequest" idx="30" type="RecruitingEval_IssueEnterSigningDayRequest" guid="6812765-2249011" final="true" default="OfferManagementRequest request = new OfferManagementRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 3;&#xD;&#xA;request.OfferManagementType = OfferManagementType.SigningDay;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(EnterSigningDayResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueEnterTransferPortalRequest" idx="31" type="RecruitingEval_IssueEnterTransferPortalRequest" guid="6812765-2249027" final="true" default="OfferManagementRequest request = new OfferManagementRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 3;&#xD;&#xA;request.OfferManagementType = OfferManagementType.TransferPortal;&#xD;&#xA;request.RequestStyle = RequestStyle.Blocker;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(EnterTransferPortalResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueMentalAbilityRequest" idx="32" type="RecruitingEval_IssueMentalAbilityRequest" guid="6812765-2444032" final="true" default="MentalAbilityRequest request = new MentalAbilityRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 3;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(MentalAbilityResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueSigningDayActionRequest" idx="33" type="RecruitingEval_IssueSigningDayActionRequest" guid="6812765-2081031" final="true" default="SigningDayActionRequest request = new SigningDayActionRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;request.IsEarlySigningDay = isEarlySigningDay;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( SigningDayViewSignedPlayersResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueTopSchoolsRequest" idx="34" type="RecruitingEval_IssueTopSchoolsRequest" guid="6812765-2360077" final="true" default="TopSchoolsRequest request = new TopSchoolsRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 3;&#xD;&#xA;request.HUBPanel = TopSchoolsPanel;&#xD;&#xA;request.Header = EventRecord.RequestHeader;&#xD;&#xA;request.Tag = EventRecord.RequestTagLine;&#xD;&#xA;request.MaxTopSchools = EventRecord.MaxTopSchools;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(TopSchoolsResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="LegacyScoreEval" idx="35" type="LegacyScoreEval" />
+			<attribute name="MentalAbilityResponse" idx="36" type="UIFlowForm" />
+			<attribute name="MySchoolGradeEval" idx="37" type="MySchoolGradeEval" />
+			<attribute name="NarrativeHighSchoolRecruitingTunables" idx="38" type="HighSchoolRecruitingTunables" />
+			<attribute name="NarrativePlayer" idx="39" type="NarrativePlayer" />
+			<attribute name="NarrativePlayerMetersEval" idx="40" type="NarrativePlayerMetersEval" />
+			<attribute name="NarrativePlayerTemplateLookupTable" idx="41" type="CreatePlayer_LookupTableEntry[]" />
+			<attribute name="NarrativeRecruitingTunable" idx="42" type="NarrativeRecruitingTunable" />
+			<attribute name="PlayerManager" idx="43" type="PlayerManager" />
+			<attribute name="PlayerProgressionEval" idx="44" type="PlayerProgressionEval" />
+			<attribute name="PlayersLeavingEval" idx="45" type="PlayersLeavingEval" />
+			<attribute name="PrepareTeamTrackingDataForRecruiting" idx="46" type="RecruitingEval_PrepareTeamTrackingDataForRecruiting" guid="6812765-2429076" final="true" />
+			<attribute name="PrepForAdvance" idx="47" type="RecruitingEval_PrepForAdvance" guid="6812765-2293079" final="true" />
+			<attribute name="ProcessEarlySigningDay" idx="48" type="none()" guid="6812765-2081025" />
+			<attribute name="ProcessEndWeekRecruiting" idx="49" type="none()" guid="6812765-1975114" />
+			<attribute name="ProcessNationalSigningDay" idx="50" type="none()" guid="6812765-2081024" />
+			<attribute name="ProgramPointsTuning" idx="51" type="ProgramPointsTuning" />
+			<attribute name="Random" idx="52" type="Random" />
+			<attribute name="RecruitScoreEval" idx="53" type="RecruitScoreEval" />
+			<attribute name="ReorderTopSchools" idx="54" type="none()" guid="6812765-2293099" final="true" />
+			<attribute name="RequestServer" idx="55" type="RequestServer" />
+			<attribute name="RosterEval" idx="56" type="RosterEval" />
+			<attribute name="SeasonInfo" idx="57" type="SeasonInfo" />
+			<attribute name="SigningDayTopClassesResponse" idx="58" type="UIFlowForm" />
+			<attribute name="SigningDayViewSignedPlayersResponse" idx="59" type="UIFlowForm" />
+			<attribute name="SignNarrativePlayerToTeamAfterHatCeremony" idx="60" type="none()" guid="6812765-2444012" />
+			<attribute name="TalentTreeEvalRef" idx="61" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="62" type="TeamManager" />
+			<attribute name="TeamRevenueEval" idx="63" type="TeamRevenueEval" />
+			<attribute name="TopSchoolsPanel" idx="64" type="HUBPanel" />
+			<attribute name="TopSchoolsResponse" idx="65" type="UIFlowForm" />
+			<attribute name="UpdateRecruitsStatus" idx="66" type="none()" guid="6812765-2293105" final="true" />
+			<attribute name="UpdateTopClasses" idx="67" type="none()" guid="6812765-2188175" final="true" />
+			<attribute name="UserRegistry" idx="68" type="UserRegistry" />
+			<attribute name="VisitEval" idx="69" type="VisitEval" />
+		</schema>
+	</schemas>
+</FranTkData>

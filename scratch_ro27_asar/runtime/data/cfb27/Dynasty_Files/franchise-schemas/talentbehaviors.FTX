@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TalentBehaviors.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TalentBehaviors" numMembers="4" assetId="6377542" isRecordPersistent="true" majorVersionCRC="-870056108" minorVersionCRC="-1653143651">
+			<attribute name="Regular" idx="0" value="0" />
+			<attribute name="Upgradable" idx="1" value="1" />
+			<attribute name="Toggle" idx="2" value="2" />
+			<attribute name="Selection" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

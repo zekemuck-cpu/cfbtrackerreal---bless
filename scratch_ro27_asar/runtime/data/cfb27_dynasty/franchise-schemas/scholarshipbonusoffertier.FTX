@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\ScholarshipBonusOfferTier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ScholarshipBonusOfferTier" numMembers="8" assetId="11105443" isRecordPersistent="true" majorVersionCRC="380029450" minorVersionCRC="-1394838650">
+			<attribute name="Bronze" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Silver" idx="2" value="1" />
+			<attribute name="Gold" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="3" />
+			<attribute name="Platinum" idx="5" value="3" />
+			<attribute name="Count_" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

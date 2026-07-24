@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UIPlayBallTraitSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIPlayBallTraitSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="3" assetId="6663026" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="33" majorVersionCRC="1269445480" minorVersionCRC="-1000861168">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="PlaysBallInAirLevel" default="PlaysBallInAirLevel:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

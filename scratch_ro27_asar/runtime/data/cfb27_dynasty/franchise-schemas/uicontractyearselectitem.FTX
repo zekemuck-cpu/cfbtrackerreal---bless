@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UIContractYearSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIContractYearSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="7" assetId="6663020" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="63" majorVersionCRC="-986573616" minorVersionCRC="-323988706">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="ContractYear" default="ContractYear:YearInvalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

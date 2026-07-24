@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\WeightUpdateEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WeightUpdateEvent" numMembers="5" base="Event" assetId="11199434" isRecordPersistent="true" majorVersionCRC="-1690651149" minorVersionCRC="1545845188">
+			<attribute name="Enqueue" idx="0" type="none()" guid="11199434-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="11199434-1895455" final="true" />
+			<attribute name="Team" idx="2" type="Team" />
+			<attribute name="UpdateValue" idx="3" type="int" minValue="-6" maxValue="6" default="0" />
+			<attribute name="UserEntity" idx="4" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

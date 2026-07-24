@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\AdvanceSeasonWeekTransaction_UpdateSeasonGameRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AdvanceSeasonWeekTransaction_UpdateSeasonGameRequest" numMembers="2" base="none()" ownerAssetId="6499027" isRecordPersistent="true" isExpr="true" majorVersionCRC="17485552" minorVersionCRC="705573931">
+			<attribute name="user" idx="0" type="FranchiseUser" />
+		</schema>
+	</schemas>
+</FranTkData>

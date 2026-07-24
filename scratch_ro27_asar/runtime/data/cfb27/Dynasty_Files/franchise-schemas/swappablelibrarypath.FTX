@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\SwappableLibraryPath.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SwappableLibraryPath" numMembers="5" assetId="6708540" isRecordPersistent="true" majorVersionCRC="1259458673" minorVersionCRC="-1133038117">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Last_" idx="1" value="0" />
+			<attribute name="library_icons_brt" idx="2" value="0" />
+			<attribute name="Max_" idx="3" value="1" />
+			<attribute name="Invalid_" idx="4" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

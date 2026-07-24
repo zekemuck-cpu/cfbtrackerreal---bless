@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamStoryArcTransaction_CreateStoryArcStartRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamStoryArcTransaction_CreateStoryArcStartRequest" numMembers="2" base="StoryArcStartRequest()" ownerAssetId="6498715" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1717440753" minorVersionCRC="-1746357369">
+			<attribute name="sequenceMetadata" idx="0" type="SequenceMetadata" />
+		</schema>
+	</schemas>
+</FranTkData>

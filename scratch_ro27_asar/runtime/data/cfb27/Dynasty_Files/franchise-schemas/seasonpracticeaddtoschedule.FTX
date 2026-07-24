@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\SeasonPracticeAddToSchedule.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonPracticeAddToSchedule" numMembers="9" base="ModifierView" assetId="6499132" isRecordPersistent="true" majorVersionCRC="567880555" minorVersionCRC="1278193563">
+			<attribute name="Formula" idx="0" type="SeasonPracticeAddToSchedule_Formula" guid="6499132-1936192" default="// Get the team info&#xD;&#xA;Team team = Subject;&#xD;&#xA;&#xD;&#xA;PracticeEvalRef.IssuePracticeGameRequest(team, true, !team.IsUserManaged(), false);" />
+			<attribute name="PracticeEvalRef" idx="1" type="PracticeEval" />
+			<attribute name="PracticeTeam" idx="2" type="Team" />
+			<attribute name="SeasonGameFlow" idx="3" type="FranchiseServer_SeasonGameFlow" />
+			<attribute name="SeasonInfo" idx="4" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="5" type="SeasonManager" />
+			<attribute name="Source" idx="6" type="record" />
+			<attribute name="Subjects" idx="7" type="Team[]" />
+			<attribute name="Update" idx="8" type="none()" guid="6499132-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

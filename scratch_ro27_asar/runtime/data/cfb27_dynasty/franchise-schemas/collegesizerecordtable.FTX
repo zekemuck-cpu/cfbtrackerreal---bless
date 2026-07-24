@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\CollegeSizeRecordTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CollegeSizeRecordTable" numMembers="3" assetId="6708755" isRecordPersistent="true" majorVersionCRC="-48978355" minorVersionCRC="-1831440589">
+			<attribute name="Large" idx="0" type="record" />
+			<attribute name="Medium" idx="1" type="record" />
+			<attribute name="Small" idx="2" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

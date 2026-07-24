@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\ClearPlayerStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ClearPlayerStats" numMembers="5" base="ModifierView" assetId="6499368" isRecordPersistent="true" majorVersionCRC="1907194288" minorVersionCRC="1169386173">
+			<attribute name="Formula" idx="0" type="ClearPlayerStats_Formula" guid="6499368-1937795" />
+			<attribute name="PlayerRetirementEvalRef" idx="1" type="PlayersLeavingEval" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Player[]" />
+			<attribute name="Update" idx="4" type="none()" guid="6499368-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

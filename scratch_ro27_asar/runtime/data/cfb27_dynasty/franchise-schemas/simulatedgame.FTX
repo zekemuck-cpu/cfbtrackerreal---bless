@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\SimulatedGame.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SimulatedGame" numMembers="13" base="Module" assetId="6499012" isRecordPersistent="true" majorVersionCRC="-1776168876" minorVersionCRC="965234405">
+			<attribute name="DepthChartEval" idx="0" type="DepthChartEval" />
+			<attribute name="DynastyDebugModule" idx="1" type="FranchiseDebugModule" />
+			<attribute name="EndSim" idx="2" type="none()" guid="6499012-1931579" final="true" />
+			<attribute name="InjuryEval" idx="3" type="InjuryEval" />
+			<attribute name="IsSimDone" idx="4" type="bool()" guid="6499012-1931582" final="true" />
+			<attribute name="LeagueSetting" idx="5" type="LeagueSetting" />
+			<attribute name="MetersEval" idx="6" type="NarrativePlayerMetersEval" />
+			<attribute name="PracticeEvalTuning" idx="7" type="PracticeEvalTuning" />
+			<attribute name="SeasonGame" idx="8" type="SeasonGame" />
+			<attribute name="SeasonStandings" idx="9" type="SeasonStandings" />
+			<attribute name="Simulate" idx="10" type="SimulatedGame_Simulate" guid="6499012-1931575" final="true" />
+			<attribute name="StartSim" idx="11" type="SimulatedGame_StartSim" guid="6499012-1931571" final="true" />
+			<attribute name="StatManager" idx="12" type="StatManager" />
+		</schema>
+	</schemas>
+</FranTkData>

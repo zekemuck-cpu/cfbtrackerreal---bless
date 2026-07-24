@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamRequestManager_Issue.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRequestManager_Issue" numMembers="3" base="none()" ownerAssetId="6494578" isRecordPersistent="true" isExpr="true" majorVersionCRC="2138985890" minorVersionCRC="1839193046">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="request" idx="1" type="Request" />
+		</schema>
+	</schemas>
+</FranTkData>

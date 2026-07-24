@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\MediaGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaGoal" numMembers="16" assetId="6498629" isRecordPersistent="true" majorVersionCRC="1919810798" minorVersionCRC="-1819776889">
+			<attribute name="AnswerDesc" idx="0" type="string" maxLen="1" />
+			<attribute name="AnswerId" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Award" idx="2" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="CriteriaCondition" idx="3" type="ConditionOperator" default="ConditionOperator:AND" />
+			<attribute name="Duration" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DurationType" idx="5" type="DurationType" default="DurationType:Games" />
+			<attribute name="ExpireOnCompletion" idx="6" type="bool" default="True" />
+			<attribute name="FailureResultDesc" idx="7" type="MediaGoalResultDescE" default="MediaGoalResultDescE:EmptyString" />
+			<attribute name="FanHappinessComponent" idx="8" type="TeamValueComponent" default="TeamValueComponent:TeamSuccess" />
+			<attribute name="GoalCompletionCriteria" idx="9" type="GoalCompletionCriteria[]" />
+			<attribute name="InGameAudioId" idx="10" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Longterm" idx="11" type="bool" default="False" />
+			<attribute name="Penalty" idx="12" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="PlayerDepth" idx="13" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="PlayerPosition" idx="14" type="PositionE" default="PositionE:QB" />
+			<attribute name="SuccessResultDesc" idx="15" type="MediaGoalResultDescE" default="MediaGoalResultDescE:EmptyString" />
+		</schema>
+	</schemas>
+</FranTkData>

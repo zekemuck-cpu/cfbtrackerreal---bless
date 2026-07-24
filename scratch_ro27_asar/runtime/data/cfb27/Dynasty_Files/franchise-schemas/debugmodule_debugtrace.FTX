@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DebugModule_DebugTrace.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DebugModule_DebugTrace" numMembers="2" base="none()" ownerAssetId="6499370" isRecordPersistent="true" isExpr="true" majorVersionCRC="867660226" minorVersionCRC="1604877084">
+			<attribute name="TraceObject" idx="0" type="TraceParams" />
+		</schema>
+	</schemas>
+</FranTkData>

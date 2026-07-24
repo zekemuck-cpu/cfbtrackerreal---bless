@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Recruit Overhaul 27 Beta 1</title>
+  <link rel="icon" type="image/png" href="assets/ro27-icon.png">
+  <link rel="stylesheet" href="electron-styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="title-block">
+        <img class="app-logo" src="assets/ro27-logo.png" alt="Recruit Overhaul 27">
+      </div>
+      <div class="actions">
+        <div class="dynasty-folder-picker" aria-label="Saved dynasty folder loader">
+          <button id="selectFolderButton" type="button">Dynasty Folder</button>
+          <select id="dynastyFileSelect" disabled>
+            <option value="">Choose a folder</option>
+          </select>
+          <button id="refreshFolderButton" type="button" disabled>Refresh</button>
+        </div>
+        <div class="load-progress-box" aria-live="polite">
+          <span id="loadStatus" class="load-status">No file loaded</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="filters" aria-label="Recruit filters">
+      <label>
+        <span>Search</span>
+        <input id="searchInput" type="search" placeholder="Name, hometown, school, pipeline">
+      </label>
+      <label>
+        <span>Position</span>
+        <select id="positionFilter"></select>
+      </label>
+      <label>
+        <span>Stars</span>
+        <select id="starsFilter"></select>
+      </label>
+      <label>
+        <span>Class</span>
+        <select id="classFilter"></select>
+      </label>
+      <label>
+        <span>Stage</span>
+        <select id="stageFilter"></select>
+      </label>
+      <button id="clearButton" type="button">Clear</button>
+    </section>
+
+    <section class="view-tabs" aria-label="Recruit data views">
+      <button id="recruitsViewButton" class="active" type="button" aria-pressed="true">Recruits</button>
+      <button id="previewButton" type="button" disabled>Calculate</button>
+      <button id="saveButton" class="save-button" type="button" disabled>Save</button>
+      <button id="settingsViewButton" type="button" aria-pressed="false">Settings</button>
+    </section>
+
+    <main class="content">
+      <section class="table-panel">
+        <section id="recruitsView" class="view-panel active">
+          <div class="table-wrap" tabindex="0" aria-label="Recruit table">
+            <table id="recruitTable">
+              <thead>
+                <tr id="groupHeaderRow" class="group-header-row"></tr>
+                <tr id="headerRow" class="column-header-row"></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="emptyState" class="empty-state">
+            <span id="emptyStateText" class="empty-state-text">Select a dynasty file to load recruiting data.</span>
+            <div id="loadProgress" class="center-load-progress" role="progressbar" aria-label="Dynasty progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+              <div class="center-load-meta">
+                <span id="centerLoadLabel">Loading Dynasty</span>
+                <b id="loadProgressValue">0%</b>
+              </div>
+              <div class="center-load-track">
+                <div id="loadProgressBar" class="center-load-bar"></div>
+              </div>
+            </div>
+          </div>
+          <div id="calculateOverlay" class="calculate-overlay" hidden aria-live="polite">
+            <div class="calculate-panel">
+              <span id="calculateEyebrow" class="calculate-eyebrow">Calculating</span>
+              <h2 id="calculateTitle">Calculating recruit changes...</h2>
+              <p id="calculateCopy">Building the preview from the current settings.</p>
+              <div id="calculateProgress" class="calculate-progress" role="progressbar" aria-label="Calculating preview" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="calculate-progress-meta">
+                  <span id="calculateProgressLabel">Starting</span>
+                  <b id="calculateProgressValue">0%</b>
+                </div>
+                <div class="calculate-progress-track">
+                  <div id="calculateProgressBar" class="calculate-progress-bar"></div>
+                </div>
+              </div>
+              <div id="calculateStats" class="calculate-stats" hidden></div>
+              <div id="calculateActions" class="calculate-actions" hidden>
+                <button id="calculateReviewButton" type="button">Review Preview</button>
+                <button id="calculateSaveButton" class="save-button" type="button">Save To File</button>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section id="rawView" class="view-panel raw-view">
+          <div class="raw-toolbar">
+            <label>
+              <span>Source Table</span>
+              <select id="rawTableSelect"></select>
+            </label>
+            <label>
+              <span>Search Raw Values</span>
+              <input id="rawSearchInput" type="search" placeholder="Field value, row id, reference bits">
+            </label>
+            <button id="rawClearButton" type="button">Clear</button>
+            <span id="rawTableStats" class="raw-table-stats">Select a dynasty file first.</span>
+          </div>
+          <div class="raw-table-wrap">
+            <table id="rawTable" class="raw-table">
+              <thead>
+                <tr id="rawHeaderRow"></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div id="rawEmptyState" class="empty-state">Select a dynasty file to inspect raw source tables.</div>
+        </section>
+        <section id="settingsView" class="view-panel">
+          <div class="settings-page">
+            <div class="settings-launcher" aria-label="Settings options">
+              <button class="settings-open-button" type="button" data-settings-open="globalRating">
+                <span>Global Rating Variance</span>
+                <small>Tune variance for selected ratings</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="starStrength">
+                <span>Star Strength</span>
+                <small>Adjust baseline strength by caliber</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="gemBust">
+                <span>Gem/Bust Variance</span>
+                <small>Add rating movement for gems and busts</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="diamondInTheRough">
+                <span>Diamond in the Rough</span>
+                <small>Extra boost layer for lower-star gems</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="blueChip">
+                <span>Blue Chip</span>
+                <small>Extra boost layer for 4- and 5-stars</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="projectPlayers">
+                <span>Project Players</span>
+                <small>Rare athletic project builds</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="hideGemsBusts">
+                <span>Hide Gems and Busts</span>
+                <small>Remove gem and bust tags after overhaul</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="skinTone">
+                <span>Skin Tone %</span>
+                <small>Adjust skin tone mix by position</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="heightVariance">
+                <span>Height Variance</span>
+                <small>Add recruit height movement</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="weightVariance">
+                <span>Weight Variance</span>
+                <small>Add recruit weight movement</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="nameSuffixes">
+                <span>Name Suffixes</span>
+                <small>Add suffixes to a small name share</small>
+              </button>
+              <button class="settings-open-button" type="button" data-settings-open="nameWeights">
+                <span>Name Weights</span>
+                <small>Manage name generator weights</small>
+              </button>
+            </div>
+            <section class="settings-section settings-panel" data-settings-panel="diamondInTheRough" hidden>
+              <div class="settings-section-head">
+                <h2>Diamond in the Rough</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="diamondInTheRough" checked>
+                    <span>On</span>
+                  </label>
+                  <span id="diamondInTheRoughStatus" class="settings-status">Ready</span>
+                  <button id="resetDiamondInTheRoughButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="diamond-settings">
+                <label class="diamond-slider">
+                  <span>Chance</span>
+                  <input
+                    id="diamondInTheRoughPercentSlider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="5"
+                    aria-label="Diamond in the Rough chance">
+                  <b id="diamondInTheRoughPercentValue" class="variance-value">5%</b>
+                </label>
+                <p>Adds an extra boost layer to a percentage of gems rated 3 stars or lower.</p>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="blueChip" hidden>
+              <div class="settings-section-head">
+                <h2>Blue Chip</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="blueChip" checked>
+                    <span>On</span>
+                  </label>
+                  <span id="blueChipStatus" class="settings-status">Ready</span>
+                  <button id="resetBlueChipButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="blue-chip-settings">
+                <label class="blue-chip-slider">
+                  <span>Chance</span>
+                  <input
+                    id="blueChipPercentSlider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="10"
+                    aria-label="Blue chip chance">
+                  <b id="blueChipPercentValue" class="variance-value">10%</b>
+                </label>
+                <p>Adds an extra boost layer to a percentage of 4- and 5-star recruits.</p>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="projectPlayers" hidden>
+              <div class="settings-section-head">
+                <h2>Project Players</h2>
+                <div class="settings-actions">
+                  <span id="projectPlayersStatus" class="settings-status">On</span>
+                  <button id="resetProjectPlayersButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="project-player-settings">
+                <label class="project-player-toggle">
+                  <input id="projectPlayersToggle" type="checkbox" aria-label="Enable project players" checked>
+                  <span>Enable Project Players</span>
+                </label>
+                <p>Slightly reworks a small percentage of players into project builds with strong athleticism and potential, but less current skill.</p>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="hideGemsBusts" hidden>
+              <div class="settings-section-head">
+                <h2>Hide Gems and Busts</h2>
+                <div class="settings-actions">
+                  <span id="hideGemsBustsStatus" class="settings-status">On</span>
+                  <button id="resetHideGemsBustsButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="hide-gems-busts-settings">
+                <label class="hide-gems-busts-toggle">
+                  <input id="hideGemsBustsToggle" type="checkbox" aria-label="Hide gems and busts" checked>
+                  <span>Set Gem/Bust Tags To Normal On Save</span>
+                </label>
+                <p>Removes gem and bust tags from recruits, so scouting depends on understanding ratings and deciding each player's caliber yourself.</p>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="globalRating" hidden>
+              <div class="settings-section-head">
+                <h2>Global Rating Variance</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="globalRating" checked>
+                    <span>On</span>
+                  </label>
+                  <span id="globalRatingVarianceStatus" class="settings-status">Untouched</span>
+                  <button id="resetGlobalRatingVarianceButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="settings-table-wrap rating-variance-table-wrap">
+                <table class="settings-table compact-settings-table rating-variance-table">
+                  <thead>
+                    <tr>
+                      <th>Rating</th>
+                      <th>Min / Max</th>
+                      <th>Range</th>
+                    </tr>
+                  </thead>
+                  <tbody id="globalRatingVarianceBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="settings-section settings-panel variance-settings-section" data-settings-panel="gemBust" hidden>
+              <div class="settings-section-head">
+                <h2>Gem/Bust Rating Variance</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="gemBust" checked>
+                    <span>On</span>
+                  </label>
+                  <span id="gemBustVarianceStatus" class="settings-status">Untouched</span>
+                  <button id="resetGemBustVarianceButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="star-caliber-controls">
+                <div id="gemBustVarianceRows" class="star-caliber-rows gem-bust-variance-rows"></div>
+              </div>
+            </section>
+            <section class="settings-section settings-panel star-caliber-settings-section" data-settings-panel="starStrength" hidden>
+              <div class="settings-section-head">
+                <h2>Star Caliber Strength</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="starStrength" checked>
+                    <span>On</span>
+                  </label>
+                  <span id="starCaliberStrengthStatus" class="settings-status">Untouched</span>
+                  <button id="resetStarCaliberStrengthButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="star-caliber-controls">
+                <div id="starCaliberStrengthRows" class="star-caliber-rows"></div>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="skinTone" hidden>
+              <div class="settings-section-head">
+                <h2>Position Skin Tone %</h2>
+                <div class="settings-actions">
+                  <button id="resetSkinToneButton" type="button">Reset</button>
+                  <button id="saveSkinToneButton" type="button">Save</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="settings-table-wrap">
+                <table class="settings-table">
+                  <thead>
+                    <tr>
+                      <th>Position</th>
+                      <th>Light</th>
+                      <th>Medium</th>
+                      <th>Dark</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="skinToneSettingsBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="heightVariance" hidden>
+              <div class="settings-section-head">
+                <h2>Height Variance By Position</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="heightVariance" checked>
+                    <span>On</span>
+                  </label>
+                  <span id="heightVarianceStatus" class="settings-status">Untouched</span>
+                  <button id="resetHeightVarianceButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="settings-table-wrap compact-settings-table-wrap">
+                <table class="settings-table compact-settings-table">
+                  <thead>
+                    <tr>
+                      <th>Position</th>
+                      <th>Min / Max</th>
+                      <th>Range</th>
+                    </tr>
+                  </thead>
+                  <tbody id="heightVarianceBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="weightVariance" hidden>
+              <div class="settings-section-head">
+                <h2>Weight Variance By Position</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="weightVariance" checked>
+                    <span>On</span>
+                  </label>
+                  <span id="weightVarianceStatus" class="settings-status">Untouched</span>
+                  <button id="resetWeightVarianceButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="settings-table-wrap compact-settings-table-wrap">
+                <table class="settings-table compact-settings-table">
+                  <thead>
+                    <tr>
+                      <th>Position</th>
+                      <th>Min / Max</th>
+                      <th>Range</th>
+                    </tr>
+                  </thead>
+                  <tbody id="weightVarianceBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="settings-section settings-panel" data-settings-panel="nameSuffixes" hidden>
+              <div class="settings-section-head">
+                <h2>Name Suffixes</h2>
+                <div class="settings-actions">
+                  <label class="setting-module-toggle">
+                    <input type="checkbox" data-setting-module-toggle="nameSuffixes" checked>
+                    <span>On</span>
+                  </label>
+                  <button id="resetNameSuffixesButton" type="button">Reset</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="settings-summary">
+                Adds suffixes to a small percentage of names. Players whose last name already ends with Jr, II, III, IV, or V are skipped.
+              </div>
+            </section>
+            <section class="settings-section settings-panel name-settings-section" data-settings-panel="nameWeights" hidden>
+              <div class="settings-section-head">
+                <h2>Name Weight Database</h2>
+                <div class="settings-actions">
+                  <span id="nameWeightStatus" class="settings-status">Not loaded</span>
+                  <button id="reloadNameWeightsButton" type="button">Reload</button>
+                  <button id="saveNameWeightsButton" type="button">Save</button>
+                  <button class="settings-close-button" type="button" data-settings-close>Close</button>
+                </div>
+              </div>
+              <div class="name-weight-toolbar">
+                <label>
+                  <span>Pool</span>
+                  <select id="nameWeightGroupSelect"></select>
+                </label>
+                <label>
+                  <span>Search</span>
+                  <input id="nameWeightSearchInput" type="search" placeholder="Name">
+                </label>
+                <button id="addNameWeightButton" type="button">Add Name</button>
+              </div>
+              <div id="nameWeightStats" class="settings-summary"></div>
+              <div class="settings-table-wrap name-weight-table-wrap">
+                <table class="settings-table name-weight-table">
+                  <thead>
+                    <tr>
+                      <th>Row</th>
+                      <th>Name</th>
+                      <th>Weight</th>
+                      <th>Share %</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody id="nameWeightSettingsBody"></tbody>
+                </table>
+              </div>
+            </section>
+            <aside class="settings-side-panel">
+              <div id="settingsInfoPanel" class="settings-info-copy" aria-live="polite"></div>
+              <section class="settings-config-card" aria-label="Settings config sharing">
+                <h3>Config Sharing</h3>
+                <label>
+                  <span>Config Name</span>
+                  <input id="settingsConfigNameInput" type="text" value="Fangs Settings" maxlength="80">
+                </label>
+                <div class="settings-config-actions">
+                  <button id="exportSettingsConfigButton" type="button">Export Config</button>
+                  <button id="importSettingsConfigButton" type="button">Import Config</button>
+                </div>
+                <p id="settingsConfigStatus">Fangs Settings</p>
+              </section>
+            </aside>
+          </div>
+        </section>
+      </section>
+
+      <aside class="detail-panel" id="detailPanel">
+        <div class="detail-heading">
+          <div>
+            <span>Selected Recruit</span>
+            <strong id="detailName">None</strong>
+          </div>
+          <div class="detail-heading-actions">
+            <div class="detail-view-toggle" aria-label="Selected recruit detail view">
+              <button id="detailProfileButton" class="active" type="button" aria-pressed="true">Profile</button>
+              <button id="detailRatingsButton" type="button" aria-pressed="false">Ratings</button>
+              <button id="detailAbilitiesButton" type="button" aria-pressed="false">Abilities</button>
+            </div>
+          </div>
+        </div>
+        <div id="detailBody" class="detail-body">
+          <p>Select a row to see the full top schools list and source row IDs.</p>
+        </div>
+      </aside>
+      <div id="recruitingSpoilerGate" class="recruiting-spoiler-gate" aria-live="polite">
+        <section class="recruiting-spoiler-card">
+          <span class="recruiting-spoiler-eyebrow">Recruiting Spoilers</span>
+          <h2 id="recruitingSpoilerTitle">Do you want to see recruiting spoilers?</h2>
+          <p id="recruitingSpoilerCopy">Choosing No will blur gem/bust status, ratings, abilities, dev traits, and pitches.</p>
+          <p id="recruitingSpoilerNote" class="recruiting-spoiler-note">This choice stays active while the app is open.</p>
+          <div class="recruiting-spoiler-actions">
+            <button id="showRecruitingSpoilersButton" class="recruiting-spoiler-show-button" type="button">Yes</button>
+            <button id="hideRecruitingSpoilersButton" class="recruiting-spoiler-hide-button" type="button">No</button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="statusbar">
+      <span id="statusText">Ready</span>
+    </footer>
+  </div>
+  <script src="electron-renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_CreateArcContextRecord.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_CreateArcContextRecord" numMembers="3" base="ArcContext()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="1786172312" minorVersionCRC="-1058562849">
+			<attribute name="arcTeam" idx="0" type="Team" />
+			<attribute name="arcMetadata" idx="1" type="StoryArcMetadata" />
+		</schema>
+	</schemas>
+</FranTkData>

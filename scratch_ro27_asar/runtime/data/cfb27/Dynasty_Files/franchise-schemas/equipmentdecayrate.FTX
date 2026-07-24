@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\EquipmentDecayRate.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="EquipmentDecayRate" numMembers="8" assetId="12345492" isRecordPersistent="true" majorVersionCRC="-749586695" minorVersionCRC="1751462884">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Low" idx="1" value="0" />
+			<attribute name="Medium" idx="2" value="1" />
+			<attribute name="High" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="3" />
+			<attribute name="VeryHigh" idx="5" value="3" />
+			<attribute name="Count" idx="6" value="4" />
+			<attribute name="Invalid" idx="7" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

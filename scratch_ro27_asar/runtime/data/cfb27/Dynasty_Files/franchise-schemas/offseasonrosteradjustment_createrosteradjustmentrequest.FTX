@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\OffSeasonRosterAdjustment_CreateRosterAdjustmentRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OffSeasonRosterAdjustment_CreateRosterAdjustmentRequest" numMembers="2" base="RosterAdjustmentRequest()" ownerAssetId="6499142" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1488467360" minorVersionCRC="1410040842">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

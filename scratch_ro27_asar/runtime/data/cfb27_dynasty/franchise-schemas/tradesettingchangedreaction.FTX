@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\TradeSettingChangedReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeSettingChangedReaction" numMembers="7" base="Reaction" assetId="6498939" isRecordPersistent="true" majorVersionCRC="-989710634" minorVersionCRC="526078331">
+			<attribute name="EventRecord" idx="0" type="TradeSettingChangedEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6498939-1895461" />
+			<attribute name="LeagueSettingsRef" idx="2" type="LeagueSetting" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfoEvent" idx="4" type="SeasonInfoUpdateEvent" />
+			<attribute name="SeasonInfoRef" idx="5" type="SeasonInfo" />
+			<attribute name="TradeManager" idx="6" type="TradeManager" />
+		</schema>
+	</schemas>
+</FranTkData>

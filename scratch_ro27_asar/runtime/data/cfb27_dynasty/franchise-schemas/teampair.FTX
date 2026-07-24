@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamPair.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamPair" numMembers="2" assetId="9363530" isRecordPersistent="true" majorVersionCRC="-749044892" minorVersionCRC="-1909515290">
+			<attribute name="Team1" idx="0" type="Team" />
+			<attribute name="Team2" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

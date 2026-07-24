@@ -1,0 +1,8 @@
+<FranTkData fileName="Football-Schemas\Spline_CalculateY.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Spline_CalculateY" numMembers="2" base="int()" ownerAssetId="6321323" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1195805856" minorVersionCRC="2125734818">
+			<attribute name="xValue" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

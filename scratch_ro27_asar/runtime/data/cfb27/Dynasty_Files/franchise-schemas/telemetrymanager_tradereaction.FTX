@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_TradeReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_TradeReaction" numMembers="4" base="Reaction" assetId="6499184" isRecordPersistent="true" majorVersionCRC="-1362862304" minorVersionCRC="1423899525">
+			<attribute name="EventRecord" idx="0" type="Trade_TradeEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499184-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TelemetryManager" idx="3" type="TelemetryManager" />
+		</schema>
+	</schemas>
+</FranTkData>

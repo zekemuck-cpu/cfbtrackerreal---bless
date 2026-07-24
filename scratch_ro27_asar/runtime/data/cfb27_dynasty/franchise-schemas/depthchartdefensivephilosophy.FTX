@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartDefensivePhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartDefensivePhilosophy" numMembers="11" assetId="6378211" isRecordPersistent="true" majorVersionCRC="1732429689" minorVersionCRC="-123880330">
+			<attribute name="ActiveImportanceThreshold" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CB" idx="1" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="DT" idx="2" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="FS" idx="3" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="LE" idx="4" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="LOLB" idx="5" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="MLB" idx="6" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="RE" idx="7" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="ROLB" idx="8" type="DepthChartPositionPhilosophy[]" />
+			<attribute name="RosterImportanceThreshold" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SS" idx="10" type="DepthChartPositionPhilosophy[]" />
+		</schema>
+	</schemas>
+</FranTkData>

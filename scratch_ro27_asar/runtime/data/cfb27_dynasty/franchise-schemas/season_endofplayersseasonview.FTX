@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\Season_EndOfPlayersSeasonView.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Season_EndOfPlayersSeasonView" numMembers="11" base="ModifierView" assetId="6709406" isRecordPersistent="true" majorVersionCRC="-1304627066" minorVersionCRC="494725444">
+			<attribute name="Formula" idx="0" type="Season_EndOfPlayersSeasonView_Formula" guid="6709406-1949262" default="Player player = Subject;&#xD;&#xA;&#xD;&#xA;// This is called for all team roster players, and free agents.&#xD;&#xA;if (Team != null)&#xD;&#xA;{&#xD;&#xA;    // Increment the player's age.&#xD;&#xA;    PlayerManager.AgePlayer(player);&#xD;&#xA;&#xD;&#xA;//    PlayerRetirementEval.EvaluatePlayerForRetirement(Subject, Team);&#xD;&#xA;}" />
+			<attribute name="PlayerContractManager" idx="1" type="PlayerContractManager" />
+			<attribute name="PlayerGradeEval" idx="2" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="3" type="PlayerManager" />
+			<attribute name="PlayerRetirementEval" idx="4" type="PlayersLeavingEval" />
+			<attribute name="SalaryMetrics" idx="5" type="SalaryMetrics" />
+			<attribute name="Source" idx="6" type="record" />
+			<attribute name="Subjects" idx="7" type="Player[]" />
+			<attribute name="Team" idx="8" type="Team" />
+			<attribute name="TeamManager" idx="9" type="TeamManager" />
+			<attribute name="Update" idx="10" type="none()" guid="6709406-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UpdatePlayerGrades.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdatePlayerGrades" numMembers="6" base="ModifierView" assetId="6498958" isRecordPersistent="true" majorVersionCRC="-1516725982" minorVersionCRC="1025314311">
+			<attribute name="Formula" idx="0" type="UpdatePlayerGrades_Formula" guid="6498958-1931021" default="PlayerGradeEval.UpdateGrades(Subject);" />
+			<attribute name="PlayerGradeEval" idx="1" type="PlayerGradeEval" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Player[]" />
+			<attribute name="Team" idx="4" type="Team" />
+			<attribute name="Update" idx="5" type="none()" guid="6498958-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

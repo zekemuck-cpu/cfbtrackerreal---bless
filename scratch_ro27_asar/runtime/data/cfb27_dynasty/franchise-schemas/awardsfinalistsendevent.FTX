@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\AwardsFinalistsEndEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AwardsFinalistsEndEvent" numMembers="2" base="Event" assetId="6598551" isRecordPersistent="true" majorVersionCRC="-765711866" minorVersionCRC="1502159842">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598551-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598551-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

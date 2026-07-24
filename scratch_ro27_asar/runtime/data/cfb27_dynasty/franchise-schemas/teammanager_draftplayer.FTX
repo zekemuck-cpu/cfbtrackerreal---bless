@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_DraftPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_DraftPlayer" numMembers="5" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="1737232226" minorVersionCRC="-1216381121">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="currentRoundIndex" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="currentPickIndex" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CoachProgressionEval_IssueUnlockNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachProgressionEval_IssueUnlockNotificationRequest" numMembers="3" base="none()" ownerAssetId="6498443" isRecordPersistent="true" isExpr="true" majorVersionCRC="-497864366" minorVersionCRC="108035595">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+			<attribute name="coachArcheType" idx="1" type="CoachTalentArcheType" default="CoachTalentArcheType:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\BaseContractPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BaseContractPhilosophy" numMembers="21" defaultStoreCapacity="1" assetId="6495223" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="12543188" minorVersionCRC="462180893">
+			<attribute name="C" idx="0" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="CB" idx="1" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="DT" idx="2" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="FB" idx="3" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="FS" idx="4" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="HB" idx="5" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="K" idx="6" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="LE" idx="7" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="LG" idx="8" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="LOLB" idx="9" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="LT" idx="10" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="MLB" idx="11" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="P" idx="12" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="QB" idx="13" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="RE" idx="14" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="RG" idx="15" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="ROLB" idx="16" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="RT" idx="17" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="SS" idx="18" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="TE" idx="19" type="BaseContractPositionPhilosophy[]" />
+			<attribute name="WR" idx="20" type="BaseContractPositionPhilosophy[]" />
+		</schema>
+	</schemas>
+</FranTkData>

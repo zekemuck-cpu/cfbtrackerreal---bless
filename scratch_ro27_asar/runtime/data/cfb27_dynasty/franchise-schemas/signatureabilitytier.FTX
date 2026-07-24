@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbilityTier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SignatureAbilityTier" numMembers="4" assetId="8527449" isRecordPersistent="true" majorVersionCRC="1850129188" minorVersionCRC="989545977">
+			<attribute name="Bronze" idx="0" value="0" />
+			<attribute name="Silver" idx="1" value="1" />
+			<attribute name="Gold" idx="2" value="2" />
+			<attribute name="Invalid" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

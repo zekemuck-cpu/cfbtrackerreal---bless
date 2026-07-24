@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\UserEndRegisterEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserEndRegisterEvent" numMembers="4" base="Event" assetId="6495153" isRecordPersistent="true" majorVersionCRC="-1117003531" minorVersionCRC="-257049452">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6495153-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6495153-1895455" final="true" />
+			<attribute name="Team" idx="2" type="Team" />
+			<attribute name="User" idx="3" type="User" />
+		</schema>
+	</schemas>
+</FranTkData>

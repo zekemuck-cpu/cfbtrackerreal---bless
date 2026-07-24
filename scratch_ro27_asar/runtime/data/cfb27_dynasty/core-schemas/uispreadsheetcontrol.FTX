@@ -1,0 +1,24 @@
+<FranTkData fileName="Core-Schemas\UISpreadsheetControl.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIControl.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetControl" numMembers="13" base="UIControl" defaultStoreCapacity="138" assetId="6210733" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="3806" majorVersionCRC="459749907" minorVersionCRC="-1087194145">
+			<attribute name="ColumnList" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Description" idx="1" type="string" maxLen="73" />
+			<attribute name="DisplayName" idx="2" type="string" maxLen="33" />
+			<attribute name="Filter1" idx="3" type="UISpreadsheetFilter[]" />
+			<attribute name="Filter1Column" idx="4" type="string" maxLen="33" />
+			<attribute name="Filter1Control" idx="5" type="UISpreadsheetFilterControl" />
+			<attribute name="Filter2" idx="6" type="UISpreadsheetFilter[]" />
+			<attribute name="Filter2Column" idx="7" type="string" maxLen="33" />
+			<attribute name="Filter2Control" idx="8" type="UISpreadsheetFilterControl" />
+			<attribute name="IsEnabled" idx="9" type="bool" default="True" />
+			<attribute name="IsFilter1OnDemand" idx="10" type="bool" default="False" />
+			<attribute name="IsFilter2OnDemand" idx="11" type="bool" default="False" />
+			<attribute name="Name" idx="12" type="string" maxLen="33" />
+		</schema>
+	</schemas>
+</FranTkData>

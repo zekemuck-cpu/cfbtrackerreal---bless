@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_BeginYearReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_BeginYearReaction" numMembers="4" base="Reaction" assetId="6708721" isRecordPersistent="true" majorVersionCRC="599346715" minorVersionCRC="-1540971347">
+			<attribute name="EventRecord" idx="0" type="Season_BeginYearEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6708721-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="StaffHiringEval" idx="3" type="StaffHiringEval" />
+		</schema>
+	</schemas>
+</FranTkData>

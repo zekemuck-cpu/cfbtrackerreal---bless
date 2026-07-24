@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\FilterOffersForTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FilterOffersForTeam" numMembers="7" base="FilterView" assetId="6572410" isRecordPersistent="true" majorVersionCRC="837930442" minorVersionCRC="-1946736028">
+			<attribute name="Clear" idx="0" type="none()" guid="6572410-1937749" />
+			<attribute name="Filter" idx="1" type="FilterOffersForTeam_Filter" guid="6572410-1939151" default="(Subject.Team == TeamRef);" />
+			<attribute name="Results" idx="2" type="ContractOffer[]" />
+			<attribute name="Source" idx="3" type="record" />
+			<attribute name="Subjects" idx="4" type="ContractOffer[]" />
+			<attribute name="TeamRef" idx="5" type="record" />
+			<attribute name="Update" idx="6" type="none()" guid="6572410-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

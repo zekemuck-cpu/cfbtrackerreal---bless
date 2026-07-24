@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DraftBoardEval_UpdateTeamDraftBoard.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftBoardEval_UpdateTeamDraftBoard" numMembers="3" base="none()" ownerAssetId="6495394" isRecordPersistent="true" isExpr="true" majorVersionCRC="-656737552" minorVersionCRC="1080433889">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="draftClass" idx="1" type="DraftPlayer[]" />
+		</schema>
+	</schemas>
+</FranTkData>

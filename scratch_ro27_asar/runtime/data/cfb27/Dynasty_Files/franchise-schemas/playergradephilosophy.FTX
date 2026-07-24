@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGradePhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGradePhilosophy" numMembers="10" assetId="6378151" isRecordPersistent="true" majorVersionCRC="500509290" minorVersionCRC="-365921229">
+			<attribute name="DesiredHigh" idx="0" type="int" minValue="0" maxValue="100" default="99" />
+			<attribute name="DesiredLow" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DurabilityPhilosophy" idx="2" type="PlayerDurabilityGradePhilosophy" />
+			<attribute name="IntangiblePhilosophy" idx="3" type="PlayerIntangibleGradePhilosophy" />
+			<attribute name="MaxRating" idx="4" type="int" minValue="0" maxValue="100" default="99" />
+			<attribute name="NarrativePlayerPhilosophy" idx="5" type="PlayerIntangibleGradePhilosophy" />
+			<attribute name="PhysicalPhilosophy" idx="6" type="PlayerPhysicalGradePhilosophy" />
+			<attribute name="PlayerType" idx="7" type="PlayerType" default="PlayerType:QB_First_" />
+			<attribute name="ProductionPhilosophy" idx="8" type="PlayerProductionGradePhilosophy" />
+			<attribute name="SizePhilosophy" idx="9" type="PlayerSizeGradePhilosophy" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,37 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_ReSignFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_ReSignFlow" numMembers="26" base="FranTkServer_Flow" assetId="6499314" isRecordPersistent="true" majorVersionCRC="-1150523878" minorVersionCRC="1975082310">
+			<attribute name="DefaultTeam" idx="0" type="Team" />
+			<attribute name="DraftClassScouting" idx="1" type="DraftClassScouting" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="FreeAgentNegotiationStatusEnumTable" idx="4" type="EnumTable" />
+			<attribute name="LeagueSetting" idx="5" type="LeagueSetting" />
+			<attribute name="PlayerAbilityEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PlayerGradeEval" idx="7" type="PlayerGradeEval" />
+			<attribute name="PlayerSigningEval" idx="8" type="PlayerSigningEval" />
+			<attribute name="PlayerTraitDevelopmentEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PlayerTraitEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="11" type="EnumTable" />
+			<attribute name="PositionStrengthLetterGradeEnumTable" idx="12" type="EnumTable" />
+			<attribute name="RequestServer" idx="13" type="RequestServer" />
+			<attribute name="ReSignPlayerAbilityCount" idx="14" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="RosterEval" idx="15" type="RosterEval" />
+			<attribute name="SalaryCapEval" idx="16" type="SalaryCapEval" />
+			<attribute name="SchemeEnumTable" idx="17" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="18" type="SeasonInfo" />
+			<attribute name="SignatureAbilitiesEval" idx="19" type="SignatureAbilitiesEval" />
+			<attribute name="StatusEnumTable" idx="20" type="EnumTable" />
+			<attribute name="TeamManager" idx="21" type="TeamManager" />
+			<attribute name="TeamPrestigeEval" idx="22" type="TeamPrestigeEval" />
+			<attribute name="TutorialList" idx="23" type="TutorialInfo[]" />
+			<attribute name="TutorialManager" idx="24" type="TutorialManager" />
+			<attribute name="UserRegistry" idx="25" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

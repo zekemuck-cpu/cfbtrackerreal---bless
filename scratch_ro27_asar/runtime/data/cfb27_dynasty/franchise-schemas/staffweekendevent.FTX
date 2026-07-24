@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffWeekEndEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffWeekEndEvent" numMembers="2" base="Event" assetId="6598574" isRecordPersistent="true" majorVersionCRC="186896959" minorVersionCRC="-1354053744">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598574-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598574-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

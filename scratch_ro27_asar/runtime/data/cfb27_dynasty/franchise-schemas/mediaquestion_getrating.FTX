@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\MediaQuestion_GetRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaQuestion_GetRating" numMembers="2" base="int()" ownerAssetId="6498637" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1330572320" minorVersionCRC="-1661754591">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

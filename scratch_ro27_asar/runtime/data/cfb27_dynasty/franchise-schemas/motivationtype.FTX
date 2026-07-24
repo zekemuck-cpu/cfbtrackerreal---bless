@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\MotivationType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MotivationType" numMembers="13" assetId="6708517" isRecordPersistent="true" majorVersionCRC="627064745" minorVersionCRC="358170199">
+			<attribute name="None" idx="0" value="1" />
+			<attribute name="NoIncomeTax" idx="1" value="2" />
+			<attribute name="WarmWeatherState" idx="2" value="3" />
+			<attribute name="BigMarket" idx="3" value="4" />
+			<attribute name="ChampionshipContender" idx="4" value="5" />
+			<attribute name="TeamPrestige" idx="5" value="6" />
+			<attribute name="SchemeFit" idx="6" value="7" />
+			<attribute name="ToptheDepthChart" idx="7" value="8" />
+			<attribute name="TeamHasFranchiseQB" idx="8" value="9" />
+			<attribute name="MentoratPosition" idx="9" value="10" />
+			<attribute name="HeadCoachHistoricRecord" idx="10" value="11" />
+			<attribute name="CloseToHome" idx="11" value="12" />
+			<attribute name="Count" idx="12" value="13" />
+		</enum>
+	</schemas>
+</FranTkData>

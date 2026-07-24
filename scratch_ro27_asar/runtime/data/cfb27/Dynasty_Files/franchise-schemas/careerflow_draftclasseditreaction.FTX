@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CareerFlow_DraftClassEditReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerFlow_DraftClassEditReaction" numMembers="4" base="Reaction" assetId="6499288" isRecordPersistent="true" majorVersionCRC="643033060" minorVersionCRC="-2111001399">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="DraftClassEditEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6499288-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

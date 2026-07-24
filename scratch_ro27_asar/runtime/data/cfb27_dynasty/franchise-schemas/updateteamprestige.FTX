@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamPrestige.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamPrestige" numMembers="8" base="DataFlow" assetId="6499366" isRecordPersistent="true" majorVersionCRC="89698739" minorVersionCRC="-610211541">
+			<attribute name="Clear" idx="0" type="none()" guid="6499366-1937749" />
+			<attribute name="Results" idx="1" type="Team[]" />
+			<attribute name="RosterEvalRef" idx="2" type="RosterEval" />
+			<attribute name="Source" idx="3" type="record" />
+			<attribute name="Subjects" idx="4" type="Team[]" />
+			<attribute name="TailView" idx="5" type="UpdateTeamPrestige_UpdateTeamPrestige_Rank" />
+			<attribute name="TeamPrestigeEvalRef" idx="6" type="TeamPrestigeEval" />
+			<attribute name="Update" idx="7" type="none()" guid="6499366-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

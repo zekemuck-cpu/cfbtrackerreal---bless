@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\HUBMenuItem_CanShow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HUBMenuItem_CanShow" numMembers="3" base="bool()" ownerAssetId="7742492" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1476037188" minorVersionCRC="-1130709850">
+			<attribute name="SeasonInfo" idx="0" type="SeasonInfo" />
+			<attribute name="LeagueSetting" idx="1" type="LeagueSetting" />
+		</schema>
+	</schemas>
+</FranTkData>

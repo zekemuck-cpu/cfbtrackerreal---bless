@@ -1,0 +1,10 @@
+<FranTkData fileName="Core-Schemas\Action.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Action" numMembers="3" assetId="6210600" isRecordPersistent="true" majorVersionCRC="-746155341" minorVersionCRC="-2032231378">
+			<attribute name="Respond" idx="0" value="0" />
+			<attribute name="Delegate" idx="1" value="1" />
+			<attribute name="Ignore" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\UITeamSpreadsheetFilterControl.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetFilterControl.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UITeamSpreadsheetFilterControl" numMembers="18" base="UISpreadsheetFilterControl" defaultStoreCapacity="15" assetId="6572339" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="159" majorVersionCRC="-739128736" minorVersionCRC="-970985549">
+			<attribute name="DataSource" idx="0" type="record" />
+			<attribute name="DisplayName" idx="1" type="string" maxLen="33" />
+			<attribute name="Filter" idx="2" type="UISpreadsheetFilter[]" />
+			<attribute name="IncludeConferences" idx="3" type="bool" default="False" />
+			<attribute name="IncludeDivisions" idx="4" type="bool" default="False" />
+			<attribute name="IncludeLeague" idx="5" type="bool" default="False" />
+			<attribute name="IncludeTeams" idx="6" type="bool" default="False" />
+			<attribute name="IncludeTop25" idx="7" type="bool" default="False" />
+			<attribute name="InterleaveDivisions" idx="8" type="bool" default="True" />
+			<attribute name="IsEnabled" idx="9" type="bool" default="True" />
+			<attribute name="LeagueLabel" idx="10" type="string" maxLen="12" default="NFL" />
+			<attribute name="Name" idx="11" type="string" maxLen="33" />
+			<attribute name="TeamsFirst" idx="12" type="bool" default="True" />
+			<attribute name="UseConferenceKey" idx="13" type="bool" default="False" />
+			<attribute name="UseConferenceNameInDivisionLabel" idx="14" type="bool" default="False" />
+			<attribute name="UseDivisionKey" idx="15" type="bool" default="False" />
+			<attribute name="UseDivisionKeyInConference" idx="16" type="bool" default="False" />
+			<attribute name="UseLeagueKey" idx="17" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

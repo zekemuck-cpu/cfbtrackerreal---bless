@@ -1,0 +1,48 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_DepthChartFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_DepthChartFlow" numMembers="37" base="FranTkServer_Flow" assetId="6498985" isRecordPersistent="true" majorVersionCRC="-778461864" minorVersionCRC="574325066">
+			<attribute name="BodyPartGroupsEnumTable" idx="0" type="EnumTable" />
+			<attribute name="ConfidenceManager" idx="1" type="ConfidenceManager" />
+			<attribute name="DefaultTeam" idx="2" type="Team" />
+			<attribute name="DepthChartConfig" idx="3" type="DepthChartConfig" />
+			<attribute name="DepthChartEval" idx="4" type="DepthChartEval" />
+			<attribute name="DevelopmentTraitEnumTable" idx="5" type="EnumTable" />
+			<attribute name="Dynasty" idx="6" type="Franchise" />
+			<attribute name="Form" idx="7" type="UIForm" />
+			<attribute name="FormManager" idx="8" type="FranTkServer_FormManager" />
+			<attribute name="HandednessEnumTable" idx="9" type="EnumTable" />
+			<attribute name="HandleSeasonBeginWeek" idx="10" type="FranchiseServer_DepthChartFlow_HandleSeasonBeginWeek" guid="6498985-1931331" final="true" />
+			<attribute name="HandleSeasonInfoUpdate" idx="11" type="FranchiseServer_DepthChartFlow_HandleSeasonInfoUpdate" guid="6498985-1931327" final="true" />
+			<attribute name="HandleTradeAccepted" idx="12" type="FranchiseServer_DepthChartFlow_HandleTradeAccepted" guid="6498985-1931335" final="true" />
+			<attribute name="InjuryEvalRef" idx="13" type="InjuryEval" />
+			<attribute name="InjuryTypeEnumTable" idx="14" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="15" type="EnumTable" />
+			<attribute name="LineUpTutorial" idx="16" type="TutorialInfo" />
+			<attribute name="PipelineEnumTable" idx="17" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="18" type="EnumTable" />
+			<attribute name="PlayerGradeEval" idx="19" type="PlayerGradeEval" />
+			<attribute name="PlayerTypeEnumTable" idx="20" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="21" type="EnumTable" />
+			<attribute name="PositionRatingEnumTable" idx="22" type="EnumTable" />
+			<attribute name="RecruitingMotivationEnumTable" idx="23" type="EnumTable" />
+			<attribute name="RedshirtStatusEnumTable" idx="24" type="EnumTable" />
+			<attribute name="RequestServer" idx="25" type="RequestServer" />
+			<attribute name="RosterEval" idx="26" type="RosterEval" />
+			<attribute name="RosterFlow" idx="27" type="FranchiseServer_RosterFlow" />
+			<attribute name="SchemeEnumTable" idx="28" type="EnumTable" />
+			<attribute name="SchoolYearEnumTable" idx="29" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="30" type="SeasonInfo" />
+			<attribute name="SignatureAbilitiesEval" idx="31" type="SignatureAbilitiesEval" />
+			<attribute name="StateNameEnumTable" idx="32" type="EnumTable" />
+			<attribute name="TeamManager" idx="33" type="TeamManager" />
+			<attribute name="TeamPrestigeEval" idx="34" type="TeamPrestigeEval" />
+			<attribute name="TutorialManager" idx="35" type="TutorialManager" />
+			<attribute name="UserRegistry" idx="36" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

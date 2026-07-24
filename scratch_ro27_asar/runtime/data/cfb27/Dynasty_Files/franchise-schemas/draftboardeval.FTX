@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\DraftBoardEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftBoardEval" numMembers="9" base="Module" assetId="6495394" isRecordPersistent="true" majorVersionCRC="-1276847502" minorVersionCRC="1167738607">
+			<attribute name="ClearTeamDraftBoard" idx="0" type="DraftBoardEval_ClearTeamDraftBoard" guid="6495394-1922881" final="true" default="// DraftBoardPlayerEvaluation has been removed from College&#xD;&#xA;&#xD;&#xA;//team.DraftBoard = null;&#xD;&#xA;0;" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="HandleDraftPlayerEvent" idx="2" type="DraftBoardEval_HandleDraftPlayerEvent" guid="6495394-1922885" final="true" />
+			<attribute name="HandlePlayerLeftDraft" idx="3" type="DraftBoardEval_HandlePlayerLeftDraft" guid="6495394-1922890" />
+			<attribute name="PlayerGradeEval" idx="4" type="PlayerGradeEval" />
+			<attribute name="Random" idx="5" type="Random" />
+			<attribute name="ScoutingModule" idx="6" type="DraftClassScouting" />
+			<attribute name="UpdateTeamDraftBoard" idx="7" type="DraftBoardEval_UpdateTeamDraftBoard" guid="6495394-1922876" final="true" />
+			<attribute name="ValidateExpressions" idx="8" type="DraftBoardEval_ValidateExpressions" guid="6495394-1922895" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

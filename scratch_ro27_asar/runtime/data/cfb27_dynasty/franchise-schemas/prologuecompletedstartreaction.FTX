@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PrologueCompletedStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PrologueCompletedStartReaction" numMembers="4" base="Reaction" assetId="6498937" isRecordPersistent="true" majorVersionCRC="-1421296972" minorVersionCRC="1472737207">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="PrologueCompletedEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6498937-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,45 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_LeagueSettingFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_LeagueSettingFlow" numMembers="34" base="FranTkServer_Flow" assetId="6498943" isRecordPersistent="true" majorVersionCRC="-1907858598" minorVersionCRC="-2079167211">
+			<attribute name="AdvancedFeatureSettingChangedEvent" idx="0" type="AdvancedFeatureSettingChangedEvent" />
+			<attribute name="CPUSkillSliderRef" idx="1" type="SkillSlider" />
+			<attribute name="CpuSpecialTeamSliderRef" idx="2" type="SpecialTeamSlider" />
+			<attribute name="DefaultTeamSetting" idx="3" type="TeamSetting" />
+			<attribute name="Form" idx="4" type="UIForm" />
+			<attribute name="FormManager" idx="5" type="FranTkServer_FormManager" />
+			<attribute name="GameOptionsSliderRef" idx="6" type="GameOptionSlider" />
+			<attribute name="GameStyleEnumTable" idx="7" type="EnumTable" />
+			<attribute name="IsOnGen4" idx="8" type="bool" default="True" />
+			<attribute name="IsXPSlidersEnabled" idx="9" type="bool" default="True" />
+			<attribute name="League" idx="10" type="League" />
+			<attribute name="LeagueSettingRef" idx="11" type="LeagueSetting" />
+			<attribute name="LeagueSettingTemplateClassicFranchise" idx="12" type="LeagueSetting" />
+			<attribute name="LeagueSettingTemplateLegacy" idx="13" type="LeagueSetting" />
+			<attribute name="LeagueSettingTemplateRoadToCanton" idx="14" type="LeagueSetting" />
+			<attribute name="LeagueTypeSettingEnumTable" idx="15" type="EnumTable" />
+			<attribute name="PenaltySliderRef" idx="16" type="PenaltySlider" />
+			<attribute name="PlayerSkillSliderRef" idx="17" type="SkillSlider" />
+			<attribute name="PlayerSpecialTeamSliderRef" idx="18" type="SpecialTeamSlider" />
+			<attribute name="ProgressionDefensiveXPSlidersControls" idx="19" type="UIControl[]" />
+			<attribute name="ProgressionOffensiveXPSlidersControls" idx="20" type="UIControl[]" />
+			<attribute name="ProgressionSpecialTeamsXPSlidersControls" idx="21" type="UIControl[]" />
+			<attribute name="ProgressionXPSlidersRef" idx="22" type="ProgressionXPSlider" />
+			<attribute name="SeasonInfo" idx="23" type="SeasonInfo" />
+			<attribute name="SendAdvanceFeatureChangeEvent" idx="24" type="FranchiseServer_LeagueSettingFlow_SendAdvanceFeatureChangeEvent" guid="6498943-1927960" final="true" default="AdvancedFeatureSettingChangedEvent.AdvancedFeaturesEnabled = advancedFeaturesEnabled;&#xD;&#xA;AdvancedFeatureSettingChangedEvent.Send();" />
+			<attribute name="SendTradeSettingsChangedEvent" idx="25" type="FranchiseServer_LeagueSettingFlow_SendTradeSettingsChangedEvent" guid="6498943-1927927" final="true" default="TradeSettingChangedEvent.tradeEnabled = tradeEnabled;&#xD;&#xA;TradeSettingChangedEvent.tradeDeadlineEnabled = tradeDeadlineEnabled;&#xD;&#xA;TradeSettingChangedEvent.Send();" />
+			<attribute name="StartingPointEnumTable" idx="26" type="EnumTable" />
+			<attribute name="TeamManager" idx="27" type="TeamManager" />
+			<attribute name="TeamSettingTemplateClassicFranchise" idx="28" type="TeamSetting" />
+			<attribute name="TeamSettingTemplateLegacy" idx="29" type="TeamSetting" />
+			<attribute name="TeamSettingTemplateRoadToCanton" idx="30" type="TeamSetting" />
+			<attribute name="TradeEval" idx="31" type="TradeEval" />
+			<attribute name="TradeSettingChangedEvent" idx="32" type="TradeSettingChangedEvent" />
+			<attribute name="UserRegistry" idx="33" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

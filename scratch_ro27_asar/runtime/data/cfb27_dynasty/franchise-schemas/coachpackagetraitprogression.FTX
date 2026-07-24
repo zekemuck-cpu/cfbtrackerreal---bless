@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\CoachPackageTraitProgression.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachPackageXP.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachPackageTraitProgression" numMembers="12" base="CoachPackageXP" assetId="6708728" isRecordPersistent="true" majorVersionCRC="-925479458" minorVersionCRC="608969512">
+			<attribute name="BaseCost" idx="0" type="int" minValue="0" maxValue="25000" default="0" />
+			<attribute name="BaseRating" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrait" idx="2" type="CoachTrait" default="CoachTrait:MAX_" />
+			<attribute name="Description" idx="3" type="string" maxLen="121" />
+			<attribute name="DisplayType" idx="4" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="GetCost" idx="5" type="CoachPackageTraitProgression_GetCost" guid="6708728-1949024" default="int levelMod     = LevelCostSpline.CalculateY(coach.Level);&#xD;&#xA;&#xD;&#xA;int cost = levelMod;&#xD;&#xA;&#xD;&#xA;if (coach.CoachBackstory == CoachBackstory.Motivator)&#xD;&#xA;{&#xD;&#xA;    cost = (cost * 75) / 100;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;cost;&#xD;&#xA;" />
+			<attribute name="GetRating" idx="6" type="CoachPackageTraitProgression_GetRating" guid="6708728-1949028" default="int rating = BaseRating;" />
+			<attribute name="IconId" idx="7" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="LevelCostSpline" idx="8" type="Spline" />
+			<attribute name="Name" idx="9" type="string" maxLen="24" />
+			<attribute name="OptimalValue" idx="10" type="bool" default="True" />
+			<attribute name="PositionGroup" idx="11" type="PositionGroupE" default="PositionGroupE:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

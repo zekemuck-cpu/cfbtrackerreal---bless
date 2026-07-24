@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleToggleAutoPilot.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleToggleAutoPilot" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="-169628156" minorVersionCRC="-727222132">
+			<attribute name="eventRecord" idx="0" type="ToggleAutoPilotEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

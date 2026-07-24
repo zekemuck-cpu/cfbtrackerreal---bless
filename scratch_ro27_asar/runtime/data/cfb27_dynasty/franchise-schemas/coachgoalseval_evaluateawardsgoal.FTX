@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalsEval_EvaluateAwardsGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalsEval_EvaluateAwardsGoal" numMembers="5" base="none()" ownerAssetId="6495218" isRecordPersistent="true" isExpr="true" majorVersionCRC="950952632" minorVersionCRC="1240892023">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="awardType" idx="1" type="AwardType" default="AwardType:First_" />
+			<attribute name="statPeriod" idx="2" type="StatPeriod" default="StatPeriod:Season" />
+			<attribute name="periodIndex" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

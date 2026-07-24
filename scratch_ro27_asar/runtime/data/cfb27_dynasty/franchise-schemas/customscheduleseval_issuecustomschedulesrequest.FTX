@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CustomSchedulesEval_IssueCustomSchedulesRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CustomSchedulesEval_IssueCustomSchedulesRequest" numMembers="2" base="none()" ownerAssetId="9101449" isRecordPersistent="true" isExpr="true" majorVersionCRC="-951640967" minorVersionCRC="932997143">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\InductHallOfFameCoachesDataFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InductHallOfFameCoachesDataFlow" numMembers="8" base="ModifierView" assetId="6498860" isRecordPersistent="true" majorVersionCRC="1605957924" minorVersionCRC="47402476">
+			<attribute name="Formula" idx="0" type="InductHallOfFameCoachesDataFlow_Formula" guid="6498860-1927415" />
+			<attribute name="HallOfFamers" idx="1" type="Coach[]" />
+			<attribute name="LegacyScoreEvalRef" idx="2" type="LegacyScoreEval" />
+			<attribute name="MadeList" idx="3" type="Coach[]" />
+			<attribute name="SnubbedList" idx="4" type="Coach[]" />
+			<attribute name="Source" idx="5" type="record" />
+			<attribute name="Subjects" idx="6" type="Coach[]" />
+			<attribute name="Update" idx="7" type="none()" guid="6498860-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

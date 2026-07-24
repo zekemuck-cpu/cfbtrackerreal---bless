@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\CoachAdaptiveAI.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachAdaptiveAI" numMembers="15" assetId="9163443" isRecordPersistent="true" majorVersionCRC="806791122" minorVersionCRC="-477030079">
+			<attribute name="Conservative" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Balanced" idx="2" value="1" />
+			<attribute name="Aggressive" idx="3" value="2" />
+			<attribute name="Conservative_1" idx="4" value="3" />
+			<attribute name="Balanced_1" idx="5" value="4" />
+			<attribute name="Aggressive_1" idx="6" value="5" />
+			<attribute name="Conservative_2" idx="7" value="6" />
+			<attribute name="Balanced_2" idx="8" value="7" />
+			<attribute name="Aggressive_2" idx="9" value="8" />
+			<attribute name="Conservative_3" idx="10" value="9" />
+			<attribute name="Balanced_3" idx="11" value="10" />
+			<attribute name="Aggressive_3" idx="12" value="11" />
+			<attribute name="Max_" idx="13" value="12" />
+			<attribute name="Invalid_" idx="14" value="13" />
+		</enum>
+	</schemas>
+</FranTkData>

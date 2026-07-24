@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\AffordabilityAndLevelsEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AffordabilityAndLevelsEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="6" assetId="12133644" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="92" majorVersionCRC="-443425951" minorVersionCRC="-497759107">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="AffordabilityAndLevelsSupportStaffFilter" default="AffordabilityAndLevelsSupportStaffFilter:All" />
+		</schema>
+	</schemas>
+</FranTkData>

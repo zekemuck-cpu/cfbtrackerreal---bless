@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\PlayerStatRecord.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerStatRecord" numMembers="9" assetId="6378160" isRecordPersistent="true" majorVersionCRC="-1049397312" minorVersionCRC="-1006851930">
+			<attribute name="calendarYear" idx="0" type="int" minValue="-200" maxValue="4095" default="0" />
+			<attribute name="ConferenceRef" idx="1" type="Conference" />
+			<attribute name="firstName" idx="2" type="string" maxLen="17" />
+			<attribute name="lastName" idx="3" type="string" maxLen="21" />
+			<attribute name="position" idx="4" type="PositionGroupE" default="PositionGroupE:QB" />
+			<attribute name="statType" idx="5" type="StatType" default="StatType:PassYards" />
+			<attribute name="statValue" idx="6" type="int" minValue="0" maxValue="24000" default="0" />
+			<attribute name="teamName" idx="7" type="string" maxLen="33" />
+			<attribute name="TeamRef" idx="8" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

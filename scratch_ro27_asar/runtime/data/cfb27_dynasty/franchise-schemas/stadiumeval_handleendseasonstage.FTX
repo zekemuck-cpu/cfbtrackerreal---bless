@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StadiumEval_HandleEndSeasonStage.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StadiumEval_HandleEndSeasonStage" numMembers="3" base="none()" ownerAssetId="6494945" isRecordPersistent="true" isExpr="true" majorVersionCRC="1449550524" minorVersionCRC="2028734269">
+			<attribute name="seasonYear" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="seasonStage" idx="1" type="SeasonStage" default="SeasonStage:PreSeason" />
+		</schema>
+	</schemas>
+</FranTkData>

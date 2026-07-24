@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\TrimRosterPositionTuningData_CalculateReleasePlayerChance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TrimRosterPositionTuningData_CalculateReleasePlayerChance" numMembers="7" base="int()" ownerAssetId="6549083" isRecordPersistent="true" isExpr="true" majorVersionCRC="-222583312" minorVersionCRC="-1483502142">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="playerGrade" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="roadmapRank" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="netCapSavings" idx="3" type="int" minValue="-100000000" maxValue="100000000" default="0" />
+			<attribute name="team" idx="4" type="Team" />
+			<attribute name="statManager" idx="5" type="StatManager" />
+		</schema>
+	</schemas>
+</FranTkData>

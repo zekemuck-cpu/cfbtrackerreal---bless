@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerManager_ChangePosition.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerManager_ChangePosition" numMembers="3" base="none()" ownerAssetId="6498478" isRecordPersistent="true" isExpr="true" majorVersionCRC="1357000500" minorVersionCRC="-261532571">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="isDraftPlayer" idx="1" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

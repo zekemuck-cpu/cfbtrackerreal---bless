@@ -1,0 +1,80 @@
+<FranTkData fileName="Franchise-Schemas\SeasonGame.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\FootballSeasonGame.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonGame" numMembers="69" base="FootballSeasonGame" assetId="6377999" isRecordPersistent="true" majorVersionCRC="233614604" minorVersionCRC="1418504469">
+			<attribute name="Attendance" idx="0" type="int" minValue="0" maxValue="400000" default="0" />
+			<attribute name="AwayPlayerStatCache" idx="1" type="UnpublishedGameStats[]" />
+			<attribute name="AwayRequestId" idx="2" type="int" minValue="-2147483648" maxValue="2147483647" default="-1" />
+			<attribute name="AwayScore" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="AwayScoreOT" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQuarter1" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQuarter2" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQuarter3" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQuarter4" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayTeam" idx="9" type="Team" />
+			<attribute name="AwayTeamStatCache" idx="10" type="TeamStats" />
+			<attribute name="AwayTeamStatus" idx="11" type="GameTeamStatus" default="GameTeamStatus:Pending" />
+			<attribute name="BowlGame" idx="12" type="BowlGame" />
+			<attribute name="BroadcastNetwork" idx="13" type="BroadcastNetwork" default="BroadcastNetwork:TBD" />
+			<attribute name="ChristmasFlag" idx="14" type="bool" default="False" />
+			<attribute name="CloudCover" idx="15" type="CloudCover" default="CloudCover:Invalid_" />
+			<attribute name="DayOfWeek" idx="16" type="DayOfWeek" default="DayOfWeek:Sunday" />
+			<attribute name="ForceWin" idx="17" type="ForceWinTeam" default="ForceWinTeam:None" />
+			<attribute name="GameDateDay" idx="18" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="GameDateMonth" idx="19" type="int" minValue="0" maxValue="12" default="0" />
+			<attribute name="GameGoal" idx="20" type="GameGoal" />
+			<attribute name="GameOfTheWeekScore" idx="21" type="int" minValue="-500" maxValue="500" default="0" />
+			<attribute name="GameSessionId" idx="22" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="GameSetup" idx="23" type="GameSetup" />
+			<attribute name="GameStatus" idx="24" type="GameStatus" default="GameStatus:Unplayed" />
+			<attribute name="HasBeenPublished" idx="25" type="bool" default="False" />
+			<attribute name="HomePlayerStatCache" idx="26" type="UnpublishedGameStats[]" />
+			<attribute name="HomeRequestId" idx="27" type="int" minValue="-2147483648" maxValue="2147483647" default="-1" />
+			<attribute name="HomeScore" idx="28" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="HomeScoreOT" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQuarter1" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQuarter2" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQuarter3" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQuarter4" idx="33" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeTeam" idx="34" type="Team" />
+			<attribute name="HomeTeamStatCache" idx="35" type="TeamStats" />
+			<attribute name="HomeTeamStatus" idx="36" type="GameTeamStatus" default="GameTeamStatus:Pending" />
+			<attribute name="InitialMomentum" idx="37" type="float" default="0" />
+			<attribute name="InjuryCache" idx="38" type="Injury[]" />
+			<attribute name="IsChallengeGame" idx="39" type="bool" default="False" />
+			<attribute name="IsGameOfTheWeek" idx="40" type="bool" default="False" />
+			<attribute name="IsKickoffGame" idx="41" type="bool" default="False" />
+			<attribute name="IsOvertimeGame" idx="42" type="bool" default="False" />
+			<attribute name="IsPractice" idx="43" type="bool" default="False" />
+			<attribute name="IsRematch" idx="44" type="bool" default="False" />
+			<attribute name="IsSimmed" idx="45" type="bool" default="False" />
+			<attribute name="IsWorstOfTheWeek" idx="46" type="bool" default="False" />
+			<attribute name="NewYearsFlag" idx="47" type="bool" default="False" />
+			<attribute name="NumberTimesPlayed" idx="48" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="PlayMomentType" idx="49" type="PlayTheMomentContextualOptions" default="PlayTheMomentContextualOptions:NormalGame" />
+			<attribute name="Precipitation" idx="50" type="Precipitation" default="Precipitation:Invalid_" />
+			<attribute name="PrecipitationChance" idx="51" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrecipitationIntensity" idx="52" type="float" default="0" />
+			<attribute name="QuarterLengthMins" idx="53" type="int" minValue="1" maxValue="15" default="15" />
+			<attribute name="ScoringSummaries" idx="54" type="ScoringSummary[]" />
+			<attribute name="SeasonGameNum" idx="55" type="int" minValue="0" maxValue="136" default="31" />
+			<attribute name="SeasonWeek" idx="56" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SeasonWeekType" idx="57" type="SeasonWeekType" default="SeasonWeekType:RegularSeason" />
+			<attribute name="SeasonYear" idx="58" type="int" minValue="0" maxValue="60" default="0" />
+			<attribute name="Stadium" idx="59" type="Stadium" />
+			<attribute name="StripeOutOverrideColors" idx="60" type="StripeOutOverrideColors" default="StripeOutOverrideColors:UseTeamColorsHome" />
+			<attribute name="StripeOutType" idx="61" type="StripeOut" default="StripeOut:Invalid_" />
+			<attribute name="Temperature" idx="62" type="int" minValue="-40" maxValue="120" default="0" />
+			<attribute name="ThanksgivingFlag" idx="63" type="bool" default="False" />
+			<attribute name="TimeOfDay" idx="64" type="int" minValue="0" maxValue="2047" default="2047" />
+			<attribute name="Weather" idx="65" type="Weather" default="Weather:Invalid_" />
+			<attribute name="WeatherIconId" idx="66" type="WeatherIconId" default="WeatherIconId:ICON_INVALID" />
+			<attribute name="Wind" idx="67" type="Wind" default="Wind:Invalid_" />
+			<attribute name="WindSpeed" idx="68" type="int" minValue="0" maxValue="25" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

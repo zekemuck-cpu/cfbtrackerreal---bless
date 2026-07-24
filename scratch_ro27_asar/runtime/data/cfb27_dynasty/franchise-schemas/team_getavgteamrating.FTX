@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\Team_GetAvgTeamRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Team_GetAvgTeamRating" numMembers="3" base="int()" ownerAssetId="6498740" isRecordPersistent="true" isExpr="true" majorVersionCRC="809887448" minorVersionCRC="-1713884427">
+			<attribute name="ability" idx="0" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="starters" idx="1" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

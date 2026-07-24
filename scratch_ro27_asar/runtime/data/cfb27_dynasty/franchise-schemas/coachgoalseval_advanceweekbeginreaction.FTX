@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalsEval_AdvanceWeekBeginReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalsEval_AdvanceWeekBeginReaction" numMembers="4" base="Reaction" assetId="12909464" isRecordPersistent="true" majorVersionCRC="896309614" minorVersionCRC="-623637032">
+			<attribute name="EventRecord" idx="0" type="BeginAdvanceWeekEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="12909464-1895461" />
+			<attribute name="Module" idx="2" type="CoachGoalsEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

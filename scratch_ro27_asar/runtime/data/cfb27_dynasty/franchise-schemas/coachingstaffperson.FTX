@@ -1,0 +1,90 @@
+<FranTkData fileName="Franchise-Schemas\CoachingStaffPerson.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\StaffPerson.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachingStaffPerson" numMembers="79" base="StaffPerson" assetId="6378352" isRecordPersistent="true" majorVersionCRC="-1394160177" minorVersionCRC="-2057411094">
+			<attribute name="ActiveTalentTree" idx="0" type="ActiveTalentTree" />
+			<attribute name="Age" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="AlmaMater" idx="2" type="int" minValue="1100" maxValue="1300" default="1100" />
+			<attribute name="AssetName" idx="3" type="string" maxLen="41" />
+			<attribute name="AwardPoints" idx="4" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CareerBigLossMargin" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CareerBigWinMargin" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CareerLongWinStreak" idx="7" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="CareerPlayoffsMade" idx="8" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="CareerPointsAgainst" idx="9" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="CareerPointsFor" idx="10" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="CareerStats" idx="11" type="CareerCoachStats" />
+			<attribute name="CareerTies" idx="12" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="CareerWinSeasons" idx="13" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CharacterBodyType" idx="14" type="CharacterBodyType" default="CharacterBodyType:Standard" />
+			<attribute name="CharacterVisuals" idx="15" type="CharacterVisuals" />
+			<attribute name="ConfPlayoffWinStreak" idx="16" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="ContractLength" idx="17" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="ContractSalary" idx="18" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="ContractStatus" idx="19" type="StaffPersonContractStatus" default="StaffPersonContractStatus:FreeAgent" />
+			<attribute name="ContractYearsRemaining" idx="20" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="CurrentWinStreak" idx="21" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="DefaultTeamPhilosophy" idx="22" type="TeamPhilosophy" />
+			<attribute name="DefenseAudibles" idx="23" type="CoachAudibles" />
+			<attribute name="DefensivePlaybook" idx="24" type="DefensivePlaybookDataType" />
+			<attribute name="DefensiveScheme" idx="25" type="Scheme" />
+			<attribute name="DivPlayoffWinStreak" idx="26" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="ExperiencePoints" idx="27" type="int" minValue="0" maxValue="1000000" default="0" />
+			<attribute name="FirstName" idx="28" type="string" maxLen="17" />
+			<attribute name="GenericHeadAssetName" idx="29" type="string" maxLen="33" />
+			<attribute name="HasTrait" idx="30" type="CoachingStaffPerson_HasTrait" guid="6378352-1904207" final="true" />
+			<attribute name="HatType" idx="31" type="CoachHatType" default="CoachHatType:None" />
+			<attribute name="Height" idx="32" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="HomeState" idx="33" type="StateName" default="StateName:Alabama" />
+			<attribute name="HomeTown" idx="34" type="City" />
+			<attribute name="IsCreated" idx="35" type="bool" default="False" />
+			<attribute name="IsLegend" idx="36" type="bool" default="False" />
+			<attribute name="IsUserControlled" idx="37" type="bool" default="False" />
+			<attribute name="LastName" idx="38" type="string" maxLen="21" />
+			<attribute name="LegacyScore" idx="39" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Level" idx="40" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffenseAudibles" idx="41" type="CoachAudibles" />
+			<attribute name="OffensivePlaybook" idx="42" type="OffensivePlaybookDataType" />
+			<attribute name="OffensiveScheme" idx="43" type="Scheme" />
+			<attribute name="Personality" idx="44" type="Personality" default="Personality:Unpredictable" />
+			<attribute name="Portrait" idx="45" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="Portrait_Force_Silhouette" idx="46" type="bool" default="False" />
+			<attribute name="Portrait_Swappable_Library_Path" idx="47" type="SwappableLibraryPath" default="SwappableLibraryPath:library_icons_brt" />
+			<attribute name="Position" idx="48" type="CoachPosition" default="CoachPosition:HeadCoach" />
+			<attribute name="PreOrderCurrentTitle" idx="49" type="bool" default="False" />
+			<attribute name="PreOrderPartnerTitle" idx="50" type="bool" default="False" />
+			<attribute name="PresentationId" idx="51" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PrevPosition" idx="52" type="CoachPosition" default="CoachPosition:Invalid_" />
+			<attribute name="PrevTeamIndex" idx="53" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="PrimaryPipeline" idx="54" type="Pipeline" default="Pipeline:First_" />
+			<attribute name="Probation" idx="55" type="bool" default="False" />
+			<attribute name="RegularWinStreak" idx="56" type="int" minValue="-512" maxValue="511" default="0" />
+			<attribute name="SeasBigLossMargin" idx="57" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SeasBigWinMargin" idx="58" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SeasLongWinStreak" idx="59" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SeasonalGoal" idx="60" type="CoachGoal" />
+			<attribute name="SeasonStats" idx="61" type="SeasonCoachStats" />
+			<attribute name="SeasonsWithTeam" idx="62" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SeasPointsAgainst" idx="63" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="SeasPointsFor" idx="64" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="SeasTies" idx="65" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SeasWinStreak" idx="66" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="SpeechId" idx="67" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SuperbowlWinStreak" idx="68" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="TeamBuilding" idx="69" type="TeamBuilding" default="TeamBuilding:Balanced" />
+			<attribute name="TeamIndex" idx="70" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="TeamPhilosophy" idx="71" type="TeamPhilosophy" />
+			<attribute name="TradingTendency" idx="72" type="TradingTendency" default="TradingTendency:DoesNotTrade" />
+			<attribute name="TraitExpertScout" idx="73" type="bool" default="False" />
+			<attribute name="WCPlayoffWinStreak" idx="74" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="WeeklyGoals" idx="75" type="CoachGoal[]" />
+			<attribute name="Weight" idx="76" type="int" minValue="150" maxValue="512" default="160" />
+			<attribute name="WinSeasStreak" idx="77" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="YearlyAwardCount" idx="78" type="int" minValue="0" maxValue="31" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

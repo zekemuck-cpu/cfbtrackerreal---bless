@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\LeagueHistoryManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LeagueHistoryManager" numMembers="8" base="Module" assetId="11094446" isRecordPersistent="true" majorVersionCRC="656394592" minorVersionCRC="-1583606553">
+			<attribute name="Dynasty" idx="0" type="Franchise" />
+			<attribute name="HandleRegisterUser" idx="1" type="LeagueHistoryManager_HandleRegisterUser" guid="11094446-2687054" final="true" />
+			<attribute name="HandleSeasonBegin" idx="2" type="none()" guid="11094446-2454022" final="true" />
+			<attribute name="HandleUpdateStaffPersonContractStatus" idx="3" type="LeagueHistoryManager_HandleUpdateStaffPersonContractStatus" guid="11094446-2687060" final="true" />
+			<attribute name="IssueLeagueHistoryRequest" idx="4" type="LeagueHistoryManager_IssueLeagueHistoryRequest" guid="11094446-2454015" final="true" default="LeagueHistoryRequest request = new LeagueHistoryRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 1;&#xD;&#xA;request.RequestData = SeasonInfo;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( LeagueHistoryResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="LeagueHistory" idx="5" type="YearSummary[]" />
+			<attribute name="LeagueHistoryResponse" idx="6" type="UIFlowForm" />
+			<attribute name="SeasonInfo" idx="7" type="SeasonInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

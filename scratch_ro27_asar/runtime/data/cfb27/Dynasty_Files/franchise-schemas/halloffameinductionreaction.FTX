@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\HallofFameInductionReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HallofFameInductionReaction" numMembers="11" base="Reaction" assetId="6498865" isRecordPersistent="true" majorVersionCRC="62077857" minorVersionCRC="-510842063">
+			<attribute name="EventRecord" idx="0" type="SeasonYearStartEvent" />
+			<attribute name="FranchiseRef" idx="1" type="Franchise" />
+			<attribute name="HallOfFameAnnouncementEvent" idx="2" type="HallOfFameAnnouncementEvent" />
+			<attribute name="HallOfFameCoachDataFlow" idx="3" type="InductHallOfFameCoachesDataFlow" />
+			<attribute name="HallOfFameOwnerDataFlow" idx="4" type="InductHallOfFameOwnersDataFlow" />
+			<attribute name="HallOfFamePlayerDataFlow" idx="5" type="InductHallOfFamePlayersDataFlow" />
+			<attribute name="Handle" idx="6" type="bool()" guid="6498865-1895461" />
+			<attribute name="LegacyScoreModule" idx="7" type="LegacyScoreEval" />
+			<attribute name="PlayerManagerRef" idx="8" type="PlayerManager" />
+			<attribute name="PlayerRetirementEvalRef" idx="9" type="PlayersLeavingEval" />
+			<attribute name="Priority" idx="10" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

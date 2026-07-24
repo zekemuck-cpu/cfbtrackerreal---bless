@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\ScoutingCollectionInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScoutingCollectionInfo" numMembers="3" defaultStoreCapacity="1" assetId="6378644" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-542813480" minorVersionCRC="687186190">
+			<attribute name="Level1Collection" idx="0" type="ScoutingCollection" />
+			<attribute name="Level2Collection" idx="1" type="ScoutingCollection" />
+			<attribute name="Level3Collection" idx="2" type="ScoutingCollection" />
+		</schema>
+	</schemas>
+</FranTkData>

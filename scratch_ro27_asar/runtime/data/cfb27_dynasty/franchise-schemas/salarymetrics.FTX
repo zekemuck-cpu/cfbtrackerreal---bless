@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\SalaryMetrics.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SalaryMetrics" numMembers="25" base="Module" assetId="6495225" isRecordPersistent="true" majorVersionCRC="-2136514808" minorVersionCRC="-911205350">
+			<attribute name="BasePositionRangeModifier" idx="0" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="BonusTable" idx="1" type="PlayerPositionLookupTable" />
+			<attribute name="ContractLengthTable" idx="2" type="PlayerPositionLookupTable" />
+			<attribute name="ContractPhilosophy" idx="3" type="BaseContractPhilosophy" />
+			<attribute name="DepthChartConfig" idx="4" type="DepthChartConfig" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="GetMarketContractAnnualBonus" idx="6" type="SalaryMetrics_GetMarketContractAnnualBonus" guid="6495225-1922186" final="true" />
+			<attribute name="GetMarketContractAnnualSalary" idx="7" type="SalaryMetrics_GetMarketContractAnnualSalary" guid="6495225-1922180" final="true" />
+			<attribute name="GetMarketContractLength" idx="8" type="SalaryMetrics_GetMarketContractLength" guid="6495225-1922195" final="true" />
+			<attribute name="GradeSplines" idx="9" type="PlayerPositionLookupTable" />
+			<attribute name="InitSalaryMetrics" idx="10" type="none()" guid="6495225-1922202" final="true" />
+			<attribute name="MaxPositionAverageModifier" idx="11" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="MaxPositionRangeModifier" idx="12" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="MinPositionAverageModifier" idx="13" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="MinPositionRangeModifier" idx="14" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="PositionBonusAverageModifierTable" idx="15" type="PositionValueTable" />
+			<attribute name="PositionBonusRangeModifierTable" idx="16" type="PositionValueTable" />
+			<attribute name="PositionLengthAverageModifierTable" idx="17" type="PositionValueTable" />
+			<attribute name="PositionLengthRangeModifierTable" idx="18" type="PositionValueTable" />
+			<attribute name="PositionSalaryAverageModifierTable" idx="19" type="PositionValueTable" />
+			<attribute name="PositionSalaryRangeModifierTable" idx="20" type="PositionValueTable" />
+			<attribute name="SalaryInfo" idx="21" type="SalaryInfo" />
+			<attribute name="SalaryTable" idx="22" type="PlayerPositionLookupTable" />
+			<attribute name="UpdateGradeMetrics" idx="23" type="none()" guid="6495225-1922211" final="true" />
+			<attribute name="UpdateSalaryMetrics" idx="24" type="none()" guid="6495225-1922192" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

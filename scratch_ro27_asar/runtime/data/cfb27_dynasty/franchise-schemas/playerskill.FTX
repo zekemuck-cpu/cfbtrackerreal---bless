@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSkill.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSkill" numMembers="3" assetId="8210442" isRecordPersistent="true" majorVersionCRC="-884061824" minorVersionCRC="1807281746">
+			<attribute name="Description" idx="0" type="string" maxLen="120" />
+			<attribute name="Name" idx="1" type="string" maxLen="22" />
+			<attribute name="PlayerAbility" idx="2" type="PlayerAbility" default="PlayerAbility:Acceleration" />
+		</schema>
+	</schemas>
+</FranTkData>

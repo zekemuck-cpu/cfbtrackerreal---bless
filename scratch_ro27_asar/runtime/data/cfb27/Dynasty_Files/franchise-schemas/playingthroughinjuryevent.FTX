@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayingThroughInjuryEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayingThroughInjuryEvent" numMembers="4" base="Event" assetId="6493949" isRecordPersistent="true" majorVersionCRC="-528959200" minorVersionCRC="-1190850155">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6493949-1895458" final="true" />
+			<attribute name="InjuredPlayer" idx="1" type="Player" />
+			<attribute name="Send" idx="2" type="none()" guid="6493949-1895455" final="true" />
+			<attribute name="Team" idx="3" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

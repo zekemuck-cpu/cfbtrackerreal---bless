@@ -1,0 +1,45 @@
+<FranTkData fileName="Franchise-Schemas\GameOffensiveKPReturnStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\GameOffensiveStats.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameOffensiveKPReturnStats" numMembers="34" base="GameOffensiveStats" defaultStoreCapacity="5025" assetId="6615643" defaultStoreGroupId="64" isRecordPersistent="false" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="808923848" minorVersionCRC="1744962448">
+			<attribute name="DOWNSPLAYED" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="GAMERATING" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESSTARTED" idx="2" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="KRETATTEMPTS" idx="3" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="KRETLONGEST" idx="4" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="KRETTDS" idx="5" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="KRETYARDS" idx="6" type="int" minValue="-1024" maxValue="1023" default="0" />
+			<attribute name="OpposingTeam" idx="7" type="Team" />
+			<attribute name="PASSATTEMPTS" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PASSCOMPLETED" idx="9" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PASSINTS" idx="10" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="PASSLONGEST" idx="11" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="PASSSACKED" idx="12" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="PASSTDS" idx="13" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="PASSYARDS" idx="14" type="int" minValue="-2048" maxValue="2047" default="0" />
+			<attribute name="PRETATTEMPTS" idx="15" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="PRETLONGEST" idx="16" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="PRETTDS" idx="17" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="PRETYARDS" idx="18" type="int" minValue="-1024" maxValue="1023" default="0" />
+			<attribute name="RECEIVECATCHES" idx="19" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="RECEIVEDROPS" idx="20" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="RECEIVELONGEST" idx="21" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="RECEIVETDS" idx="22" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="RECEIVEYARDS" idx="23" type="int" minValue="-1024" maxValue="1023" default="0" />
+			<attribute name="RECEIVEYARDSAFTER" idx="24" type="int" minValue="-1024" maxValue="1023" default="0" />
+			<attribute name="RUSH20YARDRUNS" idx="25" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="RUSHATTEMPTS" idx="26" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RUSHBROKENTACKLES" idx="27" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RUSHFUMBLES" idx="28" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="RUSHLONGEST" idx="29" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="RUSHTDS" idx="30" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="RUSHYARDS" idx="31" type="int" minValue="-1024" maxValue="1023" default="0" />
+			<attribute name="RUSHYARDSAFTER1STHIT" idx="32" type="int" minValue="-1024" maxValue="1023" default="0" />
+			<attribute name="SeasonGame" idx="33" type="SeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

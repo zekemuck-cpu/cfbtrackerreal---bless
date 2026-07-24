@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\AdjustTeamRoster.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AdjustTeamRoster" numMembers="6" base="ModifierView" assetId="6499143" isRecordPersistent="true" majorVersionCRC="-1003282960" minorVersionCRC="532349787">
+			<attribute name="Formula" idx="0" type="AdjustTeamRoster_Formula" guid="6499143-1936258" />
+			<attribute name="RosterModule" idx="1" type="OffSeasonRosterAdjustment" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Team[]" />
+			<attribute name="TeamRequestManager" idx="4" type="TeamRequestManager" />
+			<attribute name="Update" idx="5" type="none()" guid="6499143-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

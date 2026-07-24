@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_SnapshotFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_SnapshotFlow" numMembers="4" base="FranTkServer_Flow" assetId="6499332" isRecordPersistent="true" majorVersionCRC="507646821" minorVersionCRC="-1659476111">
+			<attribute name="Form" idx="0" type="UIForm" />
+			<attribute name="FormManager" idx="1" type="FranTkServer_FormManager" />
+			<attribute name="SeasonInfo" idx="2" type="SeasonInfo" />
+			<attribute name="UserRegistry" idx="3" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

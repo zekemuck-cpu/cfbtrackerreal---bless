@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SalaryCapEval_UpdateEstimatedReplacementSalary.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SalaryCapEval_UpdateEstimatedReplacementSalary" numMembers="2" base="none()" ownerAssetId="6708633" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1507801584" minorVersionCRC="-34603025">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\GameOptionSlider.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameOptionSlider" numMembers="4" defaultStoreCapacity="2" assetId="6320456" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1857822208" minorVersionCRC="-1086882880">
+			<attribute name="DefaultValue" idx="0" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="Fatigue" idx="1" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="Injuries" idx="2" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="MinPlayerSpeedThreshold" idx="3" type="int" minValue="0" maxValue="100" default="50" />
+		</schema>
+	</schemas>
+</FranTkData>

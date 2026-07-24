@@ -1,0 +1,14 @@
+<FranTkData fileName="Football-Schemas\PersonaGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaGoal" numMembers="7" assetId="12853522" isRecordPersistent="true" majorVersionCRC="-1968636215" minorVersionCRC="-1028219808">
+			<attribute name="Base" idx="0" type="PersonaGoalConditionReward" />
+			<attribute name="Bonus" idx="1" type="PersonaGoalConditionReward[]" />
+			<attribute name="Description" idx="2" type="string" maxLen="1" />
+			<attribute name="DurationSeasonGoal" idx="3" type="bool" default="False" />
+			<attribute name="MoralePenalty" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StatPeriod" idx="5" type="StatPeriod" default="StatPeriod:First_" />
+			<attribute name="Title" idx="6" type="string" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

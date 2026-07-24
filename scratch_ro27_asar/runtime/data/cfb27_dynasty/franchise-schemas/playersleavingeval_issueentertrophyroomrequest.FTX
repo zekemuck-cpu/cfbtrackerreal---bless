@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEval_IssueEnterTrophyRoomRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEval_IssueEnterTrophyRoomRequest" numMembers="2" base="int()" ownerAssetId="6498461" isRecordPersistent="true" isExpr="true" majorVersionCRC="-941226748" minorVersionCRC="519018817">
+			<attribute name="player" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

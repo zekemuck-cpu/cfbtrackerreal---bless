@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\GameSkillLevelSetting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GameSkillLevelSetting" numMembers="6" assetId="6378479" isRecordPersistent="true" majorVersionCRC="751442746" minorVersionCRC="-1293687852">
+			<attribute name="INVALID_" idx="0" value="-1" />
+			<attribute name="FRESHMAN" idx="1" value="0" />
+			<attribute name="VARSITY" idx="2" value="1" />
+			<attribute name="ALL_AMERICAN" idx="3" value="2" />
+			<attribute name="HEISMAN" idx="4" value="3" />
+			<attribute name="COUNT_" idx="5" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

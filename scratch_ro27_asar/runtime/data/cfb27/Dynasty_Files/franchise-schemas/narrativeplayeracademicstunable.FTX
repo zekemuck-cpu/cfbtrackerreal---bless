@@ -1,0 +1,31 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerAcademicsTunable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerAcademicsTunable" numMembers="20" base="BaseTuning" defaultStoreCapacity="1" assetId="8527448" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1352587612" minorVersionCRC="-1137035409">
+			<attribute name="AcademicPrestigeGPAExamRollMod" idx="0" type="LetterGradeValueTable" />
+			<attribute name="AcademicsGPAMaxAtRisk" idx="1" type="int" minValue="0" maxValue="40" default="26" />
+			<attribute name="AcademicsGPAMaxCritical" idx="2" type="int" minValue="0" maxValue="40" default="22" />
+			<attribute name="AcademicsGPAMaxEligible" idx="3" type="int" minValue="0" maxValue="40" default="36" />
+			<attribute name="AcademicsGPAMaxIneligible" idx="4" type="int" minValue="0" maxValue="40" default="19" />
+			<attribute name="CoachHappinessAdjustment" idx="5" type="int[]" />
+			<attribute name="CoachTrustAcademicPrestigeMod" idx="6" type="int[]" />
+			<attribute name="CoachTrustAdjustment" idx="7" type="int[]" />
+			<attribute name="FieldGeneralTier" idx="8" type="SignatureAbilityTier" default="SignatureAbilityTier:Bronze" />
+			<attribute name="FieldGeneralUnlockGPA" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GPA" idx="10" type="int[]" />
+			<attribute name="GPAExamResultToLetterGradeTable" idx="11" type="MySchoolRankingRangesTable" />
+			<attribute name="GPAExamWeeks" idx="12" type="int[]" />
+			<attribute name="GPAGraduateEarlyBound" idx="13" type="int" minValue="0" maxValue="40" default="0" />
+			<attribute name="GPAIneligibleBound" idx="14" type="int" minValue="0" maxValue="40" default="0" />
+			<attribute name="PostGPAExamMod" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RatingsAdjustment" idx="16" type="int[]" />
+			<attribute name="SeasonStartGPAMeterValue" idx="17" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="SuspensionGPA" idx="18" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="UpperBound" idx="19" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,31 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CreateCoachFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CreateCoachFlow" numMembers="20" base="FranTkServer_Flow" assetId="6499294" isRecordPersistent="true" majorVersionCRC="1669653544" minorVersionCRC="1400619080">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="Colleges" idx="1" type="Team[]" />
+			<attribute name="CreateCoachTable" idx="2" type="CreateCoach_LookupTableEntry[]" />
+			<attribute name="CreateOwnerTable" idx="3" type="CreateOwner_LookupTableEntry[]" />
+			<attribute name="DefensivePlaybookArray" idx="4" type="DefensivePlaybookDataType[]" />
+			<attribute name="Form" idx="5" type="UIForm" />
+			<attribute name="FormManager" idx="6" type="FranTkServer_FormManager" />
+			<attribute name="ForwardSubmitToUserFlow" idx="7" type="bool" default="False" />
+			<attribute name="IdsRemaining" idx="8" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="InfoControls" idx="9" type="UIControl[]" />
+			<attribute name="LeagueHistoryManager" idx="10" type="LeagueHistoryManager" />
+			<attribute name="OffensivePlaybookArray" idx="11" type="OffensivePlaybookDataType[]" />
+			<attribute name="PresentationId" idx="12" type="int" minValue="0" maxValue="512" default="256" />
+			<attribute name="ProgramPointsBudgetAllocationPosture" idx="13" type="ProgramPointsBudgetAllocationPosture[]" />
+			<attribute name="Schemes" idx="14" type="Scheme[]" />
+			<attribute name="StatManager" idx="15" type="StatManager" />
+			<attribute name="TalentTreeEval" idx="16" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="17" type="TeamManager" />
+			<attribute name="UserFlow" idx="18" type="FranchiseServer_UserFlow" />
+			<attribute name="UserRegistry" idx="19" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEndOfSeason.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEndOfSeason" numMembers="2" assetId="7739456" isRecordPersistent="true" majorVersionCRC="-263557568" minorVersionCRC="1333089738">
+			<attribute name="EarlyDraft" idx="0" type="LeavingPlayer[]" />
+			<attribute name="TransferCandidates" idx="1" type="LeavingPlayer[]" />
+		</schema>
+	</schemas>
+</FranTkData>

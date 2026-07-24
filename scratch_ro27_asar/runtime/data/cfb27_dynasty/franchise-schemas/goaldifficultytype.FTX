@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\GoalDifficultyType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GoalDifficultyType" numMembers="3" assetId="6493971" isRecordPersistent="true" majorVersionCRC="234728153" minorVersionCRC="-257627439">
+			<attribute name="Conservative" idx="0" value="0" />
+			<attribute name="Moderate" idx="1" value="1" />
+			<attribute name="Aggressive" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

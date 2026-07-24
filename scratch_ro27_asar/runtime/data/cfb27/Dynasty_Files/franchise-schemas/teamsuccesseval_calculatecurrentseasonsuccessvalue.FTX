@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamSuccessEval_CalculateCurrentSeasonSuccessValue.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamSuccessEval_CalculateCurrentSeasonSuccessValue" numMembers="2" base="int()" ownerAssetId="6494943" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1614206200" minorVersionCRC="1343931594">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

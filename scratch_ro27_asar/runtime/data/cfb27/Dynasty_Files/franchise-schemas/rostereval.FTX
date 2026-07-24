@@ -1,0 +1,54 @@
+<FranTkData fileName="Franchise-Schemas\RosterEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterEval" numMembers="47" base="Module" assetId="6494681" isRecordPersistent="true" majorVersionCRC="-348577257" minorVersionCRC="836531446">
+			<attribute name="AGrade" idx="0" type="string" maxLen="2" default="A" />
+			<attribute name="AMinusGrade" idx="1" type="string" maxLen="3" default="A-" />
+			<attribute name="APlusGrade" idx="2" type="string" maxLen="3" default="A+" />
+			<attribute name="BGrade" idx="3" type="string" maxLen="2" default="B" />
+			<attribute name="BMinusGrade" idx="4" type="string" maxLen="3" default="B-" />
+			<attribute name="BPlusGrade" idx="5" type="string" maxLen="3" default="B+" />
+			<attribute name="CalculateDefensiveRating" idx="6" type="RosterEval_CalculateDefensiveRating" guid="6494681-1912503" final="true" />
+			<attribute name="CalculateOffensiveRating" idx="7" type="RosterEval_CalculateOffensiveRating" guid="6494681-1912499" final="true" />
+			<attribute name="CalculateSpecialTeamRating" idx="8" type="RosterEval_CalculateSpecialTeamRating" guid="6494681-1912507" final="true" />
+			<attribute name="CalculateTeamOverallRating" idx="9" type="RosterEval_CalculateTeamOverallRating" guid="6494681-1912511" final="true" default="team.TEAM_RATINGOFF = CalculateOffensiveRating(team);&#xD;&#xA;int offensiveScore = team.TEAM_RATINGOFF * RosterTuning.OffensiveWeight;&#xD;&#xA;&#xD;&#xA;team.TEAM_RATINGDEF = CalculateDefensiveRating(team); &#xD;&#xA;int defensiveScore = team.TEAM_RATINGDEF * RosterTuning.DefensiveWeight;&#xD;&#xA;&#xD;&#xA;int totalScore = (offensiveScore + defensiveScore) / (RosterTuning.OffensiveWeight + RosterTuning.DefensiveWeight);&#xD;&#xA;&#xD;&#xA;totalScore;" />
+			<attribute name="CGrade" idx="10" type="string" maxLen="2" default="C" />
+			<attribute name="CMinusGrade" idx="11" type="string" maxLen="3" default="C-" />
+			<attribute name="ConvertTeamPlayerTypes" idx="12" type="RosterEval_ConvertTeamPlayerTypes" guid="6494681-1912547" final="true" />
+			<attribute name="CPlusGrade" idx="13" type="string" maxLen="3" default="C+" />
+			<attribute name="DepthChartEval" idx="14" type="DepthChartEval" />
+			<attribute name="DGrade" idx="15" type="string" maxLen="2" default="D" />
+			<attribute name="DMinusGrade" idx="16" type="string" maxLen="3" default="D-" />
+			<attribute name="DPlusGrade" idx="17" type="string" maxLen="3" default="D+" />
+			<attribute name="Dynasty" idx="18" type="Franchise" />
+			<attribute name="FGrade" idx="19" type="string" maxLen="2" default="F" />
+			<attribute name="FMinusGrade" idx="20" type="string" maxLen="3" default="F-" />
+			<attribute name="FPlusGrade" idx="21" type="string" maxLen="3" default="F+" />
+			<attribute name="GetConvertedPlayerType" idx="22" type="RosterEval_GetConvertedPlayerType" guid="6494681-1912551" final="true" default="PlayerType newPlayerType = player.PlayerType;&#xD;&#xA;&#xD;&#xA;newPlayerType;&#xD;&#xA;" />
+			<attribute name="GetLetterGradeFromRank" idx="23" type="RosterEval_GetLetterGradeFromRank" guid="6494681-1912515" final="true" default="string value = APlusGrade;&#xD;&#xA;&#xD;&#xA;if(rank &gt;= 31) &#xD;&#xA;{&#xD;&#xA;value = FMinusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 27) &#xD;&#xA;{&#xD;&#xA;value = FGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 26)&#xD;&#xA;{&#xD;&#xA;value = FPlusGrade;&#xD;&#xA;} &#xD;&#xA;else if(rank &gt;= 25)&#xD;&#xA;{&#xD;&#xA;value = DMinusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;=21) &#xD;&#xA;{&#xD;&#xA;value = DGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 20) &#xD;&#xA;{&#xD;&#xA;value = DPlusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 19)&#xD;&#xA;{&#xD;&#xA;value = CMinusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;=14)&#xD;&#xA;{&#xD;&#xA;value = CGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 13)&#xD;&#xA;{&#xD;&#xA;value = CPlusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank&gt;= 12)&#xD;&#xA;{&#xD;&#xA;value = BMinusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 8)&#xD;&#xA;{&#xD;&#xA;value = BGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;=7)&#xD;&#xA;{&#xD;&#xA;value = BPlusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 6)&#xD;&#xA;{&#xD;&#xA;value = AMinusGrade;&#xD;&#xA;}&#xD;&#xA;else if(rank &gt;= 1)&#xD;&#xA;{&#xD;&#xA;value = AGrade;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;value;" />
+			<attribute name="HandleRegisterUser" idx="24" type="RosterEval_HandleRegisterUser" guid="6494681-2444042" final="true" />
+			<attribute name="HandleUpdateCoachContractStatus" idx="25" type="RosterEval_HandleUpdateCoachContractStatus" guid="6494681-1912543" final="true" default="Coach coach = event.Coach;&#xD;&#xA;Team oldTeam = event.OldTeam;&#xD;&#xA;Team newTeam = event.NewTeam;&#xD;&#xA;&#xD;&#xA;StaffPersonContractStatus newContractStatus = event.NewContractStatus;&#xD;&#xA;&#xD;&#xA;bool isNewStatusPendingType = (newContractStatus &gt;= StaffPersonContractStatus.First_Pending || newContractStatus &lt;= StaffPersonContractStatus.Last_Pending);&#xD;&#xA;&#xD;&#xA;// If a CPU coach was signed to a new team, apply that coach's scheme.&#xD;&#xA;if (!coach.IsUserControlled &amp;&amp; (newTeam != null) &amp;&amp; (oldTeam != newTeam) &amp;&amp; !isNewStatusPendingType)&#xD;&#xA;{&#xD;&#xA;    ConvertTeamPlayerTypes(newTeam);&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="IssuePCRequestForTeams" idx="26" type="none()" guid="6494681-2119029" />
+			<attribute name="IssuePositionChangesRequest" idx="27" type="RosterEval_IssuePositionChangesRequest" guid="6494681-2119024" />
+			<attribute name="IsTeamRoadmapUpdateActive" idx="28" type="bool" default="False" />
+			<attribute name="PlayerGradeEval" idx="29" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="30" type="PlayerManager" />
+			<attribute name="PlayerProgressionEval" idx="31" type="PlayerProgressionEval" />
+			<attribute name="PlayerTraitEval" idx="32" type="PlayerTraitEval" />
+			<attribute name="PositionChangeRequest" idx="33" type="PositionChangesRequest" />
+			<attribute name="PositionChangesResponse" idx="34" type="UIFlowForm" />
+			<attribute name="PositionGroupLookupTable" idx="35" type="PlayerPositionGroupLookupTable" />
+			<attribute name="PositionLookupTable" idx="36" type="PlayerPositionLookupTable" />
+			<attribute name="PositionSubPhilosophy" idx="37" type="DepthChartSubPhilosophy" />
+			<attribute name="PositionToKeyContextTable" idx="38" type="record" />
+			<attribute name="Random" idx="39" type="Random" />
+			<attribute name="RosterTuning" idx="40" type="RosterTuning" />
+			<attribute name="SeasonInfo" idx="41" type="SeasonInfo" />
+			<attribute name="SignatureAbilitiesEval" idx="42" type="SignatureAbilitiesEval" />
+			<attribute name="TeamRequestManager" idx="43" type="TeamRequestManager" />
+			<attribute name="TeamSideLookupTable" idx="44" type="TeamSideLookupTable" />
+			<attribute name="UpdateTeamRatings" idx="45" type="RosterEval_UpdateTeamRatings" guid="6494681-2419139" />
+			<attribute name="ValidateExpressions" idx="46" type="none()" guid="6494681-1912562" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\LegacyScoreGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\Goal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LegacyScoreGoal" numMembers="15" base="Goal" defaultStoreCapacity="21" assetId="11827555" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="835" majorVersionCRC="1871507786" minorVersionCRC="-823675931">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CheckedValue" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CheckedValue2" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CheckedValue3" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FromStats" idx="4" type="bool" default="False" />
+			<attribute name="GetAchievementWeight" idx="5" type="LegacyScoreGoal_GetAchievementWeight" guid="11827555-2502125" default="AchievementWeight;" />
+			<attribute name="GetLegacyScore" idx="6" type="LegacyScoreGoal_GetLegacyScore" guid="11827555-2502119" default="LegacyScoreAward;" />
+			<attribute name="IconAssetId" idx="7" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconLibraryId" idx="8" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="LegacyScoreAward" idx="9" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="10" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="11" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="12" type="string" maxLen="31" />
+			<attribute name="Recurring" idx="13" type="bool" default="False" />
+			<attribute name="RecurringSeasonal" idx="14" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

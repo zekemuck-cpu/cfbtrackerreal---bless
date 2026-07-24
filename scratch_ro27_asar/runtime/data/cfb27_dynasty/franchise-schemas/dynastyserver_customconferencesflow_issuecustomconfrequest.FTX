@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_CustomConferencesFlow_IssueCustomConfRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_CustomConferencesFlow_IssueCustomConfRequest" numMembers="2" base="none()" ownerAssetId="8995443" isRecordPersistent="true" isExpr="true" majorVersionCRC="1226594962" minorVersionCRC="1477503310">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

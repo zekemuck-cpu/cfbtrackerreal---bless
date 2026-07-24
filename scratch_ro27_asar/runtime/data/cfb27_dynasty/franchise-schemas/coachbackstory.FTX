@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\CoachBackstory.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachBackstory" numMembers="16" assetId="6320655" isRecordPersistent="true" majorVersionCRC="1859387559" minorVersionCRC="1974992669">
+			<attribute name="Motivator" idx="0" value="0" />
+			<attribute name="Strategist" idx="1" value="1" />
+			<attribute name="First_" idx="2" value="2" />
+			<attribute name="TeamBuilder" idx="3" value="2" />
+			<attribute name="StaffBuilder" idx="4" value="3" />
+			<attribute name="HCMotivator" idx="5" value="4" />
+			<attribute name="HCSchemer" idx="6" value="5" />
+			<attribute name="HCSalesman" idx="7" value="6" />
+			<attribute name="OCMotivator" idx="8" value="7" />
+			<attribute name="OCSchemer" idx="9" value="8" />
+			<attribute name="OCSalesman" idx="10" value="9" />
+			<attribute name="DCMotivator" idx="11" value="10" />
+			<attribute name="DCSchemer" idx="12" value="11" />
+			<attribute name="DCSalesman" idx="13" value="12" />
+			<attribute name="Count_" idx="14" value="13" />
+			<attribute name="Invalid_" idx="15" value="14" />
+		</enum>
+	</schemas>
+</FranTkData>

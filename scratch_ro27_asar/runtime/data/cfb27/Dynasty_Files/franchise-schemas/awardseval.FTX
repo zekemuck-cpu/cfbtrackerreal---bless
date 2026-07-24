@@ -1,0 +1,40 @@
+<FranTkData fileName="Franchise-Schemas\AwardsEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AwardsEval" numMembers="33" base="Module" assetId="6378667" isRecordPersistent="true" majorVersionCRC="-973646184" minorVersionCRC="672314383">
+			<attribute name="AllAmAwards" idx="0" type="Award[]" />
+			<attribute name="AllTimeAwards" idx="1" type="Award[]" />
+			<attribute name="AnnualAwards" idx="2" type="Award[]" />
+			<attribute name="AwardEvent" idx="3" type="AwardEvent" />
+			<attribute name="AwardsTuning" idx="4" type="AwardsTuning" />
+			<attribute name="AwardTypeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="CFB" idx="6" type="League" />
+			<attribute name="ClearWeeklyAwards" idx="7" type="none()" guid="6378667-1904810" final="true" default="WeeklyAwards.EraseAll();" />
+			<attribute name="ErasePlayerAwards" idx="8" type="AwardsEval_ErasePlayerAwards" guid="6378667-1904819" final="true" />
+			<attribute name="EraseStaffPersonAwards" idx="9" type="AwardsEval_EraseStaffPersonAwards" guid="6378667-1904838" final="true" />
+			<attribute name="GetCoachAwards" idx="10" type="AwardsEval_GetCoachAwards" guid="6378667-1904830" final="true" />
+			<attribute name="GetPlayerAwards" idx="11" type="AwardsEval_GetPlayerAwards" guid="6378667-1904826" final="true" />
+			<attribute name="HasSwappedHeismanWinner" idx="12" type="bool" default="False" />
+			<attribute name="HeismanMomentEvent" idx="13" type="HeismanMomentEvent" />
+			<attribute name="IssueAwardNotificationRequest" idx="14" type="AwardsEval_IssueAwardNotificationRequest" guid="6378667-2233003" final="true" default="bool issueCommand = true;&#xD;&#xA;&#xD;&#xA;if (!isUserPlayer &amp;&amp;&#xD;&#xA;   (award.AwardType == AwardType.ALL_AM_1ST ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_1ST_CONF ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_1ST_PRE ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_1ST_PRE_CONF ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_2ND ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_2ND_CONF ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_2ND_PRE ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_2ND_PRE_CONF ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_FR ||&#xD;&#xA;    award.AwardType == AwardType.ALL_AM_FR_CONF))&#xD;&#xA;{&#xD;&#xA;  issueCommand = false;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (issueCommand)&#xD;&#xA;{&#xD;&#xA;  AwardNotificationRequest request = new AwardNotificationRequest;&#xD;&#xA;  request.IsResponseRequired = false;&#xD;&#xA;  request.IsConnectionRequired = false;&#xD;&#xA;  request.IsBlocking = false;&#xD;&#xA;  request.IsPersistent = false;&#xD;&#xA;  request.Priority = 2;&#xD;&#xA;&#xD;&#xA;  if (award.AwardType == AwardType.HEISMAN)&#xD;&#xA;  {&#xD;&#xA;    request.Priority = 1;&#xD;&#xA;  }&#xD;&#xA;&#xD;&#xA;  request.Award = award;&#xD;&#xA;  request.RequestData = userEntity;&#xD;&#xA;  request.Team = team;&#xD;&#xA;  request.IsUserPlayer = isUserPlayer;&#xD;&#xA;&#xD;&#xA;  request.UIDisplayStyle = AwardTypeEnumTableEntry.UIDisplayStyle;&#xD;&#xA;  request.ShowRoosterOnHubButton = AwardTypeEnumTableEntry.ShowRoosterOnHUBButton;&#xD;&#xA;  request.ShowRoosterOnHubTab = AwardTypeEnumTableEntry.ShowRoosterOnHubTab;&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;" />
+			<attribute name="LastSeasonWeeklyAwards" idx="15" type="Award[]" />
+			<attribute name="LeagueHistoryManager" idx="16" type="LeagueHistoryManager" />
+			<attribute name="LeagueSettings" idx="17" type="LeagueSetting" />
+			<attribute name="NarrativePlayerMetersEval" idx="18" type="NarrativePlayerMetersEval" />
+			<attribute name="ProcessAnnualAwards" idx="19" type="none()" guid="6378667-1904815" final="true" default="//Reset heisman winner swap&#xD;&#xA;HasSwappedHeismanWinner = false;&#xD;&#xA;&#xD;&#xA;// update the annual awards&#xD;&#xA;// coach awards&#xD;&#xA;UpdateAward( AwardType.BEST_HC, false );&#xD;&#xA;UpdateAward( AwardType.BEST_AC, false );&#xD;&#xA;// best player awards&#xD;&#xA;UpdateAward( AwardType.BEST_POTY, false );&#xD;&#xA;UpdateAward( AwardType.BEST_FRESHMAN_POTY, false );&#xD;&#xA;UpdateAward( AwardType.MOST_VERSATILE, false );&#xD;&#xA;UpdateAward( AwardType.BEST_ACADEMIC, false );&#xD;&#xA;UpdateAward( AwardType.BEST_PLAYER, false );&#xD;&#xA;UpdateAward( AwardType.HEISMAN, false );&#xD;&#xA;// best positional awards&#xD;&#xA;UpdateAward( AwardType.BEST_SR_QB, false );&#xD;&#xA;UpdateAward( AwardType.BEST_DEF_1, false );&#xD;&#xA;UpdateAward( AwardType.BEST_DE, false );&#xD;&#xA;UpdateAward( AwardType.BEST_REC, false );&#xD;&#xA;UpdateAward( AwardType.BEST_DEF_2, false );&#xD;&#xA;UpdateAward( AwardType.BEST_QB, false );&#xD;&#xA;UpdateAward( AwardType.BEST_RB, false );&#xD;&#xA;UpdateAward( AwardType.BEST_TE, false );&#xD;&#xA;UpdateAward( AwardType.BEST_KICK, false );&#xD;&#xA;UpdateAward( AwardType.BEST_IL, false );&#xD;&#xA;UpdateAward( AwardType.BEST_DB, false );&#xD;&#xA;UpdateAward( AwardType.BEST_PUNT, false );&#xD;&#xA;UpdateAward( AwardType.BEST_C, false );&#xD;&#xA;UpdateAward( AwardType.BEST_SR, false );&#xD;&#xA;UpdateAward( AwardType.BEST_LB, false );&#xD;&#xA;UpdateAward( AwardType.BEST_DL, false );&#xD;&#xA;&#xD;&#xA;// all american team&#xD;&#xA;UpdateAward( AwardType.ALL_AM_1ST, false );&#xD;&#xA;UpdateAward( AwardType.ALL_AM_2ND, false );&#xD;&#xA;UpdateAward( AwardType.ALL_AM_FR, false );&#xD;&#xA;" />
+			<attribute name="ProcessPostSeasonWeeklyAwards" idx="20" type="none()" guid="6378667-2252105" final="true" default="// update the player of the week awards&#xD;&#xA;UpdateAward( AwardType.Defensive_Player_of_Week, false );&#xD;&#xA;UpdateAward( AwardType.Offensive_Player_of_Week, false );" />
+			<attribute name="ProcessPreseasonAwards" idx="21" type="none()" guid="6378667-1988131" final="true" default="UpdateAward( AwardType.ALL_AM_1ST_PRE, false );&#xD;&#xA;UpdateAward( AwardType.ALL_AM_2ND_PRE, false );&#xD;&#xA;" />
+			<attribute name="ProcessRegularSeasonWeeklyAwards" idx="22" type="none()" guid="6378667-1904799" final="true" default="&#xD;&#xA;UpdateAward( AwardType.HEISMAN, true);&#xD;&#xA;&#xD;&#xA;// update the player of the week awards&#xD;&#xA;UpdateAward( AwardType.Defensive_Player_of_Week, false );&#xD;&#xA;UpdateAward( AwardType.Offensive_Player_of_Week, false );" />
+			<attribute name="Random" idx="23" type="Random" />
+			<attribute name="SeasonInfo" idx="24" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="25" type="SeasonManager" />
+			<attribute name="SeasonSchedule" idx="26" type="SeasonGame[]" />
+			<attribute name="StatManager" idx="27" type="StatManager" />
+			<attribute name="TeamAwardEvent" idx="28" type="TeamAwardEvent" />
+			<attribute name="TeamManager" idx="29" type="TeamManager" />
+			<attribute name="UpdateAward" idx="30" type="AwardsEval_UpdateAward" guid="6378667-1904802" final="true" />
+			<attribute name="ValidateExpressions" idx="31" type="none()" guid="6378667-1904848" final="true" />
+			<attribute name="WeeklyAwards" idx="32" type="Award[]" />
+		</schema>
+	</schemas>
+</FranTkData>

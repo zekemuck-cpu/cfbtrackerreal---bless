@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\KnowMeStatOperation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="KnowMeStatOperation" numMembers="6" assetId="11016834" isRecordPersistent="true" majorVersionCRC="443788511" minorVersionCRC="835672900">
+			<attribute name="SUM" idx="0" value="0" />
+			<attribute name="MIN" idx="1" value="1" />
+			<attribute name="MAX" idx="2" value="2" />
+			<attribute name="REPLACE" idx="3" value="3" />
+			<attribute name="COUNT" idx="4" value="4" />
+			<attribute name="INVALID" idx="5" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

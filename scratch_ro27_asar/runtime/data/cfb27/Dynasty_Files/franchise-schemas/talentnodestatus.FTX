@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TalentNodeStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentNodeStatus" numMembers="2" assetId="6378192" isRecordPersistent="true" majorVersionCRC="1487220508" minorVersionCRC="-1546912322">
+			<attribute name="TalentStatus" idx="0" type="TalentStatus" default="TalentStatus:NotOwned" />
+			<attribute name="UpgradeCount" idx="1" type="int" minValue="0" maxValue="16" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

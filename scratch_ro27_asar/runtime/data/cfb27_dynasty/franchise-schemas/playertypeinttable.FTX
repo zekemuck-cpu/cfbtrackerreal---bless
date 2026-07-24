@@ -1,0 +1,70 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTypeIntTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTypeIntTable" numMembers="63" defaultStoreCapacity="276" assetId="11148274" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1570943160" minorVersionCRC="-1043798033">
+			<attribute name="C_Agile" idx="0" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="C_PassProtector" idx="1" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="C_Power" idx="2" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="C_WellRounded" idx="3" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="CB_HybridCorner" idx="4" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="CB_MantoMan" idx="5" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="CB_Slot" idx="6" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="CB_Zone" idx="7" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DE_PowerRusher" idx="8" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DE_PurePower" idx="9" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DE_RunStopper" idx="10" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DE_SmallerSpeedRusher" idx="11" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DT_NoseTackle" idx="12" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DT_PowerRusher" idx="13" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DT_PurePower" idx="14" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="DT_SpeedRusher" idx="15" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="FB_Blocking" idx="16" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="FB_Utility" idx="17" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="G_Agile" idx="18" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="G_PassProtector" idx="19" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="G_Power" idx="20" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="G_WellRounded" idx="21" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="HB_ElusiveBack" idx="22" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="HB_ElusivePower" idx="23" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="HB_ElusiveReceiving" idx="24" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="HB_PowerBack" idx="25" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="HB_PowerBlocking" idx="26" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="HB_PowerReceiving" idx="27" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="HB_ReceivingBack" idx="28" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="KP_Accurate" idx="29" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="KP_Power" idx="30" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="MLB_FieldGeneral" idx="31" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="MLB_PassCoverage" idx="32" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="MLB_RunStopper" idx="33" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OLB_PassCoverage" idx="34" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OLB_PowerRusher" idx="35" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OLB_RunStopper" idx="36" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OLB_SpeedRusher" idx="37" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OT_Agile" idx="38" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OT_PassProtector" idx="39" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OT_Power" idx="40" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="OT_WellRounded" idx="41" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="QB_FieldGeneral" idx="42" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="QB_Improviser" idx="43" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="QB_PureScrambler" idx="44" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="QB_Scrambler" idx="45" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="QB_StrongArm" idx="46" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="S_Hybrid" idx="47" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="S_RunSupport" idx="48" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="S_Zone" idx="49" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="TE_Blocking" idx="50" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="TE_PhysicalRouteRunner" idx="51" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="TE_Possession" idx="52" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="TE_PossessionBlocking" idx="53" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="TE_VerticalThreat" idx="54" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_DeepThreat" idx="55" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_GadgetReceiver" idx="56" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_Physical" idx="57" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_PhysicalBlocker" idx="58" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_PhysicalRouteRunner" idx="59" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_Playmaker" idx="60" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_ShiftyRouteRunner" idx="61" type="int" minValue="0" maxValue="550" default="0" />
+			<attribute name="WR_Slot" idx="62" type="int" minValue="0" maxValue="550" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

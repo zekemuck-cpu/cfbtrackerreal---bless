@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_SchemeFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_SchemeFlow" numMembers="13" base="FranTkServer_Flow" assetId="6499258" isRecordPersistent="true" majorVersionCRC="-1981674384" minorVersionCRC="-849312550">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="DefaultTeam" idx="1" type="Team" />
+			<attribute name="DefensivePlaybooks" idx="2" type="DefensivePlaybookDataType[]" />
+			<attribute name="Form" idx="3" type="UIForm" />
+			<attribute name="FormManager" idx="4" type="FranTkServer_FormManager" />
+			<attribute name="OffensivePlaybooks" idx="5" type="OffensivePlaybookDataType[]" />
+			<attribute name="PlayerTypeEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="7" type="EnumTable" />
+			<attribute name="RosterEval" idx="8" type="RosterEval" />
+			<attribute name="SchemeEnumTable" idx="9" type="EnumTable" />
+			<attribute name="Schemes" idx="10" type="Scheme[]" />
+			<attribute name="TeamManager" idx="11" type="TeamManager" />
+			<attribute name="UserRegistry" idx="12" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

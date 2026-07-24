@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\StaffPersonContractOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffPersonContractOffer" numMembers="14" defaultStoreCapacity="804" assetId="6378749" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2030419757" minorVersionCRC="1120801706">
+			<attribute name="AdjustedStaffPersonInterestInOffer" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BaseStaffPersonInterestInOffer" idx="1" type="int" minValue="0" maxValue="280" default="0" />
+			<attribute name="ContractExpectationsByYear" idx="2" type="enum[]" />
+			<attribute name="ContractPosition" idx="3" type="CoachPosition" default="CoachPosition:Invalid_" />
+			<attribute name="ExpectedContractProgramPoints" idx="4" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="ExperiencePoints" idx="5" type="int" minValue="0" maxValue="50000" default="0" />
+			<attribute name="Length" idx="6" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="OfferedContractProgramPoints" idx="7" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="OfferIndex" idx="8" type="int" minValue="0" maxValue="6" default="0" />
+			<attribute name="StaffPerson" idx="9" type="StaffPerson" />
+			<attribute name="StaffPersonTeam" idx="10" type="Team" />
+			<attribute name="Status" idx="11" type="ContractOfferStatus" default="ContractOfferStatus:Pending" />
+			<attribute name="Team" idx="12" type="Team" />
+			<attribute name="TeamInterestInStaffPerson" idx="13" type="int" minValue="0" maxValue="280" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

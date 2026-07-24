@@ -1,0 +1,40 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseEval" numMembers="33" assetId="6498640" isRecordPersistent="true" majorVersionCRC="1869896134" minorVersionCRC="1329082935">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="CoachGoalsEval" idx="1" type="CoachGoalsEval" />
+			<attribute name="ConfidenceManager" idx="2" type="ConfidenceManager" />
+			<attribute name="DepthChartEval" idx="3" type="DepthChartEval" />
+			<attribute name="DraftBoardEval" idx="4" type="DraftBoardEval" />
+			<attribute name="DraftEval" idx="5" type="DraftEval" />
+			<attribute name="InjuryEval" idx="6" type="InjuryEval" />
+			<attribute name="MySchoolGradeEval" idx="7" type="MySchoolGradeEval" />
+			<attribute name="NarrativePlayerMetersEval" idx="8" type="NarrativePlayerMetersEval" />
+			<attribute name="PlayerGoalsEval" idx="9" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEval" idx="10" type="PlayerGradeEval" />
+			<attribute name="PlayerMarketingEval" idx="11" type="PlayerMarketingEval" />
+			<attribute name="PlayerProgressionEval" idx="12" type="PlayerProgressionEval" />
+			<attribute name="PlayersLeavingEval" idx="13" type="PlayersLeavingEval" />
+			<attribute name="PlayerTraitEval" idx="14" type="PlayerTraitEval" />
+			<attribute name="PositionList" idx="15" type="PlayerPosition[]" />
+			<attribute name="RivalryManager" idx="16" type="RivalryManager" />
+			<attribute name="RosterEval" idx="17" type="RosterEval" />
+			<attribute name="SalaryCapEval" idx="18" type="SalaryCapEval" />
+			<attribute name="SalaryMetrics" idx="19" type="SalaryMetrics" />
+			<attribute name="SeasonManager" idx="20" type="SeasonManager" />
+			<attribute name="SignatureAbilitiesEval" idx="21" type="SignatureAbilitiesEval" />
+			<attribute name="StadiumEval" idx="22" type="StadiumEval" />
+			<attribute name="StaffHiringEvalRef" idx="23" type="StaffHiringEval" />
+			<attribute name="TalenTreeEval" idx="24" type="TalentTreeEval" />
+			<attribute name="TeamBuilderManager" idx="25" type="TeamBuilderManager" />
+			<attribute name="TeamPrestigeEval" idx="26" type="TeamPrestigeEval" />
+			<attribute name="TeamRevenueEval" idx="27" type="TeamRevenueEval" />
+			<attribute name="TeamRoadmapEval" idx="28" type="TeamRoadmapEval" />
+			<attribute name="TeamValueEval" idx="29" type="TeamValueEval" />
+			<attribute name="TempBuffEval" idx="30" type="TempBuffEval" />
+			<attribute name="ValidateExpressions" idx="31" type="none()" guid="6498640-1925695" final="true" />
+			<attribute name="VisitEval" idx="32" type="VisitEval" />
+		</schema>
+	</schemas>
+</FranTkData>

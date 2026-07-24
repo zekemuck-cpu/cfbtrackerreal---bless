@@ -1,0 +1,60 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager" numMembers="53" base="Module" assetId="6499176" isRecordPersistent="true" majorVersionCRC="593873652" minorVersionCRC="477603792">
+			<attribute name="Franchise" idx="0" type="Franchise" />
+			<attribute name="HandleAdvanceSalaryCapYearStart" idx="1" type="TelemetryManager_HandleAdvanceSalaryCapYearStart" guid="6499176-1936354" final="true" />
+			<attribute name="HandleAutoSimToStart" idx="2" type="TelemetryManager_HandleAutoSimToStart" guid="6499176-1936467" final="true" />
+			<attribute name="HandleBeginDraft" idx="3" type="TelemetryManager_HandleBeginDraft" guid="6499176-1936459" final="true" />
+			<attribute name="HandleBeginTraining" idx="4" type="TelemetryManager_HandleBeginTraining" guid="6499176-1936485" final="true" />
+			<attribute name="HandleCapBreakersEarned" idx="5" type="TelemetryManager_HandleCapBreakersEarned" guid="6499176-2728042" final="true" />
+			<attribute name="HandleCoachAbilitySpend" idx="6" type="TelemetryManager_HandleCoachAbilitySpend" guid="6499176-2388002" final="true" />
+			<attribute name="HandleCoachLevelUp" idx="7" type="TelemetryManager_HandleCoachLevelUp" guid="6499176-2431309" final="true" />
+			<attribute name="HandleDemandReleaseCoachEnd" idx="8" type="TelemetryManager_HandleDemandReleaseCoachEnd" guid="6499176-1936418" final="true" />
+			<attribute name="HandleDemandReleaseCoachStart" idx="9" type="TelemetryManager_HandleDemandReleaseCoachStart" guid="6499176-1936414" final="true" />
+			<attribute name="HandleDemandReleasePlayerEnd" idx="10" type="TelemetryManager_HandleDemandReleasePlayerEnd" guid="6499176-1936426" final="true" />
+			<attribute name="HandleDemandReleasePlayerStart" idx="11" type="TelemetryManager_HandleDemandReleasePlayerStart" guid="6499176-1936422" final="true" />
+			<attribute name="HandleDevelopmentTraitUpdated" idx="12" type="TelemetryManager_HandleDevelopmentTraitUpdated" guid="6499176-1936489" final="true" />
+			<attribute name="HandleDraftClassGenerated" idx="13" type="TelemetryManager_HandleDraftClassGenerated" guid="6499176-2360187" final="true" />
+			<attribute name="HandleEndOfLeagueStart" idx="14" type="TelemetryManager_HandleEndOfLeagueStart" guid="6499176-1936350" final="true" />
+			<attribute name="HandleFinancesSubmit" idx="15" type="TelemetryManager_HandleFinancesSubmit" guid="6499176-1936446" final="true" />
+			<attribute name="HandleGameEnd" idx="16" type="TelemetryManager_HandleGameEnd" guid="6499176-1936454" final="true" />
+			<attribute name="HandleInitializeLeagueInfoStart" idx="17" type="TelemetryManager_HandleInitializeLeagueInfoStart" guid="6499176-1936346" final="true" />
+			<attribute name="HandleKnowMeStatEvent" idx="18" type="TelemetryManager_HandleKnowMeStatEvent" guid="6499176-2360173" final="true" />
+			<attribute name="HandleLegacyScore" idx="19" type="TelemetryManager_HandleLegacyScore" guid="6499176-2728041" final="true" />
+			<attribute name="HandleLoadDraftClass" idx="20" type="TelemetryManager_HandleLoadDraftClass" guid="6499176-1936463" final="true" />
+			<attribute name="HandleMediaQuestionAnswered" idx="21" type="TelemetryManager_HandleMediaQuestionAnswered" guid="6499176-1936430" final="true" />
+			<attribute name="HandleOffSeasonEnd" idx="22" type="TelemetryManager_HandleOffSeasonEnd" guid="6499176-1936386" final="true" />
+			<attribute name="HandleOffSeasonStart" idx="23" type="TelemetryManager_HandleOffSeasonStart" guid="6499176-1936382" final="true" />
+			<attribute name="HandlePersonHistoryTracker" idx="24" type="TelemetryManager_HandlePersonHistoryTracker" guid="6499176-1936477" final="true" />
+			<attribute name="HandlePostSeasonWeekEnd" idx="25" type="TelemetryManager_HandlePostSeasonWeekEnd" guid="6499176-1936358" final="true" />
+			<attribute name="HandlePreSeasonEnd" idx="26" type="TelemetryManager_HandlePreSeasonEnd" guid="6499176-1936378" final="true" />
+			<attribute name="HandlePreSeasonStart" idx="27" type="TelemetryManager_HandlePreSeasonStart" guid="6499176-1936374" final="true" />
+			<attribute name="HandleProgressionPointsGrind" idx="28" type="TelemetryManager_HandleProgressionPointsGrind" guid="6499176-2587057" final="true" />
+			<attribute name="HandleProgressionPointsSpent" idx="29" type="TelemetryManager_HandleProgressionPointsSpent" guid="6499176-2431333" final="true" />
+			<attribute name="HandlePrologueCompleted" idx="30" type="TelemetryManager_HandlePrologueCompleted" guid="6499176-2463029" final="true" />
+			<attribute name="HandlePurchasePackageUpdate" idx="31" type="TelemetryManager_HandlePurchasePackageUpdate" guid="6499176-1936450" final="true" />
+			<attribute name="HandleRecruitingRecruitCommitted" idx="32" type="TelemetryManager_HandleRecruitingRecruitCommitted" guid="6499176-2463035" final="true" />
+			<attribute name="HandleRecruitStarLevelChange" idx="33" type="TelemetryManager_HandleRecruitStarLevelChange" guid="6499176-2463023" final="true" />
+			<attribute name="HandleRegisterUser" idx="34" type="TelemetryManager_HandleRegisterUser" guid="6499176-1936318" final="true" />
+			<attribute name="HandleRegressionPackagePurchased" idx="35" type="TelemetryManager_HandleRegressionPackagePurchased" guid="6499176-1936473" final="true" />
+			<attribute name="HandleRegularSeasonEnd" idx="36" type="TelemetryManager_HandleRegularSeasonEnd" guid="6499176-1936370" final="true" />
+			<attribute name="HandleRegularSeasonStart" idx="37" type="TelemetryManager_HandleRegularSeasonStart" guid="6499176-1936366" final="true" />
+			<attribute name="HandleRetirementAnnouncementStart" idx="38" type="TelemetryManager_HandleRetirementAnnouncementStart" guid="6499176-1936338" final="true" />
+			<attribute name="HandleSeasonEndOfTeamSeason" idx="39" type="TelemetryManager_HandleSeasonEndOfTeamSeason" guid="6499176-1936342" final="true" />
+			<attribute name="HandleSeasonEndWeek" idx="40" type="TelemetryManager_HandleSeasonEndWeek" guid="6499176-1936481" final="true" />
+			<attribute name="HandleSeasonPracticeStart" idx="41" type="TelemetryManager_HandleSeasonPracticeStart" guid="6499176-1936442" final="true" />
+			<attribute name="HandleTopClassReport" idx="42" type="TelemetryManager_HandleTopClassReport" guid="6499176-2205002" final="true" />
+			<attribute name="HandleTransferAdminUser" idx="43" type="TelemetryManager_HandleTransferAdminUser" guid="6499176-1936438" final="true" />
+			<attribute name="HandleUpdateStaffPersonContractStatus" idx="44" type="TelemetryManager_HandleUpdateStaffPersonContractStatus" guid="6499176-1936334" final="true" />
+			<attribute name="KnowMeCategory" idx="45" type="string" maxLen="20" default="CareerModeUserStats" />
+			<attribute name="KnowMeCoachDimensionValue" idx="46" type="string" maxLen="6" default="Coach" />
+			<attribute name="KnowMeDimensionKey" idx="47" type="string" maxLen="19" default="CareerModeUserType" />
+			<attribute name="KnowMePlayerDimensionValue" idx="48" type="string" maxLen="7" default="Player" />
+			<attribute name="KnowMeStatEnumTable" idx="49" type="EnumTable" />
+			<attribute name="LeagueSettings" idx="50" type="LeagueSetting" />
+			<attribute name="ReportBoxScoresEnabled" idx="51" type="bool" default="True" />
+			<attribute name="SeasonManager" idx="52" type="SeasonManager" />
+		</schema>
+	</schemas>
+</FranTkData>

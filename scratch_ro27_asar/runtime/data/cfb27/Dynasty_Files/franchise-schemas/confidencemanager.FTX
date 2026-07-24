@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\ConfidenceManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ConfidenceManager" numMembers="7" base="Module" assetId="6495000" isRecordPersistent="true" majorVersionCRC="1356639759" minorVersionCRC="-997752120">
+			<attribute name="ConfidenceAdjustedRatingsEnabled" idx="0" type="bool" default="False" />
+			<attribute name="DefaultConfidenceResetValue" idx="1" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="Franchise" idx="2" type="Franchise" />
+			<attribute name="HandleEvent" idx="3" type="ConfidenceManager_HandleEvent" guid="6495000-1913433" />
+			<attribute name="PositionalSplinesList" idx="4" type="PositionalAbilitySplines[]" />
+			<attribute name="SeasonInfo" idx="5" type="SeasonInfo" />
+			<attribute name="SeasonManagerRef" idx="6" type="SeasonManager" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_ProcessMakeContractOffersRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_ProcessMakeContractOffersRequest" numMembers="2" base="none()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-908743096" minorVersionCRC="-1708570941">
+			<attribute name="request" idx="0" type="MakeContractOffersRequest" />
+		</schema>
+	</schemas>
+</FranTkData>

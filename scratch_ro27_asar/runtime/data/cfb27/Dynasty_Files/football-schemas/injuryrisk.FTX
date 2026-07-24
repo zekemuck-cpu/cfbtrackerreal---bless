@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\InjuryRisk.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="InjuryRisk" numMembers="8" assetId="12178500" isRecordPersistent="true" majorVersionCRC="-1790709767" minorVersionCRC="29346521">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Low" idx="1" value="0" />
+			<attribute name="Medium" idx="2" value="1" />
+			<attribute name="High" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="3" />
+			<attribute name="Severe" idx="5" value="3" />
+			<attribute name="Count_" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

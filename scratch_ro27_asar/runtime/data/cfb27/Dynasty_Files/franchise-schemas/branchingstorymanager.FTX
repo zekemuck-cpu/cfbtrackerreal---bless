@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\BranchingStoryManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BranchingStoryManager" numMembers="21" base="Module" assetId="6498869" isRecordPersistent="true" majorVersionCRC="364521404" minorVersionCRC="364599532">
+			<attribute name="BranchingStoryEvent" idx="0" type="BranchingStoryMadeBranchEvent" />
+			<attribute name="CriteriasMaxYearlyOccurence" idx="1" type="BranchingStoryCriteriaToInteger[]" />
+			<attribute name="DraftEval" idx="2" type="DraftEval" />
+			<attribute name="DraftManager" idx="3" type="DraftManager" />
+			<attribute name="EvaluateEvent" idx="4" type="BranchingStoryManager_EvaluateEvent" guid="6498869-1927459" final="true" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="HandleDraftClassEdit" idx="6" type="BranchingStoryManager_HandleDraftClassEdit" guid="6498869-1927482" final="true" />
+			<attribute name="HandleSeasonYearStart" idx="7" type="BranchingStoryManager_HandleSeasonYearStart" guid="6498869-1927486" final="true" />
+			<attribute name="IsEnabled" idx="8" type="bool" default="True" />
+			<attribute name="LeagueSetting" idx="9" type="LeagueSetting" />
+			<attribute name="MoveToNextDraftPlayer" idx="10" type="DraftPlayer" />
+			<attribute name="MoveToNextDraftStories" idx="11" type="BranchingStory[]" />
+			<attribute name="MoveToNextDraftStory" idx="12" type="BranchingStory" />
+			<attribute name="PlayerGradeEval" idx="13" type="PlayerGradeEval" />
+			<attribute name="PlayerLeftDraftEvent" idx="14" type="PlayerLeftDraftEvent" />
+			<attribute name="PlayerManager" idx="15" type="PlayerManager" />
+			<attribute name="RandomRef" idx="16" type="Random" />
+			<attribute name="TestBranchImpactNode" idx="17" type="BranchingStoryBranch" />
+			<attribute name="TestPositionChangeNode" idx="18" type="BranchingStoryBranch" />
+			<attribute name="TestTraitChangeNode" idx="19" type="BranchingStoryBranch" />
+			<attribute name="TunableRuleSet" idx="20" type="BranchingStoryTunableRuleSet" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\HighlightType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="HighlightType" numMembers="2" assetId="6498670" isRecordPersistent="true" majorVersionCRC="-1665153857" minorVersionCRC="645406509">
+			<attribute name="Snapshot" idx="0" value="0" />
+			<attribute name="Video" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStoppingPoints.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStoppingPoints" numMembers="4" defaultStoreCapacity="2" assetId="10889464" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="151848928" minorVersionCRC="-803641588">
+			<attribute name="OffseasonStages" idx="0" type="SeasonStoppingPointOffseason[]" />
+			<attribute name="PostseasonWeeks" idx="1" type="SeasonStoppingPointPostseason[]" />
+			<attribute name="PreseasonWeek" idx="2" type="SeasonStoppingPointPreseason" />
+			<attribute name="RegularseasonWeeks" idx="3" type="SeasonStoppingPointRegularseason[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TrophyRoomUtil_HandleGameEnd.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TrophyRoomUtil_HandleGameEnd" numMembers="2" base="none()" ownerAssetId="10754442" isRecordPersistent="true" isExpr="true" majorVersionCRC="741906079" minorVersionCRC="4019569">
+			<attribute name="event" idx="0" type="GameEndEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

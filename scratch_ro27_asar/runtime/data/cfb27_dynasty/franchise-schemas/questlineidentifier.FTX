@@ -1,0 +1,54 @@
+<FranTkData fileName="Franchise-Schemas\QuestlineIdentifier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="QuestlineIdentifier" numMembers="47" assetId="6536922" isRecordPersistent="true" majorVersionCRC="-750254179" minorVersionCRC="-1126218220">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="NullQuest" idx="1" value="0" />
+			<attribute name="ManningTDPasses" idx="2" value="1" />
+			<attribute name="SpecificFirst_" idx="3" value="1" />
+			<attribute name="RELAX" idx="4" value="3" />
+			<attribute name="RegressionFumbles" idx="5" value="4" />
+			<attribute name="RegressionDropPasses" idx="6" value="5" />
+			<attribute name="RegressionInterceptions" idx="7" value="6" />
+			<attribute name="BeastMode" idx="8" value="7" />
+			<attribute name="RBwithOL" idx="9" value="8" />
+			<attribute name="BreakoutRB" idx="10" value="9" />
+			<attribute name="YoungWR" idx="11" value="10" />
+			<attribute name="SophomoreSlump" idx="12" value="11" />
+			<attribute name="OldQBSuperBowl" idx="13" value="12" />
+			<attribute name="PeytonPostSeason" idx="14" value="13" />
+			<attribute name="RepeatSuperBowl" idx="15" value="14" />
+			<attribute name="SpecificLast_" idx="16" value="19" />
+			<attribute name="PreseasonFirst_" idx="17" value="20" />
+			<attribute name="PreseasonRookie" idx="18" value="20" />
+			<attribute name="PreseasonYoungPlayer" idx="19" value="21" />
+			<attribute name="PreseasonOlderPlayer" idx="20" value="22" />
+			<attribute name="PreseasonStarter" idx="21" value="23" />
+			<attribute name="PreseasonBackup" idx="22" value="24" />
+			<attribute name="PreseasonKicking" idx="23" value="25" />
+			<attribute name="PreseasonPunting" idx="24" value="26" />
+			<attribute name="PreseasonLast_" idx="25" value="33" />
+			<attribute name="RegularSeasonFirst_" idx="26" value="34" />
+			<attribute name="RegularSeasonStarter" idx="27" value="34" />
+			<attribute name="RegularSeasonBackup" idx="28" value="35" />
+			<attribute name="RegularSeasonEarlySeason" idx="29" value="36" />
+			<attribute name="RegularSeasonMidSeason" idx="30" value="37" />
+			<attribute name="RegularSeasonMidLateSeason" idx="31" value="38" />
+			<attribute name="RegularSeasonLateSeason" idx="32" value="39" />
+			<attribute name="RegularSeasonKicking" idx="33" value="40" />
+			<attribute name="RegularSeasonPunting" idx="34" value="41" />
+			<attribute name="BallSide" idx="35" value="42" />
+			<attribute name="PlayoffPush" idx="36" value="43" />
+			<attribute name="ContractYear" idx="37" value="44" />
+			<attribute name="RegularSeasonLast_" idx="38" value="47" />
+			<attribute name="PostSeasonFirst_" idx="39" value="48" />
+			<attribute name="PostSeasonKicking" idx="40" value="48" />
+			<attribute name="PostSeasonPunting" idx="41" value="49" />
+			<attribute name="PostSeasonINTs" idx="42" value="50" />
+			<attribute name="PostSeason" idx="43" value="51" />
+			<attribute name="PostSeasonLast_" idx="44" value="58" />
+			<attribute name="Invalid_" idx="45" value="99" />
+			<attribute name="Max_" idx="46" value="99" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,57 @@
+<FranTkData fileName="Franchise-Schemas\Injury_EarlyReturnRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Injury_EarlyReturnRequest" numMembers="46" base="UIRequestForm" assetId="6498449" isRecordPersistent="true" majorVersionCRC="1145040208" minorVersionCRC="1638835315">
+			<attribute name="BackupPlayer" idx="0" type="Player" />
+			<attribute name="BigDecisionDescription" idx="1" type="string" maxLen="177" default="The medical staff has cleared &lt;position&gt; &lt;playerfname&gt; &lt;playerlname&gt; for full participation.  He is not quite 100% and has a &lt;reinjurychance&gt; if we bring him back too early." />
+			<attribute name="CanSubmitResponse" idx="2" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="3" type="bool" default="False" />
+			<attribute name="ChooseEarlyReturnResponse" idx="4" type="UISelectForm" />
+			<attribute name="ClearResponse" idx="5" type="none()" guid="6498449-1895689" final="true" />
+			<attribute name="Commands" idx="6" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="7" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="8" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="9" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DeclineEarlyReturnResponse" idx="10" type="UISelectForm" />
+			<attribute name="DefaultResponse" idx="11" type="ResponseForm" />
+			<attribute name="DelegateResponse" idx="12" type="UISelectForm" />
+			<attribute name="Description" idx="13" type="string" const="true" maxLen="42" default="Your player has a chance to return early." />
+			<attribute name="Dismiss" idx="14" type="none()" guid="6498449-1895671" />
+			<attribute name="ExpirationDuration" idx="15" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="16" type="none()" guid="6498449-1924684" final="true" default="InjuryEvalRef.ProcessEarlyReturnRequest(this);" />
+			<attribute name="HasResolution" idx="17" type="bool()" guid="6498449-1895676" />
+			<attribute name="InjuredPlayer" idx="18" type="Player" />
+			<attribute name="InjuryEvalRef" idx="19" type="InjuryEval" />
+			<attribute name="IsBlocking" idx="20" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="21" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="22" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="23" type="bool()" guid="6498449-1895678" />
+			<attribute name="IsResponseRequired" idx="24" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="25" type="bool" default="True" />
+			<attribute name="Issue" idx="26" type="Request_Issue" guid="6498449-1895668" />
+			<attribute name="IssueTime" idx="27" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NavigationString" idx="28" type="string" maxLen="22" default="bd_injury_earlyreturn" />
+			<attribute name="Priority" idx="29" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="30" type="none()" guid="6498449-1895686" final="true" />
+			<attribute name="RequestData" idx="31" type="record" />
+			<attribute name="RequestForm" idx="32" type="ResponseForm" />
+			<attribute name="RequestId" idx="33" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="34" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="35" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="36" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="37" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="38" type="ResponseForm[]" />
+			<attribute name="SeasonInfo" idx="39" type="SeasonInfo" />
+			<attribute name="SeenByUser" idx="40" type="bool" default="True" />
+			<attribute name="TargetUser" idx="41" type="User" />
+			<attribute name="Title" idx="42" type="string" const="true" maxLen="20" default="Big Injury Decision" />
+			<attribute name="TypeName" idx="43" type="string" const="true" maxLen="19" default="Injury_EarlyReturn" />
+			<attribute name="ViewBackupPlayersPlayerCardResponse" idx="44" type="UIFlowForm" />
+			<attribute name="ViewInjuredPlayersPlayerCardResponse" idx="45" type="UIFlowForm" />
+		</schema>
+	</schemas>
+</FranTkData>

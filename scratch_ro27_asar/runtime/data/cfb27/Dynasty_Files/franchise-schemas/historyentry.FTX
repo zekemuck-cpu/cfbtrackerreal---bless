@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\HistoryEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HistoryEntry" numMembers="9" defaultStoreCapacity="1" assetId="6495006" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="61269694" minorVersionCRC="1046488056">
+			<attribute name="CurrentStage" idx="0" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="CurrentWeek" idx="1" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="CurrentYear" idx="2" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="ExperienceValue" idx="3" type="int" minValue="0" maxValue="64000" default="0" />
+			<attribute name="IsSchemeFit" idx="4" type="bool" default="False" />
+			<attribute name="MiscValue" idx="5" type="int" minValue="-1000" maxValue="3000" default="0" />
+			<attribute name="Person" idx="6" type="UserEntity" />
+			<attribute name="ProgressionValue" idx="7" type="int" minValue="-127" maxValue="99" default="0" />
+			<attribute name="Source" idx="8" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

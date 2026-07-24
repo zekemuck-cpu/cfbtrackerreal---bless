@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PracticeSquadPeriod_StartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeSquadPeriod_StartEvent" numMembers="2" base="Event" assetId="6598580" isRecordPersistent="true" majorVersionCRC="1511721105" minorVersionCRC="-284639516">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598580-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598580-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

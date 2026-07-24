@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\RecruitGoalType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RecruitGoalType" numMembers="9" assetId="8532602" isRecordPersistent="true" majorVersionCRC="-1634556965" minorVersionCRC="835709198">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="SignCaliber" idx="1" value="0" />
+			<attribute name="SignWeek" idx="2" value="1" />
+			<attribute name="SignRank" idx="3" value="2" />
+			<attribute name="Class" idx="4" value="3" />
+			<attribute name="ClassConf" idx="5" value="4" />
+			<attribute name="Last_" idx="6" value="5" />
+			<attribute name="TeamNeeds" idx="7" value="5" />
+			<attribute name="Count" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

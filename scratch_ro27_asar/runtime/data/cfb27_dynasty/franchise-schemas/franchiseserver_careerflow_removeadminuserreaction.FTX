@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_RemoveAdminUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_RemoveAdminUserReaction" numMembers="4" base="Reaction" assetId="6499281" isRecordPersistent="true" majorVersionCRC="-747397246" minorVersionCRC="2073623071">
+			<attribute name="EventRecord" idx="0" type="RemoveAdminUserEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499281-1895461" />
+			<attribute name="Module" idx="2" type="FranchiseServer_CareerFlow" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

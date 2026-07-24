@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TempBuffsOperationType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TempBuffsOperationType" numMembers="2" assetId="6539952" isRecordPersistent="true" majorVersionCRC="1567220418" minorVersionCRC="-1061797002">
+			<attribute name="Relative" idx="0" value="0" />
+			<attribute name="Absolute" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

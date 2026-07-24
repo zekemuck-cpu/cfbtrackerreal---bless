@@ -1,0 +1,10 @@
+<FranTkData fileName="Core-Schemas\FranTkServer_Server.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranTkServer_Server" numMembers="3" base="Module" assetId="6210694" isRecordPersistent="true" majorVersionCRC="1930839429" minorVersionCRC="-288022102">
+			<attribute name="FormManager" idx="0" type="FranTkServer_FormManager" />
+			<attribute name="RequestServer" idx="1" type="RequestServer" />
+			<attribute name="UserRegistry" idx="2" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

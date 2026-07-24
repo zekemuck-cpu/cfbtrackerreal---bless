@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ReSignNegotiationManager_IncreaseOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReSignNegotiationManager_IncreaseOffer" numMembers="3" base="none()" ownerAssetId="6495334" isRecordPersistent="true" isExpr="true" majorVersionCRC="-951841893" minorVersionCRC="-1420876669">
+			<attribute name="playerReSignNegotiation" idx="0" type="PlayerReSignNegotiation" />
+			<attribute name="PercentIncrease" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

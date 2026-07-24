@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\SwapActorAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SwapActorAction" numMembers="6" base="SequenceAction" assetId="6542992" isRecordPersistent="true" majorVersionCRC="1213165640" minorVersionCRC="928918716">
+			<attribute name="Actor1" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="Actor2" idx="1" type="ActorName" default="ActorName:None" />
+			<attribute name="Default" idx="2" type="bool" default="False" />
+			<attribute name="Enabled" idx="3" type="bool" default="True" />
+			<attribute name="Target1" idx="4" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="Target2" idx="5" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\ProgressionPointsGrindEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProgressionPointsGrindEvent" numMembers="6" base="Event" assetId="12139476" isRecordPersistent="true" majorVersionCRC="1835109352" minorVersionCRC="2130903695">
+			<attribute name="Enqueue" idx="0" type="none()" guid="12139476-1895458" final="true" />
+			<attribute name="IsUserControlled" idx="1" type="bool" default="False" />
+			<attribute name="ProgressionPointsGained" idx="2" type="int" minValue="0" maxValue="2147483647" default="0" />
+			<attribute name="ProgressionType" idx="3" type="GamePointsType" default="GamePointsType:Invalid" />
+			<attribute name="Send" idx="4" type="none()" guid="12139476-1895455" final="true" />
+			<attribute name="TotalProgressionPointsBalance" idx="5" type="int" minValue="0" maxValue="2147483647" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

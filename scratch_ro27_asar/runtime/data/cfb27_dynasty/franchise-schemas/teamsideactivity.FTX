@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\TeamSideActivity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\Activity.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamSideActivity" numMembers="14" base="Activity" defaultStoreCapacity="2" assetId="6494636" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="151" majorVersionCRC="-777508872" minorVersionCRC="418360223">
+			<attribute name="ActivityType" idx="0" type="ActivityType" default="ActivityType:XP" />
+			<attribute name="BaseConfidenceValue" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BaseExperienceValue" idx="2" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="BeginWeekType" idx="3" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="CostPerPlayer" idx="4" type="int" minValue="0" maxValue="60" default="0" />
+			<attribute name="CostType" idx="5" type="ConsumableTypeEnum" default="ConsumableTypeEnum:Hours" />
+			<attribute name="Description" idx="6" type="string" maxLen="126" />
+			<attribute name="EndWeekType" idx="7" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="GetRating" idx="8" type="TeamSideActivity_GetRating" guid="6494636-1912240" />
+			<attribute name="ImageId" idx="9" type="int" minValue="0" maxValue="254" default="0" />
+			<attribute name="IsOpposingTeamRequired" idx="10" type="bool" default="False" />
+			<attribute name="PresentationId" idx="11" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="TeamSide" idx="12" type="TeamSide" default="TeamSide:Offense" />
+			<attribute name="Title" idx="13" type="string" maxLen="33" />
+		</schema>
+	</schemas>
+</FranTkData>

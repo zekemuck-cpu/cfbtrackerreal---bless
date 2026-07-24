@@ -1,0 +1,48 @@
+<FranTkData fileName="Franchise-Schemas\GameTimeRange.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GameTimeRange" numMembers="41" assetId="6845457" isRecordPersistent="true" majorVersionCRC="-332389200" minorVersionCRC="-446961913">
+			<attribute name="DAY_FIRST" idx="0" value="0" />
+			<attribute name="T1100" idx="1" value="0" />
+			<attribute name="TIME_FIRST" idx="2" value="0" />
+			<attribute name="T1130" idx="3" value="1" />
+			<attribute name="T1200" idx="4" value="2" />
+			<attribute name="T1230" idx="5" value="3" />
+			<attribute name="T1300" idx="6" value="4" />
+			<attribute name="T1330" idx="7" value="5" />
+			<attribute name="T1400" idx="8" value="6" />
+			<attribute name="T1415" idx="9" value="7" />
+			<attribute name="T1430" idx="10" value="8" />
+			<attribute name="T1500" idx="11" value="9" />
+			<attribute name="T1515" idx="12" value="10" />
+			<attribute name="DAY_LAST" idx="13" value="11" />
+			<attribute name="T1530" idx="14" value="11" />
+			<attribute name="AFTERNOON_FIRST" idx="15" value="12" />
+			<attribute name="T1600" idx="16" value="12" />
+			<attribute name="T1700" idx="17" value="13" />
+			<attribute name="T1745" idx="18" value="14" />
+			<attribute name="AFTERNOON_LAST" idx="19" value="15" />
+			<attribute name="T1800" idx="20" value="15" />
+			<attribute name="T1845" idx="21" value="16" />
+			<attribute name="NIGHT_FIRST" idx="22" value="17" />
+			<attribute name="T1900" idx="23" value="17" />
+			<attribute name="T1930" idx="24" value="18" />
+			<attribute name="T2000" idx="25" value="19" />
+			<attribute name="NIGHT_LAST" idx="26" value="20" />
+			<attribute name="T2100" idx="27" value="20" />
+			<attribute name="T2115" idx="28" value="21" />
+			<attribute name="NIGHT_FIRST_PACIFIC" idx="29" value="22" />
+			<attribute name="T2200" idx="30" value="22" />
+			<attribute name="T2215" idx="31" value="23" />
+			<attribute name="T2230" idx="32" value="24" />
+			<attribute name="NIGHT_LAST_PACIFIC" idx="33" value="25" />
+			<attribute name="T2300" idx="34" value="25" />
+			<attribute name="TIME_LAST" idx="35" value="25" />
+			<attribute name="RDAY" idx="36" value="26" />
+			<attribute name="RAFTERNOON" idx="37" value="27" />
+			<attribute name="RNIGHT" idx="38" value="28" />
+			<attribute name="RNIGHT_PACIFIC" idx="39" value="29" />
+			<attribute name="INVALID" idx="40" value="30" />
+		</enum>
+	</schemas>
+</FranTkData>

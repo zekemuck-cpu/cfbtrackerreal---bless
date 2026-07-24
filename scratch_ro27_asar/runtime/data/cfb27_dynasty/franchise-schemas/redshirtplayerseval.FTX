@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RedshirtPlayersEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RedshirtPlayersEval" numMembers="1" base="Module" assetId="6983453" isRecordPersistent="true" majorVersionCRC="-468196897" minorVersionCRC="-283715733">
+			<attribute name="RedshirtTunables" idx="0" type="PlayerEligibilityTunables" />
+		</schema>
+	</schemas>
+</FranTkData>

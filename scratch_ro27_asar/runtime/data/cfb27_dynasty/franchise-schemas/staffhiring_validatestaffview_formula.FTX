@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiring_ValidateStaffView_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiring_ValidateStaffView_Formula" numMembers="3" base="none()" ownerAssetId="6708722" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2040193082" minorVersionCRC="-499564237">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

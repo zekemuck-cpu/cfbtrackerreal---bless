@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerProgressionEval_ProgressTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerProgressionEval_ProgressTeam" numMembers="2" base="none()" ownerAssetId="6498681" isRecordPersistent="true" isExpr="true" majorVersionCRC="507521384" minorVersionCRC="-1634850776">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

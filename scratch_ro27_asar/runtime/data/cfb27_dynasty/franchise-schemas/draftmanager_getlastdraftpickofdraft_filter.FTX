@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\DraftManager_GetLastDraftPickOfDraft_Filter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftManager_GetLastDraftPickOfDraft_Filter" numMembers="6" base="FilterView" assetId="6572372" isRecordPersistent="true" majorVersionCRC="1211379576" minorVersionCRC="-1591601299">
+			<attribute name="Clear" idx="0" type="none()" guid="6572372-1937749" />
+			<attribute name="Filter" idx="1" type="DraftManager_GetLastDraftPickOfDraft_Filter_Filter" guid="6572372-1939116" default="(Subject.YearOffset == 0);" />
+			<attribute name="Results" idx="2" type="DraftPick[]" />
+			<attribute name="Source" idx="3" type="record" />
+			<attribute name="Subjects" idx="4" type="DraftPick[]" />
+			<attribute name="Update" idx="5" type="none()" guid="6572372-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\HandednessEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HandednessEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="3" assetId="6571231" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="38" majorVersionCRC="1899029672" minorVersionCRC="-1225684739">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="Handedness" default="Handedness:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

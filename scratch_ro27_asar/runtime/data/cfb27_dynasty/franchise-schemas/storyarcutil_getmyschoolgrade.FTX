@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_GetMySchoolGrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_GetMySchoolGrade" numMembers="4" base="int()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="1988106495" minorVersionCRC="1329544464">
+			<attribute name="arcContext" idx="0" type="ArcContext" />
+			<attribute name="grade" idx="1" type="MySchoolGrade" default="MySchoolGrade:Invalid_" />
+			<attribute name="team" idx="2" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

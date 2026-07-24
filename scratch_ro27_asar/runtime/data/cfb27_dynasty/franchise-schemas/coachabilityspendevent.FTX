@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\CoachAbilitySpendEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachAbilitySpendEvent" numMembers="9" base="Event" assetId="10227444" isRecordPersistent="true" majorVersionCRC="-1125067984" minorVersionCRC="-1778870683">
+			<attribute name="Coach" idx="0" type="Coach" />
+			<attribute name="DCOwnsTalent" idx="1" type="bool" default="False" />
+			<attribute name="Enqueue" idx="2" type="none()" guid="10227444-1895458" final="true" />
+			<attribute name="HCOwnsTalent" idx="3" type="bool" default="False" />
+			<attribute name="OCOwnsTalent" idx="4" type="bool" default="False" />
+			<attribute name="Send" idx="5" type="none()" guid="10227444-1895455" final="true" />
+			<attribute name="TalentNode" idx="6" type="TalentNode" />
+			<attribute name="TalentSubtree" idx="7" type="TalentSubTree" />
+			<attribute name="Team" idx="8" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

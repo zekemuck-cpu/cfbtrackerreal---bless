@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\GenericWeatherInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GenericWeatherInfo" numMembers="10" assetId="9102556" isRecordPersistent="true" majorVersionCRC="-189563787" minorVersionCRC="-1805049260">
+			<attribute name="GenericColdSouth" idx="0" value="0" />
+			<attribute name="GenericColdMid" idx="1" value="1" />
+			<attribute name="GenericColdNorth" idx="2" value="2" />
+			<attribute name="GenericModerateSouth" idx="3" value="3" />
+			<attribute name="GenericModerateMid" idx="4" value="4" />
+			<attribute name="GenericModerateNorth" idx="5" value="5" />
+			<attribute name="GenericHotSouth" idx="6" value="6" />
+			<attribute name="GenericHotMid" idx="7" value="7" />
+			<attribute name="GenericHotNorth" idx="8" value="8" />
+			<attribute name="Count" idx="9" value="9" />
+		</enum>
+	</schemas>
+</FranTkData>

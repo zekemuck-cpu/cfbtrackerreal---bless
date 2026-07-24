@@ -1,0 +1,12 @@
+<FranTkData fileName="Football-Schemas\RandomAssetGenerator.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RandomAssetGenerator" numMembers="5" assetId="6686872" isRecordPersistent="true" majorVersionCRC="647282788" minorVersionCRC="1698466568">
+			<attribute name="BasedOnGenerator" idx="0" type="RandomAssetGenerator" />
+			<attribute name="Name" idx="1" type="string" maxLen="30" />
+			<attribute name="Properties" idx="2" type="PropertySetterStruct[]" />
+			<attribute name="SubGenerators" idx="3" type="PropertySetterStruct[]" />
+			<attribute name="TargetAssetDataType" idx="4" type="string" maxLen="65" />
+		</schema>
+	</schemas>
+</FranTkData>

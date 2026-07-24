@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\StatCategory.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StatCategory" numMembers="5" assetId="6378153" isRecordPersistent="true" majorVersionCRC="-2001791263" minorVersionCRC="555055630">
+			<attribute name="Offensive" idx="0" value="0" />
+			<attribute name="Defensive" idx="1" value="1" />
+			<attribute name="OLine" idx="2" value="2" />
+			<attribute name="Kicking" idx="3" value="3" />
+			<attribute name="KPReturn" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

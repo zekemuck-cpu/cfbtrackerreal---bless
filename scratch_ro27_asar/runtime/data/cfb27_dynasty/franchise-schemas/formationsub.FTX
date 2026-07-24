@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\FormationSub.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FormationSub" numMembers="4" defaultStoreCapacity="1600" assetId="6495035" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1877062624" minorVersionCRC="-1591787478">
+			<attribute name="FormationIsOffense" idx="0" type="bool" default="False" />
+			<attribute name="FormationPlayerIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FormationSetID" idx="2" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="PlayerRef" idx="3" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

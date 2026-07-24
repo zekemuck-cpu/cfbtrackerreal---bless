@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SeasonGameFlow_UnregisterUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonGameFlow_UnregisterUserReaction" numMembers="4" base="Reaction" assetId="6708601" isRecordPersistent="true" majorVersionCRC="-2061340600" minorVersionCRC="-616003049">
+			<attribute name="AdvanceStageTransaction" idx="0" type="AdvanceSeasonWeekTransaction" />
+			<attribute name="EventRecord" idx="1" type="UnregisterUserEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6708601-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

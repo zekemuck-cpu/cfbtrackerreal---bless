@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEvalInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEvalInfo" numMembers="15" defaultStoreCapacity="1" assetId="6568734" defaultStoreGroupId="65" isRecordPersistent="true" defaultStoreGroupName="ReferencedByStatic" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1120339196" minorVersionCRC="645721779">
+			<attribute name="AgeModSpline" idx="0" type="Spline" />
+			<attribute name="CoachSpecialAbilityMod" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DurabilityModifierSpline" idx="2" type="Spline" />
+			<attribute name="FreeAgentMod" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GetRetirementChance" idx="4" type="PlayersLeavingEvalInfo_GetRetirementChance" guid="6568734-1935671" final="true" default="int retireChance = 0;&#xD;&#xA;int percentageMod = 0;&#xD;&#xA;int ageMod = 0;&#xD;&#xA;if (AgeModSpline != null)&#xD;&#xA;{&#xD;&#xA; ageMod = AgeModSpline.CalculateY(player.Age);&#xD;&#xA;}&#xD;&#xA;int injMod = 0;&#xD;&#xA;if (DurabilityModifierSpline != null)&#xD;&#xA;{&#xD;&#xA; injMod = DurabilityModifierSpline.CalculateY(player.InjuryRating);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;retireChance = (percentageMod + ageMod + injMod);&#xD;&#xA;&#xD;&#xA;//Default value is 2 when coach traits were here.  Not sure if valid&#xD;&#xA;retireChance = retireChance - 2;&#xD;&#xA;&#xD;&#xA;if ((player.Position != PositionE.QB &amp;&amp; player.Position != PositionE.K) &amp;&amp; player.Age &gt;= 40)&#xD;&#xA;{&#xD;&#xA; retireChance = 100;&#xD;&#xA;}&#xD;&#xA;else if (player.Age &gt;= 43)&#xD;&#xA;{&#xD;&#xA; retireChance = 100;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (player.Position == PositionE.QB)&#xD;&#xA;{&#xD;&#xA; //QB Related stuff&#xD;&#xA; if (player.Age &gt; 34 &amp;&amp; player.PlayerType == PlayerType.QB_Scrambler)&#xD;&#xA; {&#xD;&#xA;  retireChance=100;&#xD;&#xA; }&#xD;&#xA; if (player.Age &gt;= 36)&#xD;&#xA; {&#xD;&#xA;  retireChance = 100;&#xD;&#xA; }&#xD;&#xA; //Special Casing to ensure Tom Brady does not retire in year 1&#xD;&#xA; if (player.PresentationId == 1327 &amp;&amp; player.PLYR_BIRTHDATE == 7077)&#xD;&#xA; {&#xD;&#xA;  if (player.Age &lt; 46)&#xD;&#xA;  {&#xD;&#xA;   retireChance = 0;&#xD;&#xA;  }&#xD;&#xA;  else if (player.Age &lt; 50)&#xD;&#xA;  {&#xD;&#xA;   retireChance = 50;&#xD;&#xA;  }&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;else if (player.Position == PositionE.HB)&#xD;&#xA;{&#xD;&#xA; //HB related stuff&#xD;&#xA; if (player.Age &gt;= 32 &amp;&amp; player.Age &lt; 35 )&#xD;&#xA; {&#xD;&#xA;  retireChance = 0;&#xD;&#xA; }&#xD;&#xA;&#xD;&#xA; if (player.Age &gt;= 35)&#xD;&#xA; {&#xD;&#xA;  retireChance = 100;&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;else if (player.Position == PositionE.K || player.Position == PositionE.P)&#xD;&#xA;{&#xD;&#xA; //Check to make sure good kickers/punters do not retire early&#xD;&#xA; if (Player.Age &lt; 38)&#xD;&#xA; {&#xD;&#xA;  retireChance = 0;&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (player.Age &lt; 32 &amp;&amp; player.Position != PositionE.HB)&#xD;&#xA;{&#xD;&#xA; retireChance = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;if (player.Age &lt; 30)&#xD;&#xA;{&#xD;&#xA; retireChance = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (player.InjurySeverity == InjurySeverity.CareerEnding)&#xD;&#xA;{&#xD;&#xA; retireChance = 100;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;retireChance;" />
+			<attribute name="GetReturnChance" idx="5" type="PlayersLeavingEvalInfo_GetReturnChance" guid="6568734-1935677" final="true" default="int returnChance = 0;&#xD;&#xA;&#xD;&#xA;returnChance;" />
+			<attribute name="LegacyScoreRetireSpline" idx="6" type="Spline" />
+			<attribute name="PercentageAppt1Spline" idx="7" type="Spline" />
+			<attribute name="PercentageAppt2Spline" idx="8" type="Spline" />
+			<attribute name="PercentageAppt3Spline" idx="9" type="Spline" />
+			<attribute name="PercentageAppt4Spline" idx="10" type="Spline" />
+			<attribute name="PercentageAppt5Spline" idx="11" type="Spline" />
+			<attribute name="ReturnChanceLegacySpline" idx="12" type="Spline" />
+			<attribute name="SuperBowlSpline" idx="13" type="Spline" />
+			<attribute name="YearsProModSpline" idx="14" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

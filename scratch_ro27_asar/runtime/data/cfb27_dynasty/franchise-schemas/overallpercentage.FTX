@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\OverallPercentage.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OverallPercentage" numMembers="2" defaultStoreCapacity="22" assetId="6495016" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="486008880" minorVersionCRC="749601483">
+			<attribute name="PercentageSpline" idx="0" type="Spline" />
+			<attribute name="PlayerPosition" idx="1" type="PositionE" default="PositionE:FirstKeyOffense_" />
+		</schema>
+	</schemas>
+</FranTkData>

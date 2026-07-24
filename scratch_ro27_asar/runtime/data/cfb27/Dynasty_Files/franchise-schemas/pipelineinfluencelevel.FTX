@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\PipelineInfluenceLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PipelineInfluenceLevel" numMembers="10" assetId="8224442" isRecordPersistent="true" majorVersionCRC="-27918048" minorVersionCRC="1064720476">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Unrecognized" idx="1" value="0" />
+			<attribute name="NicheInterest" idx="2" value="1" />
+			<attribute name="Respected" idx="3" value="2" />
+			<attribute name="Popular" idx="4" value="3" />
+			<attribute name="HouseholdName" idx="5" value="4" />
+			<attribute name="CulturalPillar" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="5" />
+			<attribute name="Count_" idx="8" value="6" />
+			<attribute name="Invalid" idx="9" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

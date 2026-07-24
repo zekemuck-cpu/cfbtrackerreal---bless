@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ObjectiveProgress.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ObjectiveProgress" numMembers="2" defaultStoreCapacity="30" assetId="6495215" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="14264028" minorVersionCRC="-1186296256">
+			<attribute name="Objective" idx="0" type="Objective" />
+			<attribute name="Status" idx="1" type="ObjectiveStatus" default="ObjectiveStatus:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

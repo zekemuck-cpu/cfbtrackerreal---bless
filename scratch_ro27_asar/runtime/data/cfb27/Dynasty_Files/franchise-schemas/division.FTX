@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\Division.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Division" numMembers="4" base="Enum" defaultStoreCapacity="22" assetId="6321325" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-482128515" minorVersionCRC="701455140">
+			<attribute name="Name" idx="0" type="string" maxLen="21" />
+			<attribute name="PresentationId" idx="1" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="32" />
+			<attribute name="Teams" idx="3" type="Team[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DemandReleasePlayerEndEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DemandReleasePlayerEndEvent" numMembers="2" base="Event" assetId="6499173" isRecordPersistent="true" majorVersionCRC="1594681204" minorVersionCRC="-628924254">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6499173-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6499173-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

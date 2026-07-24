@@ -2530,10 +2530,11 @@ export default function Game() {
               off: game.team1Offense ?? storedUserRatings?.offense,
               def: game.team1Defense ?? storedUserRatings?.defense,
             }
+            const storedOppRatings = getTeamRatingsForYear(currentDynasty, oppTid, game.year)
             const oppRatings = {
-              ovr: game.team2Overall ?? game.opponentOverall,
-              off: game.team2Offense ?? game.opponentOffense,
-              def: game.team2Defense ?? game.opponentDefense,
+              ovr: game.team2Overall ?? game.opponentOverall ?? storedOppRatings?.overall,
+              off: game.team2Offense ?? game.opponentOffense ?? storedOppRatings?.offense,
+              def: game.team2Defense ?? game.opponentDefense ?? storedOppRatings?.defense,
             }
             const leftIsOpp = leftTeam !== 'user'
             const leftRatings = leftIsOpp ? oppRatings : userRatings
@@ -3827,10 +3828,11 @@ export default function Game() {
               off: game.team1Offense ?? storedUserRatings?.offense,
               def: game.team1Defense ?? storedUserRatings?.defense
             }
+            const storedOppRatings = getTeamRatingsForYear(currentDynasty, oppTid, game.year)
             const oppRatings = {
-              ovr: game.team2Overall ?? game.opponentOverall,
-              off: game.team2Offense ?? game.opponentOffense,
-              def: game.team2Defense ?? game.opponentDefense
+              ovr: game.team2Overall ?? game.opponentOverall ?? storedOppRatings?.overall,
+              off: game.team2Offense ?? game.opponentOffense ?? storedOppRatings?.offense,
+              def: game.team2Defense ?? game.opponentDefense ?? storedOppRatings?.defense
             }
             const leftIsOpponent = leftTeam !== 'user'
             const leftRatings = leftIsOpponent ? oppRatings : userRatings

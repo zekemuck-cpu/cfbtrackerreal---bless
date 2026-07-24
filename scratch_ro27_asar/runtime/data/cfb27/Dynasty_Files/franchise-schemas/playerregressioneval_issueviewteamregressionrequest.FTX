@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerRegressionEval_IssueViewTeamRegressionRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerRegressionEval_IssueViewTeamRegressionRequest" numMembers="3" base="none()" ownerAssetId="6498447" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1882179264" minorVersionCRC="1303547501">
+			<attribute name="User" idx="0" type="UserEntity" />
+			<attribute name="NumPlayers" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_RemovePlayerFromInjuredReserve.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_RemovePlayerFromInjuredReserve" numMembers="4" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="2122454602" minorVersionCRC="1029188975">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="decrementIRRemovalCount" idx="2" type="bool" default="True" />
+		</schema>
+	</schemas>
+</FranTkData>

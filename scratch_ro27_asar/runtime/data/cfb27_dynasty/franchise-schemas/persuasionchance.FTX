@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\PersuasionChance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PersuasionChance" numMembers="10" assetId="7739570" isRecordPersistent="true" majorVersionCRC="799796178" minorVersionCRC="1913748476">
+			<attribute name="Nope" idx="0" value="0" />
+			<attribute name="Slim" idx="1" value="1" />
+			<attribute name="Unlikely" idx="2" value="2" />
+			<attribute name="Doubtful" idx="3" value="3" />
+			<attribute name="Maybe" idx="4" value="4" />
+			<attribute name="Probably" idx="5" value="5" />
+			<attribute name="Likely" idx="6" value="6" />
+			<attribute name="HighlyLikely" idx="7" value="7" />
+			<attribute name="Definitely" idx="8" value="8" />
+			<attribute name="Invalid" idx="9" value="9" />
+		</enum>
+	</schemas>
+</FranTkData>

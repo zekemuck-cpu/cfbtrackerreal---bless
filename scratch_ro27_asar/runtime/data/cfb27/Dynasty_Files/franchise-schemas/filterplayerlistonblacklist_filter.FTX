@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FilterPlayerListOnBlacklist_Filter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FilterPlayerListOnBlacklist_Filter" numMembers="2" base="bool()" ownerAssetId="6572412" isRecordPersistent="true" isExpr="true" majorVersionCRC="1051887170" minorVersionCRC="1708124752">
+			<attribute name="Subject" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

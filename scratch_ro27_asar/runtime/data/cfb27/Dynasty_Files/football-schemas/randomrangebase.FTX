@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\RandomRangeBase.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\PropertySetterBase.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RandomRangeBase" numMembers="0" base="PropertySetterBase" assetId="6702161" isRecordPersistent="true" majorVersionCRC="-1634083187" minorVersionCRC="-630993380" />
+	</schemas>
+</FranTkData>

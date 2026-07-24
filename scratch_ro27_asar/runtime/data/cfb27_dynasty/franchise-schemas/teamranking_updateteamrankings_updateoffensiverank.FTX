@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TeamRanking_UpdateTeamRankings_UpdateOffensiveRank.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRanking_UpdateTeamRankings_UpdateOffensiveRank" numMembers="4" base="ModifierView" assetId="6499048" isRecordPersistent="true" majorVersionCRC="1373335096" minorVersionCRC="-205840996">
+			<attribute name="Formula" idx="0" type="TeamRanking_UpdateTeamRankings_UpdateOffensiveRank_Formula" guid="6499048-1931724" default="Subject.OffensiveRank = SubjectIndex;" />
+			<attribute name="Source" idx="1" type="TeamRanking_UpdateTeamRankings_SortOffense" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6499048-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

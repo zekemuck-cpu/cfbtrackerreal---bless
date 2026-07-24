@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\PlayerPosition.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerPosition" numMembers="12" base="Enum" assetId="6378024" isRecordPersistent="true" majorVersionCRC="1022185040" minorVersionCRC="-1624328453">
+			<attribute name="Description" idx="0" type="string" maxLen="213" />
+			<attribute name="DraftPosition" idx="1" type="PlayerAcquisitionPosition" />
+			<attribute name="LongName" idx="2" type="string" maxLen="17" />
+			<attribute name="Position" idx="3" type="PositionE" default="PositionE:QB" />
+			<attribute name="POSITION_ACTIVEMIN" idx="4" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="POSITION_IMPORTANCE" idx="5" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="POSITION_ORIENTATION" idx="6" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="POSITION_ROSTERMIN" idx="7" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="POSITION_SIGNIFPRESEASSTATVAL" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="POSITION_SIGNIFSTATVAL" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PositionGroup" idx="10" type="PositionGroup" />
+			<attribute name="ShortName" idx="11" type="string" maxLen="5" />
+		</schema>
+	</schemas>
+</FranTkData>

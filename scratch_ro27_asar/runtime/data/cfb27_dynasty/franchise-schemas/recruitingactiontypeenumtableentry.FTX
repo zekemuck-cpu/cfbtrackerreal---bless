@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingActionTypeEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingActionTypeEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="10" assetId="8632443" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1158" majorVersionCRC="860446969" minorVersionCRC="212296589">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="RecruitingActionType" default="RecruitingActionType:FIRST_ACTIVE_" />
+		</schema>
+	</schemas>
+</FranTkData>

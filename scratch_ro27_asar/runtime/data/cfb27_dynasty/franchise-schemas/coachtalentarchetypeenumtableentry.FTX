@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\CoachTalentArchetypeEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachTalentArchetypeEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="13" assetId="8828444" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="319" majorVersionCRC="2061883880" minorVersionCRC="-1261902435">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="CoachTalentArcheType" default="CoachTalentArcheType:Motivator" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CoachManager_DeleteStaffPerson.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachManager_DeleteStaffPerson" numMembers="2" base="none()" ownerAssetId="6495150" isRecordPersistent="true" isExpr="true" majorVersionCRC="-354068892" minorVersionCRC="771122754">
+			<attribute name="staffPerson" idx="0" type="StaffPerson" />
+		</schema>
+	</schemas>
+</FranTkData>

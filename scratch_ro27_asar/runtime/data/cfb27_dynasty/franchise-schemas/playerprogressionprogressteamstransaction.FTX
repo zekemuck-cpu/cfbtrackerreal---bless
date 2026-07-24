@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\PlayerProgressionProgressTeamsTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerProgressionProgressTeamsTransaction" numMembers="19" base="Transaction" assetId="9363534" isRecordPersistent="true" majorVersionCRC="-1146513500" minorVersionCRC="187155253">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="DoCalculateImpactPlayers" idx="1" type="bool" default="False" />
+			<attribute name="DoOffseasonProgression" idx="2" type="bool" default="False" />
+			<attribute name="IsBlocking" idx="3" type="bool" default="True" />
+			<attribute name="IsDone" idx="4" type="bool()" guid="9363534-1895538" />
+			<attribute name="IsDynamic" idx="5" type="bool" default="False" />
+			<attribute name="PlayerGradeEval" idx="6" type="PlayerGradeEval" />
+			<attribute name="PlayerProgressionEval" idx="7" type="PlayerProgressionEval" />
+			<attribute name="Process" idx="8" type="none()" guid="9363534-1895540" />
+			<attribute name="Sleep" idx="9" type="ITransaction_Sleep" guid="9363534-1895548" />
+			<attribute name="Start" idx="10" type="none()" guid="9363534-1895544" />
+			<attribute name="StartStage" idx="11" type="Stage" />
+			<attribute name="Team" idx="12" type="Team" />
+			<attribute name="TeamIndex" idx="13" type="int" minValue="0" maxValue="133" default="0" />
+			<attribute name="TeamsList" idx="14" type="Team[]" />
+			<attribute name="TimeScale" idx="15" type="float" default="0" />
+			<attribute name="TransitionPending" idx="16" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="17" type="Stage" />
+			<attribute name="UpdateStage" idx="18" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

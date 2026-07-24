@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_MarketingFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_MarketingFlow" numMembers="15" base="FranTkServer_Flow" assetId="6499323" isRecordPersistent="true" majorVersionCRC="-5254919" minorVersionCRC="134033520">
+			<attribute name="Form" idx="0" type="UIForm" />
+			<attribute name="FormManager" idx="1" type="FranTkServer_FormManager" />
+			<attribute name="GoalResultDescEnumTable" idx="2" type="EnumTable" />
+			<attribute name="MarketingAdvisorLogoID" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PlayerMarketingEval" idx="4" type="PlayerMarketingEval" />
+			<attribute name="RequestServer" idx="5" type="RequestServer" />
+			<attribute name="SeasonInfo" idx="6" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="7" type="SeasonManager" />
+			<attribute name="StringManager" idx="8" type="StringManager" />
+			<attribute name="TeamRevenueManager" idx="9" type="TeamRevenueManager" />
+			<attribute name="Teams" idx="10" type="Team[]" />
+			<attribute name="TeamValueComponentEnumTable" idx="11" type="EnumTable" />
+			<attribute name="TeamValueEval" idx="12" type="TeamValueEval" />
+			<attribute name="Tutorial" idx="13" type="TutorialInfo" />
+			<attribute name="UserRegistry" idx="14" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

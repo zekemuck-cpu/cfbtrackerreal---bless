@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalsEval_AssignSeasonalGoals.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalsEval_AssignSeasonalGoals" numMembers="2" base="none()" ownerAssetId="6495218" isRecordPersistent="true" isExpr="true" majorVersionCRC="-411645168" minorVersionCRC="1466567976">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Football-Schemas\StadiumGoalPostType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StadiumGoalPostType" numMembers="4" assetId="9221468" isRecordPersistent="true" majorVersionCRC="311701641" minorVersionCRC="1859049897">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="YStyle" idx="1" value="0" />
+			<attribute name="HStyle" idx="2" value="1" />
+			<attribute name="Max_" idx="3" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,43 @@
+<FranTkData fileName="Franchise-Schemas\PlayerMilestoneGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\PlayerGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerMilestoneGoal" numMembers="32" base="PlayerGoal" assetId="6494675" isRecordPersistent="true" majorVersionCRC="-1088918808" minorVersionCRC="-861217885">
+			<attribute name="AbilityRankType" idx="0" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="AchievementWeight" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CapBreakers" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CompleteEvalFrequency" idx="3" type="PlayerGoalEvalFrequency" default="PlayerGoalEvalFrequency:Weekly" />
+			<attribute name="ConfidenceTitle" idx="4" type="string" maxLen="41" />
+			<attribute name="ConfSpline" idx="5" type="Spline" />
+			<attribute name="Description" idx="6" type="string" maxLen="111" />
+			<attribute name="DevTraitChanceNormalToFast" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DevTraitChanceSlowToNormal" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ExperienceAward" idx="9" type="int" minValue="0" maxValue="75000" default="0" />
+			<attribute name="FromStats" idx="10" type="bool" default="False" />
+			<attribute name="GetConfidenceAward" idx="11" type="PlayerMilestoneGoal_GetConfidenceAward" guid="6494675-1912453" default="int confidenceaward = 0;&#xD;&#xA;confidenceaward;" />
+			<attribute name="GetExperienceAward" idx="12" type="PlayerMilestoneGoal_GetExperienceAward" guid="6494675-1912438" default="int award = 0;&#xD;&#xA;&#xD;&#xA;award;" />
+			<attribute name="GetLegacyScore" idx="13" type="PlayerMilestoneGoal_GetLegacyScore" guid="6494675-1912446" default="int legacyScore = LegacyScoreAward;&#xD;&#xA;&#xD;&#xA;legacyScore;" />
+			<attribute name="IconAssetId" idx="14" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="15" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="16" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="17" type="bool" default="True" />
+			<attribute name="LegacyScoreAward" idx="18" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="19" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="20" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="21" type="string" maxLen="31" />
+			<attribute name="MarketplaceRepeatableReward" idx="22" type="int" minValue="0" maxValue="60000" default="0" />
+			<attribute name="MarketplaceRepeatableRewardType" idx="23" type="MarketplaceRewardType" default="MarketplaceRewardType:Invalid" />
+			<attribute name="MarketplaceReward" idx="24" type="MarketplaceReward" />
+			<attribute name="MentalAbilityType" idx="25" type="MentalAbilities" default="MentalAbilities:None" />
+			<attribute name="PlayerAgeSpline" idx="26" type="Spline" />
+			<attribute name="PlayerOverallSpline" idx="27" type="Spline" />
+			<attribute name="PositionCategory" idx="28" type="PositionCategory" default="PositionCategory:All" />
+			<attribute name="PositionSignatureAbilityReward" idx="29" type="PositionSignatureAbility" />
+			<attribute name="SendEvent" idx="30" type="bool" default="False" />
+			<attribute name="Title" idx="31" type="string" maxLen="51" />
+		</schema>
+	</schemas>
+</FranTkData>

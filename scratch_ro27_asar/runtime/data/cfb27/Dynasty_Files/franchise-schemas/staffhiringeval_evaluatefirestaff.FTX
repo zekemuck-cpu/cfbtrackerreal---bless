@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_EvaluateFireStaff.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_EvaluateFireStaff" numMembers="2" base="none()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="-660027368" minorVersionCRC="186785050">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\ScheduleKnownGame.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScheduleKnownGame" numMembers="9" defaultStoreCapacity="890" assetId="6770451" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1916624112" minorVersionCRC="850895983">
+			<attribute name="AwayTeam" idx="0" type="Team" />
+			<attribute name="DayOfWeek" idx="1" type="DayOfWeek" default="DayOfWeek:Sunday" />
+			<attribute name="HomeTeam" idx="2" type="Team" />
+			<attribute name="IsEnabled" idx="3" type="bool" default="True" />
+			<attribute name="IsKickoffGame" idx="4" type="bool" default="False" />
+			<attribute name="SeasonWeek" idx="5" type="int" minValue="0" maxValue="14" default="0" />
+			<attribute name="SeasonWeekType" idx="6" type="SeasonWeekType" default="SeasonWeekType:RegularSeason" />
+			<attribute name="Stadium" idx="7" type="Stadium" />
+			<attribute name="TimeOfDayEnum" idx="8" type="GameTimeRange" default="GameTimeRange:INVALID" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffers_SortByInterestLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffers_SortByInterestLevel" numMembers="6" base="SorterView" assetId="6539663" isRecordPersistent="true" majorVersionCRC="-1316909692" minorVersionCRC="-1141094333">
+			<attribute name="Clear" idx="0" type="none()" guid="6539663-1937749" />
+			<attribute name="Comparator" idx="1" type="EvaluateContractOffers_SortByInterestLevel_Comparator" guid="6539663-1935273" default="Subject.PlayerInterest - OtherSubject.PlayerInterest;" />
+			<attribute name="Results" idx="2" type="ContractOffer[]" />
+			<attribute name="Source" idx="3" type="EvaluateContractOffers_FilterOnInterest" />
+			<attribute name="Subjects" idx="4" type="ContractOffer[]" />
+			<attribute name="Update" idx="5" type="none()" guid="6539663-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CareerFlow_MetersUpdateReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerFlow_MetersUpdateReaction" numMembers="4" base="Reaction" assetId="9191449" isRecordPersistent="true" majorVersionCRC="1700721900" minorVersionCRC="1993419770">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="MetersUpdateEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="9191449-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

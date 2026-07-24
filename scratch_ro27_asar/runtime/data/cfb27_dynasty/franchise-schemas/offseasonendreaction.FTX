@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\OffseasonEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OffseasonEndReaction" numMembers="14" base="Reaction" assetId="6499144" isRecordPersistent="true" majorVersionCRC="649467304" minorVersionCRC="-256756986">
+			<attribute name="CoachRetirementEval" idx="0" type="CoachRetirementEval" />
+			<attribute name="CreatePracticeView" idx="1" type="CreatePracticeActionItems" />
+			<attribute name="EventRecord" idx="2" type="OffseasonEndEvent" />
+			<attribute name="FranchiseRef" idx="3" type="Franchise" />
+			<attribute name="Handle" idx="4" type="bool()" guid="6499144-1895461" />
+			<attribute name="PlayerRetirementEval" idx="5" type="PlayersLeavingEval" />
+			<attribute name="PracticeEval" idx="6" type="PracticeEval" />
+			<attribute name="Priority" idx="7" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="RosterModule" idx="8" type="OffSeasonRosterAdjustment" />
+			<attribute name="SeasonInfo" idx="9" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="10" type="SeasonManager" />
+			<attribute name="TeamRequestManager" idx="11" type="TeamRequestManager" />
+			<attribute name="TeamValueTransaction" idx="12" type="TeamValueUpdateTransaction" />
+			<attribute name="Transaction" idx="13" type="AdvanceSeasonWeekTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

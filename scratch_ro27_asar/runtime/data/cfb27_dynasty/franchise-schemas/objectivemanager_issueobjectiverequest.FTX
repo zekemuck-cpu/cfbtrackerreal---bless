@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\ObjectiveManager_IssueObjectiveRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ObjectiveManager_IssueObjectiveRequest" numMembers="4" base="none()" ownerAssetId="6495214" isRecordPersistent="true" isExpr="true" majorVersionCRC="-549032800" minorVersionCRC="2122441092">
+			<attribute name="newObjective" idx="0" type="bool" default="False" />
+			<attribute name="updatedObjective" idx="1" type="bool" default="False" />
+			<attribute name="userEntity" idx="2" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

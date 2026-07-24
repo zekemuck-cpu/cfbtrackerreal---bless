@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\GeneratorTuningData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GeneratorTuningData" numMembers="1" assetId="6686873" isRecordPersistent="true" majorVersionCRC="-782610858" minorVersionCRC="604532816">
+			<attribute name="Generator" idx="0" type="RandomAssetGenerator" />
+		</schema>
+	</schemas>
+</FranTkData>

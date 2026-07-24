@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\WR2PtStancesSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WR2PtStancesSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="21" assetId="11335174" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="281" majorVersionCRC="1735220324" minorVersionCRC="-2025929619">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="WR2PtStance" default="WR2PtStance:Default" />
+		</schema>
+	</schemas>
+</FranTkData>

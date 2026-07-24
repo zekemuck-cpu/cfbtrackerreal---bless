@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\GoalTypeEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalTypeEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="12" assetId="6571209" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1112" majorVersionCRC="558514596" minorVersionCRC="-1190601897">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="GoalType" default="GoalType:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

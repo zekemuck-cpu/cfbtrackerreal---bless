@@ -1,0 +1,33 @@
+<FranTkData fileName="Franchise-Schemas\MarketplaceRewardConfig.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MarketplaceRewardConfig" numMembers="26" defaultStoreCapacity="1" assetId="6494932" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1681772760" minorVersionCRC="-970815215">
+			<attribute name="LargeCredIcon" idx="0" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="LargeCredValue" idx="1" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="LargeGlobalRepIcon" idx="2" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="LargeGlobalRepValue" idx="3" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="LargePlayerRepIcon" idx="4" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="LargePlayerRepValue" idx="5" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="MediumCredIcon" idx="6" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="MediumCredValue" idx="7" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="MediumGlobalRepIcon" idx="8" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="MediumGlobalRepValue" idx="9" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="MediumPlayerRepIcon" idx="10" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="MediumPlayerRepValue" idx="11" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="PlayerClassRepIcon" idx="12" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="PlayerClassRepValue" idx="13" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="SmallCredIcon" idx="14" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="SmallCredValue" idx="15" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="SmallGlobalRepIcon" idx="16" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="SmallGlobalRepValue" idx="17" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="SmallPlayerRepIcon" idx="18" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="SmallPlayerRepValue" idx="19" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="XtraLargeCredIcon" idx="20" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="XtraLargeCredValue" idx="21" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="XtraLargeGlobalRepIcon" idx="22" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="XtraLargeGlobalRepValue" idx="23" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="XtraLargePlayerRepIcon" idx="24" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="XtraLargePlayerRepValue" idx="25" type="int" minValue="0" maxValue="65535" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

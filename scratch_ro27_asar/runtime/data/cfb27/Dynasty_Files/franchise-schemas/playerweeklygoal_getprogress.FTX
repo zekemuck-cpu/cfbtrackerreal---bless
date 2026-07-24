@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\PlayerWeeklyGoal_GetProgress.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerWeeklyGoal_GetProgress" numMembers="7" base="int()" ownerAssetId="6536970" isRecordPersistent="true" isExpr="true" majorVersionCRC="668127535" minorVersionCRC="-419922359">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="team" idx="1" type="Team" />
+			<attribute name="playerGameStats" idx="2" type="GameStats" />
+			<attribute name="teamGameStats" idx="3" type="TeamStats" />
+			<attribute name="opposingTeamGameStats" idx="4" type="TeamStats" />
+			<attribute name="evalInfo" idx="5" type="PlayerGoalEvalInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

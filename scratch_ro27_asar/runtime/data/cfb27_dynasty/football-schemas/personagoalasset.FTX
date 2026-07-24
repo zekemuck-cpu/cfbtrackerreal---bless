@@ -1,0 +1,6 @@
+<!--SCHEMAS-->
+<schemas>
+	<enum name="PersonaGoalAsset" numMembers="1" assetId="12853545" isRecordPersistent="true">
+		<attribute name="DurationSeasonDummyGoal" idx="0" value="0" />
+	</enum>
+</schemas>

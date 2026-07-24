@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\ReSignNegotiationManager_WaitOnOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReSignNegotiationManager_WaitOnOffer" numMembers="2" base="none()" ownerAssetId="6495334" isRecordPersistent="true" isExpr="true" majorVersionCRC="-376156728" minorVersionCRC="936153954">
+			<attribute name="contractNegotiation" idx="0" type="PlayerReSignNegotiation" />
+		</schema>
+	</schemas>
+</FranTkData>

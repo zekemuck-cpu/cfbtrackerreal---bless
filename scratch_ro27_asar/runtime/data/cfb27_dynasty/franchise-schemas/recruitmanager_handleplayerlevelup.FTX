@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitManager_HandlePlayerLevelUp.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitManager_HandlePlayerLevelUp" numMembers="2" base="none()" ownerAssetId="6733442" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2133319314" minorVersionCRC="-228598059">
+			<attribute name="event" idx="0" type="PlayerLevelUpEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

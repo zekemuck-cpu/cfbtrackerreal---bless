@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\FootballRecordScope.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="FootballRecordScope" numMembers="6" assetId="8556928" isRecordPersistent="true" majorVersionCRC="1482246588" minorVersionCRC="-1820193058">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="League" idx="1" value="0" />
+			<attribute name="Team" idx="2" value="1" />
+			<attribute name="Conference" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="2" />
+			<attribute name="Invalid_" idx="5" value="10" />
+		</enum>
+	</schemas>
+</FranTkData>

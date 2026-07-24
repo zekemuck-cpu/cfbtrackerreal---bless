@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\RecruitStatusUpdateEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitStatusUpdateEvent" numMembers="5" base="Event" defaultStoreCapacity="33" assetId="9071443" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="725860321" minorVersionCRC="-1287280952">
+			<attribute name="Enqueue" idx="0" type="none()" guid="9071443-1895458" final="true" />
+			<attribute name="Recruit" idx="1" type="Recruit" />
+			<attribute name="RecruitingStatus" idx="2" type="RecruitTransactionUpdate" default="RecruitTransactionUpdate:SoftCommitted" />
+			<attribute name="Send" idx="3" type="none()" guid="9071443-1895455" final="true" />
+			<attribute name="Team" idx="4" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

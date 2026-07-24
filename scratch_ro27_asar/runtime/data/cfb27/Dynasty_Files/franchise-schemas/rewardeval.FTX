@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\RewardEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RewardEval" numMembers="3" base="Module" assetId="6499231" isRecordPersistent="true" majorVersionCRC="1343338118" minorVersionCRC="-2048670010">
+			<attribute name="HandleIncreaseUserLegacyScoreEvent" idx="0" type="RewardEval_HandleIncreaseUserLegacyScoreEvent" guid="6499231-1936620" final="true" />
+			<attribute name="HandleStoryArcChangeCharacterDataEvent" idx="1" type="RewardEval_HandleStoryArcChangeCharacterDataEvent" guid="6499231-1936616" final="true" />
+			<attribute name="UserRegistry" idx="2" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

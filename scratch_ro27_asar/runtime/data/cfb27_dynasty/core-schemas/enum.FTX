@@ -1,0 +1,6 @@
+<FranTkData fileName="Core-Schemas\Enum.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Enum" numMembers="0" assetId="24" isRecordPersistent="true" majorVersionCRC="1629313587" minorVersionCRC="-1669266039" />
+	</schemas>
+</FranTkData>

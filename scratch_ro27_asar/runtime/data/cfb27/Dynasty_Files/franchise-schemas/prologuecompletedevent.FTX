@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PrologueCompletedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PrologueCompletedEvent" numMembers="3" base="Event" assetId="6498936" isRecordPersistent="true" majorVersionCRC="1628920628" minorVersionCRC="-1996857145">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498936-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6498936-1895455" final="true" />
+			<attribute name="User" idx="2" type="User" />
+		</schema>
+	</schemas>
+</FranTkData>

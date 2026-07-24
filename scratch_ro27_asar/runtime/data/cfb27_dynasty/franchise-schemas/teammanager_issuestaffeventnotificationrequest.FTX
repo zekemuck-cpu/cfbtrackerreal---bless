@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_IssueStaffEventNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_IssueStaffEventNotificationRequest" numMembers="4" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1920672948" minorVersionCRC="-1167978470">
+			<attribute name="contractOffer" idx="0" type="StaffPersonContractOffer" />
+			<attribute name="eventType" idx="1" type="StaffEventType" default="StaffEventType:Hired" />
+			<attribute name="requestReceiver" idx="2" type="StaffPerson" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,55 @@
+<FranTkData fileName="Franchise-Schemas\DraftManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftManager" numMembers="48" base="Module" assetId="6498521" isRecordPersistent="true" majorVersionCRC="595669308" minorVersionCRC="-1391318858">
+			<attribute name="AddPickToDisabledPicks" idx="0" type="DraftManager_AddPickToDisabledPicks" guid="6498521-1925407" final="true" />
+			<attribute name="AdvanceDraftWeek" idx="1" type="none()" guid="6498521-1925370" final="true" />
+			<attribute name="AdvanceDraftYear" idx="2" type="none()" guid="6498521-1925360" final="true" />
+			<attribute name="AdvancePick" idx="3" type="bool()" guid="6498521-1925345" final="true" default=";" />
+			<attribute name="BeginDraft" idx="4" type="DraftManager_BeginDraft" guid="6498521-1925338" final="true" default=";&#xD;&#xA;" />
+			<attribute name="BeginDraftEvent" idx="5" type="Draft_BeginDraftEvent" />
+			<attribute name="BeginMockDraft" idx="6" type="none()" guid="6498521-1925423" final="true" default="DraftInfo.IsDisablePicks = true;&#xD;&#xA;DraftInfo.IsDisableTrading = true;&#xD;&#xA;DraftInfo.IsInputDisabled = true;&#xD;&#xA;DraftTransactionV2.Start();&#xD;&#xA;" />
+			<attribute name="BeginPickEvent" idx="7" type="Draft_BeginPickEvent" />
+			<attribute name="BeginRoundEvent" idx="8" type="Draft_BeginRoundEvent" />
+			<attribute name="BeginStageEvent" idx="9" type="Draft_BeginStageEvent" />
+			<attribute name="BeginYear" idx="10" type="none()" guid="6498521-1925392" final="true" default=";" />
+			<attribute name="CreateDraftReCapRequest" idx="11" type="Draft_ReCapDraftRequest()" guid="6498521-1925349" final="true" default=";" />
+			<attribute name="DraftClassEditEvent" idx="12" type="DraftClassEditEvent" />
+			<attribute name="DraftFlowForm" idx="13" type="UIFlowForm" />
+			<attribute name="DraftInfo" idx="14" type="DraftInfo" />
+			<attribute name="DraftPickOrder" idx="15" type="DraftPick[]" />
+			<attribute name="DraftPickRequest" idx="16" type="UIRequestForm" />
+			<attribute name="DraftPicks" idx="17" type="DraftPick[]" />
+			<attribute name="DraftPlayer" idx="18" type="DraftManager_DraftPlayer" guid="6498521-1925333" final="true" default=";" />
+			<attribute name="DraftPlayerEvent" idx="19" type="Draft_DraftPlayerEvent" />
+			<attribute name="DraftPlayerV2" idx="20" type="DraftManager_DraftPlayerV2" guid="6498521-1925418" final="true" default=";" />
+			<attribute name="DraftTransactionV2" idx="21" type="DraftTransactionV2" />
+			<attribute name="EndDraft" idx="22" type="none()" guid="6498521-1925342" final="true" default=";&#xD;&#xA;" />
+			<attribute name="EndDraftEvent" idx="23" type="Draft_EndDraftEvent" />
+			<attribute name="EndDraftV2" idx="24" type="none()" guid="6498521-1925415" final="true" default=";&#xD;&#xA;" />
+			<attribute name="EndPickEvent" idx="25" type="Draft_EndPickEvent" />
+			<attribute name="EndRoundEvent" idx="26" type="Draft_EndRoundEvent" />
+			<attribute name="EndStageEvent" idx="27" type="Draft_EndStageEvent" />
+			<attribute name="FantasyPickTimePerStage" idx="28" type="int[]" />
+			<attribute name="ForceDraftPlayer" idx="29" type="DraftManager_ForceDraftPlayer" guid="6498521-1925400" final="true" default=";" />
+			<attribute name="Franchise" idx="30" type="Franchise" />
+			<attribute name="GetNextPick" idx="31" type="DraftPick()" guid="6498521-1925386" final="true" default=";" />
+			<attribute name="GetPickOrderView" idx="32" type="DraftManager_GetPickOrderView" />
+			<attribute name="GetPicksPerRound" idx="33" type="int()" guid="6498521-1925389" final="true" default=";" />
+			<attribute name="GetPlayerOverallDraftPick" idx="34" type="DraftManager_GetPlayerOverallDraftPick" guid="6498521-1925382" final="true" default=";&#xD;&#xA;" />
+			<attribute name="HandleTradeCurrentPick" idx="35" type="DraftManager_HandleTradeCurrentPick" guid="6498521-1925363" final="true" default=";&#xD;&#xA;" />
+			<attribute name="PauseDraft" idx="36" type="none()" guid="6498521-1925374" final="true" default=";&#xD;&#xA;" />
+			<attribute name="PauseDraftEvent" idx="37" type="Draft_PauseDraftEvent" />
+			<attribute name="PickTimePerRound" idx="38" type="int[]" />
+			<attribute name="PlayerContractManager" idx="39" type="PlayerContractManager" />
+			<attribute name="PlayerManager" idx="40" type="PlayerManager" />
+			<attribute name="RemovePlayerFromDraftBoard" idx="41" type="DraftManager_RemovePlayerFromDraftBoard" guid="6498521-1925353" final="true" />
+			<attribute name="ResumeDraft" idx="42" type="none()" guid="6498521-1925377" final="true" default=";&#xD;&#xA;" />
+			<attribute name="ResumeDraftEvent" idx="43" type="Draft_ResumeDraftEvent" />
+			<attribute name="SeasonInfo" idx="44" type="SeasonInfo" />
+			<attribute name="SignatureAbilitiesEval" idx="45" type="SignatureAbilitiesEval" />
+			<attribute name="TeamManager" idx="46" type="TeamManager" />
+			<attribute name="TradeCurrentPickEvent" idx="47" type="Draft_TradeCurrentPickEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

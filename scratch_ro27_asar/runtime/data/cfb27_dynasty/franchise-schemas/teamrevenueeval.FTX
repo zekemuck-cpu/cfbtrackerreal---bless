@@ -1,0 +1,37 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueEval" numMembers="30" base="Module" assetId="6498983" isRecordPersistent="true" majorVersionCRC="1360069570" minorVersionCRC="1354098194">
+			<attribute name="CutDayEval" idx="0" type="CutDayEval" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="HandleCoachGoalComplete" idx="2" type="TeamRevenueEval_HandleCoachGoalComplete" guid="6498983-2360203" final="true" />
+			<attribute name="HandleContractGoalComplete" idx="3" type="TeamRevenueEval_HandleContractGoalComplete" guid="6498983-2590270" final="true" />
+			<attribute name="HandleOffseasonStart" idx="4" type="none()" guid="6498983-2620075" final="true" />
+			<attribute name="HandlePlayersLeavingEndOfSeasonStart" idx="5" type="TeamRevenueEval_HandlePlayersLeavingEndOfSeasonStart" guid="6498983-2643116" final="true" />
+			<attribute name="HandlePreseasonStart" idx="6" type="TeamRevenueEval_HandlePreseasonStart" guid="6498983-2647045" final="true" />
+			<attribute name="HandleSeason_BeginWeek" idx="7" type="TeamRevenueEval_HandleSeason_BeginWeek" guid="6498983-1931207" final="true" />
+			<attribute name="HandleSeason_EndWeek" idx="8" type="TeamRevenueEval_HandleSeason_EndWeek" guid="6498983-1931211" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="9" type="TeamRevenueEval_HandleUpdatePlayerContractStatus" guid="6498983-2736019" final="true" />
+			<attribute name="HandleUserRegistered" idx="10" type="TeamRevenueEval_HandleUserRegistered" guid="6498983-2736165" final="true" />
+			<attribute name="IssueViewBudgetRequestToUser" idx="11" type="TeamRevenueEval_IssueViewBudgetRequestToUser" guid="6498983-2647041" />
+			<attribute name="LeagueSetting" idx="12" type="LeagueSetting" />
+			<attribute name="ManageFacilitiesResponse" idx="13" type="ResponseForm" />
+			<attribute name="ManageRostersNILResponse" idx="14" type="ResponseForm" />
+			<attribute name="PlayerManager" idx="15" type="PlayerManager" />
+			<attribute name="PlayerMarketingEval" idx="16" type="PlayerMarketingEval" />
+			<attribute name="PlayersLeavingEval" idx="17" type="record" />
+			<attribute name="ProgramPointsResponse" idx="18" type="ResponseForm" />
+			<attribute name="ProgramPointsTuning" idx="19" type="ProgramPointsTuning" />
+			<attribute name="SeasonInfo" idx="20" type="SeasonInfo" />
+			<attribute name="SeasonScheduleManager" idx="21" type="SeasonScheduleManager" />
+			<attribute name="StaffHiringEval" idx="22" type="StaffHiringEval" />
+			<attribute name="TalentTreeEvalRef" idx="23" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="24" type="TeamManager" />
+			<attribute name="TeamRevenueManager" idx="25" type="TeamRevenueManager" />
+			<attribute name="TeamUpgradeEffectsUpdatedEvent" idx="26" type="TeamUpgradeEffectsUpdatedEvent" />
+			<attribute name="UpdateSeasonalBudgets" idx="27" type="none()" guid="6498983-2736119" final="true" />
+			<attribute name="UserRegistry" idx="28" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="29" type="none()" guid="6498983-1931293" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

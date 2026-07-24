@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\ChallengesEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ChallengesEval" numMembers="17" base="Module" defaultStoreCapacity="1" assetId="10603605" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1442114764" minorVersionCRC="422263169">
+			<attribute name="BonusChallenges" idx="0" type="PlayerPositionLookupTable" />
+			<attribute name="ChallengeGameDelegateResponse" idx="1" type="UISelectForm" />
+			<attribute name="ChallengeGamePlayResponse" idx="2" type="UIFlowForm" />
+			<attribute name="ChallengeInterestEnumTable" idx="3" type="EnumTable" />
+			<attribute name="Challenges" idx="4" type="ChallengeTierGroup[]" />
+			<attribute name="ChallengesSchedule" idx="5" type="ChallengesWeek[]" />
+			<attribute name="ChallengesTuning" idx="6" type="ChallengesTuning" />
+			<attribute name="DebugModule" idx="7" type="FranchiseDebugModule" />
+			<attribute name="EasyTeamChallenges" idx="8" type="ChallengeTierGroup[]" />
+			<attribute name="HardTeamChallenges" idx="9" type="ChallengeTierGroup[]" />
+			<attribute name="HighSchoolRecruitingTunables" idx="10" type="HighSchoolRecruitingTunables" />
+			<attribute name="IssueChallengeGameRequest" idx="11" type="ChallengesEval_IssueChallengeGameRequest" guid="10603605-2411032" final="true" default="ChallengeGameRequest request = new ChallengeGameRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 1;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;&#xD;&#xA;// Set the request data.&#xD;&#xA;request.RequestData = seasonGame;&#xD;&#xA;request.NarrativePlayerRef = narrativePlayer;&#xD;&#xA;request.ChallengesEvalRef = this;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[2];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(ChallengeGamePlayResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.DefaultResponse = ChallengeGameDelegateResponse;&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="LeagueSetting" idx="12" type="LeagueSetting" />
+			<attribute name="MediumTeamChallenges" idx="13" type="ChallengeTierGroup[]" />
+			<attribute name="PrestigeTeamChallengeListSpline" idx="14" type="Spline" />
+			<attribute name="ProcessChallengeGameRequest" idx="15" type="ChallengesEval_ProcessChallengeGameRequest" guid="10603605-2437176" final="true" />
+			<attribute name="Random" idx="16" type="Random" />
+		</schema>
+	</schemas>
+</FranTkData>

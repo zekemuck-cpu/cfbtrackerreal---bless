@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTypeInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTypeInfo" numMembers="5" base="EnumTableEntry" defaultStoreCapacity="47" assetId="6662796" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="4174" majorVersionCRC="-1722023814" minorVersionCRC="836738423">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="Position" idx="2" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="ShortName" idx="3" type="string" maxLen="33" />
+			<attribute name="Value" idx="4" type="PlayerType" default="PlayerType:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

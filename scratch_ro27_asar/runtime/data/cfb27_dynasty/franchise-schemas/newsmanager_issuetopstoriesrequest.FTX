@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\NewsManager_IssueTopStoriesRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsManager_IssueTopStoriesRequest" numMembers="2" base="int()" ownerAssetId="6499038" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1929291811" minorVersionCRC="-131633504">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

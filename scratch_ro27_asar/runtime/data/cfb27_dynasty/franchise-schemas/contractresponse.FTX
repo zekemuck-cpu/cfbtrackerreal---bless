@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\ContractResponse.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ContractResponse" numMembers="5" assetId="5699592" isRecordPersistent="true" majorVersionCRC="1277197900" minorVersionCRC="-599099727">
+			<attribute name="Accepted" idx="0" type="bool" default="False" />
+			<attribute name="ContractBonus" idx="1" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="ContractLength" idx="2" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="ContractSalary" idx="3" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Player" idx="4" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

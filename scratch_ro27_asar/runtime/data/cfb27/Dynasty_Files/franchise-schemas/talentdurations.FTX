@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TalentDurations.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TalentDurations" numMembers="5" assetId="6377731" isRecordPersistent="true" majorVersionCRC="1117325344" minorVersionCRC="1734612491">
+			<attribute name="Normal" idx="0" value="0" />
+			<attribute name="Instant" idx="1" value="1" />
+			<attribute name="Game" idx="2" value="2" />
+			<attribute name="Week" idx="3" value="3" />
+			<attribute name="Season" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\ActivityType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ActivityType" numMembers="5" assetId="6377581" isRecordPersistent="true" majorVersionCRC="290462191" minorVersionCRC="2121267535">
+			<attribute name="Confidence" idx="0" value="0" />
+			<attribute name="XP" idx="1" value="1" />
+			<attribute name="Drill" idx="2" value="2" />
+			<attribute name="Max" idx="3" value="3" />
+			<attribute name="Invalid" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

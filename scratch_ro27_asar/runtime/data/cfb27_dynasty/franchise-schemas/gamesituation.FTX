@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\GameSituation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameSituation" numMembers="6" defaultStoreCapacity="1" assetId="6498819" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="184" majorVersionCRC="-432307232" minorVersionCRC="402502542">
+			<attribute name="Difficulty" idx="0" type="Difficulty" default="Difficulty:Easy" />
+			<attribute name="GameGoal" idx="1" type="GameGoal" />
+			<attribute name="GameSetup" idx="2" type="GameSetup" />
+			<attribute name="IsOffensiveSituation" idx="3" type="bool" default="True" />
+			<attribute name="SituationDescription" idx="4" type="string" maxLen="331" />
+			<attribute name="Title" idx="5" type="string" maxLen="41" />
+		</schema>
+	</schemas>
+</FranTkData>

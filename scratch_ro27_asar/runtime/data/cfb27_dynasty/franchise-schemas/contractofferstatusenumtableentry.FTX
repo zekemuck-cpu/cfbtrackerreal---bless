@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\ContractOfferStatusEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ContractOfferStatusEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="5" assetId="6571275" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="132" majorVersionCRC="-1455381665" minorVersionCRC="959335432">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="ContractOfferStatus" default="ContractOfferStatus:Accepted" />
+		</schema>
+	</schemas>
+</FranTkData>

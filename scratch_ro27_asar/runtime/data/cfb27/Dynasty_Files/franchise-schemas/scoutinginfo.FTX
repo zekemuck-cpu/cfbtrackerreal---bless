@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\ScoutingInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScoutingInfo" numMembers="21" assetId="6378647" isRecordPersistent="true" majorVersionCRC="-1157510256" minorVersionCRC="634260043">
+			<attribute name="C" idx="0" type="ScoutingPositionInfo" />
+			<attribute name="CB" idx="1" type="ScoutingPositionInfo" />
+			<attribute name="DT" idx="2" type="ScoutingPositionInfo" />
+			<attribute name="FB" idx="3" type="ScoutingPositionInfo" />
+			<attribute name="FS" idx="4" type="ScoutingPositionInfo" />
+			<attribute name="HB" idx="5" type="ScoutingPositionInfo" />
+			<attribute name="K" idx="6" type="ScoutingPositionInfo" />
+			<attribute name="LE" idx="7" type="ScoutingPositionInfo" />
+			<attribute name="LG" idx="8" type="ScoutingPositionInfo" />
+			<attribute name="LOLB" idx="9" type="ScoutingPositionInfo" />
+			<attribute name="LT" idx="10" type="ScoutingPositionInfo" />
+			<attribute name="MLB" idx="11" type="ScoutingPositionInfo" />
+			<attribute name="P" idx="12" type="ScoutingPositionInfo" />
+			<attribute name="QB" idx="13" type="ScoutingPositionInfo" />
+			<attribute name="RE" idx="14" type="ScoutingPositionInfo" />
+			<attribute name="RG" idx="15" type="ScoutingPositionInfo" />
+			<attribute name="ROLB" idx="16" type="ScoutingPositionInfo" />
+			<attribute name="RT" idx="17" type="ScoutingPositionInfo" />
+			<attribute name="SS" idx="18" type="ScoutingPositionInfo" />
+			<attribute name="TE" idx="19" type="ScoutingPositionInfo" />
+			<attribute name="WR" idx="20" type="ScoutingPositionInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

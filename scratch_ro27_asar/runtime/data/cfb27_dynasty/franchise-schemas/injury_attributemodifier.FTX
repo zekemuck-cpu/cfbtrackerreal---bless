@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\Injury_AttributeModifier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Injury_AttributeModifier" numMembers="3" defaultStoreCapacity="450" assetId="6498456" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1937554785" minorVersionCRC="1783948527">
+			<attribute name="InjuryType" idx="0" type="InjuryType" default="InjuryType:AnkleBruise" />
+			<attribute name="PlayerAttribute" idx="1" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="Value" idx="2" type="float" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\IssueTeamDraftBoardRequestsView_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="IssueTeamDraftBoardRequestsView_Formula" numMembers="3" base="none()" ownerAssetId="6495399" isRecordPersistent="true" isExpr="true" majorVersionCRC="1617468425" minorVersionCRC="-999233293">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

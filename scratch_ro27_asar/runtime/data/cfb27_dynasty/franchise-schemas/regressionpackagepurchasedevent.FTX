@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\RegressionPackagePurchasedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RegressionPackagePurchasedEvent" numMembers="8" base="Event" assetId="6494668" isRecordPersistent="true" majorVersionCRC="1099478266" minorVersionCRC="1273397377">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6494668-1895458" final="true" />
+			<attribute name="oldAttributeValue" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="oldOVRValue" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Package" idx="3" type="record" />
+			<attribute name="packageCost" idx="4" type="int" minValue="0" maxValue="50000" default="0" />
+			<attribute name="Person" idx="5" type="UserEntity" />
+			<attribute name="Send" idx="6" type="none()" guid="6494668-1895455" final="true" />
+			<attribute name="Team" idx="7" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_UnregisterUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_UnregisterUserReaction" numMembers="4" base="Reaction" assetId="9223454" isRecordPersistent="true" majorVersionCRC="-52753714" minorVersionCRC="1806201572">
+			<attribute name="EventRecord" idx="0" type="UnregisterUserEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="9223454-1895461" />
+			<attribute name="Module" idx="2" type="RecruitingEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

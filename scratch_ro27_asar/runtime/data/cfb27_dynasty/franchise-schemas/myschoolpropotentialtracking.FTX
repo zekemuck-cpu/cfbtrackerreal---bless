@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolProPotentialTracking.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolProPotentialTracking" numMembers="2" defaultStoreCapacity="1" assetId="6816600" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2046381736" minorVersionCRC="-700087691">
+			<attribute name="LetterGrade" idx="0" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="RoundDraftPicks" idx="1" type="record[]" />
+		</schema>
+	</schemas>
+</FranTkData>

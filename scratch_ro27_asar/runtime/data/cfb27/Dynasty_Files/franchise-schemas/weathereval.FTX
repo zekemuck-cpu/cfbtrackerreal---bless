@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\WeatherEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\FootballWeatherEval.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WeatherEval" numMembers="12" base="FootballWeatherEval" assetId="6498676" isRecordPersistent="true" majorVersionCRC="-626884880" minorVersionCRC="-743229716">
+			<attribute name="CanRain" idx="0" type="WeatherEval_CanRain" guid="6498676-1925932" final="true" />
+			<attribute name="CanSnow" idx="1" type="WeatherEval_CanSnow" guid="6498676-1925926" final="true" />
+			<attribute name="Franchise" idx="2" type="Franchise" />
+			<attribute name="HandleSeasonGameEvent" idx="3" type="WeatherEval_HandleSeasonGameEvent" guid="6498676-2404025" final="true" />
+			<attribute name="LightBreezeValue" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ModerateBreezeValue" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RandomRef" idx="6" type="Random" />
+			<attribute name="ScheduleManager" idx="7" type="SeasonScheduleManager" />
+			<attribute name="SeasonInfo" idx="8" type="SeasonInfo" />
+			<attribute name="StadiumEval" idx="9" type="StadiumEval" />
+			<attribute name="ValidateExpressions" idx="10" type="none()" guid="6498676-1925922" final="true" />
+			<attribute name="VeryWindyValue" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

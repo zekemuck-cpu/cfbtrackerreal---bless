@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\SignDraftedPlayersView.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignDraftedPlayersView" numMembers="8" base="ModifierView" assetId="6615582" isRecordPersistent="true" majorVersionCRC="1482609724" minorVersionCRC="130521152">
+			<attribute name="DraftManagerRef" idx="0" type="DraftManager" />
+			<attribute name="Formula" idx="1" type="SignDraftedPlayersView_Formula" guid="6615582-1939313" default="Player player = Subject;&#xD;&#xA;&#xD;&#xA;// Determine this player's overall pick.&#xD;&#xA;int overallPick = DraftManagerRef.GetPlayerOverallDraftPick(player);&#xD;&#xA;&#xD;&#xA;// Create a contract for this player based on his overall pick.&#xD;&#xA;PlayerContract playerContract = PlayerContractManagerRef.CreateDraftedRookieContract(overallPick);&#xD;&#xA;&#xD;&#xA;// Sign the player.&#xD;&#xA;TeamManagerRef.SignPlayer(Team, player, playerContract);&#xD;&#xA;" />
+			<attribute name="PlayerContractManagerRef" idx="2" type="PlayerContractManager" />
+			<attribute name="Source" idx="3" type="record" />
+			<attribute name="Subjects" idx="4" type="Player[]" />
+			<attribute name="Team" idx="5" type="Team" />
+			<attribute name="TeamManagerRef" idx="6" type="TeamManager" />
+			<attribute name="Update" idx="7" type="none()" guid="6615582-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_HandleOffSeasonStart.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_HandleOffSeasonStart" numMembers="2" base="none()" ownerAssetId="6499176" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1729768780" minorVersionCRC="1036382708">
+			<attribute name="EventRecord" idx="0" type="OffseasonStartEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

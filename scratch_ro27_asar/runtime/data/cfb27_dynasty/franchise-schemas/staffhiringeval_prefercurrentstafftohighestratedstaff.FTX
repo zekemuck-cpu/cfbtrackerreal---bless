@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_PreferCurrentStaffToHighestRatedStaff.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_PreferCurrentStaffToHighestRatedStaff" numMembers="4" base="bool()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="1404886904" minorVersionCRC="-979024660">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="currentStaffRating" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="highestRatedStaffRating" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

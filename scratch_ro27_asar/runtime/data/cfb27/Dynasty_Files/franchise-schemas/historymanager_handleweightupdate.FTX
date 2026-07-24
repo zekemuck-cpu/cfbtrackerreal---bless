@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\HistoryManager_HandleWeightUpdate.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HistoryManager_HandleWeightUpdate" numMembers="2" base="none()" ownerAssetId="6495141" isRecordPersistent="true" isExpr="true" majorVersionCRC="255680341" minorVersionCRC="141331642">
+			<attribute name="event" idx="0" type="WeightUpdateEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

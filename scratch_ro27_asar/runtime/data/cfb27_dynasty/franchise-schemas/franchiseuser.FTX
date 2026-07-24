@@ -1,0 +1,43 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseUser.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseUser" numMembers="36" base="User" defaultStoreCapacity="32" assetId="6495217" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1740255590" minorVersionCRC="-1673005636">
+			<attribute name="ActiveEntitlementAward" idx="0" type="EntitlementAward" />
+			<attribute name="AdminLevel" idx="1" type="AdminLevel" default="AdminLevel:None" />
+			<attribute name="AvatarId" idx="2" type="string" maxLen="34" />
+			<attribute name="BreakingNewsQueue" idx="3" type="Story[]" />
+			<attribute name="CoachAccomplishmentsCareerArray" idx="4" type="CoachAccomplishment[]" />
+			<attribute name="CrossArcDataArray" idx="5" type="CrossArcData[]" />
+			<attribute name="DefaultRequestAction" idx="6" type="Action" default="Action:Respond" />
+			<attribute name="DefaultRequestActionTimeout" idx="7" type="int" minValue="-2000000" maxValue="2000000" default="0" />
+			<attribute name="DrillProgress" idx="8" type="DrillProgress[]" />
+			<attribute name="GamePointGrantMtxInfo" idx="9" type="GamePointGrantMtxInfo" />
+			<attribute name="IsActionTimeoutOn" idx="10" type="bool" default="False" />
+			<attribute name="IsEntitlementAwardEnabled" idx="11" type="bool" default="True" />
+			<attribute name="IsPlayerSpecificDrillComplete" idx="12" type="bool" default="False" />
+			<attribute name="IsProfanityWarningPending" idx="13" type="bool" default="False" />
+			<attribute name="IsRetired" idx="14" type="bool" default="False" />
+			<attribute name="IsRetiring" idx="15" type="bool" default="False" />
+			<attribute name="LastPlayableMomentResult" idx="16" type="PlayableMomentResult" />
+			<attribute name="ModifyPersonalityRatings" idx="17" type="FranchiseUser_ModifyPersonalityRatings" guid="6495217-1921922" final="true" />
+			<attribute name="NonRepeatableArcsTriggeredArray" idx="18" type="StoryArcMetadata[]" />
+			<attribute name="ObjectiveProgressArray" idx="19" type="ObjectiveProgress[]" />
+			<attribute name="PendingMIDRewards" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PersonalityEntertainerRating" idx="21" type="int" minValue="0" maxValue="255" default="50" />
+			<attribute name="PersonalityIntenseRating" idx="22" type="int" minValue="0" maxValue="255" default="50" />
+			<attribute name="PersonalityLeaderRating" idx="23" type="int" minValue="0" maxValue="255" default="50" />
+			<attribute name="PersonalityTeamPlayerRating" idx="24" type="int" minValue="0" maxValue="255" default="50" />
+			<attribute name="PlayerSpecificDrill" idx="25" type="DrillActivity" />
+			<attribute name="ReadyToAdvance" idx="26" type="bool" default="False" />
+			<attribute name="RewardEntries" idx="27" type="RewardEntry[]" />
+			<attribute name="StorySideActivitiesOptionsData" idx="28" type="StorySideActivitiesOptionsData" />
+			<attribute name="Team" idx="29" type="Team" />
+			<attribute name="TrackedStorySideActivities" idx="30" type="TrackedStorySideActivity[]" />
+			<attribute name="TrophyProfileId" idx="31" type="string" maxLen="37" />
+			<attribute name="UpdatePersonality" idx="32" type="none()" guid="6495217-1921927" final="true" />
+			<attribute name="UserEntity" idx="33" type="UserEntity" />
+			<attribute name="UserIdLower" idx="34" type="int" minValue="0" maxValue="-1" default="0" />
+			<attribute name="UserIdUpper" idx="35" type="int" minValue="0" maxValue="-1" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

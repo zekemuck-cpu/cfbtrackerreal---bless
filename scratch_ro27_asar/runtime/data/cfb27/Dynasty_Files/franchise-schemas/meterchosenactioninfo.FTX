@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\MeterChosenActionInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MeterChosenActionInfo" numMembers="1" assetId="7709573" isRecordPersistent="true" majorVersionCRC="206440982" minorVersionCRC="2067949162">
+			<attribute name="Action" idx="0" type="NarrativePlayerMeterAction" default="NarrativePlayerMeterAction:FilmStudy" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\StoryWeekStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryWeekStartReaction" numMembers="12" base="Reaction" assetId="6498891" isRecordPersistent="true" majorVersionCRC="-426139928" minorVersionCRC="2065274270">
+			<attribute name="EventRecord" idx="0" type="StoryWeekStartEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="FranchiseDebugModule" idx="2" type="FranchiseDebugModule" />
+			<attribute name="Handle" idx="3" type="bool()" guid="6498891-1895461" />
+			<attribute name="HandlePerTeam" idx="4" type="StoryWeekStartReaction_HandlePerTeam" guid="6498891-1927606" />
+			<attribute name="Priority" idx="5" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfo" idx="6" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="7" type="SeasonManager" />
+			<attribute name="StoryArcMetadata" idx="8" type="StoryArcMetadata" />
+			<attribute name="StoryArcTransaction" idx="9" type="TeamStoryArcTransaction" />
+			<attribute name="StoryArcUtil" idx="10" type="StoryArcUtil" />
+			<attribute name="TemplateTransaction" idx="11" type="ScenarioTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

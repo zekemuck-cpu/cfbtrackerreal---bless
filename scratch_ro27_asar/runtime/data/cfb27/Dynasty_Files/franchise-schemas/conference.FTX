@@ -1,0 +1,53 @@
+<FranTkData fileName="Franchise-Schemas\Conference.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Conference" numMembers="42" base="Enum" defaultStoreCapacity="12" assetId="6321327" defaultStoreGroupId="65" isRecordPersistent="true" defaultStoreGroupName="ReferencedByStatic" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="775966324" minorVersionCRC="-64820871">
+			<attribute name="AllowUnbalancedSchedule" idx="0" type="bool" default="False" />
+			<attribute name="AllowUpdateStyle" idx="1" type="bool" default="True" />
+			<attribute name="AssetName" idx="2" type="string" maxLen="22" />
+			<attribute name="CareerStatRecords" idx="3" type="PlayerStatRecords" />
+			<attribute name="ChampionshipDay" idx="4" type="DayOfWeek" default="DayOfWeek:Saturday" />
+			<attribute name="ChampionshipGameTime" idx="5" type="GameTimeRange" default="GameTimeRange:T1400" />
+			<attribute name="ChampionshipGameType" idx="6" type="ChampionshipGameType" default="ChampionshipGameType:NONE" />
+			<attribute name="ChampionshipStadium" idx="7" type="Stadium" />
+			<attribute name="CONF_LOGO" idx="8" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="CONF_PRIMARY_COLOR_B" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_PRIMARY_COLOR_G" idx="10" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_PRIMARY_COLOR_R" idx="11" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_SECONDARY_COLOR_B" idx="12" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_SECONDARY_COLOR_G" idx="13" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_SECONDARY_COLOR_R" idx="14" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_TERTIARY_COLOR_B" idx="15" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_TERTIARY_COLOR_G" idx="16" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CONF_TERTIARY_COLOR_R" idx="17" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="ConfChampGameLogoID" idx="18" type="int" minValue="0" maxValue="400" default="0" />
+			<attribute name="ConfChampGameName" idx="19" type="string" maxLen="28" />
+			<attribute name="ConfChampGameTrophyID" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ConferenceChampTrophyAsset" idx="21" type="Trophy" />
+			<attribute name="ConferenceEnum" idx="22" type="CollegeConferences" default="CollegeConferences:First_" />
+			<attribute name="ConferenceRotation" idx="23" type="ScheduleStructureYear[]" />
+			<attribute name="ConferenceStartWeek" idx="24" type="int" minValue="0" maxValue="13" default="0" />
+			<attribute name="ConferenceWeekday" idx="25" type="ConferenceWeekdayType" default="ConferenceWeekdayType:TuesWedThurFriSat" />
+			<attribute name="Divisions" idx="26" type="Division[]" />
+			<attribute name="Edited" idx="27" type="bool" default="False" />
+			<attribute name="GameStatRecords" idx="28" type="PlayerStatRecords" />
+			<attribute name="IsProtectedOpponentsEnabled" idx="29" type="bool" default="True" />
+			<attribute name="LastRotationUsed" idx="30" type="int" minValue="0" maxValue="19" default="0" />
+			<attribute name="Name" idx="31" type="string" maxLen="21" />
+			<attribute name="NonconferenceTeamPairs" idx="32" type="TeamPair[]" />
+			<attribute name="NumConferenceGames" idx="33" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="NumProtectedOpponents" idx="34" type="int" minValue="0" maxValue="20" default="3" />
+			<attribute name="PresentationId" idx="35" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="ProtectedOpponents" idx="36" type="ScheduleProtectedOpponent[]" />
+			<attribute name="ProtOppsPlayHomeAndAway" idx="37" type="bool" default="False" />
+			<attribute name="SeasonStatRecords" idx="38" type="PlayerStatRecords" />
+			<attribute name="StyleName" idx="39" type="string" maxLen="65" />
+			<attribute name="TeamSlots" idx="40" type="Team[]" />
+			<attribute name="WhiteLogoId" idx="41" type="int" minValue="0" maxValue="65535" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

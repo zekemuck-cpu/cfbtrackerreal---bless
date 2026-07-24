@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\AllowedAndBannedForTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AllowedAndBannedForTeam" numMembers="12" defaultStoreCapacity="11" assetId="6494922" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="6794" majorVersionCRC="-759775350" minorVersionCRC="-1648291234">
+			<attribute name="AllowedJerseyNumbers" idx="0" type="int[]" />
+			<attribute name="BannedNamesCSV" idx="1" type="string" maxLen="1377" />
+			<attribute name="CollegeTeamColorB" idx="2" type="int" minValue="0" maxValue="255" default="142" />
+			<attribute name="CollegeTeamColorG" idx="3" type="int" minValue="0" maxValue="255" default="77" />
+			<attribute name="CollegeTeamColorR" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CollegeTeamId" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CollegeTeamLogoId" idx="6" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="LBRosterId" idx="7" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="QBRosterId" idx="8" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="RBRosterId" idx="9" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="TeamPresentationId" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WRRosterId" idx="11" type="int" minValue="0" maxValue="32727" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

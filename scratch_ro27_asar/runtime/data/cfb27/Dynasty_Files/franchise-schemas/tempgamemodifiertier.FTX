@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\TempGameModifierTier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TempGameModifierTier" numMembers="7" assetId="6498645" isRecordPersistent="true" majorVersionCRC="-38867836" minorVersionCRC="1928747920">
+			<attribute name="PassiveHome" idx="0" value="0" />
+			<attribute name="HomeFieldAdvantage" idx="1" value="1" />
+			<attribute name="Tier2Home" idx="2" value="2" />
+			<attribute name="Tier3Home" idx="3" value="3" />
+			<attribute name="PassiveAway" idx="4" value="4" />
+			<attribute name="Tier2Away" idx="5" value="5" />
+			<attribute name="Tier3Away" idx="6" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

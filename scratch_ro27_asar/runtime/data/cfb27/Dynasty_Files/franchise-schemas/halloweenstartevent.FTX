@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\HalloweenStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HalloweenStartEvent" numMembers="2" base="Event" assetId="6598617" isRecordPersistent="true" majorVersionCRC="-1338011643" minorVersionCRC="-1668607019">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598617-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598617-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

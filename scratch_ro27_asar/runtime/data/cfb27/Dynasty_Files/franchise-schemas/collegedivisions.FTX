@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\CollegeDivisions.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CollegeDivisions" numMembers="7" assetId="6378792" isRecordPersistent="true" majorVersionCRC="1014317230" minorVersionCRC="1628308832">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Power5" idx="1" value="0" />
+			<attribute name="Group5" idx="2" value="1" />
+			<attribute name="ElitePower5" idx="3" value="2" />
+			<attribute name="Other" idx="4" value="3" />
+			<attribute name="Max" idx="5" value="4" />
+			<attribute name="Invalid" idx="6" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

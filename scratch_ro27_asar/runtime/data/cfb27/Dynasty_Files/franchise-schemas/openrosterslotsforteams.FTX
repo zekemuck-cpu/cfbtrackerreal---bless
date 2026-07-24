@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\OpenRosterSlotsForTeams.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OpenRosterSlotsForTeams" numMembers="6" base="ModifierView" assetId="6498965" isRecordPersistent="true" majorVersionCRC="882921796" minorVersionCRC="84250206">
+			<attribute name="Formula" idx="0" type="OpenRosterSlotsForTeams_Formula" guid="6498965-1931077" default="//Get the number of open roster slots for this team&#xD;&#xA;int openActiveSlots = MaxRosterSize - Subject.ActiveRosterSize;&#xD;&#xA;&#xD;&#xA;if(openActiveSlots &lt; 0)&#xD;&#xA;{&#xD;&#xA;    openActiveSlots = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;int openListSlots = Subject.Roster.Capacity() - Subject.Roster.Population();&#xD;&#xA;&#xD;&#xA;int teamOpenRosterSlots = openActiveSlots;&#xD;&#xA;&#xD;&#xA;//Make sure we don't go over array capacity&#xD;&#xA;if(openActiveSlots &gt; openListSlots)&#xD;&#xA;{&#xD;&#xA;    teamOpenRosterSlots = openListSlots;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;TotalOpenRosterSlots = TotalOpenRosterSlots + teamOpenRosterSlots;&#xD;&#xA;" />
+			<attribute name="MaxRosterSize" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Team[]" />
+			<attribute name="TotalOpenRosterSlots" idx="4" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="Update" idx="5" type="none()" guid="6498965-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

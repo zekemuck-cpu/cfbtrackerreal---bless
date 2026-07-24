@@ -1,0 +1,121 @@
+<FranTkData fileName="Franchise-Schemas\TradeEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeEval" numMembers="114" base="Module" assetId="6495411" isRecordPersistent="true" majorVersionCRC="-505031124" minorVersionCRC="-1838071765">
+			<attribute name="ActionItemResponse_Accept" idx="0" type="string" maxLen="108" />
+			<attribute name="ActionItemResponse_Accept_SameTeam" idx="1" type="string" maxLen="43" />
+			<attribute name="ActionItemResponse_Decline" idx="2" type="string" maxLen="97" />
+			<attribute name="ActionItemResponse_Decline_BetterOffer" idx="3" type="string" maxLen="99" />
+			<attribute name="ActionItemResponse_Decline_SameTeam" idx="4" type="string" maxLen="43" />
+			<attribute name="ActionItemResponse_Pending" idx="5" type="string" maxLen="93" />
+			<attribute name="ActionItemResponse_Pending_Counter" idx="6" type="string" maxLen="92" />
+			<attribute name="ActionItemResponse_Pending_Counter_SameTeam" idx="7" type="string" maxLen="56" />
+			<attribute name="ActionItemResponse_Pending_Modify" idx="8" type="string" maxLen="91" />
+			<attribute name="ActionItemResponse_Pending_Modify_SameTeam" idx="9" type="string" maxLen="55" />
+			<attribute name="ActionItemResponse_Pending_SameTeam" idx="10" type="string" maxLen="46" />
+			<attribute name="AddPlayerToTeamTradeBlackList" idx="11" type="TradeEval_AddPlayerToTeamTradeBlackList" guid="6495411-1923393" final="true" />
+			<attribute name="AdjustedDraftPickUncertainty_NextYear" idx="12" type="int" minValue="0" maxValue="31" default="16" />
+			<attribute name="AdjustedDraftPickUncertainty_ThisYear" idx="13" type="int" minValue="0" maxValue="31" default="8" />
+			<attribute name="BeginPlayerNegotiation" idx="14" type="TradeEval_BeginPlayerNegotiation" guid="6495411-1923298" final="true" default="TradeNegotiation negotiation = TradeNegotiationManagerRef.BeginPlayerTradeNegotiation(teamA, playerA);&#xD;&#xA;&#xD;&#xA;negotiation;" />
+			<attribute name="BeginTeamNegotiation" idx="15" type="TradeEval_BeginTeamNegotiation" guid="6495411-1923363" final="true" default="TradeNegotiation negotiation = TradeNegotiationManagerRef.BeginTeamTradeNegotiation(packageA, packageB);&#xD;&#xA;&#xD;&#xA;negotiation;" />
+			<attribute name="CPUFirstYearContractPlayerValueSpline" idx="16" type="Spline" />
+			<attribute name="CPURookieValueSpline" idx="17" type="Spline" />
+			<attribute name="CPUTradeSuccessPercent" idx="18" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="CreateDraftPickNegotiation" idx="19" type="TradeEval_CreateDraftPickNegotiation" guid="6495411-1923350" final="true" />
+			<attribute name="CreateMakeOfferRequest" idx="20" type="TradeEval_CreateMakeOfferRequest" guid="6495411-1923303" final="true" default="TradeMakeOfferRequest request = CreateTradeMakeOfferRecord();&#xD;&#xA;&#xD;&#xA;// Append this team to the pending team list.&#xD;&#xA;negotiation.PendingTeamListB.Append(teamB);&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;&#xD;&#xA;// Set the request data.&#xD;&#xA;request.TeamB = teamB;&#xD;&#xA;request.PackageB = null;&#xD;&#xA;request.Negotiation = negotiation;&#xD;&#xA;request.TradeNegotiationManagerRef = TradeNegotiationManagerRef;&#xD;&#xA;request.RequestData = negotiation;&#xD;&#xA;&#xD;&#xA;// Set the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[3];&#xD;&#xA;request.ResponseForms.Append(TradeRequest_OfferResponse);&#xD;&#xA;request.ResponseForms.Append(TradeRequest_IgnoreResponse);&#xD;&#xA;if (IsDelegateResponseAvailable)&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(TradeRequest_DelegateResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.OfferResponse = TradeRequest_OfferResponse;&#xD;&#xA;request.DelegateResponse = TradeRequest_DelegateResponse;&#xD;&#xA;request.DefaultResponse = TradeRequest_DelegateResponse;&#xD;&#xA;&#xD;&#xA;// Add the request to the negotiation.&#xD;&#xA;if (negotiation.PendingTeamRequestListB != null)&#xD;&#xA;{&#xD;&#xA;    negotiation.PendingTeamRequestListB.Append(request);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request;&#xD;&#xA;" />
+			<attribute name="CreatePlayerNegotiation" idx="21" type="TradeEval_CreatePlayerNegotiation" guid="6495411-1923320" final="true" />
+			<attribute name="CreateTeamNegotiation" idx="22" type="TradeEval_CreateTeamNegotiation" guid="6495411-1923355" final="true" />
+			<attribute name="CreateTeamTradePackageRecord" idx="23" type="TeamTradePackage()" guid="6495411-1923340" final="true" />
+			<attribute name="CreateTradeAcceptOfferRecord" idx="24" type="TradeAcceptOfferRequest()" guid="6495411-1923329" final="true" />
+			<attribute name="CreateTradeAcceptOfferRequest" idx="25" type="TradeEval_CreateTradeAcceptOfferRequest" guid="6495411-1923325" final="true" default="TradeAcceptOfferRequest request = CreateTradeAcceptOfferRecord();&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;&#xD;&#xA;// Set the request data.&#xD;&#xA;request.TradeNegotiationManagerRef = TradeNegotiationManagerRef;&#xD;&#xA;request.Negotiation = negotiation;&#xD;&#xA;request.RequestData = negotiation;&#xD;&#xA;&#xD;&#xA;// Set the response array.&#xD;&#xA;request.ResponseForms = new ResponseForm[3];&#xD;&#xA;request.ResponseForms.Append(TradeAcceptRequest_AcceptResponse);&#xD;&#xA;request.ResponseForms.Append(TradeAcceptRequest_DeclineResponse);&#xD;&#xA;if (IsDelegateResponseAvailable) {&#xD;&#xA;    request.ResponseForms.Append(TradeAcceptRequest_DelegateResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Set the response records.&#xD;&#xA;request.AcceptResponse = TradeAcceptRequest_AcceptResponse;&#xD;&#xA;request.DeclineResponse = TradeAcceptRequest_DeclineResponse;&#xD;&#xA;request.DelegateResponse = TradeAcceptRequest_DelegateResponse;&#xD;&#xA;request.DefaultResponse = TradeAcceptRequest_DelegateResponse;&#xD;&#xA;&#xD;&#xA;request;&#xD;&#xA;" />
+			<attribute name="CreateTradeMakeOfferRecord" idx="26" type="TradeMakeOfferRequest()" guid="6495411-1923317" final="true" />
+			<attribute name="CreateTradeNegotiationRequest" idx="27" type="TradeNegotiationRequest()" guid="6495411-1923360" final="true" />
+			<attribute name="CreateTradeOffer" idx="28" type="TradeEval_CreateTradeOffer" guid="6495411-1923309" final="true" />
+			<attribute name="CutDayEval" idx="29" type="CutDayEval" />
+			<attribute name="DraftEvalRef" idx="30" type="DraftEval" />
+			<attribute name="DraftPickInterestLevelTable" idx="31" type="int[]" />
+			<attribute name="DraftPickInterestYearlyOffset" idx="32" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="EndNegotiation" idx="33" type="TradeEval_EndNegotiation" guid="6495411-1923388" final="true" default="TradeNegotiationManagerRef.EndTradeNegotiation(negotiation);" />
+			<attribute name="EvaluatePlayersToTrade" idx="34" type="TradeEval_EvaluatePlayersToTrade" guid="6495411-1923294" final="true" />
+			<attribute name="EvaluateTradeOffer" idx="35" type="TradeEval_EvaluateTradeOffer" guid="6495411-1923368" final="true" />
+			<attribute name="EvaluateTradeOffers" idx="36" type="TradeEval_EvaluateTradeOffers" guid="6495411-1923334" final="true" />
+			<attribute name="Franchise" idx="37" type="Franchise" />
+			<attribute name="GetTradeFeedbackText" idx="38" type="TradeEval_GetTradeFeedbackText" guid="6495411-1923408" final="true" default="&#xD;&#xA;if (value &gt; 80 &amp;&amp; isPlayer == true)&#xD;&#xA;{&#xD;&#xA;    if (developmentValue &gt;= 86)&#xD;&#xA;    {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackGoodDev;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackGoodDev;&#xD;&#xA;    }&#xD;&#xA;   else if (developmentValue &lt;= 49)&#xD;&#xA;    {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackBadDev;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackBadDev;&#xD;&#xA;    }&#xD;&#xA;    else if (teamOverallValue &gt;= 85)&#xD;&#xA;    {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackGoodOVR;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackGoodOVR;&#xD;&#xA;    }&#xD;&#xA;   else if (teamOverallValue &lt;= 70)&#xD;&#xA;   {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackBadOVR;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackBadOVR;&#xD;&#xA;   }&#xD;&#xA;   else if (tradePhilosophyValue &gt;= 115)&#xD;&#xA;   {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackPhilPass;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackPhilPass;&#xD;&#xA;   }&#xD;&#xA;   else if (tradePhilosophyValue &lt; 90)&#xD;&#xA;   {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackPhilFail;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackPhilFail;&#xD;&#xA;   }&#xD;&#xA;   else if (premiumValue &gt; 199)&#xD;&#xA;   {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackGreatPremium;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackGreatPremium;&#xD;&#xA;   }&#xD;&#xA;   else if (premiumValue &lt; 149)&#xD;&#xA;   {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackDecentPremium;&#xD;&#xA;      TradeFeedbackText.Response2 = TradeFeedbackDecentPremium;&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;else if (value &lt; 80 &amp;&amp; isPlayer == true)&#xD;&#xA;    {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackBadValue;&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;else if ( value &gt; 599 &amp;&amp; isPlayer == false)&#xD;&#xA;    {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackGoodDraftPick;&#xD;&#xA;    }&#xD;&#xA;else if (value &gt; 229 &amp;&amp; isPlayer == false)&#xD;&#xA;    {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackDecentDraftPick;&#xD;&#xA;    }&#xD;&#xA;else if (value &lt; 49 &amp;&amp; isPlayer == false)&#xD;&#xA;    {&#xD;&#xA;      TradeFeedbackText.Response1 = TradeFeedbackBadDraftPick;&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;TradeFeedbackText;" />
+			<attribute name="HandleDraftPickMove" idx="39" type="TradeEval_HandleDraftPickMove" guid="6495411-1923382" final="true" />
+			<attribute name="HandlePlayerMove" idx="40" type="TradeEval_HandlePlayerMove" guid="6495411-1923376" final="true" />
+			<attribute name="IsDelegateResponseAvailable" idx="41" type="bool" default="False" />
+			<attribute name="IsPlayerOnTeamTradeBlackList" idx="42" type="TradeEval_IsPlayerOnTeamTradeBlackList" guid="6495411-1923398" final="true" />
+			<attribute name="LeagueSettingRef" idx="43" type="LeagueSetting" />
+			<attribute name="MakeOfferAddedValueThreshold" idx="44" type="int" minValue="0" maxValue="500" default="100" />
+			<attribute name="MaxOfferPackageValuePercent" idx="45" type="int" minValue="0" maxValue="255" default="100" />
+			<attribute name="MinOfferPackageValuePercent" idx="46" type="int" minValue="0" maxValue="255" default="75" />
+			<attribute name="OfferPickPremiumValueSpline" idx="47" type="Spline" />
+			<attribute name="PickValueScaleTable" idx="48" type="int[]" />
+			<attribute name="PlayerInterestLevelTable" idx="49" type="int[]" />
+			<attribute name="PlayerPremiumValueSpline_Picks" idx="50" type="Spline" />
+			<attribute name="PlayerPremiumValueSpline_Players" idx="51" type="Spline" />
+			<attribute name="PlayerValueScaleTable" idx="52" type="int[]" />
+			<attribute name="QB_PremiumValueSpline_Picks" idx="53" type="Spline" />
+			<attribute name="QB_PremiumValueSpline_Players" idx="54" type="Spline" />
+			<attribute name="RandomRef" idx="55" type="Random" />
+			<attribute name="Response_Accept" idx="56" type="string" maxLen="68" />
+			<attribute name="Response_Decline" idx="57" type="string" maxLen="83" />
+			<attribute name="Response_Decline_AddedValue" idx="58" type="string" maxLen="102" />
+			<attribute name="Response_Decline_BetterOffer" idx="59" type="string" maxLen="95" />
+			<attribute name="Response_Decline_DraftPicks" idx="60" type="string" maxLen="106" />
+			<attribute name="Response_Decline_FairValue" idx="61" type="string" maxLen="81" />
+			<attribute name="Response_Decline_GoodValue" idx="62" type="string" maxLen="77" />
+			<attribute name="Response_Decline_Importance_Multiple" idx="63" type="string" maxLen="114" />
+			<attribute name="Response_Decline_Importance_Single" idx="64" type="string" maxLen="97" />
+			<attribute name="Response_Decline_Interest_Multiple" idx="65" type="string" maxLen="100" />
+			<attribute name="Response_Decline_Interest_Single" idx="66" type="string" maxLen="93" />
+			<attribute name="Response_Decline_Minimum_RosterSize" idx="67" type="string" maxLen="80" />
+			<attribute name="Response_Decline_Player_MoveLimit" idx="68" type="string" maxLen="90" />
+			<attribute name="Response_Decline_PoorValue" idx="69" type="string" maxLen="94" />
+			<attribute name="Response_Decline_Random" idx="70" type="string" maxLen="96" />
+			<attribute name="Response_Decline_Roster" idx="71" type="string" maxLen="89" />
+			<attribute name="Response_Decline_RosterSize" idx="72" type="string" maxLen="80" />
+			<attribute name="Response_Decline_SalaryCap" idx="73" type="string" maxLen="90" />
+			<attribute name="Response_Decline_UserControlled" idx="74" type="string" maxLen="98" />
+			<attribute name="Response_Decline_Value" idx="75" type="string" maxLen="77" />
+			<attribute name="Response_None" idx="76" type="string" maxLen="21" />
+			<attribute name="Response_Pending" idx="77" type="string" maxLen="94" />
+			<attribute name="Response_Pending_Counter" idx="78" type="string" maxLen="104" />
+			<attribute name="Response_Pending_Modify" idx="79" type="string" maxLen="103" />
+			<attribute name="SalaryCapEvalRef" idx="80" type="SalaryCapEval" />
+			<attribute name="StringManager" idx="81" type="StringManager" />
+			<attribute name="TeamBPlayerValueModifier" idx="82" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TeamManager" idx="83" type="TeamManager" />
+			<attribute name="TeamRequestManager" idx="84" type="TeamRequestManager" />
+			<attribute name="TeamRoadmapEval" idx="85" type="TeamRoadmapEval" />
+			<attribute name="TradeAcceptRequest_AcceptResponse" idx="86" type="ResponseForm" />
+			<attribute name="TradeAcceptRequest_DeclineResponse" idx="87" type="ResponseForm" />
+			<attribute name="TradeAcceptRequest_DelegateResponse" idx="88" type="ResponseForm" />
+			<attribute name="TradeBlockWeightedOfferSpline" idx="89" type="Spline" />
+			<attribute name="TradeFeedbackBadDev" idx="90" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackBadDraftPick" idx="91" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackBadOVR" idx="92" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackBadValue" idx="93" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackDecentDraftPick" idx="94" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackDecentPremium" idx="95" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackGoodDev" idx="96" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackGoodDevelopment" idx="97" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackGoodDraftPick" idx="98" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackGoodOVR" idx="99" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackGoodValue" idx="100" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackGreatPremium" idx="101" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackOkayValue" idx="102" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackPhilFail" idx="103" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackPhilPass" idx="104" type="string" maxLen="33" />
+			<attribute name="TradeFeedbackText" idx="105" type="TradeFeedbackText" />
+			<attribute name="TradeManagerRef" idx="106" type="TradeManager" />
+			<attribute name="TradeNegotiationManagerRef" idx="107" type="TradeNegotiationManager" />
+			<attribute name="TradePackageFlowCommand" idx="108" type="FlowCommand" />
+			<attribute name="TradeRequest_DelegateResponse" idx="109" type="UISelectForm" />
+			<attribute name="TradeRequest_IgnoreResponse" idx="110" type="UISelectForm" />
+			<attribute name="TradeRequest_OfferResponse" idx="111" type="ResponseForm" />
+			<attribute name="TradeTuningRef" idx="112" type="TradeTuning" />
+			<attribute name="ValidateExpressions" idx="113" type="none()" guid="6495411-1923492" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

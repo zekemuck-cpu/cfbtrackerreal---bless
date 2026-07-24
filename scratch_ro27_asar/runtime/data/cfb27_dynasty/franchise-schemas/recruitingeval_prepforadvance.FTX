@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_PrepForAdvance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_PrepForAdvance" numMembers="3" base="none()" ownerAssetId="6812765" isRecordPersistent="true" isExpr="true" majorVersionCRC="-901333681" minorVersionCRC="-400523131">
+			<attribute name="WeekType" idx="0" type="SeasonWeekType" default="SeasonWeekType:First_" />
+			<attribute name="WeekNumber" idx="1" type="int" minValue="0" maxValue="31" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

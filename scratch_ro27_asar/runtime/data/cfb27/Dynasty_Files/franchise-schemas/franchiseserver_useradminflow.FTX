@@ -1,0 +1,31 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_UserAdminFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_UserAdminFlow" numMembers="20" base="FranTkServer_Flow" assetId="6499203" isRecordPersistent="true" majorVersionCRC="1862154532" minorVersionCRC="257556646">
+			<attribute name="CanAdminsBootAdmins" idx="0" type="bool" default="False" />
+			<attribute name="CanAdminsRemoveAdmins" idx="1" type="bool" default="False" />
+			<attribute name="CoachManager" idx="2" type="CoachManager" />
+			<attribute name="CoachRetirementEval" idx="3" type="CoachRetirementEval" />
+			<attribute name="ForceRetirementResponse" idx="4" type="UIFlowForm" />
+			<attribute name="Form" idx="5" type="UIForm" />
+			<attribute name="FormManager" idx="6" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="7" type="Franchise" />
+			<attribute name="HandleUnregisterUser" idx="8" type="FranchiseServer_UserAdminFlow_HandleUnregisterUser" guid="6499203-1936561" final="true" />
+			<attribute name="OwnerRetirementEval" idx="9" type="OwnerRetirementEval" />
+			<attribute name="PlayerGradeEval" idx="10" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="11" type="PlayerManager" />
+			<attribute name="PlayersLeavingEval" idx="12" type="PlayersLeavingEval" />
+			<attribute name="PositionEnumTable" idx="13" type="EnumTable" />
+			<attribute name="RequestServer" idx="14" type="RequestServer" />
+			<attribute name="SchemeEnumTable" idx="15" type="EnumTable" />
+			<attribute name="SeasonManager" idx="16" type="SeasonManager" />
+			<attribute name="TeamRevenueUpdatedEvent" idx="17" type="TeamRevenueUpdatedEvent" />
+			<attribute name="ToggleAutoPilotEvent" idx="18" type="ToggleAutoPilotEvent" />
+			<attribute name="UserRegistry" idx="19" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

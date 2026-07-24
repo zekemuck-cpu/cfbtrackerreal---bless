@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\PersonHistoryTrackerNotificationEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonHistoryTrackerNotificationEvent" numMembers="14" base="Event" assetId="6494645" isRecordPersistent="true" majorVersionCRC="-25356168" minorVersionCRC="576909211">
+			<attribute name="BaseExperience" idx="0" type="int" minValue="-100" maxValue="4000" default="0" />
+			<attribute name="BonusExperience" idx="1" type="int" minValue="-100" maxValue="4000" default="0" />
+			<attribute name="ConfidenceValue" idx="2" type="int" minValue="-5" maxValue="25" default="0" />
+			<attribute name="DynamicDevValue" idx="3" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="Enqueue" idx="4" type="none()" guid="6494645-1895458" final="true" />
+			<attribute name="ExperienceValue" idx="5" type="int" minValue="0" maxValue="90000" default="0" />
+			<attribute name="IsSchemeFit" idx="6" type="bool" default="False" />
+			<attribute name="LeagueId" idx="7" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="LegacyValue" idx="8" type="int" minValue="0" maxValue="5000" default="0" />
+			<attribute name="MiscValue" idx="9" type="int" minValue="-1000" maxValue="10000" default="0" />
+			<attribute name="Person" idx="10" type="UserEntity" />
+			<attribute name="Send" idx="11" type="none()" guid="6494645-1895455" final="true" />
+			<attribute name="SourceRecord" idx="12" type="record" />
+			<attribute name="Team" idx="13" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\ProgramPointsBudgetAllocationPosture.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProgramPointsBudgetAllocationPosture" numMembers="11" defaultStoreCapacity="11" assetId="10605624" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="481224164" minorVersionCRC="1071623471">
+			<attribute name="BudgetAllocationPosture" idx="0" type="BudgetAllocationPosture" default="BudgetAllocationPosture:Invalid" />
+			<attribute name="DefensiveCoordinatorCategoryPercentage" idx="1" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="FacilitiesCategoryPercentage" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HeadCoachCategoryPercentage" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffensiveCoordinatorCategoryPercentage" idx="4" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="RecruitingNILHighSchoolCategoryPercentage" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RecruitingNILTransferCategoryPercentage" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RosterNILCategoryPercentage" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SupportStaffFundraisingSubCategoryPercentage" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SupportStaffPlayerSubCategoryPercentage" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SupportStaffRecruitingSubCategoryPercentage" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

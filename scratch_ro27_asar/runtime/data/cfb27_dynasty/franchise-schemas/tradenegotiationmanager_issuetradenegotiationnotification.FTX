@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TradeNegotiationManager_IssueTradeNegotiationNotification.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeNegotiationManager_IssueTradeNegotiationNotification" numMembers="3" base="none()" ownerAssetId="6495355" isRecordPersistent="true" isExpr="true" majorVersionCRC="804951392" minorVersionCRC="1086288310">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="negotiation" idx="1" type="TradeNegotiation" />
+		</schema>
+	</schemas>
+</FranTkData>

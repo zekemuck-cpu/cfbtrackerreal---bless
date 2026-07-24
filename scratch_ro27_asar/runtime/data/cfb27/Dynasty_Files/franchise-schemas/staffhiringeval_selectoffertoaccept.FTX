@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_SelectOfferToAccept.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_SelectOfferToAccept" numMembers="3" base="StaffPersonContractOffer()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="-490540719" minorVersionCRC="1516232835">
+			<attribute name="staffPerson" idx="0" type="StaffPerson" />
+			<attribute name="offerList" idx="1" type="StaffPersonContractOffer[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffers" numMembers="10" base="DataFlow" assetId="6539664" isRecordPersistent="true" majorVersionCRC="2085493888" minorVersionCRC="1399550442">
+			<attribute name="Clear" idx="0" type="none()" guid="6539664-1937749" />
+			<attribute name="FranchiseRef" idx="1" type="Franchise" />
+			<attribute name="PlayerManagerRef" idx="2" type="PlayerManager" />
+			<attribute name="PlayerRef" idx="3" type="Player" />
+			<attribute name="PlayerSigningEvalRef" idx="4" type="PlayerSigningEval" />
+			<attribute name="Results" idx="5" type="ContractOffer[]" />
+			<attribute name="Source" idx="6" type="record" />
+			<attribute name="Subjects" idx="7" type="ContractOffer[]" />
+			<attribute name="TailView" idx="8" type="EvaluateContractOffers_SortByInterestLevel" />
+			<attribute name="Update" idx="9" type="none()" guid="6539664-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

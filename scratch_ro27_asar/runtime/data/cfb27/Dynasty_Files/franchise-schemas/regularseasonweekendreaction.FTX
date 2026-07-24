@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\RegularSeasonWeekEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RegularSeasonWeekEndReaction" numMembers="8" base="Reaction" assetId="6814563" isRecordPersistent="true" majorVersionCRC="-1378706034" minorVersionCRC="-1621568591">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="DraftManagerRef" idx="1" type="DraftManager" />
+			<attribute name="EventRecord" idx="2" type="RegularSeasonWeekEndEvent" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="FranchiseRules" idx="4" type="FranchiseRules" />
+			<attribute name="Handle" idx="5" type="bool()" guid="6814563-1895461" />
+			<attribute name="Priority" idx="6" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonManager" idx="7" type="SeasonManager" />
+		</schema>
+	</schemas>
+</FranTkData>

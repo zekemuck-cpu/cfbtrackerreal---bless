@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffers_SetPlayerInterest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffers_SetPlayerInterest" numMembers="4" base="ModifierView" assetId="6539665" isRecordPersistent="true" majorVersionCRC="-564652224" minorVersionCRC="1961217408">
+			<attribute name="Formula" idx="0" type="EvaluateContractOffers_SetPlayerInterest_Formula" guid="6539665-1935287" default="Subject.PlayerInterest = Env.PlayerSigningEvalRef.CalculatePlayerInterest(Subject);&#xD;&#xA;" />
+			<attribute name="Source" idx="1" type="record" />
+			<attribute name="Subjects" idx="2" type="ContractOffer[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6539665-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

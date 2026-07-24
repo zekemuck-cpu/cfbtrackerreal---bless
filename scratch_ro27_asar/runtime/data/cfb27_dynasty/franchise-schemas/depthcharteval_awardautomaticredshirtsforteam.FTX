@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartEval_AwardAutomaticRedshirtsForTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartEval_AwardAutomaticRedshirtsForTeam" numMembers="2" base="none()" ownerAssetId="6498463" isRecordPersistent="true" isExpr="true" majorVersionCRC="-854884704" minorVersionCRC="2024411963">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

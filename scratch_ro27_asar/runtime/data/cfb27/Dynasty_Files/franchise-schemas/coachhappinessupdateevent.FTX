@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CoachHappinessUpdateEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachHappinessUpdateEvent" numMembers="4" base="Event" defaultStoreCapacity="10" assetId="10805526" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="51068044" minorVersionCRC="1291904607">
+			<attribute name="Enqueue" idx="0" type="none()" guid="10805526-1895458" final="true" />
+			<attribute name="OldValue" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Send" idx="2" type="none()" guid="10805526-1895455" final="true" />
+			<attribute name="User" idx="3" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamIndex.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamIndex" numMembers="3" assetId="6709401" isRecordPersistent="true" majorVersionCRC="-1844236246" minorVersionCRC="471971526">
+			<attribute name="NflFirst" idx="0" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="NflLast" idx="1" type="int" minValue="0" maxValue="137" default="137" />
+			<attribute name="None" idx="2" type="int" minValue="0" maxValue="255" default="255" />
+		</schema>
+	</schemas>
+</FranTkData>

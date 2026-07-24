@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\OwnerRetirementEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OwnerRetirementEval" numMembers="18" base="Module" assetId="6498980" isRecordPersistent="true" majorVersionCRC="623021352" minorVersionCRC="-1523867349">
+			<attribute name="ForceRetireAllUserOwners" idx="0" type="none()" guid="6498980-1931150" />
+			<attribute name="ForceRetirement" idx="1" type="OwnerRetirementEval_ForceRetirement" guid="6498980-1931145" final="true" />
+			<attribute name="ForceRetirementResponse" idx="2" type="UIFlowForm" />
+			<attribute name="FormerPlayerHOF" idx="3" type="string" maxLen="321" />
+			<attribute name="FormerPlayerNoHOF" idx="4" type="string" maxLen="321" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="HandleForceRetirement" idx="6" type="OwnerRetirementEval_HandleForceRetirement" guid="6498980-1931152" final="true" default="&#xD;&#xA;" />
+			<attribute name="HandleUpdateUserDefaultRequestAction" idx="7" type="OwnerRetirementEval_HandleUpdateUserDefaultRequestAction" guid="6498980-1931168" final="true" />
+			<attribute name="IssueRetirementRequest" idx="8" type="OwnerRetirementEval_IssueRetirementRequest" guid="6498980-1931139" final="true" default="Retirement_ForceRetirementRequest request = new Retirement_ForceRetirementRequest;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = SeasonInfoRef.CurrentYear &gt;= SeasonInfoRef.MaxYears; &#xD;&#xA;request.RequestData = owner;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( ForceRetirementResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(owner); " />
+			<attribute name="LifelongFanHOF" idx="9" type="string" maxLen="321" />
+			<attribute name="LifelongFanNoHOF" idx="10" type="string" maxLen="321" />
+			<attribute name="MogulHOF" idx="11" type="string" maxLen="321" />
+			<attribute name="MogulNoHOF" idx="12" type="string" maxLen="321" />
+			<attribute name="RequestServer" idx="13" type="RequestServer" />
+			<attribute name="SeasonInfoRef" idx="14" type="SeasonInfo" />
+			<attribute name="TeamManager" idx="15" type="TeamManager" />
+			<attribute name="UserRegistry" idx="16" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="17" type="none()" guid="6498980-1931172" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

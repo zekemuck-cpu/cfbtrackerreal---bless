@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTempBuffAbility.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTempBuffAbility" numMembers="3" assetId="6377557" isRecordPersistent="true" majorVersionCRC="-1017048346" minorVersionCRC="450643674">
+			<attribute name="AbsoluteTempBuffsList" idx="0" type="BaseTempBuffAbility[]" />
+			<attribute name="PlayerRef" idx="1" type="Player" />
+			<attribute name="RelativeTempBuffsList" idx="2" type="BaseTempBuffAbility[]" />
+		</schema>
+	</schemas>
+</FranTkData>

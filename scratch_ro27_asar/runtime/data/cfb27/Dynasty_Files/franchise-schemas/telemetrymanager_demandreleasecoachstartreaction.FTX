@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_DemandReleaseCoachStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_DemandReleaseCoachStartReaction" numMembers="4" base="Reaction" assetId="6499166" isRecordPersistent="true" majorVersionCRC="294432672" minorVersionCRC="-525278744">
+			<attribute name="EventRecord" idx="0" type="DemandReleaseCoachStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499166-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TelemetryManager" idx="3" type="TelemetryManager" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,33 @@
+<FranTkData fileName="Franchise-Schemas\KnowMeStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="KnowMeStats" numMembers="26" assetId="11016782" isRecordPersistent="true" majorVersionCRC="1363992870" minorVersionCRC="970384331">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="First_GameStat_" idx="1" value="0" />
+			<attribute name="NumWinsSimmed" idx="2" value="0" />
+			<attribute name="NumWinsPlayed" idx="3" value="1" />
+			<attribute name="NumLossesSimmed" idx="4" value="2" />
+			<attribute name="NumLossesPlayed" idx="5" value="3" />
+			<attribute name="NumNationalChampsSimmed" idx="6" value="4" />
+			<attribute name="NumNationalChampsPlayed" idx="7" value="5" />
+			<attribute name="NumBowlWinsSimmed" idx="8" value="6" />
+			<attribute name="NumBowlWinsPlayed" idx="9" value="7" />
+			<attribute name="NumRivalWinsSimmed" idx="10" value="8" />
+			<attribute name="Last_GameStat_" idx="11" value="9" />
+			<attribute name="NumRivalWinsPlayed" idx="12" value="9" />
+			<attribute name="Count_GameStat_" idx="13" value="10" />
+			<attribute name="SeasonsPlayed" idx="14" value="10" />
+			<attribute name="NumConferenceChamps" idx="15" value="11" />
+			<attribute name="NumAwardsWon" idx="16" value="12" />
+			<attribute name="NumRecruits" idx="17" value="13" />
+			<attribute name="NumDraftPicks" idx="18" value="14" />
+			<attribute name="NumTop5RecruitingClasses" idx="19" value="15" />
+			<attribute name="AverageStarRating" idx="20" value="16" />
+			<attribute name="LegacyScore" idx="21" value="17" />
+			<attribute name="Last_" idx="22" value="18" />
+			<attribute name="NumPlayerExportToMadden" idx="23" value="18" />
+			<attribute name="Count_" idx="24" value="19" />
+			<attribute name="Invalid_" idx="25" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

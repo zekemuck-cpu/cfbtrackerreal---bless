@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\AwardsEval_EraseStaffPersonAwards.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AwardsEval_EraseStaffPersonAwards" numMembers="2" base="none()" ownerAssetId="6378667" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1893909312" minorVersionCRC="-1146368507">
+			<attribute name="staff" idx="0" type="StaffPerson" />
+		</schema>
+	</schemas>
+</FranTkData>

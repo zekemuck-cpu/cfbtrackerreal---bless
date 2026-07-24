@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\CoachHappinessSummaryEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TransactionWeekSummaryEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachHappinessSummaryEntry" numMembers="2" base="TransactionWeekSummaryEntry" assetId="10805530" isRecordPersistent="true" majorVersionCRC="128418436" minorVersionCRC="2110744345">
+			<attribute name="OldValue" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="UserEntity" idx="1" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

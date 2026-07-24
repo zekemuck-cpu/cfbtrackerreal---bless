@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueEval_IssueViewBudgetRequestToUser.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueEval_IssueViewBudgetRequestToUser" numMembers="3" base="none()" ownerAssetId="6498983" isRecordPersistent="true" isExpr="true" majorVersionCRC="-437858996" minorVersionCRC="1596533538">
+			<attribute name="ScreenValue" idx="0" type="ProgramPointsRoosterScreen" default="ProgramPointsRoosterScreen:None" />
+			<attribute name="userEntity" idx="1" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

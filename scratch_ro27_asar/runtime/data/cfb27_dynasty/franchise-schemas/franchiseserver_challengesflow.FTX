@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_ChallengesFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_ChallengesFlow" numMembers="10" base="FranTkServer_Flow" assetId="9350488" isRecordPersistent="true" majorVersionCRC="162624876" minorVersionCRC="-1773428755">
+			<attribute name="ChallengeInterestEnumTable" idx="0" type="EnumTable" />
+			<attribute name="ChallengesEval" idx="1" type="ChallengesEval" />
+			<attribute name="Dynasty" idx="2" type="Franchise" />
+			<attribute name="Form" idx="3" type="UIForm" />
+			<attribute name="FormManager" idx="4" type="FranTkServer_FormManager" />
+			<attribute name="PracticeEval" idx="5" type="PracticeEval" />
+			<attribute name="RecruitingEval" idx="6" type="RecruitingEval" />
+			<attribute name="RequestServer" idx="7" type="RequestServer" />
+			<attribute name="SeasonInfo" idx="8" type="SeasonInfo" />
+			<attribute name="UserRegistry" idx="9" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

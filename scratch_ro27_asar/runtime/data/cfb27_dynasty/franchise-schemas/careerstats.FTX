@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\CareerStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerStats" numMembers="5" base="Enum" assetId="6320462" isRecordPersistent="true" majorVersionCRC="1377502964" minorVersionCRC="1392332700">
+			<attribute name="DOWNSPLAYED" idx="0" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="GAMERATING" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESPLAYED" idx="2" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="GAMESSTARTED" idx="3" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="STAT_KEEP" idx="4" type="bool" default="True" />
+		</schema>
+	</schemas>
+</FranTkData>

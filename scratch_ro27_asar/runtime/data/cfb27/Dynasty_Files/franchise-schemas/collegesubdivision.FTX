@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\CollegeSubDivision.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CollegeSubDivision" numMembers="8" assetId="6378800" isRecordPersistent="true" majorVersionCRC="-939010389" minorVersionCRC="1461145757">
+			<attribute name="FBS" idx="0" value="0" />
+			<attribute name="First" idx="1" value="0" />
+			<attribute name="FCS" idx="2" value="1" />
+			<attribute name="DivisionII" idx="3" value="2" />
+			<attribute name="DivisionIII" idx="4" value="3" />
+			<attribute name="Other" idx="5" value="4" />
+			<attribute name="Max" idx="6" value="5" />
+			<attribute name="Invalid" idx="7" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

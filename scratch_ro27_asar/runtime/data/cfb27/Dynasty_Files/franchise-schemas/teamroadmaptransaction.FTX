@@ -1,0 +1,38 @@
+<FranTkData fileName="Franchise-Schemas\TeamRoadmapTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRoadmapTransaction" numMembers="31" base="Transaction" assetId="6498960" isRecordPersistent="true" majorVersionCRC="1885772393" minorVersionCRC="-75330717">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="InitStage" idx="2" type="Stage" />
+			<attribute name="IsBlocking" idx="3" type="bool" default="True" />
+			<attribute name="IsDone" idx="4" type="bool()" guid="6498960-1895538" />
+			<attribute name="IsDynamic" idx="5" type="bool" default="False" />
+			<attribute name="PlayerGradeEvalModule" idx="6" type="PlayerGradeEval" />
+			<attribute name="PlayerGradesView" idx="7" type="UpdateTeamPlayerGrades" />
+			<attribute name="PlayerSigningEval" idx="8" type="PlayerSigningEval" />
+			<attribute name="Position" idx="9" type="PlayerPosition" />
+			<attribute name="PositionIndex" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PositionList" idx="11" type="PlayerPosition[]" />
+			<attribute name="PracticeEval" idx="12" type="PracticeEval" />
+			<attribute name="Process" idx="13" type="none()" guid="6498960-1895540" />
+			<attribute name="RankStage" idx="14" type="Stage" />
+			<attribute name="RosterEval" idx="15" type="RosterEval" />
+			<attribute name="SeasonInfo" idx="16" type="SeasonInfo" />
+			<attribute name="Sleep" idx="17" type="ITransaction_Sleep" guid="6498960-1895548" />
+			<attribute name="Start" idx="18" type="none()" guid="6498960-1895544" />
+			<attribute name="StartStage" idx="19" type="Stage" />
+			<attribute name="TeamPrestigeEvalRef" idx="20" type="TeamPrestigeEval" />
+			<attribute name="TeamRoadmapEval" idx="21" type="TeamRoadmapEval" />
+			<attribute name="Teams" idx="22" type="Team[]" />
+			<attribute name="TimeScale" idx="23" type="float" default="0" />
+			<attribute name="TransitionPending" idx="24" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="25" type="Stage" />
+			<attribute name="UpdatePlayerGradesView" idx="26" type="UpdatePlayerGrades" />
+			<attribute name="UpdateStage" idx="27" type="Stage" />
+			<attribute name="UpdateTeamPhilosophyView" idx="28" type="UpdateTeamPhilosophy" />
+			<attribute name="UpdateTeamPlayerGradesView" idx="29" type="UpdateTeamPlayerGrades" />
+			<attribute name="View" idx="30" type="UpdateTeamRoadmapForTeams" />
+		</schema>
+	</schemas>
+</FranTkData>

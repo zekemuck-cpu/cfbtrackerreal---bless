@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerManager_UnRetirePlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerManager_UnRetirePlayer" numMembers="2" base="none()" ownerAssetId="6498478" isRecordPersistent="true" isExpr="true" majorVersionCRC="1848692772" minorVersionCRC="2006079906">
+			<attribute name="player" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

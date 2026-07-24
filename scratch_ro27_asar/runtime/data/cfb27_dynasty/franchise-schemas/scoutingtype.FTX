@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ScoutingType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ScoutingType" numMembers="2" assetId="6568973" isRecordPersistent="true" majorVersionCRC="1810878403" minorVersionCRC="33985066">
+			<attribute name="Ability" idx="0" value="0" />
+			<attribute name="Grade" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

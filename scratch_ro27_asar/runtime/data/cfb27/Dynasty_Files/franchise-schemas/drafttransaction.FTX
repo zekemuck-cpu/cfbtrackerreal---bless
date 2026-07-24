@@ -1,0 +1,51 @@
+<FranTkData fileName="Franchise-Schemas\DraftTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftTransaction" numMembers="44" base="Transaction" assetId="6498999" isRecordPersistent="true" majorVersionCRC="528821082" minorVersionCRC="-1793689106">
+			<attribute name="AdvanceRequest" idx="0" type="Draft_AdvanceDraftRequest" />
+			<attribute name="CurrentStage" idx="1" type="Stage" />
+			<attribute name="DraftEval" idx="2" type="DraftEval" />
+			<attribute name="DraftInfo" idx="3" type="DraftInfo" />
+			<attribute name="DraftManager" idx="4" type="DraftManager" />
+			<attribute name="EndStage" idx="5" type="Stage" />
+			<attribute name="Franchise" idx="6" type="Franchise" />
+			<attribute name="HandleRegisterUser" idx="7" type="DraftTransaction_HandleRegisterUser" guid="6498999-1931497" final="true" default="FranchiseUser newUser = event.User;&#xD;&#xA;Team newUserTeam = newUser.Team;&#xD;&#xA;Team currentTeam = DraftInfo.CurrentTeam;&#xD;&#xA;&#xD;&#xA;if(DraftInfo.IsLive &amp;&amp; !DraftInfo.IsFantasyDraft &amp;&amp; currentTeam == newUserTeam)&#xD;&#xA;{&#xD;&#xA;    Request.Dismiss();&#xD;&#xA;    // Create the draft pick request for the current team.&#xD;&#xA;    Request = DraftEval.InitDraftPickRequest(DraftInfo.CurrentTeam, DraftInfo.CurrentPick, DraftInfo.CurrentPickIndex, Request);&#xD;&#xA;    &#xD;&#xA;   // Issue the draft pick request.&#xD;&#xA;   TeamRequestManager.Issue(DraftInfo.CurrentTeam, Request);&#xD;&#xA;}" />
+			<attribute name="HandleTrade" idx="8" type="DraftTransaction_HandleTrade" guid="6498999-1931493" final="true" default="// If the normal draft is active, check if the current pick was traded.&#xD;&#xA;if (!DraftInfo.IsFantasyDraft &amp;&amp; DraftInfo.IsStarted &amp;&amp; !DraftInfo.IsComplete)&#xD;&#xA;{&#xD;&#xA;    DraftPick currentPick = DraftInfo.CurrentPick;&#xD;&#xA;&#xD;&#xA;    // If the current pick is valid, check if it is included in the trade. If so, we need to&#xD;&#xA;    // transition the draft flow to the new team.&#xD;&#xA;    if (currentPick != null)&#xD;&#xA;    {&#xD;&#xA;        TeamTradePackage packageA = event.PackageA;&#xD;&#xA;        TeamTradePackage packageB = event.PackageB;&#xD;&#xA;    &#xD;&#xA;        // If either package contains the current pick, store the external trade.&#xD;&#xA;        if ((packageA.Entity1 == currentPick) ||&#xD;&#xA;            (packageA.Entity2 == currentPick) ||&#xD;&#xA;            (packageA.Entity3 == currentPick) ||&#xD;&#xA;            (packageB.Entity1 == currentPick) ||&#xD;&#xA;            (packageB.Entity2 == currentPick) ||&#xD;&#xA;            (packageB.Entity3 == currentPick))&#xD;&#xA;        {&#xD;&#xA;            TradePackageA = packageA;&#xD;&#xA;            TradePackageB = packageB;&#xD;&#xA;        }&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="IsBlocking" idx="9" type="bool" default="True" />
+			<attribute name="IsDone" idx="10" type="bool()" guid="6498999-1895538" />
+			<attribute name="IsDraftPickTraded" idx="11" type="bool" default="False" />
+			<attribute name="IsDynamic" idx="12" type="bool" default="False" />
+			<attribute name="IssueTeamDraftBoardRequestsView" idx="13" type="IssueTeamDraftBoardRequestsView" />
+			<attribute name="PauseRequest" idx="14" type="Draft_PauseDraftRequest" />
+			<attribute name="PauseResumeRequest" idx="15" type="Request" />
+			<attribute name="Process" idx="16" type="none()" guid="6498999-1895540" />
+			<attribute name="ProcessAdvanceRequest" idx="17" type="none()" guid="6498999-1931487" final="true" default="// If the advance request has been resolved, set the sim state accordingly.&#xD;&#xA;if (AdvanceRequest.HasResolution())&#xD;&#xA;{&#xD;&#xA;    // Only change SimState if it is not advancing.&#xD;&#xA;    if (SimState == DraftSimState.Live)&#xD;&#xA;    {&#xD;&#xA;        // Set the appropriate sim state.&#xD;&#xA;        if (AdvanceRequest.Response == AdvanceRequest.NextPickResponse)&#xD;&#xA;        {&#xD;&#xA;            SetSimState(DraftSimState.SimToNextPick);&#xD;&#xA;        }&#xD;&#xA;        else if (AdvanceRequest.Response == AdvanceRequest.NextUserPickResponse)&#xD;&#xA;        {&#xD;&#xA;            SetSimState(DraftSimState.SimToNextUserPick);&#xD;&#xA;        }&#xD;&#xA;        else if (AdvanceRequest.Response == AdvanceRequest.NextRoundResponse)&#xD;&#xA;        {&#xD;&#xA;            SetSimState(DraftSimState.SimToNextRound);&#xD;&#xA;        }&#xD;&#xA;        else if (AdvanceRequest.Response == AdvanceRequest.EndDraftResponse)&#xD;&#xA;        {&#xD;&#xA;            SetSimState(DraftSimState.SimToEnd);&#xD;&#xA;        }&#xD;&#xA;    }&#xD;&#xA;    // Clear the response.&#xD;&#xA;    AdvanceRequest.Response = null;&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="ProcessDelegateStage" idx="18" type="Stage" />
+			<attribute name="ProcessPauseResumeRequest" idx="19" type="none()" guid="6498999-1931484" final="true" default="// If the pause/resume request has been resolved, set the pause/resume state accordingly.&#xD;&#xA;if (PauseResumeRequest != null)&#xD;&#xA;{&#xD;&#xA;    if (PauseResumeRequest.HasResolution())&#xD;&#xA;    {&#xD;&#xA;        // If pause was selected, pause and send the resume request.&#xD;&#xA;        if (PauseResumeRequest == PauseRequest)&#xD;&#xA;        {&#xD;&#xA;            DraftManager.PauseDraft();&#xD;&#xA;            IsBlocking = true;&#xD;&#xA;&#xD;&#xA;            PauseResumeRequest = ResumeRequest;&#xD;&#xA;            PauseResumeRequest.Issue(Franchise.LeagueOwner);&#xD;&#xA;        }&#xD;&#xA;        // If resume was selected, resume and send the pause request.&#xD;&#xA;        else if (PauseResumeRequest == ResumeRequest)&#xD;&#xA;        {&#xD;&#xA;            DraftManager.ResumeDraft();&#xD;&#xA;&#xD;&#xA;            // If the simulation state is live, resume the live draft.&#xD;&#xA;            if (SimState == DraftSimState.Live)&#xD;&#xA;            {&#xD;&#xA;                PauseResumeRequest = PauseRequest;&#xD;&#xA;                PauseResumeRequest.Issue(Franchise.LeagueOwner);&#xD;&#xA;                IsBlocking = false;&#xD;&#xA;            }&#xD;&#xA;        }&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="ProcessSelectPlayerStage" idx="20" type="Stage" />
+			<attribute name="ProcessStage" idx="21" type="Stage" />
+			<attribute name="ProcessTradePickStage" idx="22" type="Stage" />
+			<attribute name="Request" idx="23" type="Draft_DraftPickRequest" />
+			<attribute name="RequestServerRef" idx="24" type="RequestServer" />
+			<attribute name="ResumeRequest" idx="25" type="Draft_ResumeDraftRequest" />
+			<attribute name="SeasonInfoUpdateEvent" idx="26" type="SeasonInfoUpdateEvent" />
+			<attribute name="SelectedPlayer" idx="27" type="DraftPlayer" />
+			<attribute name="SetSimState" idx="28" type="DraftTransaction_SetSimState" guid="6498999-1931470" final="true" default="// Set the sim state.&#xD;&#xA;SimState = state;&#xD;&#xA;DraftInfo.DraftSimState = state;&#xD;&#xA;&#xD;&#xA;// If the draft is now live, set to real-time.&#xD;&#xA;if (state == DraftSimState.Live)&#xD;&#xA;{&#xD;&#xA;    TimeScale = 1.0;&#xD;&#xA;    IsBlocking = DraftInfo.IsPaused;&#xD;&#xA;    DraftInfo.IsLive = true;&#xD;&#xA;}&#xD;&#xA;// Otherwise, set to sim time and block.&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    TimeScale = 0.0;&#xD;&#xA;    IsBlocking = true;&#xD;&#xA;    DraftInfo.IsLive = false;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Enable trade notifications only when the draft is live.&#xD;&#xA;TradeNegotiationManager.IsNotificationEnabled = (state == DraftSimState.Live);&#xD;&#xA;" />
+			<attribute name="SimState" idx="29" type="DraftSimState" default="DraftSimState:Live" />
+			<attribute name="Sleep" idx="30" type="ITransaction_Sleep" guid="6498999-1895548" />
+			<attribute name="Start" idx="31" type="none()" guid="6498999-1895544" />
+			<attribute name="StartStage" idx="32" type="Stage" />
+			<attribute name="TeamRequestManager" idx="33" type="TeamRequestManager" />
+			<attribute name="TimeScale" idx="34" type="float" default="0" />
+			<attribute name="TradeEval" idx="35" type="TradeEval" />
+			<attribute name="TradeNegotiation" idx="36" type="TradeNegotiation" />
+			<attribute name="TradeNegotiationManager" idx="37" type="TradeNegotiationManager" />
+			<attribute name="TradePackageA" idx="38" type="TeamTradePackage" />
+			<attribute name="TradePackageB" idx="39" type="TeamTradePackage" />
+			<attribute name="TransitionPending" idx="40" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="41" type="Stage" />
+			<attribute name="UserRegistry" idx="42" type="UserRegistry" />
+			<attribute name="UserRequestIssuer" idx="43" type="UserRequestIssuer" />
+		</schema>
+	</schemas>
+</FranTkData>

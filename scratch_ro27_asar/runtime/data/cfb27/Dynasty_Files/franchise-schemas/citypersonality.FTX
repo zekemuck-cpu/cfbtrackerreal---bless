@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\CityPersonality.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CityPersonality" numMembers="7" assetId="6377619" isRecordPersistent="true" majorVersionCRC="681515306" minorVersionCRC="-2107434562">
+			<attribute name="FairWeather" idx="0" value="0" />
+			<attribute name="LaidBack" idx="1" value="1" />
+			<attribute name="Hardcore" idx="2" value="2" />
+			<attribute name="FrontRunner" idx="3" value="3" />
+			<attribute name="Loyal" idx="4" value="4" />
+			<attribute name="Advisor" idx="5" value="5" />
+			<attribute name="Count_" idx="6" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_FreeAgentNegotiationFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_FreeAgentNegotiationFlow" numMembers="13" base="FranTkServer_Flow" assetId="6498754" isRecordPersistent="true" majorVersionCRC="-837799769" minorVersionCRC="-2111489294">
+			<attribute name="Form" idx="0" type="UIForm" />
+			<attribute name="FormManager" idx="1" type="FranTkServer_FormManager" />
+			<attribute name="InjuryEvalRef" idx="2" type="InjuryEval" />
+			<attribute name="PlayerInterestEnumTable" idx="3" type="EnumTable" />
+			<attribute name="PlayerSigningEval" idx="4" type="PlayerSigningEval" />
+			<attribute name="PlayerTypeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="PositionRatingEnumTable" idx="6" type="EnumTable" />
+			<attribute name="RequestServer" idx="7" type="RequestServer" />
+			<attribute name="SalaryCapEval" idx="8" type="SalaryCapEval" />
+			<attribute name="SchemeEnumTable" idx="9" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="10" type="SeasonInfo" />
+			<attribute name="TeamPrestigeEval" idx="11" type="TeamPrestigeEval" />
+			<attribute name="UserRegistry" idx="12" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

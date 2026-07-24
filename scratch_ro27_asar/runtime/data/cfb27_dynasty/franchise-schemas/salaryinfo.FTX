@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\SalaryInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SalaryInfo" numMembers="8" assetId="6378039" isRecordPersistent="true" majorVersionCRC="1612689944" minorVersionCRC="-897520878">
+			<attribute name="DraftedPlayerContractTable" idx="0" type="PlayerBaseContract[]" />
+			<attribute name="PlayerMinSalaryTable" idx="1" type="int[]" />
+			<attribute name="RosterReserveSalary" idx="2" type="int" minValue="0" maxValue="100000" default="60" />
+			<attribute name="SalaryCapIncreasePerYear" idx="3" type="int[]" />
+			<attribute name="SalaryMultiplier" idx="4" type="int" minValue="10000" maxValue="10001" default="10000" />
+			<attribute name="TeamSalaryCap" idx="5" type="int" minValue="12000" maxValue="85371" default="12000" />
+			<attribute name="TeamSharedRevenuePerYear" idx="6" type="int[]" />
+			<attribute name="WeeklySharedRevenue" idx="7" type="int" minValue="0" maxValue="100000000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

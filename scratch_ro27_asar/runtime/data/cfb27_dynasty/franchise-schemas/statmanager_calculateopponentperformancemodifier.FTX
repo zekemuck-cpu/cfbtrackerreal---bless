@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\StatManager_CalculateOpponentPerformanceModifier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManager_CalculateOpponentPerformanceModifier" numMembers="2" base="int()" ownerAssetId="6493950" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1312687776" minorVersionCRC="408258658">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

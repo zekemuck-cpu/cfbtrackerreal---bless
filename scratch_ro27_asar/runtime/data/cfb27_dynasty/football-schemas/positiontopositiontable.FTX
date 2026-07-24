@@ -1,0 +1,29 @@
+<FranTkData fileName="Football-Schemas\PositionToPositionTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionToPositionTable" numMembers="22" defaultStoreCapacity="2" assetId="43234" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Lite" majorVersionCRC="399677259" minorVersionCRC="-29465920">
+			<attribute name="C" idx="0" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="CB" idx="1" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="DT" idx="2" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="FB" idx="3" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="FS" idx="4" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="HB" idx="5" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="K" idx="6" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="LE" idx="7" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="LG" idx="8" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="LOLB" idx="9" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="LS" idx="10" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="LT" idx="11" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="MLB" idx="12" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="P" idx="13" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="QB" idx="14" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="RE" idx="15" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="RG" idx="16" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="ROLB" idx="17" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="RT" idx="18" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="SS" idx="19" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="TE" idx="20" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="WR" idx="21" type="PositionE" default="PositionE:FirstKeyOffense_" />
+		</schema>
+	</schemas>
+</FranTkData>

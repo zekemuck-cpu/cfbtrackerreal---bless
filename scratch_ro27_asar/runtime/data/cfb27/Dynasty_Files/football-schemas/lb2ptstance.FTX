@@ -1,0 +1,67 @@
+<FranTkData fileName="Football-Schemas\LB2PtStance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="LB2PtStance" numMembers="60" assetId="11334944" isRecordPersistent="true" majorVersionCRC="-484075177" minorVersionCRC="1244276995">
+			<attribute name="Default" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Mike" idx="2" value="1" />
+			<attribute name="WideBase" idx="3" value="2" />
+			<attribute name="LowWideBase" idx="4" value="3" />
+			<attribute name="HandsonThighs" idx="5" value="4" />
+			<attribute name="HandsonThighsUpright" idx="6" value="5" />
+			<attribute name="Reserved1" idx="7" value="6" />
+			<attribute name="ReservedFirst_" idx="8" value="6" />
+			<attribute name="Reserved2" idx="9" value="7" />
+			<attribute name="Reserved3" idx="10" value="8" />
+			<attribute name="Reserved4" idx="11" value="9" />
+			<attribute name="Reserved5" idx="12" value="10" />
+			<attribute name="Reserved6" idx="13" value="11" />
+			<attribute name="Reserved7" idx="14" value="12" />
+			<attribute name="Reserved8" idx="15" value="13" />
+			<attribute name="Reserved9" idx="16" value="14" />
+			<attribute name="Reserved10" idx="17" value="15" />
+			<attribute name="Reserved11" idx="18" value="16" />
+			<attribute name="Reserved12" idx="19" value="17" />
+			<attribute name="Reserved13" idx="20" value="18" />
+			<attribute name="Reserved14" idx="21" value="19" />
+			<attribute name="Reserved15" idx="22" value="20" />
+			<attribute name="Reserved16" idx="23" value="21" />
+			<attribute name="Reserved17" idx="24" value="22" />
+			<attribute name="Reserved18" idx="25" value="23" />
+			<attribute name="Reserved19" idx="26" value="24" />
+			<attribute name="Reserved20" idx="27" value="25" />
+			<attribute name="Reserved21" idx="28" value="26" />
+			<attribute name="Reserved22" idx="29" value="27" />
+			<attribute name="Reserved23" idx="30" value="28" />
+			<attribute name="Reserved24" idx="31" value="29" />
+			<attribute name="Reserved25" idx="32" value="30" />
+			<attribute name="Reserved26" idx="33" value="31" />
+			<attribute name="Reserved27" idx="34" value="32" />
+			<attribute name="Reserved28" idx="35" value="33" />
+			<attribute name="Reserved29" idx="36" value="34" />
+			<attribute name="Reserved30" idx="37" value="35" />
+			<attribute name="Reserved31" idx="38" value="36" />
+			<attribute name="Reserved32" idx="39" value="37" />
+			<attribute name="Reserved33" idx="40" value="38" />
+			<attribute name="Reserved34" idx="41" value="39" />
+			<attribute name="Reserved35" idx="42" value="40" />
+			<attribute name="Reserved36" idx="43" value="41" />
+			<attribute name="Reserved37" idx="44" value="42" />
+			<attribute name="Reserved38" idx="45" value="43" />
+			<attribute name="Reserved39" idx="46" value="44" />
+			<attribute name="Reserved40" idx="47" value="45" />
+			<attribute name="Reserved41" idx="48" value="46" />
+			<attribute name="Reserved42" idx="49" value="47" />
+			<attribute name="Reserved43" idx="50" value="48" />
+			<attribute name="Reserved44" idx="51" value="49" />
+			<attribute name="Reserved45" idx="52" value="50" />
+			<attribute name="Reserved46" idx="53" value="51" />
+			<attribute name="Reserved47" idx="54" value="52" />
+			<attribute name="Reserved48" idx="55" value="52" />
+			<attribute name="Reserved49" idx="56" value="53" />
+			<attribute name="ReservedLast_" idx="57" value="255" />
+			<attribute name="Max_" idx="58" value="256" />
+			<attribute name="Invalid_" idx="59" value="257" />
+		</enum>
+	</schemas>
+</FranTkData>

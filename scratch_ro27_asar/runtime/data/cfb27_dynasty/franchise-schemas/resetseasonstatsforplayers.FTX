@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\ResetSeasonStatsForPlayers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ResetSeasonStatsForPlayers" numMembers="5" base="ModifierView" assetId="6709343" isRecordPersistent="true" majorVersionCRC="-451039776" minorVersionCRC="-879774730">
+			<attribute name="Formula" idx="0" type="ResetSeasonStatsForPlayers_Formula" guid="6709343-1949190" default="Player player = Subject;&#xD;&#xA;SeasonStats[] seasonStats = player.SeasonStats;&#xD;&#xA;&#xD;&#xA;player.LastYearSeasonEndingInjuryWeek = player.CurrentYearSeasonEndingInjuryWeek;&#xD;&#xA;player.CurrentYearSeasonEndingInjuryWeek = 30;&#xD;&#xA;&#xD;&#xA;// If the player has season stats for this year, clear them.&#xD;&#xA;if (seasonStats != null)&#xD;&#xA;{&#xD;&#xA;    int entryCount = seasonStats.Population();&#xD;&#xA;    if (entryCount &gt; 0)&#xD;&#xA;    {&#xD;&#xA;        int entryIndex = entryCount - 1;&#xD;&#xA;&#xD;&#xA;        // If the player has an entry for this year, erase it.&#xD;&#xA;        SeasonStats entry = seasonStats[entryIndex];&#xD;&#xA;        if (entry != null)&#xD;&#xA;        {&#xD;&#xA;            if (entry.SEAS_YEAR == FranchiseYear)&#xD;&#xA;            {&#xD;&#xA;                seasonStats.Erase(entryIndex);&#xD;&#xA;            }&#xD;&#xA;        }&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// If the player has game stats for this year, clear them.&#xD;&#xA;if (player.GameStats != null)&#xD;&#xA;{&#xD;&#xA;    player.GameStats.EraseAll();&#xD;&#xA;    player.GameStats = null;&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="FranchiseYear" idx="1" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Player[]" />
+			<attribute name="Update" idx="4" type="none()" guid="6709343-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\GemBustInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GemBustInfo" numMembers="4" assetId="8204514" isRecordPersistent="true" majorVersionCRC="-1669765371" minorVersionCRC="134875063">
+			<attribute name="Bust_Count_Max" idx="0" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="Bust_Count_Min" idx="1" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="Gem_Count_Max" idx="2" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="Gem_Count_Min" idx="3" type="int" minValue="0" maxValue="4095" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

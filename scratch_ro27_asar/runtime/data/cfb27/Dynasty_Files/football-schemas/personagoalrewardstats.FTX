@@ -1,0 +1,8 @@
+<FranTkData fileName="Football-Schemas\PersonaGoalRewardStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaGoalRewardStats" numMembers="1" defaultStoreCapacity="1200" assetId="12853524" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-629253921" minorVersionCRC="-453490503">
+			<attribute name="Stats" idx="0" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

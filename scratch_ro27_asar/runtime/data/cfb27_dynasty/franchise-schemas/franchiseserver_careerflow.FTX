@@ -1,0 +1,189 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow" numMembers="178" base="FranTkServer_Flow" assetId="6708691" isRecordPersistent="true" majorVersionCRC="2104833017" minorVersionCRC="1919897853">
+			<attribute name="AbilitiesRankEnumTable" idx="0" type="EnumTable" />
+			<attribute name="AcknowledgeFinanacialProbationResponse" idx="1" type="ResponseForm" />
+			<attribute name="AdvanceRequestAdvanceResponse" idx="2" type="ResponseForm" />
+			<attribute name="AdvanceRequestReadyResponse" idx="3" type="ResponseForm" />
+			<attribute name="AdvanceRequests" idx="4" type="UIRequestForm[]" />
+			<attribute name="AdvanceStage" idx="5" type="none()" guid="6708691-1948515" final="true" />
+			<attribute name="AdvanceStageUserReadyCount" idx="6" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="AutoSimStartEvent" idx="7" type="AutoSimToStartEvent" />
+			<attribute name="AwardsEval" idx="8" type="AwardsEval" />
+			<attribute name="BeginStage" idx="9" type="FranchiseServer_CareerFlow_BeginStage" guid="6708691-1948507" final="true" />
+			<attribute name="CanAdvanceStage" idx="10" type="bool()" guid="6708691-1948512" final="true" />
+			<attribute name="CareerMomentEvent" idx="11" type="CareerMomentEvent" />
+			<attribute name="CategoryPriorityCutoff" idx="12" type="int" minValue="0" maxValue="255" default="100" />
+			<attribute name="ChallengesEval" idx="13" type="ChallengesEval" />
+			<attribute name="CityPersonalityEnumTable" idx="14" type="EnumTable" />
+			<attribute name="CoachGoalsEval" idx="15" type="CoachGoalsEval" />
+			<attribute name="CoachTalentArcheTypeEnumTable" idx="16" type="EnumTable" />
+			<attribute name="CurrentCareerStage" idx="17" type="CareerStage" default="CareerStage:Invalid" />
+			<attribute name="DebugModule" idx="18" type="record" />
+			<attribute name="DepthChartEval" idx="19" type="DepthChartEval" />
+			<attribute name="DevTraitEnumTable" idx="20" type="record" />
+			<attribute name="DraftFilterPositionEnumTable" idx="21" type="EnumTable" />
+			<attribute name="DraftReadyResponse" idx="22" type="ResponseForm" />
+			<attribute name="DraftTransaction" idx="23" type="DraftTransaction" />
+			<attribute name="EndStage" idx="24" type="none()" guid="6708691-1948518" final="true" />
+			<attribute name="EntitlementAwards" idx="25" type="EntitlementAward[]" />
+			<attribute name="FillAdvanceResponseForm" idx="26" type="FranchiseServer_CareerFlow_FillAdvanceResponseForm" guid="6708691-1948706" final="true" />
+			<attribute name="ForceRetirementResponse" idx="27" type="ResponseForm" />
+			<attribute name="ForceStoryArcEvent" idx="28" type="ForceStoryArcEvent" />
+			<attribute name="Form" idx="29" type="UIForm" />
+			<attribute name="FormManager" idx="30" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="31" type="Franchise" />
+			<attribute name="GenerationManager" idx="32" type="GenerationManager" />
+			<attribute name="GoalTypeEnumTable" idx="33" type="EnumTable" />
+			<attribute name="HandleAddAdminUser" idx="34" type="FranchiseServer_CareerFlow_HandleAddAdminUser" guid="6708691-1948698" final="true" />
+			<attribute name="HandleAdvanceWeekComplete" idx="35" type="FranchiseServer_CareerFlow_HandleAdvanceWeekComplete" guid="6708691-1948844" final="true" />
+			<attribute name="HandleBeginDraftScoutingPeriod" idx="36" type="FranchiseServer_CareerFlow_HandleBeginDraftScoutingPeriod" guid="6708691-1948666" final="true" />
+			<attribute name="HandleBeginRegister" idx="37" type="FranchiseServer_CareerFlow_HandleBeginRegister" guid="6708691-1948647" final="true" />
+			<attribute name="HandleBeginSeasonWeek" idx="38" type="FranchiseServer_CareerFlow_HandleBeginSeasonWeek" guid="6708691-1948550" final="true" />
+			<attribute name="HandleBeginSeasonYear" idx="39" type="FranchiseServer_CareerFlow_HandleBeginSeasonYear" guid="6708691-1948546" final="true" />
+			<attribute name="HandleBreakingNewsEvent" idx="40" type="FranchiseServer_CareerFlow_HandleBreakingNewsEvent" guid="6708691-1948776" final="true" />
+			<attribute name="HandleCareerInfoUpdate" idx="41" type="none()" guid="6708691-1948594" final="true" />
+			<attribute name="HandleCareerInfoUpdateForTeam" idx="42" type="FranchiseServer_CareerFlow_HandleCareerInfoUpdateForTeam" guid="6708691-1948748" final="true" />
+			<attribute name="HandleCoachLevelUp" idx="43" type="FranchiseServer_CareerFlow_HandleCoachLevelUp" guid="6708691-2188036" final="true" />
+			<attribute name="HandleDraftClassEdited" idx="44" type="FranchiseServer_CareerFlow_HandleDraftClassEdited" guid="6708691-1948770" final="true" />
+			<attribute name="HandleEndAdvanceWeek" idx="45" type="none()" guid="6708691-1948591" final="true" />
+			<attribute name="HandleEndDraftScoutingPeriod" idx="46" type="FranchiseServer_CareerFlow_HandleEndDraftScoutingPeriod" guid="6708691-1948670" final="true" />
+			<attribute name="HandleEndRegister" idx="47" type="FranchiseServer_CareerFlow_HandleEndRegister" guid="6708691-1948651" final="true" />
+			<attribute name="HandleEndSimGame" idx="48" type="none()" guid="6708691-1948588" final="true" />
+			<attribute name="HandleForcedUserTeamChange" idx="49" type="FranchiseServer_CareerFlow_HandleForcedUserTeamChange" guid="6708691-1948806" final="true" />
+			<attribute name="HandleGameEndUpdate" idx="50" type="FranchiseServer_CareerFlow_HandleGameEndUpdate" guid="6708691-1948538" final="true" />
+			<attribute name="HandleHallOfFameAnnouncement" idx="51" type="FranchiseServer_CareerFlow_HandleHallOfFameAnnouncement" guid="6708691-1948662" />
+			<attribute name="HandleLeagueSetup" idx="52" type="FranchiseServer_CareerFlow_HandleLeagueSetup" guid="6708691-2653004" final="true" />
+			<attribute name="HandleManageMetersCheck" idx="53" type="none()" guid="6708691-2154176" final="true" />
+			<attribute name="HandleMarketplaceRepRewardEvent" idx="54" type="FranchiseServer_CareerFlow_HandleMarketplaceRepRewardEvent" guid="6708691-1948824" final="true" />
+			<attribute name="HandleMarketplaceRewardsEvent" idx="55" type="FranchiseServer_CareerFlow_HandleMarketplaceRewardsEvent" guid="6708691-1948811" final="true" />
+			<attribute name="HandleNewsArticleUpdate" idx="56" type="FranchiseServer_CareerFlow_HandleNewsArticleUpdate" guid="6708691-1948534" final="true" />
+			<attribute name="HandleNewsTweetUpdate" idx="57" type="FranchiseServer_CareerFlow_HandleNewsTweetUpdate" guid="6708691-1948559" final="true" />
+			<attribute name="HandlePlayerEdit" idx="58" type="FranchiseServer_CareerFlow_HandlePlayerEdit" guid="6708691-1948791" final="true" />
+			<attribute name="HandlePlayerOverallUpdate" idx="59" type="FranchiseServer_CareerFlow_HandlePlayerOverallUpdate" guid="6708691-1948795" final="true" />
+			<attribute name="HandlePracticeComplete" idx="60" type="FranchiseServer_CareerFlow_HandlePracticeComplete" guid="6708691-1948759" final="true" />
+			<attribute name="HandlePrologueCompleted" idx="61" type="FranchiseServer_CareerFlow_HandlePrologueCompleted" guid="6708691-1948765" final="true" />
+			<attribute name="HandlePurchasePackageUpdate" idx="62" type="FranchiseServer_CareerFlow_HandlePurchasePackageUpdate" guid="6708691-1948579" final="true" />
+			<attribute name="HandleRegisterUser" idx="63" type="FranchiseServer_CareerFlow_HandleRegisterUser" guid="6708691-1948599" final="true" />
+			<attribute name="HandleRemoveAdminUser" idx="64" type="FranchiseServer_CareerFlow_HandleRemoveAdminUser" guid="6708691-1948702" final="true" />
+			<attribute name="HandleSeasonGoalUpdate" idx="65" type="FranchiseServer_CareerFlow_HandleSeasonGoalUpdate" guid="6708691-1948542" final="true" />
+			<attribute name="HandleSeasonInfoUpdate" idx="66" type="FranchiseServer_CareerFlow_HandleSeasonInfoUpdate" guid="6708691-1948554" final="true" />
+			<attribute name="HandleStartSimGame" idx="67" type="FranchiseServer_CareerFlow_HandleStartSimGame" guid="6708691-1948584" final="true" />
+			<attribute name="HandleSwitchFranchiseStyle" idx="68" type="FranchiseServer_CareerFlow_HandleSwitchFranchiseStyle" guid="6708691-1948802" final="true" />
+			<attribute name="HandleTalentsUpdated" idx="69" type="FranchiseServer_CareerFlow_HandleTalentsUpdated" guid="6708691-1948820" final="true" />
+			<attribute name="HandleTeamBalanceChanged" idx="70" type="FranchiseServer_CareerFlow_HandleTeamBalanceChanged" guid="6708691-1948681" final="true" />
+			<attribute name="HandleTeamBuilderUpdatedEvent" idx="71" type="FranchiseServer_CareerFlow_HandleTeamBuilderUpdatedEvent" guid="6708691-2240203" final="true" />
+			<attribute name="HandleTeamChangedName" idx="72" type="FranchiseServer_CareerFlow_HandleTeamChangedName" guid="6708691-1948685" final="true" />
+			<attribute name="HandleToggleAutoPilot" idx="73" type="FranchiseServer_CareerFlow_HandleToggleAutoPilot" guid="6708691-1948739" final="true" />
+			<attribute name="HandleTopBarRefresh" idx="74" type="FranchiseServer_CareerFlow_HandleTopBarRefresh" guid="6708691-2253062" final="true" />
+			<attribute name="HandleUnregisterUser" idx="75" type="FranchiseServer_CareerFlow_HandleUnregisterUser" guid="6708691-1948572" final="true" />
+			<attribute name="HandleUpdateCareerHubInfo" idx="76" type="FranchiseServer_CareerFlow_HandleUpdateCareerHubInfo" guid="6708691-1948735" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="77" type="FranchiseServer_CareerFlow_HandleUpdatePlayerContractStatus" guid="6708691-1948787" final="true" />
+			<attribute name="HandleUpdateTeamProgramPoints" idx="78" type="FranchiseServer_CareerFlow_HandleUpdateTeamProgramPoints" guid="6708691-2648084" final="true" />
+			<attribute name="HandleUpdateUserContractStatus" idx="79" type="FranchiseServer_CareerFlow_HandleUpdateUserContractStatus" guid="6708691-1948636" final="true" />
+			<attribute name="HandleUserAdminUpdate" idx="80" type="FranchiseServer_CareerFlow_HandleUserAdminUpdate" guid="6708691-1948563" final="true" />
+			<attribute name="HandleUserGoalsUpdated" idx="81" type="FranchiseServer_CareerFlow_HandleUserGoalsUpdated" guid="6708691-1948828" final="true" />
+			<attribute name="HandleUserHistoryNotification" idx="82" type="FranchiseServer_CareerFlow_HandleUserHistoryNotification" guid="6708691-1948712" final="true" />
+			<attribute name="HandleUserSignatureAbilitiesUpdated" idx="83" type="FranchiseServer_CareerFlow_HandleUserSignatureAbilitiesUpdated" guid="6708691-1948840" final="true" />
+			<attribute name="HandleUserUpdateDefaultRequestAction" idx="84" type="FranchiseServer_CareerFlow_HandleUserUpdateDefaultRequestAction" guid="6708691-1948640" final="true" />
+			<attribute name="HighSchoolChallengeRequests" idx="85" type="none()" guid="6708691-2417150" final="true" />
+			<attribute name="HighSchoolCleanup" idx="86" type="none()" guid="6708691-2417141" final="true" />
+			<attribute name="HighSchoolSetupCharacters" idx="87" type="none()" guid="6708691-2417145" final="true" />
+			<attribute name="HUBArticleDefinitions" idx="88" type="HUBArticle[]" />
+			<attribute name="HUBMenu" idx="89" type="HUBTab[]" />
+			<attribute name="HUBTeamFallbackPanel" idx="90" type="HUBPanel" />
+			<attribute name="InjuryEval" idx="91" type="InjuryEval" />
+			<attribute name="IsHighSchoolCreation" idx="92" type="bool" default="False" />
+			<attribute name="IsNewCareerWaitRequestResolved" idx="93" type="bool" default="False" />
+			<attribute name="IsNewsBlocking" idx="94" type="bool" default="False" />
+			<attribute name="IsPlayerStatsTileInfoEnabled" idx="95" type="bool" default="False" />
+			<attribute name="IsStageActive" idx="96" type="bool" default="False" />
+			<attribute name="IsStageAdvancing" idx="97" type="bool" default="False" />
+			<attribute name="IssueAdvanceStageRequest" idx="98" type="FranchiseServer_CareerFlow_IssueAdvanceStageRequest" guid="6708691-1948521" final="true" default="AdvanceStageRequest request = new AdvanceStageRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 254;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;&#xD;&#xA;// Set the available responses.&#xD;&#xA;request.ReadyResponse = AdvanceRequestReadyResponse;&#xD;&#xA;request.AdvanceResponse = AdvanceRequestAdvanceResponse;&#xD;&#xA;request.DefaultResponse = AdvanceRequestReadyResponse;&#xD;&#xA;&#xD;&#xA;request.RequestData = SeasonInfo;&#xD;&#xA;&#xD;&#xA;// Create the response forms array.&#xD;&#xA;request.ResponseForms = new ResponseForm[30];&#xD;&#xA;request.ResponseForms.Append(AdvanceRequestReadyResponse);&#xD;&#xA;&#xD;&#xA;// If this is the league commissioner, give him the option to advance without&#xD;&#xA;// waiting on the other users.&#xD;&#xA;if (isForcible)&#xD;&#xA;{&#xD;&#xA;    request.CanUpdateResponse = true;&#xD;&#xA;    request.ResponseForms.Append(AdvanceRequestAdvanceResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if(isAdmin)&#xD;&#xA;{ &#xD;&#xA;    FillAdvanceResponseForm(request.ResponseForms);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Issue the request to the team's user character.&#xD;&#xA;request.Issue(userEntity);&#xD;&#xA;&#xD;&#xA;request;" />
+			<attribute name="IssueNewCareerWaitRequest" idx="99" type="FranchiseServer_CareerFlow_IssueNewCareerWaitRequest" guid="6708691-1948624" final="true" default="NewCareerWaitRequest request = new NewCareerWaitRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.IsCommissioner = isCommissioner;&#xD;&#xA;request.IsFantasyDraftOnly = SkipNewCareerStage;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsSubmittable = true;&#xD;&#xA;request.RequestData = Franchise.SeasonInfo;&#xD;&#xA;&#xD;&#xA;request.ResponseForms = new ResponseForm[2];&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;if (SkipNewCareerStage)&#xD;&#xA;{&#xD;&#xA;    if (isCommissioner)&#xD;&#xA;    {&#xD;&#xA;        // Commissioner should not see &quot;Start Regular Career&quot; response&#xD;&#xA;        request.ResponseForms.Append(StartDraftResponse);&#xD;&#xA;        request.DefaultResponse = NewCareerWaitResponse;&#xD;&#xA;    }&#xD;&#xA;    else&#xD;&#xA;    {&#xD;&#xA;        request.DefaultResponse = NewCareerWaitResponse;&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(NewCareerWaitResponse);&#xD;&#xA;&#xD;&#xA;    // If this is the commissioner, add the Fantasy Draft option.&#xD;&#xA;    if (isCommissioner)&#xD;&#xA;    {&#xD;&#xA;        request.ResponseForms.Append(StartDraftResponse);&#xD;&#xA;    }&#xD;&#xA;    &#xD;&#xA;    // Set the default response.&#xD;&#xA;    request.DefaultResponse = NewCareerWaitResponse;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Issue the request.&#xD;&#xA;request.Issue(userEntity);&#xD;&#xA;&#xD;&#xA;request;&#xD;&#xA;" />
+			<attribute name="IssueStartDraftRequest" idx="100" type="FranchiseServer_CareerFlow_IssueStartDraftRequest" guid="6708691-1948609" final="true" default="Draft_StartDraftRequest request = new Draft_StartDraftRequest;&#xD;&#xA;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.IsSubmittable = true;&#xD;&#xA;&#xD;&#xA;if( isCommissioner )&#xD;&#xA;{&#xD;&#xA;  if(removeStartDraft)&#xD;&#xA;  {&#xD;&#xA;    request.ResponseForms = new ResponseForm[1];&#xD;&#xA;      {&#xD;&#xA;          request.ResponseForms.Append( SimDraftResponse );&#xD;&#xA;      }&#xD;&#xA;      request.DefaultResponse = SimDraftResponse;&#xD;&#xA;      request.IsCommissioner = true;&#xD;&#xA;      request.IsResponseRequired = true;&#xD;&#xA;  }&#xD;&#xA;  else&#xD;&#xA;  {&#xD;&#xA;    request.ResponseForms = new ResponseForm[2];&#xD;&#xA;      {&#xD;&#xA;          request.ResponseForms.Append( StartDraftResponse );&#xD;&#xA;          request.ResponseForms.Append( SimDraftResponse );&#xD;&#xA;      }&#xD;&#xA;      request.DefaultResponse = SimDraftResponse;&#xD;&#xA;      request.IsCommissioner = true;&#xD;&#xA;      request.IsResponseRequired = true;&#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  request.ResponseForms = new ResponseForm[1];&#xD;&#xA;  {&#xD;&#xA;    request.ResponseForms.Append( DraftReadyResponse );&#xD;&#xA;  }&#xD;&#xA;  request.DefaultResponse = DraftReadyResponse ;&#xD;&#xA;  request.IsCommissioner = false;&#xD;&#xA;  request.IsResponseRequired = false;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.SimResponse = SimDraftResponse;&#xD;&#xA;request.StartResponse = StartDraftResponse;&#xD;&#xA;request.ReadyResponse = DraftReadyResponse;&#xD;&#xA;request.Franchise = Franchise;&#xD;&#xA;request.DraftTransaction = DraftTransaction;&#xD;&#xA;&#xD;&#xA;request.RequestData = Franchise.SeasonInfo;&#xD;&#xA;&#xD;&#xA;request.Issue( userEntity );&#xD;&#xA;&#xD;&#xA;request;" />
+			<attribute name="IsUserRegistering" idx="101" type="bool" default="False" />
+			<attribute name="JobSecurityEnumTable" idx="102" type="EnumTable" />
+			<attribute name="League" idx="103" type="League" />
+			<attribute name="LeagueBonusOwner" idx="104" type="int" minValue="0" maxValue="25000000" default="10000000" />
+			<attribute name="LeagueBonusPlayerCoach" idx="105" type="int" minValue="0" maxValue="50000" default="10000" />
+			<attribute name="LeaguePanels" idx="106" type="HUBPanel[]" />
+			<attribute name="LeagueSetting" idx="107" type="LeagueSetting" />
+			<attribute name="LeagueSettingFlow" idx="108" type="FranchiseServer_LeagueSettingFlow" />
+			<attribute name="LegacyScoreDraftProjectionEnumTable" idx="109" type="EnumTable" />
+			<attribute name="LegacyScoreEval" idx="110" type="LegacyScoreEval" />
+			<attribute name="LiveSeasonPostGamePopUp" idx="111" type="LiveSeasonPostGamePopup" />
+			<attribute name="MediaRelationsPersonFName" idx="112" type="string" maxLen="13" />
+			<attribute name="MediaRelationsPersonLName" idx="113" type="string" maxLen="13" />
+			<attribute name="MediaRelationsPersonLogoID" idx="114" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MetersEval" idx="115" type="NarrativePlayerMetersEval" />
+			<attribute name="NewCareerWaitResponse" idx="116" type="ResponseForm" />
+			<attribute name="NewsManager" idx="117" type="NewsManager" />
+			<attribute name="OffseasonStageEnumTable" idx="118" type="EnumTable" />
+			<attribute name="PlayerGoalsEval" idx="119" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEval" idx="120" type="PlayerGradeEval" />
+			<attribute name="PlayerProgressionEval" idx="121" type="record" />
+			<attribute name="PlayersLeavingEval" idx="122" type="record" />
+			<attribute name="PlayoffRoundTypeEnumTable" idx="123" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="124" type="EnumTable" />
+			<attribute name="PositionRatingEnumTable" idx="125" type="record" />
+			<attribute name="PracticeEval" idx="126" type="PracticeEval" />
+			<attribute name="PreviousInjurySetting" idx="127" type="bool" default="False" />
+			<attribute name="PrologueProgress" idx="128" type="PrologueProgress" />
+			<attribute name="RecruitingEval" idx="129" type="RecruitingEval" />
+			<attribute name="RecruitManagerRef" idx="130" type="RecruitManager" />
+			<attribute name="RefreshAdvanceStageRequest" idx="131" type="FranchiseServer_CareerFlow_RefreshAdvanceStageRequest" guid="6708691-1948603" final="true" default="// Create the response forms array.&#xD;&#xA;request.ResponseForms.EraseAll();&#xD;&#xA;request.ResponseForms.Append(AdvanceRequestReadyResponse);&#xD;&#xA;&#xD;&#xA;// If this is the league commissioner, give him the option to advance without&#xD;&#xA;// waiting on the other users.&#xD;&#xA;if (canForceAdvance)&#xD;&#xA;{&#xD;&#xA;    request.CanUpdateResponse = true;&#xD;&#xA;    request.ResponseForms.Append(AdvanceRequestAdvanceResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if(isAdmin &amp;&amp; (LeagueSetting.FranchiseStyle !=  FranchiseStyle.Legacy))&#xD;&#xA;{ &#xD;&#xA;    FillAdvanceResponseForm(request.ResponseForms);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Refresh the request.&#xD;&#xA;request.Refresh();&#xD;&#xA;" />
+			<attribute name="RefreshCareerClockRequest" idx="132" type="FranchiseServer_CareerFlow_RefreshCareerClockRequest" guid="6708691-1948780" final="true" default="// Create the response forms array.&#xD;&#xA;request.ResponseForms.EraseAll();&#xD;&#xA;request.ResponseForms.Append(AdvanceRequestReadyResponse);&#xD;&#xA;&#xD;&#xA;// If this is the league commissioner, give him the option to advance without&#xD;&#xA;// waiting on the other users.&#xD;&#xA;if (canForceAdvance)&#xD;&#xA;{&#xD;&#xA;    request.CanUpdateResponse = true;&#xD;&#xA;    request.ResponseForms.Append(AdvanceRequestAdvanceResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if(isAdmin &amp;&amp; (LeagueSetting.FranchiseStyle !=  FranchiseStyle.Legacy))&#xD;&#xA;{ &#xD;&#xA;    FillAdvanceResponseForm(request.ResponseForms);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Refresh the request.&#xD;&#xA;request.Refresh();&#xD;&#xA;" />
+			<attribute name="RefreshNewCareerWaitRequest" idx="133" type="FranchiseServer_CareerFlow_RefreshNewCareerWaitRequest" guid="6708691-1948629" final="true" default="// If user was commissioner&#xD;&#xA;if(request.IsCommissioner == true)&#xD;&#xA;{&#xD;&#xA;  // commissioner loses fantasy draft option&#xD;&#xA;  if(isCommissioner == false)&#xD;&#xA;  {&#xD;&#xA;    request.ResponseForms.FindAndErase(StartDraftResponse);    &#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  // commissioner gains fantasy draft option&#xD;&#xA;  if(isCommissioner == true)&#xD;&#xA;  {&#xD;&#xA;    request.ResponseForms.Append(StartDraftResponse);&#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.IsCommissioner = isCommissioner;&#xD;&#xA;request.Refresh();&#xD;&#xA;&#xD;&#xA;" />
+			<attribute name="RefreshStartDraftRequest" idx="134" type="FranchiseServer_CareerFlow_RefreshStartDraftRequest" guid="6708691-1948618" final="true" default="request.ResponseForms.EraseAll();&#xD;&#xA;&#xD;&#xA;if( isCommissioner )&#xD;&#xA;{&#xD;&#xA;  request.ResponseForms = new ResponseForm[2];&#xD;&#xA;  {&#xD;&#xA;    request.ResponseForms.Append( StartDraftResponse );&#xD;&#xA;    request.ResponseForms.Append( SimDraftResponse );&#xD;&#xA;  }&#xD;&#xA;  request.DefaultResponse = SimDraftResponse;&#xD;&#xA;  request.IsCommissioner = true;&#xD;&#xA;  request.IsResponseRequired = true;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  request.ResponseForms = new ResponseForm[1];&#xD;&#xA;  {&#xD;&#xA;    request.ResponseForms.Append( DraftReadyResponse );&#xD;&#xA;  }&#xD;&#xA;  request.DefaultResponse = DraftReadyResponse ;&#xD;&#xA;  request.IsCommissioner = false;&#xD;&#xA;  request.IsResponseRequired = false;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Refresh the request.&#xD;&#xA;request.Refresh();&#xD;&#xA;" />
+			<attribute name="RequestServer" idx="135" type="RequestServer" />
+			<attribute name="ResetLeagueInjurySettingOnEndAutoSim" idx="136" type="bool" default="False" />
+			<attribute name="ResolveNewCareerWaitRequest" idx="137" type="FranchiseServer_CareerFlow_ResolveNewCareerWaitRequest" guid="6708691-1948729" final="true" />
+			<attribute name="RosterEval" idx="138" type="RosterEval" />
+			<attribute name="RosterInfo" idx="139" type="RosterInfo" />
+			<attribute name="SalaryCapEval" idx="140" type="SalaryCapEval" />
+			<attribute name="SchemeEnumTable" idx="141" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="142" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="143" type="SeasonManager" />
+			<attribute name="SeasonScheduleManager" idx="144" type="SeasonScheduleManager" />
+			<attribute name="SeasonStandings" idx="145" type="SeasonStandings" />
+			<attribute name="SelectedAdvanceResponse" idx="146" type="ScheduleUISelectForm" />
+			<attribute name="SignatureAbilitiesEval" idx="147" type="SignatureAbilitiesEval" />
+			<attribute name="SimDraftResponse" idx="148" type="ResponseForm" />
+			<attribute name="SimToRegularSeasonResponse" idx="149" type="ResponseForm" />
+			<attribute name="SimToResponses" idx="150" type="ResponseForm[]" />
+			<attribute name="SkipNewCareerStage" idx="151" type="bool" default="False" />
+			<attribute name="StaffHiringEval" idx="152" type="StaffHiringEval" />
+			<attribute name="StaffPositionEnumTable" idx="153" type="EnumTable" />
+			<attribute name="StartDraftResponse" idx="154" type="ResponseForm" />
+			<attribute name="StateNameEnumTable" idx="155" type="EnumTable" />
+			<attribute name="StatManager" idx="156" type="StatManager" />
+			<attribute name="StatTypeEnumTable" idx="157" type="EnumTable" />
+			<attribute name="StoryArcUtil" idx="158" type="record" />
+			<attribute name="StringManager" idx="159" type="StringManager" />
+			<attribute name="SuperBowlStadiums" idx="160" type="Stadium[]" />
+			<attribute name="SwitchFranchiseStyleEvent" idx="161" type="SwitchFranchiseStyleEvent" />
+			<attribute name="TalentTreeEval" idx="162" type="TalentTreeEval" />
+			<attribute name="TeamManagerRef" idx="163" type="TeamManager" />
+			<attribute name="TeamPrestigeEval" idx="164" type="TeamPrestigeEval" />
+			<attribute name="TeamRevenueEval" idx="165" type="TeamRevenueEval" />
+			<attribute name="TeamValueEval" idx="166" type="TeamValueEval" />
+			<attribute name="ToggleAutoPilotEvent" idx="167" type="ToggleAutoPilotEvent" />
+			<attribute name="Tutorial" idx="168" type="TutorialInfo" />
+			<attribute name="TutorialListHomePlayerTab" idx="169" type="TutorialInfo[]" />
+			<attribute name="TutorialListHomeTab" idx="170" type="TutorialInfo[]" />
+			<attribute name="TutorialListLeagueTab" idx="171" type="TutorialInfo[]" />
+			<attribute name="TutorialListNewsTab" idx="172" type="TutorialInfo[]" />
+			<attribute name="TutorialManager" idx="173" type="TutorialManager" />
+			<attribute name="UserFlow" idx="174" type="FranchiseServer_UserFlow" />
+			<attribute name="UserRegistry" idx="175" type="UserRegistry" />
+			<attribute name="UserRequestIssuer" idx="176" type="UserRequestIssuer" />
+			<attribute name="WeeklyTips" idx="177" type="WeeklyTip[]" />
+		</schema>
+	</schemas>
+</FranTkData>

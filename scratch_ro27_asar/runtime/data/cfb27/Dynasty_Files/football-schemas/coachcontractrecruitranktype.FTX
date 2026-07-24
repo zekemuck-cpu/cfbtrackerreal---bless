@@ -1,0 +1,14 @@
+<FranTkData fileName="Football-Schemas\CoachContractRecruitRankType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachContractRecruitRankType" numMembers="7" assetId="12178740" isRecordPersistent="true" majorVersionCRC="-1053207521" minorVersionCRC="577701458">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="NationalRank" idx="1" value="1" />
+			<attribute name="PositionRank" idx="2" value="2" />
+			<attribute name="Last_" idx="3" value="3" />
+			<attribute name="StateRank" idx="4" value="3" />
+			<attribute name="Count_" idx="5" value="4" />
+			<attribute name="Invalid_" idx="6" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

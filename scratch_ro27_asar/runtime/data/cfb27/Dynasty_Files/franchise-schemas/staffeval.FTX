@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\StaffEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffEval" numMembers="7" base="Module" assetId="6494955" isRecordPersistent="true" majorVersionCRC="-1740587912" minorVersionCRC="1924641971">
+			<attribute name="CalculateTeamValueComponentValue" idx="0" type="StaffEval_CalculateTeamValueComponentValue" guid="6494955-1913378" final="true" />
+			<attribute name="CoachLevelToRankSpline" idx="1" type="Spline" />
+			<attribute name="CoachValueWeight" idx="2" type="int" minValue="1" maxValue="100" default="1" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="ScoutValueWeight" idx="4" type="int" minValue="1" maxValue="100" default="1" />
+			<attribute name="TrainerValueWeight" idx="5" type="int" minValue="1" maxValue="100" default="1" />
+			<attribute name="ValidateExpressions" idx="6" type="none()" guid="6494955-1913386" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

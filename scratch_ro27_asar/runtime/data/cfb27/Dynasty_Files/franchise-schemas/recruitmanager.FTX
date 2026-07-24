@@ -1,0 +1,47 @@
+<FranTkData fileName="Franchise-Schemas\RecruitManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitManager" numMembers="40" base="Module" assetId="6733442" isRecordPersistent="true" majorVersionCRC="-2019264404" minorVersionCRC="-767772250">
+			<attribute name="ActionTypeTest" idx="0" type="RecruitingActionType" default="RecruitingActionType:FIRST_ACTIVE_" />
+			<attribute name="AssetGenerator" idx="1" type="AssetGenerationManager" />
+			<attribute name="CoachManager" idx="2" type="CoachManager" />
+			<attribute name="CreateInitialPipelineInfluenceForTeams" idx="3" type="none()" guid="6733442-2081191" final="true" />
+			<attribute name="CutDayEval" idx="4" type="CutDayEval" />
+			<attribute name="DepthChartEval" idx="5" type="DepthChartEval" />
+			<attribute name="Dynasty" idx="6" type="Franchise" />
+			<attribute name="FirstRecruitingStageDetails" idx="7" type="RecruitingStageDetails" />
+			<attribute name="HandlePlayerLevelUp" idx="8" type="RecruitManager_HandlePlayerLevelUp" guid="6733442-2247097" final="true" />
+			<attribute name="HandleRecruitPeriodStart" idx="9" type="RecruitManager_HandleRecruitPeriodStart" guid="6733442-1960035" final="true" default="int year = Dynasty.SeasonInfo.CurrentYear;&#xD;&#xA;bool NOT_COACHES_ONLY = false; //only true for only generating coache&#xD;&#xA;bool NOT_DEBUG = false; //only true for use by testbed&#xD;&#xA;LoadRecruitingClass(year, NOT_COACHES_ONLY, NOT_DEBUG);&#xD;&#xA;CreateInitialPipelineInfluenceForTeams();&#xD;&#xA;ResetJumpBacksUsed();&#xD;&#xA;" />
+			<attribute name="LoadRecruitingClass" idx="10" type="RecruitManager_LoadRecruitingClass" guid="6733442-1960020" final="true" />
+			<attribute name="MySchoolGradeEval" idx="11" type="MySchoolGradeEval" />
+			<attribute name="NarrativePlayer" idx="12" type="NarrativePlayer" />
+			<attribute name="NarrativeRecruitingTunables" idx="13" type="NarrativeRecruitingTunable" />
+			<attribute name="PlayerGearTemplateMapArray" idx="14" type="FBCBrandPositionTemplateMap[]" />
+			<attribute name="PlayersLeavingEval" idx="15" type="PlayersLeavingEval" />
+			<attribute name="ProcessEndOfRecruitingCycle_End" idx="16" type="none()" guid="6733442-2353018" final="true" />
+			<attribute name="ProcessEndOfRecruitingCycle_Start" idx="17" type="none()" guid="6733442-2353024" final="true" />
+			<attribute name="ProcessEndOfRecruitingCycle_Update" idx="18" type="RecruitManager_ProcessEndOfRecruitingCycle_Update" guid="6733442-2353015" final="true" />
+			<attribute name="ProcessPreseasonRosterValidation_End" idx="19" type="none()" guid="6733442-2319037" final="true" />
+			<attribute name="ProcessPreseasonRosterValidation_Start" idx="20" type="none()" guid="6733442-2319035" final="true" />
+			<attribute name="ProcessPreseasonRosterValidation_Update" idx="21" type="RecruitManager_ProcessPreseasonRosterValidation_Update" guid="6733442-2319032" final="true" />
+			<attribute name="ProspectGenerationCompletedEvent" idx="22" type="ProspectGenerationCompletedEvent" />
+			<attribute name="ProspectInteractions" idx="23" type="ProspectInteraction[]" />
+			<attribute name="RandomRef" idx="24" type="Random" />
+			<attribute name="RecruitAddedToBoardEvent" idx="25" type="RecruitAddedToBoardEvent" />
+			<attribute name="RecruitingBattleStageDetails" idx="26" type="RecruitingStageDetails" />
+			<attribute name="RecruitingClassGenerator" idx="27" type="RecruitingClassGenerationManager" />
+			<attribute name="RecruitingTunables" idx="28" type="RecruitingTunables" />
+			<attribute name="RecruitRemovedFromBoardEvent" idx="29" type="RecruitRemovedFromBoardEvent" />
+			<attribute name="RecruitUpdateTargetTrackingEvent" idx="30" type="RecruitUpdateTargetTrackingEvent" />
+			<attribute name="ResetJumpBacksUsed" idx="31" type="none()" guid="6733442-2157142" final="true" />
+			<attribute name="ResetWeeklyHours" idx="32" type="RecruitManager_ResetWeeklyHours" guid="6733442-1988065" final="true" />
+			<attribute name="StatManager" idx="33" type="StatManager" />
+			<attribute name="TalentTreeEval" idx="34" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="35" type="TeamManager" />
+			<attribute name="TeamRevenueEval" idx="36" type="TeamRevenueEval" />
+			<attribute name="UnloadRecruitingClass" idx="37" type="none()" guid="6733442-1960029" final="true" />
+			<attribute name="UpdateProspectTargetSchoolEvent" idx="38" type="UpdateProspectTargetSchoolEvent" />
+			<attribute name="VisitEval" idx="39" type="VisitEval" />
+		</schema>
+	</schemas>
+</FranTkData>

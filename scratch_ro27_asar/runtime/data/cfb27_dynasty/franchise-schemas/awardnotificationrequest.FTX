@@ -1,0 +1,52 @@
+<FranTkData fileName="Franchise-Schemas\AwardNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AwardNotificationRequest" numMembers="41" base="UIRequestForm" assetId="8893701" isRecordPersistent="true" majorVersionCRC="-644654702" minorVersionCRC="-48646746">
+			<attribute name="Award" idx="0" type="Award" />
+			<attribute name="CanSubmitResponse" idx="1" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="2" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="3" type="none()" guid="8893701-1895689" final="true" />
+			<attribute name="Commands" idx="4" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="7" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="8" type="ResponseForm" />
+			<attribute name="Description" idx="9" type="string" const="true" maxLen="129" />
+			<attribute name="Dismiss" idx="10" type="none()" guid="8893701-1895671" />
+			<attribute name="ExpirationDuration" idx="11" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="12" type="none()" guid="8893701-2210317" />
+			<attribute name="HasResolution" idx="13" type="bool()" guid="8893701-1895676" />
+			<attribute name="IsBlocking" idx="14" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="15" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="16" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="17" type="bool()" guid="8893701-1895678" />
+			<attribute name="IsResponseRequired" idx="18" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="19" type="bool" default="True" />
+			<attribute name="Issue" idx="20" type="Request_Issue" guid="8893701-1895668" />
+			<attribute name="IssueTime" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IsUserPlayer" idx="22" type="bool" default="False" />
+			<attribute name="Priority" idx="23" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="24" type="none()" guid="8893701-1895686" final="true" />
+			<attribute name="RequestData" idx="25" type="record" />
+			<attribute name="RequestForm" idx="26" type="ResponseForm" />
+			<attribute name="RequestId" idx="27" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="28" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="31" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="32" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="33" type="bool" default="True" />
+			<attribute name="ShowRoosterOnHubButton" idx="34" type="HUBMenuType" default="HUBMenuType:Invalid" />
+			<attribute name="ShowRoosterOnHubTab" idx="35" type="HUBTabType" default="HUBTabType:Invalid" />
+			<attribute name="TargetUser" idx="36" type="User" />
+			<attribute name="Team" idx="37" type="Team" />
+			<attribute name="Title" idx="38" type="string" const="true" maxLen="1" />
+			<attribute name="TypeName" idx="39" type="string" const="true" maxLen="33" default="Award" />
+			<attribute name="UIDisplayStyle" idx="40" type="UIDisplayStyle" default="UIDisplayStyle:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

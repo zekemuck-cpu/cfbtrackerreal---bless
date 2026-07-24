@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PossessionType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PossessionType" numMembers="3" assetId="6321229" isRecordPersistent="true" majorVersionCRC="-1901355411" minorVersionCRC="1944318913">
+			<attribute name="UserTeam" idx="0" value="0" />
+			<attribute name="OpponentTeam" idx="1" value="1" />
+			<attribute name="None" idx="2" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

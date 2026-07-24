@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingActionFeedbackEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingActionFeedbackEntry" numMembers="8" defaultStoreCapacity="8960" assetId="8207448" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1721073166" minorVersionCRC="-1365372139">
+			<attribute name="BonusList" idx="0" type="RecruitingActionBonus[]" />
+			<attribute name="HoursSpent" idx="1" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="InfluenceGained" idx="2" type="int" minValue="-1023" maxValue="1023" default="0" />
+			<attribute name="IntelUnlocked" idx="3" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="MaxInfluenceGain" idx="4" type="int" minValue="-1023" maxValue="1023" default="0" />
+			<attribute name="MinInfluenceGain" idx="5" type="int" minValue="-1023" maxValue="1023" default="0" />
+			<attribute name="RecruitingActionIntensity" idx="6" type="RecruitingActionIntensity" default="RecruitingActionIntensity:Invalid_" />
+			<attribute name="RecruitingActionType" idx="7" type="RecruitingActionType" default="RecruitingActionType:COUNT_ACTIVE" />
+		</schema>
+	</schemas>
+</FranTkData>

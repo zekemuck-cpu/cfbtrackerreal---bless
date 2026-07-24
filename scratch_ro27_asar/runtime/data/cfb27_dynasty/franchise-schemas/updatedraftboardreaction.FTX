@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\UpdateDraftBoardReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateDraftBoardReaction" numMembers="5" base="Reaction" assetId="6498919" isRecordPersistent="true" majorVersionCRC="-1283053214" minorVersionCRC="-1709307012">
+			<attribute name="EventRecord" idx="0" type="UpdateDraftBoardEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6498919-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Transaction" idx="4" type="UpdateDraftBoardTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\LeagueHistoryAward.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LeagueHistoryAward" numMembers="7" defaultStoreCapacity="750" assetId="6378663" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="526194074" minorVersionCRC="611008014">
+			<attribute name="AwardType" idx="0" type="AwardType" default="AwardType:INVALID" />
+			<attribute name="firstName" idx="1" type="string" maxLen="14" />
+			<attribute name="lastName" idx="2" type="string" maxLen="18" />
+			<attribute name="Position" idx="3" type="LeagueHistoryPosition" default="LeagueHistoryPosition:Invalid_" />
+			<attribute name="TeamDisplayName" idx="4" type="string" maxLen="23" />
+			<attribute name="TeamIdentity" idx="5" type="Team" />
+			<attribute name="WinningUser" idx="6" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

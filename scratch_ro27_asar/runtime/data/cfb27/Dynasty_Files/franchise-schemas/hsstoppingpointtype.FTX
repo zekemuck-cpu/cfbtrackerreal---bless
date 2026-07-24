@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\HSStoppingPointType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="HSStoppingPointType" numMembers="11" assetId="10605492" isRecordPersistent="true" majorVersionCRC="754454594" minorVersionCRC="-404530782">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Preseason" idx="1" value="0" />
+			<attribute name="SeasonOpener" idx="2" value="1" />
+			<attribute name="ToughRoadGame" idx="3" value="2" />
+			<attribute name="HomeComing" idx="4" value="3" />
+			<attribute name="RivalryWeek" idx="5" value="4" />
+			<attribute name="SeniorNight" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="6" />
+			<attribute name="SigningDay" idx="8" value="6" />
+			<attribute name="Count_" idx="9" value="7" />
+			<attribute name="Invalid_" idx="10" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

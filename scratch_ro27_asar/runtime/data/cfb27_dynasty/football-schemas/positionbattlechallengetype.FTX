@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\PositionBattleChallengeType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PositionBattleChallengeType" numMembers="3" assetId="13147446" isRecordPersistent="true" majorVersionCRC="67346682" minorVersionCRC="-407814076">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="Challenger" idx="1" value="1" />
+			<attribute name="BeingChallenged" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

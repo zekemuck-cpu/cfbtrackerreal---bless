@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TrophyRoomUtil_SeasonBeginYearEventReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TrophyRoomUtil_SeasonBeginYearEventReaction" numMembers="4" base="Reaction" assetId="11852453" isRecordPersistent="true" majorVersionCRC="1586005022" minorVersionCRC="47154834">
+			<attribute name="EventRecord" idx="0" type="Season_BeginYearEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="11852453-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TrophyRoomUtil" idx="3" type="TrophyRoomUtil" />
+		</schema>
+	</schemas>
+</FranTkData>

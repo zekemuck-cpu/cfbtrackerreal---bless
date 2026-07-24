@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolGradeEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolGradeEval" numMembers="19" base="Module" assetId="6514526" isRecordPersistent="true" majorVersionCRC="1578455319" minorVersionCRC="-1494465503">
+			<attribute name="CalculateJobDifficulty" idx="0" type="MySchoolGradeEval_CalculateJobDifficulty" guid="6514526-2736096" />
+			<attribute name="CoachProgressionEval" idx="1" type="CoachProgressionEval" />
+			<attribute name="DepthChartEval" idx="2" type="DepthChartEval" />
+			<attribute name="Dynasty" idx="3" type="Franchise" />
+			<attribute name="HandleTeamUpgradeEffectsUpdated" idx="4" type="MySchoolGradeEval_HandleTeamUpgradeEffectsUpdated" guid="6514526-2647188" final="true" />
+			<attribute name="MySchoolTuning" idx="5" type="MySchoolTuning" />
+			<attribute name="Random" idx="6" type="Random" />
+			<attribute name="RecruitingTunables" idx="7" type="RecruitingTunables" />
+			<attribute name="RosterEval" idx="8" type="RosterEval" />
+			<attribute name="SeasonInfo" idx="9" type="SeasonInfo" />
+			<attribute name="SeasonScheduleManager" idx="10" type="SeasonScheduleManager" />
+			<attribute name="StadiumEval" idx="11" type="StadiumEval" />
+			<attribute name="StatManager" idx="12" type="StatManager" />
+			<attribute name="TeamRevenueEval" idx="13" type="TeamRevenueEval" />
+			<attribute name="UpdateGradeForLeague" idx="14" type="MySchoolGradeEval_UpdateGradeForLeague" guid="6514526-1952084" />
+			<attribute name="UpdateSeasonalGrades" idx="15" type="none()" guid="6514526-1971003" />
+			<attribute name="UpdateTeamPrestige" idx="16" type="none()" guid="6514526-2080214" />
+			<attribute name="UpdateWeeklyGrades" idx="17" type="none()" guid="6514526-1971001" />
+			<attribute name="ValidateExpressions" idx="18" type="none()" guid="6514526-1971016" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

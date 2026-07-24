@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerAwardGoalTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerAwardGoalTable" numMembers="3" defaultStoreCapacity="1" assetId="6494673" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-802086730" minorVersionCRC="1016007848">
+			<attribute name="CareerGoalsList" idx="0" type="PlayerGoal[]" />
+			<attribute name="SeasonGoalsList" idx="1" type="PlayerGoal[]" />
+			<attribute name="WeeklyGoalsList" idx="2" type="PlayerGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

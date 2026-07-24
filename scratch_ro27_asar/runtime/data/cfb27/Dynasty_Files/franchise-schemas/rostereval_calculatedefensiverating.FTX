@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RosterEval_CalculateDefensiveRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterEval_CalculateDefensiveRating" numMembers="2" base="int()" ownerAssetId="6494681" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1848473152" minorVersionCRC="1238456513">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

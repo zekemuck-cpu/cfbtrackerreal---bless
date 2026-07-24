@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayerPackageXP_GetPriority.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerPackageXP_GetPriority" numMembers="5" base="int()" ownerAssetId="6702181" isRecordPersistent="true" isExpr="true" majorVersionCRC="1146311834" minorVersionCRC="65750718">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="team" idx="1" type="Team" />
+			<attribute name="seasonGame" idx="2" type="SeasonGame" />
+			<attribute name="weekType" idx="3" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+		</schema>
+	</schemas>
+</FranTkData>

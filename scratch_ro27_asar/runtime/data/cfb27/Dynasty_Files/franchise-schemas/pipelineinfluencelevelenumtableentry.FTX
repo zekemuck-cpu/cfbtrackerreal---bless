@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\PipelineInfluenceLevelEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PipelineInfluenceLevelEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="8" assetId="8224468" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="190" majorVersionCRC="1718756494" minorVersionCRC="1486040176">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="PipelineInfluenceLevel" default="PipelineInfluenceLevel:Unrecognized" />
+		</schema>
+	</schemas>
+</FranTkData>

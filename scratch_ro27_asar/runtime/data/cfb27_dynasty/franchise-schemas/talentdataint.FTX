@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TalentDataInt.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TalentData.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentDataInt" numMembers="1" base="TalentData" defaultStoreCapacity="41" assetId="6522233" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-949851674" minorVersionCRC="1148373766">
+			<attribute name="Value" idx="0" type="int" minValue="0" maxValue="15000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

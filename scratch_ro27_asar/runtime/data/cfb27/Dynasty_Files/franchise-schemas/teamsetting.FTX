@@ -1,0 +1,48 @@
+<FranTkData fileName="Franchise-Schemas\TeamSetting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamSetting" numMembers="41" defaultStoreCapacity="176" assetId="6377844" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="441259830" minorVersionCRC="-1626276377">
+			<attribute name="AIAssistManageFacilitiesSpendingDescription" idx="0" type="string" maxLen="115" default="Set this to On to allow the AI to manage your purchasing and management of your Athletic Facilities and Equipment." />
+			<attribute name="AIAssistManageOverallBudgetDescription" idx="1" type="string" maxLen="69" default="Set this to On to allow the AI to manage your Dynasty Points Budget." />
+			<attribute name="AIAssistManageSupportStaffDescription" idx="2" type="string" maxLen="82" default="Set this to On to allow the AI to manage your hiring and firing of Support Staff." />
+			<attribute name="AutoSubSlider" idx="3" type="AutoSubSlider" />
+			<attribute name="BreakingNewsDescription" idx="4" type="string" const="true" maxLen="18" default="Place Holder Text" />
+			<attribute name="CPUCutPlayersDescription" idx="5" type="string" const="true" maxLen="201" default="NEEDS TO BE DISABLED" />
+			<attribute name="CPUDraftPlayersDescription" idx="6" type="string" const="true" maxLen="81" default="When set to ON, the CPU will automatically sign draft picks for you." />
+			<attribute name="CPUProgressPlayersDescription" idx="7" type="string" const="true" maxLen="253" default="Setting this option to ON will allow the CPU to automatically progress your team's players throughout the season. Setting this option to OFF may incur a penalty which is set by the Manual Progression XP Penalty Slider (available to commissioners only)." />
+			<attribute name="CPUProgressTalentsDescription" idx="8" type="string" const="true" maxLen="95" default="This setting allows the AI to control how the User-Controlled Coach progresses." />
+			<attribute name="InjuryManagementDescription" idx="9" type="string" const="true" maxLen="201" default="THIS NEEDS TO BE DISABLED" />
+			<attribute name="IsAIAssistManageFacilitiesSpendingEnabled" idx="10" type="bool" default="False" />
+			<attribute name="IsAIAssistManageOverallBudgetEnabled" idx="11" type="bool" default="False" />
+			<attribute name="IsAIAssistManageSupportStaffEnabled" idx="12" type="bool" default="False" />
+			<attribute name="IsBreakingNewsEnabled" idx="13" type="bool" default="True" />
+			<attribute name="IsCPUCutPlayersEnabled" idx="14" type="bool" default="True" />
+			<attribute name="IsCPUDraftPlayersEnabled" idx="15" type="bool" default="True" />
+			<attribute name="IsCPUProgressPlayersEnabled" idx="16" type="bool" default="True" />
+			<attribute name="IsCPUProgressTalentsEnabled" idx="17" type="bool" default="False" />
+			<attribute name="IsInjuryManagementEnabled" idx="18" type="bool" default="True" />
+			<attribute name="IsManagePracticeRepsEnabled" idx="19" type="bool" default="False" />
+			<attribute name="IsManualAdvancementEnabled" idx="20" type="bool" default="True" />
+			<attribute name="IsPodcastEnabled" idx="21" type="bool" default="True" />
+			<attribute name="IsScoutCollegePlayersEnabled" idx="22" type="bool" default="True" />
+			<attribute name="IsTutorialPopupEnabled" idx="23" type="bool" default="False" />
+			<attribute name="IsWeeklyTrainingEnabled" idx="24" type="bool" default="True" />
+			<attribute name="LocksmithAssistance" idx="25" type="bool" default="False" />
+			<attribute name="LocksmithAssistanceDescription" idx="26" type="string" maxLen="39" default="Determines if the CPU can break locks." />
+			<attribute name="ManagePracticeRepsDescription" idx="27" type="string" const="true" maxLen="129" default="Set to MANUAL if you want to manage the player practice reps yourself.  Set to AUTO to let the CPU handle this activity for you." />
+			<attribute name="ManualAdvancementDescription" idx="28" type="string" const="true" maxLen="201" default="Set to MANUAL to control week advancement.  Set to AUTO to automatically advance each time after you play your game." />
+			<attribute name="PodcastDescription" idx="29" type="string" const="true" maxLen="53" default="When set to ON, the podcast will play between games." />
+			<attribute name="RecruitingBoardAssistance" idx="30" type="bool" default="False" />
+			<attribute name="RecruitingBoardAssistanceDescription" idx="31" type="string" maxLen="94" default="Determines if the CPU will be allowed to fully manage your recruiting board." />
+			<attribute name="ScholarshipOfferAssistance" idx="32" type="bool" default="False" />
+			<attribute name="ScholarshipOfferAssistanceDescription" idx="33" type="string" maxLen="59" default="Determines if the CPU can offer scholarships to prospects." />
+			<attribute name="ScoutCollegePlayersDescription" idx="34" type="string" const="true" maxLen="201" default="NEEDS TO BE DISABLED" />
+			<attribute name="SeasonExperience" idx="35" type="SeasonExperienceSetting" default="SeasonExperienceSetting:FULL_CONTROL" />
+			<attribute name="SeasonExperienceDescription" idx="36" type="string" const="true" maxLen="201" default="Full Control gives you complete control over your Dynasty, while Simple lets you play through a streamlined Season experience." />
+			<attribute name="TutorialPopupDescription" idx="37" type="string" const="true" maxLen="111" default="When disabled, tutorial popups will not show up in Dynasty screens. Does not affect tutorials during Gameplay." />
+			<attribute name="VisitAssistance" idx="38" type="bool" default="False" />
+			<attribute name="VisitAssistanceDescription" idx="39" type="string" maxLen="70" default="Determines if the CPU can schedule on-campus and in-home visit dates." />
+			<attribute name="WeeklyTrainingDescription" idx="40" type="string" const="true" maxLen="147" default="NEEDS TO BE DISABLED" />
+		</schema>
+	</schemas>
+</FranTkData>

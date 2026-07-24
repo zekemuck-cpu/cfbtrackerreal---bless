@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolChampionshipContenderTracking.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolChampionshipContenderTracking" numMembers="5" defaultStoreCapacity="1" assetId="6816460" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1493368832" minorVersionCRC="1248976948">
+			<attribute name="CurrentYearRank" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LetterGrade" idx="1" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="YearPlus1Rank" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="YearPlus2Rank" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="YearPlus3Rank" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEval_HandleRegisterUser.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEval_HandleRegisterUser" numMembers="2" base="none()" ownerAssetId="6498461" isRecordPersistent="true" isExpr="true" majorVersionCRC="-629974516" minorVersionCRC="575372853">
+			<attribute name="EventRecord" idx="0" type="RegisterUserEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

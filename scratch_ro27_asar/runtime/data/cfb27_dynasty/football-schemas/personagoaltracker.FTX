@@ -1,0 +1,12 @@
+<FranTkData fileName="Football-Schemas\PersonaGoalTracker.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaGoalTracker" numMembers="5" defaultStoreCapacity="200" assetId="12844415" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1889790338" minorVersionCRC="-1520505984">
+			<attribute name="BonusRewardGoal" idx="0" type="PersonaGoalRewardStats[]" />
+			<attribute name="Duration" idx="1" type="int" minValue="-1" maxValue="100" default="0" />
+			<attribute name="PersonaGoal" idx="2" type="PersonaGoal" />
+			<attribute name="RewardGoal" idx="3" type="PersonaGoalRewardStats" />
+			<attribute name="Status" idx="4" type="BTCareerPersonaGoalStatus" default="BTCareerPersonaGoalStatus:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

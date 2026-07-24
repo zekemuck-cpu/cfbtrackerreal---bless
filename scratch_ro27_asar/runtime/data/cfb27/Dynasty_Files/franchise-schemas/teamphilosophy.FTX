@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\TeamPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamPhilosophy" numMembers="10" defaultStoreCapacity="147" assetId="6378223" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2057385152" minorVersionCRC="-303838086">
+			<attribute name="BuildingPhilosophy" idx="0" type="TeamBuildingPhilosophy" />
+			<attribute name="DepthChartDefensivePhilosophy" idx="1" type="DepthChartDefensivePhilosophy" />
+			<attribute name="DepthChartOffensivePhilosophy" idx="2" type="DepthChartOffensivePhilosophy" />
+			<attribute name="DepthChartSpecialTeamsPhilosophy" idx="3" type="DepthChartSpecialTeamsPhilosophy" />
+			<attribute name="DepthChartSubPhilosophy" idx="4" type="DepthChartSubPhilosophy" />
+			<attribute name="DraftPhilosophy" idx="5" type="DraftPhilosophy" />
+			<attribute name="DraftTradePhilosophy" idx="6" type="DraftTradePhilosophy" />
+			<attribute name="SpendingPhilosophy" idx="7" type="SpendingPhilosophy" />
+			<attribute name="StaffHiringPhilosophyRef" idx="8" type="StaffHiringPhilosophy" />
+			<attribute name="TeamTradePhilosophy" idx="9" type="TeamTradePhilosophy" />
+		</schema>
+	</schemas>
+</FranTkData>

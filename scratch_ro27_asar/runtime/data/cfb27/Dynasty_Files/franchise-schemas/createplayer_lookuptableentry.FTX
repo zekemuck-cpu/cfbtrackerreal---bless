@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\CreatePlayer_LookupTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CreatePlayer_LookupTableEntry" numMembers="10" defaultStoreCapacity="249" assetId="6498832" defaultStoreGroupId="2" isRecordPersistent="false" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="9343" majorVersionCRC="-1753106986" minorVersionCRC="-895731332">
+			<attribute name="BACKGROUNDCOLORB" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BACKGROUNDCOLORG" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BACKGROUNDCOLORR" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BackStory" idx="3" type="PlayerBackstory" default="PlayerBackstory:Count" />
+			<attribute name="EntryDescription" idx="4" type="string" maxLen="201" />
+			<attribute name="ImageId" idx="5" type="int" minValue="0" maxValue="3000" default="0" />
+			<attribute name="Player" idx="6" type="Player" />
+			<attribute name="Team" idx="7" type="Team" />
+			<attribute name="TEAM_LOGO" idx="8" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="Type" idx="9" type="PlayerType" default="PlayerType:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

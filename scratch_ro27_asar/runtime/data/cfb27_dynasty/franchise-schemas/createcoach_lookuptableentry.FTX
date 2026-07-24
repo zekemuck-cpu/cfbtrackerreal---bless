@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CreateCoach_LookupTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CreateCoach_LookupTableEntry" numMembers="2" defaultStoreCapacity="9" assetId="6499097" defaultStoreGroupId="2" isRecordPersistent="false" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2100848807" minorVersionCRC="813521722">
+			<attribute name="Backstory" idx="0" type="CoachBackstory" default="CoachBackstory:Strategist" />
+			<attribute name="Coach" idx="1" type="Coach" />
+		</schema>
+	</schemas>
+</FranTkData>

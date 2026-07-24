@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersEval_IssueBrandContractNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersEval_IssueBrandContractNotificationRequest" numMembers="3" base="none()" ownerAssetId="7692449" isRecordPersistent="true" isExpr="true" majorVersionCRC="-624323868" minorVersionCRC="-1136266415">
+			<attribute name="brandContract" idx="0" type="BrandContract" />
+			<attribute name="UserEntity" idx="1" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

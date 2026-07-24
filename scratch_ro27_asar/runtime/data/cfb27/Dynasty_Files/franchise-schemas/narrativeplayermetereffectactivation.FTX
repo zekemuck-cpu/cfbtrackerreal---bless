@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMeterEffectActivation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="NarrativePlayerMeterEffectActivation" numMembers="2" assetId="7709478" isRecordPersistent="true" majorVersionCRC="7576172" minorVersionCRC="382794194">
+			<attribute name="Instant" idx="0" value="0" />
+			<attribute name="EndOfFlow" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

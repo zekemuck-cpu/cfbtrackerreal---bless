@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_DraftFlow_HandleStageBegin.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_DraftFlow_HandleStageBegin" numMembers="2" base="none()" ownerAssetId="6495398" isRecordPersistent="true" isExpr="true" majorVersionCRC="1615312974" minorVersionCRC="-955504620">
+			<attribute name="event" idx="0" type="Draft_BeginStageEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

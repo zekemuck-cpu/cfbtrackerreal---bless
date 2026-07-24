@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamPrestige_UpdateTeamPrestige_Rank_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamPrestige_UpdateTeamPrestige_Rank_Formula" numMembers="4" base="none()" ownerAssetId="6499365" isRecordPersistent="true" isExpr="true" majorVersionCRC="1370928257" minorVersionCRC="668559739">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Env" idx="2" type="UpdateTeamPrestige" />
+		</schema>
+	</schemas>
+</FranTkData>

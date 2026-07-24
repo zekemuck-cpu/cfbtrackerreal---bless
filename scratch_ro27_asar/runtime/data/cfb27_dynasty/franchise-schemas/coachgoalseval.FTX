@@ -1,0 +1,81 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalsEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalsEval" numMembers="74" base="Module" assetId="6495218" isRecordPersistent="true" majorVersionCRC="1039666910" minorVersionCRC="1472094779">
+			<attribute name="AssignSeasonalGoals" idx="0" type="CoachGoalsEval_AssignSeasonalGoals" guid="6495218-1921958" final="true" />
+			<attribute name="AssignSeasonalGoalsEnabled" idx="1" type="bool" default="False" />
+			<attribute name="AssignWeeklyGoals" idx="2" type="CoachGoalsEval_AssignWeeklyGoals" guid="6495218-1921944" final="true" />
+			<attribute name="AssignWeeklyGoalsEnabled" idx="3" type="bool" default="False" />
+			<attribute name="AwardGoalsTable" idx="4" type="CoachGoalTable" />
+			<attribute name="AwardGoalsViewTable" idx="5" type="CoachGoalTable" />
+			<attribute name="AwardsEvalModule" idx="6" type="AwardsEval" />
+			<attribute name="BowlBidsGoalsTable" idx="7" type="CoachGoalTable" />
+			<attribute name="ClearWeeklyGoals" idx="8" type="none()" guid="6495218-1922016" final="true" />
+			<attribute name="CoachGoalsTuning" idx="9" type="CoachGoalsTuning" />
+			<attribute name="CoachManagerRef" idx="10" type="CoachManager" />
+			<attribute name="CoachProgressionEval" idx="11" type="CoachProgressionEval" />
+			<attribute name="CreateResources" idx="12" type="none()" guid="6495218-1921967" final="true" />
+			<attribute name="DebugModule" idx="13" type="FranchiseDebugModule" />
+			<attribute name="DestroyResources" idx="14" type="none()" guid="6495218-1921970" final="true" />
+			<attribute name="DraftGoalsTable" idx="15" type="CoachGoalTable" />
+			<attribute name="DraftGoalsViewTable" idx="16" type="CoachGoalTable" />
+			<attribute name="EvaluateAwardsGoal" idx="17" type="CoachGoalsEval_EvaluateAwardsGoal" guid="6495218-1921982" final="true" />
+			<attribute name="EvaluateCoachContractExpressionGoal" idx="18" type="CoachGoalsEval_EvaluateCoachContractExpressionGoal" guid="6495218-2590194" default="coachContractExpressionGoal.GetProgressValue(coach, team);" />
+			<attribute name="EvaluateCoachContractGoals" idx="19" type="none()" guid="6495218-2590243" />
+			<attribute name="EvaluateFantasyGoalsForCoach" idx="20" type="CoachGoalsEval_EvaluateFantasyGoalsForCoach" guid="6495218-2147216" />
+			<attribute name="EvaluateMileStoneEndOfSeasonGoals" idx="21" type="none()" guid="6495218-2517001" final="true" />
+			<attribute name="EvaluateMilestoneGoals" idx="22" type="CoachGoalsEval_EvaluateMilestoneGoals" guid="6495218-1921974" final="true" />
+			<attribute name="EvaluateRecruitingGoals" idx="23" type="CoachGoalsEval_EvaluateRecruitingGoals" guid="6495218-2238172" final="true" />
+			<attribute name="EvaluateSeasonalGoals" idx="24" type="CoachGoalsEval_EvaluateSeasonalGoals" guid="6495218-1921962" final="true" />
+			<attribute name="EvaluateTopClassesRecruitingGoalsForTeam" idx="25" type="CoachGoalsEval_EvaluateTopClassesRecruitingGoalsForTeam" guid="6495218-2188163" final="true" />
+			<attribute name="EvaluateWeeklyGoals" idx="26" type="CoachGoalsEval_EvaluateWeeklyGoals" guid="6495218-1921951" final="true" />
+			<attribute name="FantasyGoalsTable" idx="27" type="CoachGoalTable" />
+			<attribute name="Franchise" idx="28" type="Franchise" />
+			<attribute name="GameGoalsViewTable" idx="29" type="CoachGoalTable" />
+			<attribute name="GetUserCoachAccomplishmentsCareerArray" idx="30" type="CoachGoalsEval_GetUserCoachAccomplishmentsCareerArray" guid="6495218-2238168" final="true" default="FranchiseUser franchiseUser = user;&#xD;&#xA;if (franchiseUser != null)&#xD;&#xA;{&#xD;&#xA; franchiseUser.CoachAccomplishmentsCareerArray;&#xD;&#xA;}" />
+			<attribute name="GoalAwardRequest_AcceptExtension" idx="31" type="UISelectForm" />
+			<attribute name="GoalAwardRequest_DeclineExtension" idx="32" type="UISelectForm" />
+			<attribute name="GoalAwardRequest_Dismiss" idx="33" type="UISelectForm" />
+			<attribute name="GoalsRequestManager" idx="34" type="GoalsRequestManager" />
+			<attribute name="HandleAssignContractGoals" idx="35" type="none()" guid="6495218-2590292" final="true" />
+			<attribute name="HandleBeginAdvanceWeek" idx="36" type="none()" guid="6495218-2676072" final="true" />
+			<attribute name="HandleBowlBidInvitation" idx="37" type="CoachGoalsEval_HandleBowlBidInvitation" guid="6495218-2238010" final="true" />
+			<attribute name="HandleDraftedPlayer" idx="38" type="CoachGoalsEval_HandleDraftedPlayer" guid="6495218-2178077" />
+			<attribute name="HandleGoalAwardResponse" idx="39" type="CoachGoalsEval_HandleGoalAwardResponse" guid="6495218-1922004" />
+			<attribute name="HandleStartWeek" idx="40" type="none()" guid="6495218-2188070" final="true" />
+			<attribute name="HandleUpdateCoachContractStatus" idx="41" type="CoachGoalsEval_HandleUpdateCoachContractStatus" guid="6495218-1922007" final="true" />
+			<attribute name="HandleUserEndRegister" idx="42" type="CoachGoalsEval_HandleUserEndRegister" guid="6495218-1922033" final="true" default="User user = event.User;&#xD;&#xA;Team team = event.Team;&#xD;&#xA;&#xD;&#xA;RegisterUser(user, team);" />
+			<attribute name="HistoryTrackingNotificationEvent" idx="43" type="PersonHistoryTrackerNotificationEvent" />
+			<attribute name="IncreaseUserLegacyScoreEvent" idx="44" type="IncreaseUserLegacyScoreEvent" />
+			<attribute name="InjuryEval" idx="45" type="InjuryEval" />
+			<attribute name="IssueCreateGoalsRequest" idx="46" type="CoachGoalsEval_IssueCreateGoalsRequest" guid="6495218-1922023" final="true" default="CreateGoalsRequest request= new CreateGoalsRequest;&#xD;&#xA;GoalsRequestManager.Issue(Coach, request);" />
+			<attribute name="IssueViewContractGoalsRequest" idx="47" type="CoachGoalsEval_IssueViewContractGoalsRequest" guid="6495218-2590296" final="true" default="ViewContractGoalsRequest request = new ViewContractGoalsRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;&#xD;&#xA;request.Coach = coach;&#xD;&#xA;&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;&#xD;&#xA;request.ResponseForms.Append(ViewContractGoalsResponse);&#xD;&#xA;&#xD;&#xA;request.Issue(coach);" />
+			<attribute name="LeagueSettings" idx="48" type="LeagueSetting" />
+			<attribute name="LegacyScoreModule" idx="49" type="LegacyScoreEval" />
+			<attribute name="LegacyScoreUpdateEvent" idx="50" type="CoachLegacyScoreUpdateEvent" />
+			<attribute name="MilestoneGoalsTable" idx="51" type="CoachGoalTable" />
+			<attribute name="MySchoolGradeEval" idx="52" type="MySchoolGradeEval" />
+			<attribute name="PlayerGoalsEval" idx="53" type="PlayerGoalsEval" />
+			<attribute name="PollsGoalsTable" idx="54" type="CoachGoalTable" />
+			<attribute name="RandomRef" idx="55" type="Random" />
+			<attribute name="RecordsGoalsTable" idx="56" type="CoachGoalTable" />
+			<attribute name="RecordsGoalsViewTable" idx="57" type="CoachGoalTable" />
+			<attribute name="RecruitingGoalsTable" idx="58" type="CoachGoalTable" />
+			<attribute name="RecruitingGoalsViewTable" idx="59" type="CoachGoalTable" />
+			<attribute name="RegisterUser" idx="60" type="CoachGoalsEval_RegisterUser" guid="6495218-1922028" final="true" />
+			<attribute name="ScheduleManager" idx="61" type="SeasonScheduleManager" />
+			<attribute name="SeasonalGoalsTable" idx="62" type="CoachGoalTable" />
+			<attribute name="SeasonManager" idx="63" type="SeasonManager" />
+			<attribute name="StatisticsGoalsViewTable" idx="64" type="CoachGoalTable" />
+			<attribute name="StatManager" idx="65" type="StatManager" />
+			<attribute name="StringManager" idx="66" type="StringManager" />
+			<attribute name="TalentTreeEval" idx="67" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="68" type="TeamManager" />
+			<attribute name="TopClassGoalsTable" idx="69" type="CoachGoalTable" />
+			<attribute name="UserRegistry" idx="70" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="71" type="none()" guid="6495218-1922038" final="true" />
+			<attribute name="ViewContractGoalsResponse" idx="72" type="UIFlowForm" />
+			<attribute name="WeeklyGoalsTable" idx="73" type="CoachGoalTable" />
+		</schema>
+	</schemas>
+</FranTkData>

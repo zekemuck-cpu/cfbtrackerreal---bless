@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\ContractGoalLevelType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ContractGoalLevelType" numMembers="8" assetId="12909467" isRecordPersistent="true" majorVersionCRC="-708020966" minorVersionCRC="-848852077">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="TeamPrestige" idx="1" value="0" />
+			<attribute name="ConfRelativePrestige" idx="2" value="1" />
+			<attribute name="RivalRelative" idx="3" value="2" />
+			<attribute name="AthleticFacilityLevel" idx="4" value="3" />
+			<attribute name="Last_" idx="5" value="3" />
+			<attribute name="Cont_" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGradeEval_CalculateGrades.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGradeEval_CalculateGrades" numMembers="3" base="PlayerGrades()" ownerAssetId="6498460" isRecordPersistent="true" isExpr="true" majorVersionCRC="722608803" minorVersionCRC="250751893">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="playerType" idx="1" type="PlayerType" default="PlayerType:QB_FieldGeneral" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\PostSeasonWeekStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PostSeasonWeekStartReaction" numMembers="12" base="Reaction" assetId="6498912" isRecordPersistent="true" majorVersionCRC="-301497120" minorVersionCRC="-497037560">
+			<attribute name="AwardsEvalRef" idx="0" type="AwardsEval" />
+			<attribute name="CoachGoalsEval" idx="1" type="CoachGoalsEval" />
+			<attribute name="CoachProgressionEvalRef" idx="2" type="CoachProgressionEval" />
+			<attribute name="EventRecord" idx="3" type="PostSeasonWeekStartEvent" />
+			<attribute name="Franchise" idx="4" type="Franchise" />
+			<attribute name="Handle" idx="5" type="bool()" guid="6498912-1895461" />
+			<attribute name="PlayerGoalsEval" idx="6" type="PlayerGoalsEval" />
+			<attribute name="PlayerProgressionEvalRef" idx="7" type="PlayerProgressionEval" />
+			<attribute name="Priority" idx="8" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonManager" idx="9" type="SeasonManager" />
+			<attribute name="SeasonManagerRef" idx="10" type="SeasonManager" />
+			<attribute name="TalentTreeEvalRef" idx="11" type="TalentTreeEval" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\Season_BeginStageEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Season_BeginStageEvent" numMembers="4" base="Event" assetId="6493956" isRecordPersistent="true" majorVersionCRC="517616950" minorVersionCRC="-1361275542">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6493956-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6493956-1895455" final="true" />
+			<attribute name="Stage" idx="2" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="Year" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

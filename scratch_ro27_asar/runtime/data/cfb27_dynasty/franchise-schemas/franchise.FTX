@@ -1,0 +1,56 @@
+<FranTkData fileName="Franchise-Schemas\Franchise.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Franchise" numMembers="49" assetId="6498675" isRecordPersistent="true" majorVersionCRC="-1573888838" minorVersionCRC="1933699204">
+			<attribute name="BowlGameList" idx="0" type="BowlInfo[]" />
+			<attribute name="ComebackCoaches" idx="1" type="ComebackCoach[]" />
+			<attribute name="ComebackPlayers" idx="2" type="ComebackPlayer[]" />
+			<attribute name="CreatePlayersHigh" idx="3" type="Player[]" />
+			<attribute name="CreatePlayersLow" idx="4" type="Player[]" />
+			<attribute name="CreatePlayersMed" idx="5" type="Player[]" />
+			<attribute name="DebugModule" idx="6" type="FranchiseDebugModule" />
+			<attribute name="DraftClassCoaches" idx="7" type="Coach[]" />
+			<attribute name="DraftClassPlayers" idx="8" type="DraftPlayer[]" />
+			<attribute name="DraftClassStories" idx="9" type="BranchingStory[]" />
+			<attribute name="DraftPicks" idx="10" type="DraftPick[]" />
+			<attribute name="FCSTeams" idx="11" type="Team[]" />
+			<attribute name="FranchiseEval" idx="12" type="FranchiseEval" />
+			<attribute name="FranchiseRules" idx="13" type="FranchiseRules" />
+			<attribute name="FreeAgentCoaches" idx="14" type="Coach[]" />
+			<attribute name="FreeAgentHistoryEntries" idx="15" type="HistoryEntry[]" />
+			<attribute name="FreeAgents" idx="16" type="Player[]" />
+			<attribute name="FreeAgentScouts" idx="17" type="Scout[]" />
+			<attribute name="FreeAgentTrainers" idx="18" type="Trainer[]" />
+			<attribute name="HallOfFameCoaches" idx="19" type="Coach[]" />
+			<attribute name="HallOfFameOwners" idx="20" type="Owner[]" />
+			<attribute name="HallOfFamePlayers" idx="21" type="Player[]" />
+			<attribute name="HasCustomDraftClass" idx="22" type="bool" default="False" />
+			<attribute name="HasCustomRoster" idx="23" type="bool" default="False" />
+			<attribute name="HasFantasyRoster" idx="24" type="bool" default="False" />
+			<attribute name="Highlights" idx="25" type="Highlight[]" />
+			<attribute name="HighSchoolTeams" idx="26" type="Team[]" />
+			<attribute name="HistoryManagerRef" idx="27" type="HistoryManager" />
+			<attribute name="IsUsingUgc" idx="28" type="bool" default="False" />
+			<attribute name="League" idx="29" type="League" />
+			<attribute name="LeagueID" idx="30" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="LeagueOwner" idx="31" type="UserEntity" />
+			<attribute name="LeagueSetting" idx="32" type="LeagueSetting" />
+			<attribute name="LegendCoaches" idx="33" type="LegendEntity[]" />
+			<attribute name="LegendOwners" idx="34" type="LegendEntity[]" />
+			<attribute name="LegendPlayers" idx="35" type="LegendEntity[]" />
+			<attribute name="LiveSeasonLeagueState" idx="36" type="LeagueState" />
+			<attribute name="LiveSeasonRequiredReactions" idx="37" type="Reaction[]" />
+			<attribute name="PracticeTeam" idx="38" type="Team" />
+			<attribute name="RecruitingClassCoaches" idx="39" type="Coach[]" />
+			<attribute name="RecruitingClassPlayers" idx="40" type="Recruit[]" />
+			<attribute name="RecruitManager" idx="41" type="RecruitManager" />
+			<attribute name="RetiredCoaches" idx="42" type="Coach[]" />
+			<attribute name="RetiredPlayers" idx="43" type="Player[]" />
+			<attribute name="RosterInfo" idx="44" type="RosterInfo" />
+			<attribute name="SeasonInfo" idx="45" type="SeasonInfo" />
+			<attribute name="TeamBuilderMySchoolTemplateList" idx="46" type="TeamBuilderMySchoolData[]" />
+			<attribute name="Teams" idx="47" type="Team[]" />
+			<attribute name="Transfers" idx="48" type="Recruit[]" />
+		</schema>
+	</schemas>
+</FranTkData>

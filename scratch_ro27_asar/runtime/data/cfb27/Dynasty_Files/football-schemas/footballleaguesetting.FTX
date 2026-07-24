@@ -1,0 +1,42 @@
+<FranTkData fileName="Football-Schemas\FootballLeagueSetting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FootballLeagueSetting" numMembers="35" assetId="10755467" isRecordPersistent="true" majorVersionCRC="-1055879068" minorVersionCRC="-158010757">
+			<attribute name="BlockScaling" idx="0" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="CatchTackleScaling" idx="1" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="CutStickImpact" idx="2" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="EndOfQuarterRecovery" idx="3" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="HalftimeRecovery" idx="4" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="HitStickImpact" idx="5" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="ImpactBlockScaling" idx="6" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="ImportCoachDescription" idx="7" type="string" maxLen="53" default="This setting determines if the coach can be imported" />
+			<attribute name="IsCoachModeAutopassEnabled" idx="8" type="bool" default="False" />
+			<attribute name="IsCoachModeAutopassEnabledDescription" idx="9" type="string" maxLen="135" default="When set to On, if Coach Mode is enabled, the Quarterback will automatically throw the ball if you do not take control after the snap." />
+			<attribute name="IsCoachModeAutosnapEnabled" idx="10" type="bool" default="False" />
+			<attribute name="IsCoachModeAutosnapEnabledDescription" idx="11" type="string" maxLen="82" default="When set to ON, if Coach Mode is enabled, the ball will be automatically snapped." />
+			<attribute name="IsCoachModeEnabled" idx="12" type="bool" default="False" />
+			<attribute name="IsCoachModeEnabledDescription" idx="13" type="string" maxLen="158" default="When set to ON, after selecting a play, the play will commence without requiring further input. The user can also apply pre-play adjustments before the snap." />
+			<attribute name="IsCoachModePreplayCutoffEnabled" idx="14" type="bool" default="False" />
+			<attribute name="IsCoachModePreplayCutoffEnabledDescription" idx="15" type="string" maxLen="94" default="When set to ON, if Coach Mode is enabled, the Preplay Menu will be cut off prior to the snap." />
+			<attribute name="IsCoachModeSuggestionsEnabled" idx="16" type="bool" default="False" />
+			<attribute name="IsCoachModeSuggestionsEnabledDescription" idx="17" type="string" maxLen="79" default="When set to ON, if Coach Mode is enabled, Coach Suggestions will be available." />
+			<attribute name="IsImportCoachEnabled" idx="18" type="bool" default="False" />
+			<attribute name="IsWearAndTearEnabled" idx="19" type="bool" default="False" />
+			<attribute name="PerPlayRecovery" idx="20" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationBrokenTackleScaling" idx="21" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationCatchChanceScaling" idx="22" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationKickingAccuracyScaling" idx="23" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationKickingStrengthScaling" idx="24" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationLocomotionPenaltyScaling" idx="25" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationPassAccuracyScaling" idx="26" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationPassStrengthScaling" idx="27" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationSlipScaling" idx="28" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="RecoveryPoolBasedOnQuarterLength" idx="29" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="SackScaling" idx="30" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="SizeDifferentialImpact" idx="31" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="TackleImpactScaling" idx="32" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="TimeOutRecovery" idx="33" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="WeekToWeekRecovery" idx="34" type="int" minValue="0" maxValue="100" default="50" />
+		</schema>
+	</schemas>
+</FranTkData>

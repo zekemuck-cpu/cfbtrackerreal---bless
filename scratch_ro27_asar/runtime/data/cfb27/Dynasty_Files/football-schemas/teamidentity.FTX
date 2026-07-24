@@ -1,0 +1,16 @@
+<FranTkData fileName="Football-Schemas\TeamIdentity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamIdentity" numMembers="9" defaultStoreCapacity="6" assetId="7287474" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="294" majorVersionCRC="-1214272280" minorVersionCRC="988103305">
+			<attribute name="AssetName" idx="0" type="string" maxLen="43" />
+			<attribute name="DisplayName" idx="1" type="string" maxLen="18" />
+			<attribute name="NickName" idx="2" type="string" maxLen="18" />
+			<attribute name="NickNameCommentaryId" idx="3" type="NickNameCommentaryId" default="NickNameCommentaryId:Generic" />
+			<attribute name="TEAM_AFL_DISPLAYNAME" idx="4" type="string" maxLen="18" />
+			<attribute name="TEAM_DBASSETNAME" idx="5" type="string" maxLen="26" />
+			<attribute name="TEAM_PREFIX_NAME" idx="6" type="string" maxLen="6" />
+			<attribute name="UniformAssetName" idx="7" type="string" maxLen="43" />
+			<attribute name="UniformPrefix" idx="8" type="string" maxLen="6" />
+		</schema>
+	</schemas>
+</FranTkData>

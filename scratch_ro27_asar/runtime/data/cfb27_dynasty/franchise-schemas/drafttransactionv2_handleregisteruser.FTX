@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DraftTransactionV2_HandleRegisterUser.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftTransactionV2_HandleRegisterUser" numMembers="2" base="none()" ownerAssetId="6495407" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1661074680" minorVersionCRC="-462609162">
+			<attribute name="event" idx="0" type="RegisterUserEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

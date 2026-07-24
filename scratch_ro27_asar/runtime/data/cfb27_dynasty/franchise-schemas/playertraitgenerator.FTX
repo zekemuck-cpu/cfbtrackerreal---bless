@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTraitGenerator.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTraitGenerator" numMembers="4" assetId="6708810" isRecordPersistent="true" majorVersionCRC="1793072204" minorVersionCRC="976068509">
+			<attribute name="GenerateTrait" idx="0" type="PlayerTraitGenerator_GenerateTrait" guid="6708810-1949073" default="0;" />
+			<attribute name="MaxValue" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinValue" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Trait" idx="3" type="PlayerTrait" default="PlayerTrait:ThrowAway" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CoachDatabaseFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CoachDatabaseFlow" numMembers="9" base="FranTkServer_Flow" assetId="6499344" isRecordPersistent="true" majorVersionCRC="-206702642" minorVersionCRC="419831190">
+			<attribute name="CoachTypeEnumTable" idx="0" type="EnumTable" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="JobSecurityEnumTable" idx="3" type="EnumTable" />
+			<attribute name="League" idx="4" type="League" />
+			<attribute name="LetterGradeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="SchemeEnumTable" idx="6" type="EnumTable" />
+			<attribute name="StaffPositionEnumTable" idx="7" type="EnumTable" />
+			<attribute name="UserRegistry" idx="8" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

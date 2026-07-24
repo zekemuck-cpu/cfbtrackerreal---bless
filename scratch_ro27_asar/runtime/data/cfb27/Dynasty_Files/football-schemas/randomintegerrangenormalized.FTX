@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\RandomIntegerRangeNormalized.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\RandomIntegerRange.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RandomIntegerRangeNormalized" numMembers="4" base="RandomIntegerRange" assetId="6702162" isRecordPersistent="true" majorVersionCRC="-91733772" minorVersionCRC="-137850465">
+			<attribute name="MaximumValue" idx="0" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Mean" idx="1" type="float" default="0" />
+			<attribute name="MinimumValue" idx="2" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="StandardDeviation" idx="3" type="float" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

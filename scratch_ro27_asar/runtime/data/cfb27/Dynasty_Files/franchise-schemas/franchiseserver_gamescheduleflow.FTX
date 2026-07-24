@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_GameScheduleFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_GameScheduleFlow" numMembers="11" base="FranTkServer_Flow" assetId="6499025" isRecordPersistent="true" majorVersionCRC="612826196" minorVersionCRC="-1951893020">
+			<attribute name="DefaultTeam" idx="0" type="Team" />
+			<attribute name="Dynasty" idx="1" type="Franchise" />
+			<attribute name="ForceWinEvent" idx="2" type="ForceWinEvent" />
+			<attribute name="ForceWinTeamEnumTable" idx="3" type="EnumTable" />
+			<attribute name="Form" idx="4" type="UIForm" />
+			<attribute name="FormManager" idx="5" type="FranTkServer_FormManager" />
+			<attribute name="SeasonManager" idx="6" type="SeasonManager" />
+			<attribute name="SeasonStandings" idx="7" type="SeasonStandings" />
+			<attribute name="ShowPlayoffBracketWeekNumber" idx="8" type="int" minValue="0" maxValue="31" default="12" />
+			<attribute name="StateNameEnumTable" idx="9" type="EnumTable" />
+			<attribute name="UserRegistry" idx="10" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

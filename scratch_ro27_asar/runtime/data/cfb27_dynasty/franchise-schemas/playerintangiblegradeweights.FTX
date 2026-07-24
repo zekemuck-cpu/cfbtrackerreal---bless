@@ -1,0 +1,61 @@
+<FranTkData fileName="Franchise-Schemas\PlayerIntangibleGradeWeights.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerIntangibleGradeWeights" numMembers="54" assetId="6378043" isRecordPersistent="true" majorVersionCRC="-649672184" minorVersionCRC="245846634">
+			<attribute name="Acceleration" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Agility" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Awareness" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BallCarrierVision" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BlockShedding" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BreakSack" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BreakTackle" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Carrying" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Catching" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CatchInTraffic" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ChangeOfDirection" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DeepAccuracy" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DeepRouteRunning" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FinesseMoves" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HitPower" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ImpactBlocking" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Injury" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Juke" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Jumping" idx="18" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="KickAccuracy" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="KickPower" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="KickReturn" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeadBlock" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LongSnap" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ManCoverage" idx="24" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MediumAccuracy" idx="25" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MediumRouteRunning" idx="26" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassBlock" idx="27" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassBlockFinesse" idx="28" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PassBlockPower" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayAction" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayRecognition" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PowerMoves" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Press" idx="33" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Pursuit" idx="34" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Release" idx="35" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RunBlock" idx="36" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RunBlockFinesse" idx="37" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RunBlockPower" idx="38" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ShortAccuracy" idx="39" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ShortRouteRunning" idx="40" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SpectacularCatch" idx="41" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Speed" idx="42" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Spin" idx="43" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Stamina" idx="44" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StiffArm" idx="45" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Strength" idx="46" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Tackle" idx="47" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ThrowOnTheRun" idx="48" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ThrowPower" idx="49" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ThrowUnderPressure" idx="50" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Toughness" idx="51" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Trucking" idx="52" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ZoneCoverage" idx="53" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

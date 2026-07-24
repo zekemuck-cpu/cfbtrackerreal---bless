@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassScouting_AssignScoutToRegion.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassScouting_AssignScoutToRegion" numMembers="4" base="none()" ownerAssetId="6708687" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1126717068" minorVersionCRC="-207072427">
+			<attribute name="scoutRecord" idx="0" type="Scout" />
+			<attribute name="region" idx="1" type="ScoutingRegion" default="ScoutingRegion:First_" />
+			<attribute name="teamRecord" idx="2" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\PresentationContextData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PresentationContextData" numMembers="8" assetId="6498818" isRecordPersistent="true" majorVersionCRC="-2129487866" minorVersionCRC="1993134290">
+			<attribute name="DraftTweetPriority" idx="0" type="int" minValue="0" maxValue="511" default="1" />
+			<attribute name="IsChristmas" idx="1" type="bool" default="False" />
+			<attribute name="IsDraftActive" idx="2" type="bool" default="False" />
+			<attribute name="IsHalloween" idx="3" type="bool" default="False" />
+			<attribute name="IsNewYears" idx="4" type="bool" default="False" />
+			<attribute name="IsThanksgiving" idx="5" type="bool" default="False" />
+			<attribute name="SeasonWeek" idx="6" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="SeasonYear" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

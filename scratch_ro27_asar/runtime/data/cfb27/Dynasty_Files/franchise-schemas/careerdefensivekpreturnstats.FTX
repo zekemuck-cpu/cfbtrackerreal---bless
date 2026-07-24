@@ -1,0 +1,77 @@
+<FranTkData fileName="Franchise-Schemas\CareerDefensiveKPReturnStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CareerDefensiveStats.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerDefensiveKPReturnStats" numMembers="66" base="CareerDefensiveStats" defaultStoreCapacity="268" assetId="6522232" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1327475935" minorVersionCRC="-300617691">
+			<attribute name="ASSDEFTACKLES" idx="0" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="BIGHITS" idx="1" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="COVERAGEDEPTH_NORMAL" idx="2" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="COVERAGEDEPTH_OFF" idx="3" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="COVERAGEDEPTH_PRESS" idx="4" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="CTHALLOWED" idx="5" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="DEFBLITZ_PLAYS" idx="6" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="DEFBLITZ_TD" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DEFBLITZ_YARDS" idx="8" type="int" minValue="-200" maxValue="131071" default="0" />
+			<attribute name="DEFDEEPPASS_ATTEMPTS" idx="9" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEFDEEPPASS_COMPLETIONS" idx="10" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEFDEEPPASS_INTERCEPTIONS" idx="11" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFDEEPPASS_TD" idx="12" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFDEEPPASS_YARDS" idx="13" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="DEFINSIDERUN_CARRIES" idx="14" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="DEFINSIDERUN_RUNLEFT" idx="15" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="DEFINSIDERUN_RUNRIGHT" idx="16" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="DEFINSIDERUN_TD" idx="17" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DEFINSIDERUN_YARDS" idx="18" type="int" minValue="-200" maxValue="65535" default="0" />
+			<attribute name="DEFMEDIUMPASS_ATTEMPTS" idx="19" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEFMEDIUMPASS_COMPLETIONS" idx="20" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEFMEDIUMPASS_INTERCEPTIONS" idx="21" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFMEDIUMPASS_TD" idx="22" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFMEDIUMPASS_YARDS" idx="23" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="DEFOUTSIDERUN_CARRIES" idx="24" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="DEFOUTSIDERUN_RUNLEFT" idx="25" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="DEFOUTSIDERUN_RUNRIGHT" idx="26" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="DEFOUTSIDERUN_TD" idx="27" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DEFOUTSIDERUN_YARDS" idx="28" type="int" minValue="-200" maxValue="65535" default="0" />
+			<attribute name="DEFPASSDEFLECTIONS" idx="29" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFPRESSURES" idx="30" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEFSHORTPASS_ATTEMPTS" idx="31" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEFSHORTPASS_COMPLETIONS" idx="32" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEFSHORTPASS_INTERCEPTIONS" idx="33" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFSHORTPASS_TD" idx="34" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFSHORTPASS_YARDS" idx="35" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="DEFTACKLES" idx="36" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="DEFTACKLESFORLOSS" idx="37" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEFTARGETS" idx="38" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DLINEBLOCKS" idx="39" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DLINEFORCEDFUMBLES" idx="40" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DLINEFUMBLERECOVERIES" idx="41" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DLINEFUMBLERECOVERYYARDS" idx="42" type="int" minValue="-2048" maxValue="2047" default="0" />
+			<attribute name="DLINEFUMBLETDS" idx="43" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DLINEHALFSACK" idx="44" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="DLINESACKS" idx="45" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DLINESAFETIES" idx="46" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DOWNSPLAYED" idx="47" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="DSECINTLONGESTRETURN" idx="48" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="DSECINTRETURNYARDS" idx="49" type="int" minValue="-4096" maxValue="4095" default="0" />
+			<attribute name="DSECINTS" idx="50" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DSECINTTDS" idx="51" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="GAMERATING" idx="52" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESPLAYED" idx="53" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="GAMESSTARTED" idx="54" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="KRETATTEMPTS" idx="55" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="KRETLONGEST" idx="56" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="KRETTDS" idx="57" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="KRETYARDS" idx="58" type="int" minValue="-65536" maxValue="65535" default="0" />
+			<attribute name="PRETATTEMPTS" idx="59" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PRETLONGEST" idx="60" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="PRETTDS" idx="61" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PRETYARDS" idx="62" type="int" minValue="-65536" maxValue="65535" default="0" />
+			<attribute name="STAT_KEEP" idx="63" type="bool" default="True" />
+			<attribute name="STOPS" idx="64" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="STUFFS" idx="65" type="int" minValue="0" maxValue="8191" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

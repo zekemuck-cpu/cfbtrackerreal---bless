@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayerGrade" numMembers="7" assetId="6378632" isRecordPersistent="true" majorVersionCRC="656655495" minorVersionCRC="-1503104366">
+			<attribute name="Overall" idx="0" value="0" />
+			<attribute name="Physical" idx="1" value="1" />
+			<attribute name="Intangible" idx="2" value="2" />
+			<attribute name="Size" idx="3" value="3" />
+			<attribute name="Durability" idx="4" value="4" />
+			<attribute name="Max" idx="5" value="5" />
+			<attribute name="Invalid" idx="6" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

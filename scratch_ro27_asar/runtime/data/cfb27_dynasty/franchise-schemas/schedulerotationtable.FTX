@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\ScheduleRotationTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScheduleRotationTable" numMembers="3" defaultStoreCapacity="35" assetId="10889780" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1692350221" minorVersionCRC="-1995733383">
+			<attribute name="NumberOfGamesPerTeam" idx="0" type="int" minValue="4" maxValue="12" default="8" />
+			<attribute name="RotationMappings" idx="1" type="StringArrayElement[]" />
+			<attribute name="SwapHomeAwayWhenRotating" idx="2" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

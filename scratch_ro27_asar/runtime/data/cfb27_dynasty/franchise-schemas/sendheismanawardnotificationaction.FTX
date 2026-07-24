@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\SendHeismanAwardNotificationAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SendHeismanAwardNotificationAction" numMembers="2" base="SequenceAction" defaultStoreCapacity="3" assetId="12671479" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1112596493" minorVersionCRC="-599555026">
+			<attribute name="Default" idx="0" type="bool" default="False" />
+			<attribute name="Enabled" idx="1" type="bool" default="True" />
+		</schema>
+	</schemas>
+</FranTkData>

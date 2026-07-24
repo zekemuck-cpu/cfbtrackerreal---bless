@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\BranchingStoryBranch_ClampTrait.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BranchingStoryBranch_ClampTrait" numMembers="2" base="int()" ownerAssetId="6498518" isRecordPersistent="true" isExpr="true" majorVersionCRC="-138122492" minorVersionCRC="-412033321">
+			<attribute name="traitValue" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

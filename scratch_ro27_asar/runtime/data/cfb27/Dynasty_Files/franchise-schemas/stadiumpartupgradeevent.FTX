@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\StadiumPartUpgradeEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StadiumPartUpgradeEvent" numMembers="6" base="Event" assetId="6499271" isRecordPersistent="true" majorVersionCRC="-1969325440" minorVersionCRC="-2051971793">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6499271-1895458" final="true" />
+			<attribute name="Level" idx="1" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="Rating" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Send" idx="3" type="none()" guid="6499271-1895455" final="true" />
+			<attribute name="StadiumPart" idx="4" type="StadiumPart" default="StadiumPart:Parking" />
+			<attribute name="Team" idx="5" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

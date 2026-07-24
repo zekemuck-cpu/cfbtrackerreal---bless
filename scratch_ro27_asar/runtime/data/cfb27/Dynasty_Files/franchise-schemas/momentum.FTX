@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\Momentum.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Momentum" numMembers="4" assetId="6543009" isRecordPersistent="true" majorVersionCRC="-347159274" minorVersionCRC="-698958049">
+			<attribute name="NoMomentum" idx="0" value="0" />
+			<attribute name="Tier1_HomeFieldAdvantage" idx="1" value="1" />
+			<attribute name="Tier2" idx="2" value="2" />
+			<attribute name="Tier3" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

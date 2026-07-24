@@ -1,0 +1,8 @@
+<FranTkData fileName="Football-Schemas\EnumToStringTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EnumToStringTable" numMembers="1" assetId="12928341" isRecordPersistent="true" majorVersionCRC="1575322988" minorVersionCRC="-1653245594">
+			<attribute name="Entries" idx="0" type="EnumToStringTableEntry[]" />
+		</schema>
+	</schemas>
+</FranTkData>

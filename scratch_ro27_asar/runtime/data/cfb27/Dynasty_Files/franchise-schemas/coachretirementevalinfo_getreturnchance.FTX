@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CoachRetirementEvalInfo_GetReturnChance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachRetirementEvalInfo_GetReturnChance" numMembers="3" base="int()" ownerAssetId="6495093" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2103710028" minorVersionCRC="39934819">
+			<attribute name="coach" idx="0" type="Coach" />
+			<attribute name="team" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

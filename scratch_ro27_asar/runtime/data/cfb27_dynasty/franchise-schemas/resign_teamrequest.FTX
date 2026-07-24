@@ -1,0 +1,59 @@
+<FranTkData fileName="Franchise-Schemas\ReSign_TeamRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReSign_TeamRequest" numMembers="48" base="UIRequestForm" assetId="6494703" isRecordPersistent="true" majorVersionCRC="-518904312" minorVersionCRC="-1480873677">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6494703-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="Description" idx="8" type="string" const="true" maxLen="46" default="Enter negotiations or delegate to your staff." />
+			<attribute name="Dismiss" idx="9" type="none()" guid="6494703-1895671" />
+			<attribute name="ExpirationDuration" idx="10" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="11" type="none()" guid="6494703-1912716" final="true" default="ReSignNegotiationManager.HandleTeamResponse(PlayerReSignNegotiation, this);" />
+			<attribute name="HasResolution" idx="12" type="bool()" guid="6494703-1895676" />
+			<attribute name="IsBlocking" idx="13" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="14" type="bool" default="False" />
+			<attribute name="IsInitialOffer" idx="15" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="16" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="17" type="bool()" guid="6494703-1895678" />
+			<attribute name="IsResponseRequired" idx="18" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="19" type="bool" default="True" />
+			<attribute name="Issue" idx="20" type="Request_Issue" guid="6494703-1895668" />
+			<attribute name="IssueTime" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MakeOfferResponse" idx="22" type="UIFlowForm" />
+			<attribute name="Player" idx="23" type="Player" />
+			<attribute name="PlayerDesiredBonus" idx="24" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="PlayerDesiredLength" idx="25" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="PlayerDesiredSalary" idx="26" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="PlayerReSignInterest" idx="27" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PlayerReSignNegotiation" idx="28" type="PlayerReSignNegotiation" />
+			<attribute name="Priority" idx="29" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="30" type="none()" guid="6494703-1895686" final="true" />
+			<attribute name="RequestData" idx="31" type="record" />
+			<attribute name="RequestForm" idx="32" type="ResponseForm" />
+			<attribute name="RequestId" idx="33" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="34" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="ReSignNegotiationManager" idx="35" type="ReSignNegotiationManager" />
+			<attribute name="Resolution" idx="36" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="37" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="38" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="39" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="40" type="bool" default="True" />
+			<attribute name="SubmitResponse" idx="41" type="UIForm" />
+			<attribute name="TargetUser" idx="42" type="User" />
+			<attribute name="Team" idx="43" type="Team" />
+			<attribute name="TeamReSignInterest" idx="44" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Title" idx="45" type="string" const="true" maxLen="20" default="Re-Sign Negotiation" />
+			<attribute name="TypeName" idx="46" type="string" const="true" maxLen="20" default="PlayerRenegotiation" />
+			<attribute name="WithdrawResponse" idx="47" type="UIForm" />
+		</schema>
+	</schemas>
+</FranTkData>

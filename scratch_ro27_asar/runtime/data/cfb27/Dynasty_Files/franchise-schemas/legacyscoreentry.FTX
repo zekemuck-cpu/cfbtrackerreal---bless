@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\LegacyScoreEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LegacyScoreEntry" numMembers="7" assetId="11827444" isRecordPersistent="true" majorVersionCRC="-1962450098" minorVersionCRC="-197327227">
+			<attribute name="DraftProjection" idx="0" type="LegacyScoreDraftProjection" default="LegacyScoreDraftProjection:FirstRoundTop5" />
+			<attribute name="DraftProjectionProgress" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LegacyScore" idx="2" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Moments" idx="3" type="LegacyScoreMoment[]" />
+			<attribute name="Season" idx="4" type="int" minValue="0" maxValue="29" default="0" />
+			<attribute name="Week" idx="5" type="int" minValue="0" maxValue="16" default="0" />
+			<attribute name="WeekType" idx="6" type="SeasonWeekType" default="SeasonWeekType:RegularSeason" />
+		</schema>
+	</schemas>
+</FranTkData>

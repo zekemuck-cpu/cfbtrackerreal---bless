@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_AddPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_AddPlayer" numMembers="4" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1746673257" minorVersionCRC="-411593327">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="contractStatus" idx="2" type="PlayerContractStatus" default="PlayerContractStatus:Drafted" />
+		</schema>
+	</schemas>
+</FranTkData>

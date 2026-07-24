@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\CrossArcDataId.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CrossArcDataId" numMembers="5" assetId="6495052" isRecordPersistent="true" majorVersionCRC="-1999974584" minorVersionCRC="-533113212">
+			<attribute name="PLACEHOLDER" idx="0" value="0" />
+			<attribute name="BTRX_Choice" idx="1" value="1" />
+			<attribute name="FTPX_EndState" idx="2" value="2" />
+			<attribute name="TurnedDownDrills" idx="3" value="3" />
+			<attribute name="LostStartingJob" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

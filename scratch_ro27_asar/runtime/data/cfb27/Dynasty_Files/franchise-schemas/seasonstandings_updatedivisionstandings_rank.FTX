@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStandings_UpdateDivisionStandings_Rank.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStandings_UpdateDivisionStandings_Rank" numMembers="4" base="ModifierView" assetId="6708712" isRecordPersistent="true" majorVersionCRC="612228748" minorVersionCRC="-155084688">
+			<attribute name="Formula" idx="0" type="SeasonStandings_UpdateDivisionStandings_Rank_Formula" guid="6708712-1948920" default="Subject.CurSeasonDivStanding=SubjectIndex;" />
+			<attribute name="Source" idx="1" type="SeasonStandings_UpdateDivisionStandings_Sort" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6708712-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

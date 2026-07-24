@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CutDayEval_TradeEventReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CutDayEval_TradeEventReaction" numMembers="4" base="Reaction" assetId="6598583" isRecordPersistent="true" majorVersionCRC="1664137846" minorVersionCRC="-439067162">
+			<attribute name="CutDayEvalRef" idx="0" type="CutDayEval" />
+			<attribute name="EventRecord" idx="1" type="Trade_TradeEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6598583-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

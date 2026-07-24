@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTierAbilityRange.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTierAbilityRange" numMembers="3" defaultStoreCapacity="4604" assetId="6663428" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="127860800" minorVersionCRC="-185283216">
+			<attribute name="MaxValue" idx="0" type="int" minValue="0" maxValue="99" default="0" />
+			<attribute name="MinValue" idx="1" type="int" minValue="0" maxValue="99" default="0" />
+			<attribute name="PlayerTier" idx="2" type="PlayerTier" default="PlayerTier:Poor" />
+		</schema>
+	</schemas>
+</FranTkData>

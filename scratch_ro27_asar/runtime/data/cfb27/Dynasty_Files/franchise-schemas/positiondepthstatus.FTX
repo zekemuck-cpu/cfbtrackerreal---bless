@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PositionDepthStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PositionDepthStatus" numMembers="3" assetId="7746495" isRecordPersistent="true" majorVersionCRC="-1772848706" minorVersionCRC="-1860390515">
+			<attribute name="Starter" idx="0" value="0" />
+			<attribute name="Backup" idx="1" value="1" />
+			<attribute name="Bench" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

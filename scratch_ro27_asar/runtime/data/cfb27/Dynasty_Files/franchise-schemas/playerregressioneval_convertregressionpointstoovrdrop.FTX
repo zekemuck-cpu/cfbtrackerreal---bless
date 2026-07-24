@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerRegressionEval_ConvertRegressionPointsToOVRDrop.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerRegressionEval_ConvertRegressionPointsToOVRDrop" numMembers="2" base="int()" ownerAssetId="6498447" isRecordPersistent="true" isExpr="true" majorVersionCRC="1756089614" minorVersionCRC="1213638900">
+			<attribute name="player" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalsEval_HandleGoalAwardResponse.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalsEval_HandleGoalAwardResponse" numMembers="2" base="none()" ownerAssetId="6495218" isRecordPersistent="true" isExpr="true" majorVersionCRC="1269623692" minorVersionCRC="173777920">
+			<attribute name="final" idx="0" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

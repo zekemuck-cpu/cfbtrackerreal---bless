@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\LeaveStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="LeaveStatus" numMembers="3" assetId="6820608" isRecordPersistent="true" majorVersionCRC="70927320" minorVersionCRC="-1101206955">
+			<attribute name="Unknown" idx="0" value="0" />
+			<attribute name="Staying" idx="1" value="1" />
+			<attribute name="Leaving" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

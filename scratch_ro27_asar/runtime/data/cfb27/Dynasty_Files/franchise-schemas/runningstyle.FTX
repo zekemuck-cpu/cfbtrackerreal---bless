@@ -1,0 +1,27 @@
+<FranTkData fileName="Franchise-Schemas\RunningStyle.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RunningStyle" numMembers="20" assetId="6494151" isRecordPersistent="true" majorVersionCRC="-1625992241" minorVersionCRC="1483483557">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="None" idx="1" value="0" />
+			<attribute name="AnimationFirst_" idx="2" value="1" />
+			<attribute name="Default" idx="3" value="1" />
+			<attribute name="DefaultStrideHighandTight" idx="4" value="2" />
+			<attribute name="DefaultStrideLoose" idx="5" value="3" />
+			<attribute name="DefaultStrideBreadLoaf" idx="6" value="4" />
+			<attribute name="DefaultStrideAwkward" idx="7" value="5" />
+			<attribute name="ShortStrideDefault" idx="8" value="6" />
+			<attribute name="ShortStrideHighandTight" idx="9" value="7" />
+			<attribute name="ShortStrideLoose" idx="10" value="8" />
+			<attribute name="ShortStrideBreadLoaf" idx="11" value="9" />
+			<attribute name="ShortStrideAwkward" idx="12" value="10" />
+			<attribute name="LongStrideDefault" idx="13" value="11" />
+			<attribute name="LongStrideHighandTight" idx="14" value="12" />
+			<attribute name="LongStrideLoose" idx="15" value="13" />
+			<attribute name="LongStrideBreadLoaf" idx="16" value="14" />
+			<attribute name="Last_" idx="17" value="15" />
+			<attribute name="LongStrideAwkward" idx="18" value="15" />
+			<attribute name="Max_" idx="19" value="16" />
+		</enum>
+	</schemas>
+</FranTkData>

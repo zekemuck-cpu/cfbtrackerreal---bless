@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\PersonaGoalCondition.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaGoalCondition" numMembers="3" assetId="12853520" isRecordPersistent="true" majorVersionCRC="1975377848" minorVersionCRC="748519862">
+			<attribute name="Condition" idx="0" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="Inverted" idx="1" type="bool" default="False" />
+			<attribute name="PlayerStat" idx="2" type="StatType" default="StatType:FirstOffensive_" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Football-Schemas\AssertNodeData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\TreeNode.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AssertNodeData" numMembers="5" base="TreeNode" assetId="13295213" isRecordPersistent="true" majorVersionCRC="910663136" minorVersionCRC="-362600690">
+			<attribute name="AssertType" idx="0" type="BtAssertType" default="BtAssertType:ASSERTTYPE_INVALID" />
+			<attribute name="AssertValue" idx="1" type="BTCareerTreeStringsShared" default="BTCareerTreeStringsShared:EQOYZWMPACZAJ2MABGMOZ6CCPY" />
+			<attribute name="Children" idx="2" type="TreeNode[]" />
+			<attribute name="EnumToStringTable" idx="3" type="EnumToStringTable" />
+			<attribute name="Run" idx="4" type="TreeNode_Run" guid="13295213-2618001" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\PlayerAcquisitionPositionLookupTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerAcquisitionPositionLookupTable" numMembers="18" defaultStoreCapacity="1" assetId="9196578" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="43266085" minorVersionCRC="-1241447578">
+			<attribute name="C" idx="0" type="PositionVisitInfo" />
+			<attribute name="CB" idx="1" type="PositionVisitInfo" />
+			<attribute name="DE" idx="2" type="PositionVisitInfo" />
+			<attribute name="DT" idx="3" type="PositionVisitInfo" />
+			<attribute name="FB" idx="4" type="PositionVisitInfo" />
+			<attribute name="FS" idx="5" type="PositionVisitInfo" />
+			<attribute name="G" idx="6" type="PositionVisitInfo" />
+			<attribute name="HB" idx="7" type="PositionVisitInfo" />
+			<attribute name="K" idx="8" type="PositionVisitInfo" />
+			<attribute name="LS" idx="9" type="PositionVisitInfo" />
+			<attribute name="MLB" idx="10" type="PositionVisitInfo" />
+			<attribute name="OLB" idx="11" type="PositionVisitInfo" />
+			<attribute name="P" idx="12" type="PositionVisitInfo" />
+			<attribute name="QB" idx="13" type="PositionVisitInfo" />
+			<attribute name="SS" idx="14" type="PositionVisitInfo" />
+			<attribute name="T" idx="15" type="PositionVisitInfo" />
+			<attribute name="TE" idx="16" type="PositionVisitInfo" />
+			<attribute name="WR" idx="17" type="PositionVisitInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

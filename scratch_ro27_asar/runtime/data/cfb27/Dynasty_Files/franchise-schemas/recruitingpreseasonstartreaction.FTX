@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingPreseasonStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingPreseasonStartReaction" numMembers="6" base="Reaction" assetId="6842490" isRecordPersistent="true" majorVersionCRC="374028872" minorVersionCRC="-1018720475">
+			<attribute name="EventRecord" idx="0" type="PreseasonStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6842490-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="RecruitManager" idx="3" type="RecruitManager" />
+			<attribute name="SeasonInfo" idx="4" type="SeasonInfo" />
+			<attribute name="Transaction" idx="5" type="ProcessPreseasonRosterValidationTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

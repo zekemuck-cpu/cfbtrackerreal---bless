@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersSeasonalStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersSeasonalStartEvent" numMembers="2" base="Event" assetId="7709486" isRecordPersistent="true" majorVersionCRC="-1303777731" minorVersionCRC="417942130">
+			<attribute name="Enqueue" idx="0" type="none()" guid="7709486-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="7709486-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

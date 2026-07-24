@@ -1,0 +1,22 @@
+<FranTkData fileName="Football-Schemas\FootballInjuryEvalTuningData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FootballInjuryEvalTuningData" numMembers="11" base="BaseTuning" assetId="10495533" isRecordPersistent="true" majorVersionCRC="759978071" minorVersionCRC="-391056972">
+			<attribute name="CalculateWearAndTearRecovered" idx="0" type="FootballInjuryEvalTuningData_CalculateWearAndTearRecovered" guid="10495533-2431080" final="true" default="RestedLastGameRecovery;" />
+			<attribute name="CareerWearAndTearMultiplier" idx="1" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="GetReInjuryChanceDescription" idx="2" type="FootballInjuryEvalTuningData_GetReInjuryChanceDescription" guid="10495533-2431086" final="true" default="string DescriptionText = ReInjuryChanceDescription_High;&#xD;&#xA;&#xD;&#xA;if(AttributeModifier &gt; 75)&#xD;&#xA;{&#xD;&#xA;  DescriptionText = ReInjuryChanceDescription_High;&#xD;&#xA;}&#xD;&#xA;else if(AttributeModifier &gt; 50 &amp;&amp; AttributeModifier &lt;= 75)&#xD;&#xA;{&#xD;&#xA;  DescriptionText = ReInjuryChanceDescription_Medium;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  DescriptionText = ReInjuryChanceDescription_Low;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;DescriptionText;" />
+			<attribute name="InjuryRiskSpline" idx="3" type="Spline" />
+			<attribute name="LocalPlayerWearAndTearRecoveryPercentageSpline" idx="4" type="Spline" />
+			<attribute name="ReInjuryChanceDescription_High" idx="5" type="string" maxLen="1" />
+			<attribute name="ReInjuryChanceDescription_Low" idx="6" type="string" maxLen="1" />
+			<attribute name="ReInjuryChanceDescription_Medium" idx="7" type="string" maxLen="1" />
+			<attribute name="RestedLastGameRecovery" idx="8" type="float" default="0" />
+			<attribute name="WearAndTearMaxBodyPartHealth" idx="9" type="float" default="1" />
+			<attribute name="WeeklyAdvanceWearAndTearRecoverySpline" idx="10" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

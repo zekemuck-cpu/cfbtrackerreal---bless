@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\UserFlow_UnregisterUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserFlow_UnregisterUserReaction" numMembers="4" base="Reaction" assetId="6499299" isRecordPersistent="true" majorVersionCRC="-1441553916" minorVersionCRC="115930838">
+			<attribute name="EventRecord" idx="0" type="UnregisterUserEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499299-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="UserFlow" idx="3" type="FranchiseServer_UserFlow" />
+		</schema>
+	</schemas>
+</FranTkData>

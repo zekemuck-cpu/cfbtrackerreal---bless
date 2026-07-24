@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PlayerMerchandiseImageInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerMerchandiseImageInfo" numMembers="5" defaultStoreCapacity="26" assetId="6495097" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="694470569" minorVersionCRC="-1070874028">
+			<attribute name="ImageId" idx="0" type="int" minValue="0" maxValue="940" default="0" />
+			<attribute name="JerseyNumber" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MerchandiseType" idx="2" type="MerchandiseType" default="MerchandiseType:Apparel" />
+			<attribute name="Player" idx="3" type="Player" />
+			<attribute name="TeamPresentationId" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

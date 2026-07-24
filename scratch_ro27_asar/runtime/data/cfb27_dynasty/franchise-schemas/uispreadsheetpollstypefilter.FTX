@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetPollsTypeFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetPollsTypeFilter" numMembers="3" base="UISpreadsheetIntFilter" defaultStoreCapacity="3" assetId="8636444" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="18" majorVersionCRC="-1759682286" minorVersionCRC="-186471723">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="Value" idx="2" type="PollsFilter" default="PollsFilter:Media" />
+		</schema>
+	</schemas>
+</FranTkData>

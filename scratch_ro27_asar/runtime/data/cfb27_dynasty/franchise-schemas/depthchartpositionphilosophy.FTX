@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartPositionPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartPositionPhilosophy" numMembers="2" assetId="6378210" isRecordPersistent="true" majorVersionCRC="1377449838" minorVersionCRC="-539564618">
+			<attribute name="Importance" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayerType" idx="1" type="PlayerType" default="PlayerType:QB_First_" />
+		</schema>
+	</schemas>
+</FranTkData>

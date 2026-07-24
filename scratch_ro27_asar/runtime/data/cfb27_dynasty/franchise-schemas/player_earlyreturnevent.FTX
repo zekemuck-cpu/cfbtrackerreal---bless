@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\Player_EarlyReturnEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Player_EarlyReturnEvent" numMembers="4" base="Event" assetId="6498450" isRecordPersistent="true" majorVersionCRC="583630129" minorVersionCRC="-1579890043">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498450-1895458" final="true" />
+			<attribute name="Player" idx="1" type="Player" />
+			<attribute name="Send" idx="2" type="none()" guid="6498450-1895455" final="true" />
+			<attribute name="Team" idx="3" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_SendFreeAgentSignedRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_SendFreeAgentSignedRequest" numMembers="6" base="none()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-525678960" minorVersionCRC="1464893248">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="offer" idx="1" type="ContractOffer" />
+			<attribute name="salary" idx="2" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="bonus" idx="3" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="signingTeam" idx="4" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

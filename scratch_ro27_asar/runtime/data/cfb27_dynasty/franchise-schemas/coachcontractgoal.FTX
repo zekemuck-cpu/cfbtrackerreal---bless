@@ -1,0 +1,43 @@
+<FranTkData fileName="Franchise-Schemas\CoachContractGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachContractGoal" numMembers="32" base="CoachGoal" assetId="12178731" isRecordPersistent="true" majorVersionCRC="1200257010" minorVersionCRC="1253951972">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ADPriority1" idx="1" type="ADPriority" default="ADPriority:Invalid_" />
+			<attribute name="ADPriority2" idx="2" type="ADPriority" default="ADPriority:Invalid_" />
+			<attribute name="ADPriority3" idx="3" type="ADPriority" default="ADPriority:Invalid_" />
+			<attribute name="BaseWeight" idx="4" type="int" minValue="0" maxValue="1000" default="100" />
+			<attribute name="CoachExperienceAward" idx="5" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="CoachPrestigeScore" idx="6" type="int" minValue="-1000" maxValue="1000" default="0" />
+			<attribute name="ContractPointsFail" idx="7" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="ContractPointsPass" idx="8" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="Description" idx="9" type="string" maxLen="81" />
+			<attribute name="DynastyPointAward" idx="10" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="FailEvalFrequency" idx="11" type="CoachContractGoalEvalFrequency" default="CoachContractGoalEvalFrequency:First_" />
+			<attribute name="FromStats" idx="12" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="13" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="14" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="15" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsDCGoal" idx="16" type="bool" default="True" />
+			<attribute name="IsEqualPassing" idx="17" type="bool" default="True" />
+			<attribute name="IsEvaluatedInGame" idx="18" type="bool" default="False" />
+			<attribute name="IsHCGoal" idx="19" type="bool" default="True" />
+			<attribute name="IsInverted" idx="20" type="bool" default="False" />
+			<attribute name="IsOCGoal" idx="21" type="bool" default="True" />
+			<attribute name="IsSingleSeason" idx="22" type="bool" default="True" />
+			<attribute name="LegacyScoreAward" idx="23" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="24" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="25" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="26" type="string" maxLen="31" />
+			<attribute name="LevelType" idx="27" type="ContractGoalLevelType" default="ContractGoalLevelType:Invalid_" />
+			<attribute name="PassEvalFrequency" idx="28" type="CoachContractGoalEvalFrequency" default="CoachContractGoalEvalFrequency:First_" />
+			<attribute name="ProgressDisplayFormat" idx="29" type="string" maxLen="51" />
+			<attribute name="TargetValue" idx="30" type="int" minValue="-100" maxValue="1024" default="0" />
+			<attribute name="Title" idx="31" type="string" maxLen="61" />
+		</schema>
+	</schemas>
+</FranTkData>

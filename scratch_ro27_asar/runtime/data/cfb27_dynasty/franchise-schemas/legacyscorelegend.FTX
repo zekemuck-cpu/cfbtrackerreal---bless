@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\LegacyScoreLegend.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LegacyScoreLegend" numMembers="14" defaultStoreCapacity="75" assetId="11827476" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1849" majorVersionCRC="1873765556" minorVersionCRC="1056526825">
+			<attribute name="FirstName" idx="0" type="string" maxLen="17" />
+			<attribute name="LastName" idx="1" type="string" maxLen="21" />
+			<attribute name="LegacyScore" idx="2" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="PortraitId" idx="3" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Position" idx="4" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="SeasonsPlayed" idx="5" type="int" minValue="1" maxValue="5" default="4" />
+			<attribute name="TeamIconAssetId" idx="6" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="TeamPrimaryColorBlue" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamPrimaryColorGreen" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamPrimaryColorRed" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamSecondaryColorBlue" idx="10" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamSecondaryColorGreen" idx="11" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamSecondaryColorRed" idx="12" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="YearsPlayed" idx="13" type="string" maxLen="12" />
+		</schema>
+	</schemas>
+</FranTkData>

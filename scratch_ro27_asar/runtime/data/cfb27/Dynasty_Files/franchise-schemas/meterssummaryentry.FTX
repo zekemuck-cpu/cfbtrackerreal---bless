@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\MetersSummaryEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TransactionWeekSummaryEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MetersSummaryEntry" numMembers="3" base="TransactionWeekSummaryEntry" assetId="9072515" isRecordPersistent="false" majorVersionCRC="342141584" minorVersionCRC="2116273394">
+			<attribute name="MeterType" idx="0" type="NarrativePlayerMeterAction" default="NarrativePlayerMeterAction:FilmStudy" />
+			<attribute name="OldValue" idx="1" type="int" minValue="-32000" maxValue="32000" default="0" />
+			<attribute name="UserEntity" idx="2" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

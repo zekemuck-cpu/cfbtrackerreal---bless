@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_FillPracticeSquads.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_FillPracticeSquads" numMembers="2" base="none()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1593578918" minorVersionCRC="1637119564">
+			<attribute name="teams" idx="0" type="Team[]" />
+		</schema>
+	</schemas>
+</FranTkData>

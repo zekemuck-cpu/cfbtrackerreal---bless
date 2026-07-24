@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\CareerFlow_TransferAdminUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerFlow_TransferAdminUserReaction" numMembers="4" base="Reaction" assetId="6499251" isRecordPersistent="true" majorVersionCRC="-1627567892" minorVersionCRC="-2004927002">
+			<attribute name="CareerFlow" idx="0" type="FranchiseServer_CareerFlow" />
+			<attribute name="EventRecord" idx="1" type="TransferOwnerUserEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6499251-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

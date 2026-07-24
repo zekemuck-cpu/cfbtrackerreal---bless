@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassScouting_IssueProDayResultsRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassScouting_IssueProDayResultsRequest" numMembers="2" base="none()" ownerAssetId="6708687" isRecordPersistent="true" isExpr="true" majorVersionCRC="47709208" minorVersionCRC="-676617604">
+			<attribute name="Team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

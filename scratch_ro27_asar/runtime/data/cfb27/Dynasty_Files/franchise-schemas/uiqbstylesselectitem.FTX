@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UIQBStylesSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIQBStylesSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="44" assetId="6663007" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="797" majorVersionCRC="1216697288" minorVersionCRC="1456712985">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="QBThrowStyle" default="QBThrowStyle:Default" />
+		</schema>
+	</schemas>
+</FranTkData>

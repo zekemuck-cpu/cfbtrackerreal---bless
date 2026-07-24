@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_StartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_StartReaction" numMembers="4" base="Reaction" assetId="6814592" isRecordPersistent="true" majorVersionCRC="-294062330" minorVersionCRC="1322964343">
+			<attribute name="EventRecord" idx="0" type="InjuryEval_StartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814592-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Transaction" idx="3" type="InjuryEval_Transaction" />
+		</schema>
+	</schemas>
+</FranTkData>

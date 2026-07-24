@@ -1,0 +1,44 @@
+<FranTkData fileName="Franchise-Schemas\PlayerProgressionTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerProgressionTuning" numMembers="33" base="BaseTuning" defaultStoreCapacity="1" assetId="8210488" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="20" majorVersionCRC="1032233415" minorVersionCRC="380858993">
+			<attribute name="AdjustmentPrimary" idx="0" type="float" default="0" />
+			<attribute name="AdjustmentSecondary" idx="1" type="float" default="10" />
+			<attribute name="AdjustmentTertiary" idx="2" type="float" default="20" />
+			<attribute name="AthleticFacilitiesBonusXPTable" idx="3" type="LetterGradeValueTable" />
+			<attribute name="CapBreakerAttributeIncreaseSpline" idx="4" type="Spline" />
+			<attribute name="HighestLevelSpline" idx="5" type="Spline" />
+			<attribute name="HighLevelSpline" idx="6" type="Spline" />
+			<attribute name="IncrementAmount" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LegacyScoreToMaxOVRSplines" idx="8" type="Spline[]" />
+			<attribute name="LowLevelSpline" idx="9" type="Spline" />
+			<attribute name="MaxAttributeCapBreakers" idx="10" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="MaxCareerCapBreakers" idx="11" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="MaxWeightGainTables" idx="12" type="PositionValueTable[]" />
+			<attribute name="MediumLevelSpline" idx="13" type="Spline" />
+			<attribute name="MinWeightGainTables" idx="14" type="PositionValueTable[]" />
+			<attribute name="OffseasonProgressionRandomMax" idx="15" type="float" default="1" />
+			<attribute name="OffseasonProgressionRandomMin" idx="16" type="float" default="0" />
+			<attribute name="PlayerSPThresholdSpline" idx="17" type="Spline" />
+			<attribute name="PlayerXPLevelSpline" idx="18" type="Spline" />
+			<attribute name="RTGOffSeasonSpline" idx="19" type="Spline" />
+			<attribute name="RTGPlayerOVRtoSPCostSpline" idx="20" type="Spline" />
+			<attribute name="RTGPlayerSPPerLevel" idx="21" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="SkillGroupCapMax" idx="22" type="int" minValue="0" maxValue="20" default="20" />
+			<attribute name="SkillGroupDescriptionPrefix" idx="23" type="string" maxLen="20" default="Positive Impact to " />
+			<attribute name="SkillLevelXPModifierAllAmerican" idx="24" type="PlayerProgressionSettingXPModifier" />
+			<attribute name="SkillLevelXPModifierFreshman" idx="25" type="PlayerProgressionSettingXPModifier" />
+			<attribute name="SkillLevelXPModifierHeisman" idx="26" type="PlayerProgressionSettingXPModifier" />
+			<attribute name="SkillLevelXPModifierVarsity" idx="27" type="PlayerProgressionSettingXPModifier" />
+			<attribute name="WearAndTearXPModifierOff" idx="28" type="PlayerProgressionSettingXPModifier" />
+			<attribute name="WearAndTearXPModifierOn" idx="29" type="PlayerProgressionSettingXPModifier" />
+			<attribute name="WeightPrimary" idx="30" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="WeightSecondary" idx="31" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="WeightTertiary" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

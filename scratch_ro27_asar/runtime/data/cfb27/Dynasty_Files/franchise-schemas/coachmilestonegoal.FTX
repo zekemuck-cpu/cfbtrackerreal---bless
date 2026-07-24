@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\CoachMilestoneGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachMilestoneGoal" numMembers="17" base="CoachGoal" assetId="6377527" isRecordPersistent="true" majorVersionCRC="-919973130" minorVersionCRC="152267451">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachExperienceAward" idx="1" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="CoachPrestigeScore" idx="2" type="int" minValue="-1000" maxValue="1000" default="0" />
+			<attribute name="Description" idx="3" type="string" maxLen="81" />
+			<attribute name="DynastyPointAward" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="FromStats" idx="5" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="6" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="7" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="8" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="9" type="bool" default="False" />
+			<attribute name="LegacyScoreAward" idx="10" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="11" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="12" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="13" type="string" maxLen="31" />
+			<attribute name="SendEvent" idx="14" type="bool" default="False" />
+			<attribute name="StaffPointAward" idx="15" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="Title" idx="16" type="string" maxLen="61" />
+		</schema>
+	</schemas>
+</FranTkData>

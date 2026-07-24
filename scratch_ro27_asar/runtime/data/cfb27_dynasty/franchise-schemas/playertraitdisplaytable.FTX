@@ -1,0 +1,35 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTraitDisplayTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTraitDisplayTable" numMembers="28" defaultStoreCapacity="1" assetId="6499095" defaultStoreGroupId="2" isRecordPersistent="false" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1389695893" minorVersionCRC="1343765399">
+			<attribute name="BigHitter" idx="0" type="EnumTable" />
+			<attribute name="Clutch" idx="1" type="EnumTable" />
+			<attribute name="Confidence" idx="2" type="EnumTable" />
+			<attribute name="ConfidenceStreak" idx="3" type="EnumTable" />
+			<attribute name="Consistency" idx="4" type="EnumTable" />
+			<attribute name="CoverBall" idx="5" type="EnumTable" />
+			<attribute name="DecisionMaker" idx="6" type="EnumTable" />
+			<attribute name="Development" idx="7" type="EnumTable" />
+			<attribute name="DLBullRush" idx="8" type="EnumTable" />
+			<attribute name="DLSpin" idx="9" type="EnumTable" />
+			<attribute name="DLSwim" idx="10" type="EnumTable" />
+			<attribute name="DropOpenPass" idx="11" type="EnumTable" />
+			<attribute name="FeetInBounds" idx="12" type="EnumTable" />
+			<attribute name="FightForYards" idx="13" type="EnumTable" />
+			<attribute name="HighMotor" idx="14" type="EnumTable" />
+			<attribute name="HighPointCatch" idx="15" type="EnumTable" />
+			<attribute name="LBStyle" idx="16" type="EnumTable" />
+			<attribute name="Penalty" idx="17" type="EnumTable" />
+			<attribute name="PlayBall" idx="18" type="EnumTable" />
+			<attribute name="PossessionCatch" idx="19" type="EnumTable" />
+			<attribute name="Predictable" idx="20" type="EnumTable" />
+			<attribute name="QBStyle" idx="21" type="EnumTable" />
+			<attribute name="SensePressure" idx="22" type="EnumTable" />
+			<attribute name="SensePressureMax" idx="23" type="EnumTable" />
+			<attribute name="StripBall" idx="24" type="EnumTable" />
+			<attribute name="ThrowAway" idx="25" type="EnumTable" />
+			<attribute name="TightSpiral" idx="26" type="EnumTable" />
+			<attribute name="YACCatch" idx="27" type="EnumTable" />
+		</schema>
+	</schemas>
+</FranTkData>

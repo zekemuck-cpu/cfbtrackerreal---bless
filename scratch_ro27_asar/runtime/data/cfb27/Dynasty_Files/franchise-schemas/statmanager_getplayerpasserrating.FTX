@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\StatManager_GetPlayerPasserRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManager_GetPlayerPasserRating" numMembers="7" base="int()" ownerAssetId="6493950" isRecordPersistent="true" isExpr="true" majorVersionCRC="-954191220" minorVersionCRC="-732701159">
+			<attribute name="passAttempts" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="passComplete" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="passYards" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="passTDS" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="passINTS" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="gamesPlayed" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

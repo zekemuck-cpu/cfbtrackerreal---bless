@@ -1,0 +1,16 @@
+<FranTkData fileName="Football-Schemas\Person.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Person" numMembers="9" base="UserEntity" assetId="6378184" isRecordPersistent="true" majorVersionCRC="1616807509" minorVersionCRC="-521875151">
+			<attribute name="Age" idx="0" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="FirstName" idx="1" type="string" maxLen="17" />
+			<attribute name="IsCreated" idx="2" type="bool" default="False" />
+			<attribute name="IsLegend" idx="3" type="bool" default="False" />
+			<attribute name="IsUserControlled" idx="4" type="bool" default="False" />
+			<attribute name="LastName" idx="5" type="string" maxLen="21" />
+			<attribute name="PresentationId" idx="6" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PrevTeamIndex" idx="7" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="TeamIndex" idx="8" type="int" minValue="0" maxValue="255" default="255" />
+		</schema>
+	</schemas>
+</FranTkData>

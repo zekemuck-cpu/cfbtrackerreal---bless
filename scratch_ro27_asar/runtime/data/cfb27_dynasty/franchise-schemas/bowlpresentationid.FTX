@@ -1,0 +1,52 @@
+<FranTkData fileName="Franchise-Schemas\BowlPresentationId.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BowlPresentationId" numMembers="45" assetId="8521572" isRecordPersistent="true" majorVersionCRC="1280872308" minorVersionCRC="-1304874128">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="BahamasBowl" idx="1" value="1" />
+			<attribute name="CureBowl" idx="2" value="2" />
+			<attribute name="BocaRatonBowl" idx="3" value="3" />
+			<attribute name="NewMexicoBowl" idx="4" value="4" />
+			<attribute name="IndependenceBowl" idx="5" value="5" />
+			<attribute name="LendingTreeBowl" idx="6" value="6" />
+			<attribute name="LABowl" idx="7" value="7" />
+			<attribute name="NewOrleansBowl" idx="8" value="8" />
+			<attribute name="MyrtleBeachBowl" idx="9" value="9" />
+			<attribute name="FamousIdahoPotatoBowl" idx="10" value="10" />
+			<attribute name="FriscoBowl" idx="11" value="11" />
+			<attribute name="ArmedForcesBowl" idx="12" value="12" />
+			<attribute name="GasparillaBowl" idx="13" value="14" />
+			<attribute name="HawaiiBowl" idx="14" value="15" />
+			<attribute name="CameliaBowl" idx="15" value="16" />
+			<attribute name="QuickLaneBowl" idx="16" value="17" />
+			<attribute name="MilitaryBowl" idx="17" value="18" />
+			<attribute name="BirminghamBowl" idx="18" value="19" />
+			<attribute name="FirstResponderBowl" idx="19" value="20" />
+			<attribute name="LibertyBowl" idx="20" value="21" />
+			<attribute name="HolidayBowl" idx="21" value="22" />
+			<attribute name="GuaranteedRateBowl" idx="22" value="23" />
+			<attribute name="FenwayBowl" idx="23" value="24" />
+			<attribute name="PinstripeBowl" idx="24" value="25" />
+			<attribute name="CheezItBowl" idx="25" value="26" />
+			<attribute name="AlamoBowl" idx="26" value="27" />
+			<attribute name="DukesMayoBowl" idx="27" value="28" />
+			<attribute name="MusicCityBowl" idx="28" value="29" />
+			<attribute name="LasVegasBowl" idx="29" value="30" />
+			<attribute name="GatorBowl" idx="30" value="31" />
+			<attribute name="SunBowl" idx="31" value="32" />
+			<attribute name="ArizonaBowl" idx="32" value="33" />
+			<attribute name="ReliaquestBowl" idx="33" value="34" />
+			<attribute name="CitrusBowl" idx="34" value="35" />
+			<attribute name="TexasBowl" idx="35" value="36" />
+			<attribute name="OrangeBowl" idx="36" value="41" />
+			<attribute name="FiestaBowl" idx="37" value="42" />
+			<attribute name="SugarBowl" idx="38" value="43" />
+			<attribute name="RoseBowl" idx="39" value="44" />
+			<attribute name="CottonBowl" idx="40" value="45" />
+			<attribute name="PeachBowl" idx="41" value="46" />
+			<attribute name="NationalChampionship" idx="42" value="47" />
+			<attribute name="CFPFirstRound" idx="43" value="48" />
+			<attribute name="DefunctBowl" idx="44" value="50" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DebugModule_DebugAssert.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DebugModule_DebugAssert" numMembers="2" base="none()" ownerAssetId="6499370" isRecordPersistent="true" isExpr="true" majorVersionCRC="917679761" minorVersionCRC="2072809615">
+			<attribute name="Assert" idx="0" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\GoalsEval_AssignWeeklyGoals_AssignWeeklyGoals.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalsEval_AssignWeeklyGoals_AssignWeeklyGoals" numMembers="4" base="ModifierView" assetId="6702182" isRecordPersistent="true" majorVersionCRC="-234562224" minorVersionCRC="-98327930">
+			<attribute name="Formula" idx="0" type="GoalsEval_AssignWeeklyGoals_AssignWeeklyGoals_Formula" guid="6702182-1941490" default="// if we are not in the first week of preseason, autoprogress teams&#xD;&#xA;if (!((Env.SeasonWeek == 0) &amp;&amp; (Env.SeasonWeekType == SeasonWeekType.PreSeason)))&#xD;&#xA;{&#xD;&#xA;    Env.CoachProgressionEvalRef.AutoProgressTeam(Subject.HomeTeam);&#xD;&#xA;    Env.CoachProgressionEvalRef.AutoProgressTeam(Subject.AwayTeam);&#xD;&#xA;    Env.PlayerProgressionEvalRef.AutoProgressTeam(Subject.HomeTeam);&#xD;&#xA;    Env.PlayerProgressionEvalRef.AutoProgressTeam(Subject.AwayTeam);&#xD;&#xA;    Env.TalentTreeEvalRef.AutoProgressTeam(Subject.HomeTeam);&#xD;&#xA;    Env.TalentTreeEvalRef.AutoProgressTeam(Subject.AwayTeam);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// assign weekly goals to players and coaches&#xD;&#xA;Env.PlayerGoalsEval.AssignWeeklyGoals(Subject.HomeTeam, Subject.AwayTeam, Env.SeasonWeek);&#xD;&#xA;Env.PlayerGoalsEval.AssignWeeklyGoals(Subject.AwayTeam, Subject.HomeTeam, Env.SeasonWeek);&#xD;&#xA;&#xD;&#xA;Env.CoachGoalsEval.AssignWeeklyGoals(Subject.HomeTeam, Subject.AwayTeam, Env.SeasonWeek, Env.SeasonWeekType);&#xD;&#xA;Env.CoachGoalsEval.AssignWeeklyGoals(Subject.AwayTeam, Subject.HomeTeam, Env.SeasonWeek, Env.SeasonWeekType);" />
+			<attribute name="Source" idx="1" type="GoalsEval_AssignWeeklyGoals_FilterBySeasonWeek" />
+			<attribute name="Subjects" idx="2" type="SeasonGame[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6702182-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

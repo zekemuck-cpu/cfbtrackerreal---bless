@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStandings_SortTeamsByStanding_Comparator.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStandings_SortTeamsByStanding_Comparator" numMembers="3" base="int()" ownerAssetId="6708709" isRecordPersistent="true" isExpr="true" majorVersionCRC="-928163838" minorVersionCRC="355209075">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="OtherSubject" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

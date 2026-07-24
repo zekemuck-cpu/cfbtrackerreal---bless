@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_CanTeamOfferReSignPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_CanTeamOfferReSignPlayer" numMembers="6" base="bool()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1753704171" minorVersionCRC="-1861470113">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="contractLength" idx="2" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="contractSalary" idx="3" type="int" minValue="0" maxValue="65536" default="0" />
+			<attribute name="contractBonus" idx="4" type="int" minValue="0" maxValue="65536" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

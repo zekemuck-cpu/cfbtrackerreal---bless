@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_HasEnoughTimePassed.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_HasEnoughTimePassed" numMembers="5" base="bool()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="-861821709" minorVersionCRC="-1168940363">
+			<attribute name="startingYear" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="startingStage" idx="1" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="startingWeek" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="weeksPassed" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

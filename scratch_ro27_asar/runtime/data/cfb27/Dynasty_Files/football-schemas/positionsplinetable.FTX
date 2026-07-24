@@ -1,0 +1,29 @@
+<FranTkData fileName="Football-Schemas\PositionSplineTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionSplineTable" numMembers="22" assetId="6045" isRecordPersistent="true" majorVersionCRC="-330344880" minorVersionCRC="2100376746">
+			<attribute name="C" idx="0" type="Spline" />
+			<attribute name="CB" idx="1" type="Spline" />
+			<attribute name="DT" idx="2" type="Spline" />
+			<attribute name="FB" idx="3" type="Spline" />
+			<attribute name="FS" idx="4" type="Spline" />
+			<attribute name="HB" idx="5" type="Spline" />
+			<attribute name="K" idx="6" type="Spline" />
+			<attribute name="LE" idx="7" type="Spline" />
+			<attribute name="LG" idx="8" type="Spline" />
+			<attribute name="LOLB" idx="9" type="Spline" />
+			<attribute name="LS" idx="10" type="Spline" />
+			<attribute name="LT" idx="11" type="Spline" />
+			<attribute name="MLB" idx="12" type="Spline" />
+			<attribute name="P" idx="13" type="Spline" />
+			<attribute name="QB" idx="14" type="Spline" />
+			<attribute name="RE" idx="15" type="Spline" />
+			<attribute name="RG" idx="16" type="Spline" />
+			<attribute name="ROLB" idx="17" type="Spline" />
+			<attribute name="RT" idx="18" type="Spline" />
+			<attribute name="SS" idx="19" type="Spline" />
+			<attribute name="TE" idx="20" type="Spline" />
+			<attribute name="WR" idx="21" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

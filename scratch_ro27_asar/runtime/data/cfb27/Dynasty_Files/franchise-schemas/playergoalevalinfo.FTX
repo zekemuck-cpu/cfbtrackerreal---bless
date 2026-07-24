@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGoalEvalInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGoalEvalInfo" numMembers="1" assetId="6377937" isRecordPersistent="true" majorVersionCRC="-2127102032" minorVersionCRC="-1185849505">
+			<attribute name="IsPlayerStarter" idx="0" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

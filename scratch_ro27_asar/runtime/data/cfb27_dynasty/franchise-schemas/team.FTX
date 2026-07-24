@@ -1,0 +1,430 @@
+<FranTkData fileName="Franchise-Schemas\Team.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Team" numMembers="423" assetId="6498740" isRecordPersistent="true" majorVersionCRC="1781872435" minorVersionCRC="-1563731227">
+			<attribute name="AbsoluteTempBuffsList" idx="0" type="TeamTempBuffAbility[]" />
+			<attribute name="ActiveFreeAgentNegotiationCount" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ActiveRosterSize" idx="2" type="int" minValue="0" maxValue="85" default="0" />
+			<attribute name="ActiveStoryArcs" idx="3" type="ArcContext[]" />
+			<attribute name="ADDemeanor" idx="4" type="ADDemeanor" default="ADDemeanor:Balanced" />
+			<attribute name="ADPriorityGuaranteed" idx="5" type="ADPriority" default="ADPriority:Invalid_" />
+			<attribute name="ADPriorityPrimary" idx="6" type="ADPriority" default="ADPriority:Invalid_" />
+			<attribute name="ADPrioritySecondary" idx="7" type="ADPriority" default="ADPriority:Invalid_" />
+			<attribute name="ADPriorityTertiary" idx="8" type="ADPriority" default="ADPriority:Invalid_" />
+			<attribute name="AllowsTripleOptionCoaches" idx="9" type="bool" default="False" />
+			<attribute name="AltStadium" idx="10" type="Stadium" />
+			<attribute name="AssetName" idx="11" type="string" maxLen="43" />
+			<attribute name="AverageAttendance" idx="12" type="int" minValue="0" maxValue="500000" default="0" />
+			<attribute name="AwayUniformShade" idx="13" type="UniformShade" default="UniformShade:Light" />
+			<attribute name="BlacklistUserIdLower" idx="14" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="BlacklistUserIdUpper" idx="15" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="BrandExposureProgramPoints" idx="16" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="Capital" idx="17" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="CareerStatRecords" idx="18" type="PlayerStatRecords" />
+			<attribute name="CFPPoll_CurrentPoints" idx="19" type="float" default="0" />
+			<attribute name="CFPPoll_CurrentRank" idx="20" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CFPPoll_LastWeeksRank" idx="21" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="City" idx="22" type="City" />
+			<attribute name="CoachContractGoalsProgramPoints" idx="23" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="CoachesPoll_CurrentPoints" idx="24" type="int" minValue="0" maxValue="16382" default="0" />
+			<attribute name="CoachesPoll_CurrentRank" idx="25" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CoachesPoll_FirstPlaceVotes" idx="26" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="CoachesPoll_HiddenCurrentRank" idx="27" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CoachesPoll_LastWeeksRank" idx="28" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CoachesPoll_NumVoters" idx="29" type="int" minValue="0" maxValue="3000" default="0" />
+			<attribute name="CoachSeasonGoalLevelReached" idx="30" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="CoachTalentEffects" idx="31" type="CoachTalentEffects" />
+			<attribute name="CommittedPlayers" idx="32" type="Player[]" />
+			<attribute name="ConferencePrestigeProgramPoints" idx="33" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="ConfLoss" idx="34" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="ConfTie" idx="35" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="ConfWin" idx="36" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="ContentionPhase" idx="37" type="TeamContentionPhase" default="TeamContentionPhase:Playoff" />
+			<attribute name="ContractOfferBlacklist" idx="38" type="Player[]" />
+			<attribute name="CurrentBalance" idx="39" type="int" minValue="-2147483648" maxValue="1215752192" default="0" />
+			<attribute name="CurrentDefensiveScheme" idx="40" type="BaseScheme" default="BaseScheme:DEF_BASE4_3" />
+			<attribute name="CurrentOffensiveScheme" idx="41" type="BaseScheme" default="BaseScheme:OFF_WEST_COAST_ZONE_RUN" />
+			<attribute name="CurrentPopularity" idx="42" type="PopularityComponentTable" />
+			<attribute name="CurSeasonConfStanding" idx="43" type="int" minValue="-1" maxValue="135" default="-1" />
+			<attribute name="CurSeasonDivStanding" idx="44" type="int" minValue="-1" maxValue="135" default="-1" />
+			<attribute name="CurSeasonLeagStanding" idx="45" type="int" minValue="-1" maxValue="135" default="-1" />
+			<attribute name="DCContractGoal1" idx="46" type="CoachContractGoal" />
+			<attribute name="DCContractGoal1Status" idx="47" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="DCContractGoal2" idx="48" type="CoachContractGoal" />
+			<attribute name="DCContractGoal2Status" idx="49" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="DCContractGoal3" idx="50" type="CoachContractGoal" />
+			<attribute name="DCContractGoal3Status" idx="51" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="DefaultDefensiveScheme" idx="52" type="BaseScheme" default="BaseScheme:OFF_SPREAD" />
+			<attribute name="DefaultOffensiveScheme" idx="53" type="BaseScheme" default="BaseScheme:OFF_WEST_COAST_ZONE_RUN" />
+			<attribute name="DefaultOwner" idx="54" type="Owner" />
+			<attribute name="DefaultPhilosophy" idx="55" type="TeamPhilosophy" />
+			<attribute name="DefenseActiveAbilitiesPlayers" idx="56" type="Player[]" />
+			<attribute name="DefensiveCoordinator" idx="57" type="Coach" />
+			<attribute name="DefensiveCoordinatorPointBudget" idx="58" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="DefensiveDrillComplete" idx="59" type="bool" default="False" />
+			<attribute name="DefensiveGameplan" idx="60" type="Gameplan" />
+			<attribute name="DefensiveRank" idx="61" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DepthChart" idx="62" type="DepthChart" />
+			<attribute name="DepthChartConfig" idx="63" type="DepthChartConfig" />
+			<attribute name="Description" idx="64" type="string" const="true" maxLen="1" />
+			<attribute name="DesiredPrimArchetype" idx="65" type="CoachTalentArcheType" default="CoachTalentArcheType:Motivator" />
+			<attribute name="DesiredSecArchetype" idx="66" type="CoachTalentArcheType" default="CoachTalentArcheType:Motivator" />
+			<attribute name="DesiredSpecialtyType" idx="67" type="CoachSpecialtyType" default="CoachSpecialtyType:Offense" />
+			<attribute name="DesiredTeamCaptains" idx="68" type="int" minValue="0" maxValue="100" default="6" />
+			<attribute name="DesiredTertArchetype" idx="69" type="CoachTalentArcheType" default="CoachTalentArcheType:Motivator" />
+			<attribute name="DesiresAlumni" idx="70" type="bool" default="False" />
+			<attribute name="DisplayName" idx="71" type="string" maxLen="15" />
+			<attribute name="DIV_SLOTNUMBER" idx="72" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="DivisionLoss" idx="73" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DivisionTie" idx="74" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DivisionWin" idx="75" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="EndOfSeasonProcessed" idx="76" type="bool" default="False" />
+			<attribute name="EquipmentTeamUpgradeStatusList" idx="77" type="EquipmentTeamUpgradeStatus[]" />
+			<attribute name="ExpectedContractPoints_LastYear" idx="78" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="ExpectedContractPoints_ThisYear" idx="79" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="ExpectedContractPoints_TwoYearsAgo" idx="80" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="FacilitiesLevel" idx="81" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="FacilitiesProgramPointsSpent" idx="82" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="FacilitiesRenewalCostReserved" idx="83" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="FanHappinessTrackingTable" idx="84" type="TeamValueTrackingTable" />
+			<attribute name="FocusTainingComplete" idx="85" type="bool" default="False" />
+			<attribute name="FocusTrainingList" idx="86" type="Player[]" />
+			<attribute name="ForcedStreak" idx="87" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="FormationSubs" idx="88" type="FormationSub[]" />
+			<attribute name="FranchiseTaggedPlayer" idx="89" type="Player" />
+			<attribute name="GameStatRecords" idx="90" type="PlayerStatRecords" />
+			<attribute name="GeneralManager" idx="91" type="GeneralManager" />
+			<attribute name="GetAvgPosGrpRating" idx="92" type="Team_GetAvgPosGrpRating" guid="6498740-1927010" final="true" />
+			<attribute name="GetAvgPositionRating" idx="93" type="Team_GetAvgPositionRating" guid="6498740-1927004" final="true" />
+			<attribute name="GetAvgTeamRating" idx="94" type="Team_GetAvgTeamRating" guid="6498740-1927030" final="true" />
+			<attribute name="GetAvgTeamSideRating" idx="95" type="Team_GetAvgTeamSideRating" guid="6498740-1927016" final="true" />
+			<attribute name="GetBestPlayerAtPosition" idx="96" type="Team_GetBestPlayerAtPosition" guid="6498740-1927026" final="true" />
+			<attribute name="GetPreviousGameTeamStats" idx="97" type="Team_GetPreviousGameTeamStats" guid="6498740-1927022" final="true" />
+			<attribute name="GetTeamCurrentSeasonStats" idx="98" type="TeamStats()" guid="6498740-1926939" final="true" default="//Current Season stats are first in the list of 5&#xD;&#xA;if(TeamSeasonStats != null &amp;&amp; TeamSeasonStats.Population() &gt; 0)&#xD;&#xA;{&#xD;&#xA; TeamSeasonStats[0];&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA; null;&#xD;&#xA;}" />
+			<attribute name="GetTeamStatsForStage" idx="99" type="Team_GetTeamStatsForStage" guid="6498740-1926916" final="true" default="TeamStats[] statsArray = null;&#xD;&#xA;&#xD;&#xA;if (stage == SeasonStage.PreSeason)&#xD;&#xA;{&#xD;&#xA;    statsArray = TeamGameStatsPreSeason;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    statsArray = TeamGameStatsRegSeason;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;statsArray;" />
+			<attribute name="HandleResponse" idx="100" type="none()" guid="6498740-2210308" final="true" />
+			<attribute name="Hashtag1" idx="101" type="string" maxLen="18" />
+			<attribute name="Hashtag2" idx="102" type="string" maxLen="18" />
+			<attribute name="HasPrideStickers" idx="103" type="bool" default="False" />
+			<attribute name="HasStrictCodeOfConduct" idx="104" type="bool" default="False" />
+			<attribute name="HasTransactionsAvailables" idx="105" type="Team_HasTransactionsAvailables" guid="6498740-1927073" final="true" />
+			<attribute name="HCContractGoal1" idx="106" type="CoachContractGoal" />
+			<attribute name="HCContractGoal1Status" idx="107" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="HCContractGoal2" idx="108" type="CoachContractGoal" />
+			<attribute name="HCContractGoal2Status" idx="109" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="HCContractGoal3" idx="110" type="CoachContractGoal" />
+			<attribute name="HCContractGoal3Status" idx="111" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="HeadCoach" idx="112" type="Coach" />
+			<attribute name="HeadCoachProgramPointBudget" idx="113" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="HeadScout" idx="114" type="Scout" />
+			<attribute name="HeadTrainer" idx="115" type="Trainer" />
+			<attribute name="HighestAttendanceRank" idx="116" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="HighestGameAttendance" idx="117" type="int" minValue="0" maxValue="500000" default="0" />
+			<attribute name="HistoryEntries" idx="118" type="HistoryEntry[]" />
+			<attribute name="HomeFieldAdvantage" idx="119" type="GameplayModifier" />
+			<attribute name="HomeLoss" idx="120" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeTie" idx="121" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="HomeUniformShade" idx="122" type="UniformShade" default="UniformShade:Dark" />
+			<attribute name="HomeWin" idx="123" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InDoorLoss" idx="124" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InDoorTie" idx="125" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InDoorWin" idx="126" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IRRemovalCount" idx="127" type="int" minValue="0" maxValue="15" default="1" />
+			<attribute name="IsDefDrillSim" idx="128" type="bool" default="False" />
+			<attribute name="IsEntitlementAwardEnabled" idx="129" type="bool" default="True" />
+			<attribute name="IsHiringBonusAvailableDC" idx="130" type="bool" default="True" />
+			<attribute name="IsHiringBonusAvailableHC" idx="131" type="bool" default="True" />
+			<attribute name="IsHiringBonusAvailableOC" idx="132" type="bool" default="True" />
+			<attribute name="IsMarketedPlayer" idx="133" type="Team_IsMarketedPlayer" guid="6498740-1926980" final="true" />
+			<attribute name="IsMilitary" idx="134" type="bool" default="False" />
+			<attribute name="IsOffDrillSim" idx="135" type="bool" default="False" />
+			<attribute name="IsReSigning" idx="136" type="bool" default="False" />
+			<attribute name="IsRivalTeam" idx="137" type="Team_IsRivalTeam" guid="6498740-1926984" final="true" />
+			<attribute name="IsTeamBuilder" idx="138" type="bool" default="False" />
+			<attribute name="IsUserManaged" idx="139" type="bool()" guid="6498740-1926988" final="true" default="// The team is user-managed if a user is registered as the head coach or owner.&#xD;&#xA;(UserCharacter != null) &amp;&amp; ((UserCharacter == HeadCoach) || (UserCharacter == OffensiveCoordinator) || (UserCharacter == DefensiveCoordinator) || (UserCharacter == Owner));" />
+			<attribute name="JumpBacksUsed" idx="140" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LastSeasonPlayoffRoundReached" idx="141" type="PlayoffRoundType" default="PlayoffRoundType:None" />
+			<attribute name="LastSeasonTransfersLost" idx="142" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="LastSeasonTransfersSigned" idx="143" type="int" minValue="0" maxValue="35" default="0" />
+			<attribute name="LastWeekAdvertisingExpense" idx="144" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="LastWeekCommittedRecruits" idx="145" type="int" minValue="0" maxValue="35" default="0" />
+			<attribute name="LastWeekConferenceStanding" idx="146" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="LastWeekPlayerBonusExpense" idx="147" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="LastWeekPlayerMarketingExpense" idx="148" type="int" minValue="0" maxValue="1410065408" default="0" />
+			<attribute name="LastWeekPlayerSalariesExpense" idx="149" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="LastWeekSharedRevenue" idx="150" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="LastWeekStadiumPaymentExpense" idx="151" type="int" minValue="0" maxValue="1410065408" default="0" />
+			<attribute name="LastWeekStadiumUpkeepExpense" idx="152" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="LastWeekStaffSalariesExpense" idx="153" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="LastWeekStartBalance" idx="154" type="int" minValue="-2147483648" maxValue="1215752192" default="0" />
+			<attribute name="LongName" idx="155" type="string" maxLen="23" />
+			<attribute name="MarketedLegends" idx="156" type="Player[]" />
+			<attribute name="MarketedPlayers" idx="157" type="Player[]" />
+			<attribute name="Mascot_AssetName" idx="158" type="string" maxLen="7" />
+			<attribute name="MediaPoll_CurrentPoints" idx="159" type="int" minValue="0" maxValue="16382" default="0" />
+			<attribute name="MediaPoll_CurrentRank" idx="160" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MediaPoll_FirstPlaceVotes" idx="161" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="MediaPoll_HiddenCurrentRank" idx="162" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MediaPoll_LastWeeksRank" idx="163" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MediaPoll_NumVoters" idx="164" type="int" minValue="0" maxValue="3000" default="0" />
+			<attribute name="MediaPoll_StartOfSeasonRank" idx="165" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Motto" idx="166" type="string" maxLen="51" />
+			<attribute name="MySchoolTrackingTable" idx="167" type="MySchoolTrackingTable" />
+			<attribute name="NextYearCapPenalties" idx="168" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="NickName" idx="169" type="string" maxLen="18" />
+			<attribute name="NickNameAlt" idx="170" type="string" maxLen="16" />
+			<attribute name="NickNameCommentaryId" idx="171" type="NickNameCommentaryId" default="NickNameCommentaryId:Generic" />
+			<attribute name="NILProgramPointsSpent" idx="172" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="NonConfLoss" idx="173" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="NonConfTie" idx="174" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="NonConfWin" idx="175" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="NumGamesScheduled" idx="176" type="int" minValue="0" maxValue="20" default="12" />
+			<attribute name="NumRequiredConferenceGames" idx="177" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="OCContractGoal1" idx="178" type="CoachContractGoal" />
+			<attribute name="OCContractGoal1Status" idx="179" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="OCContractGoal2" idx="180" type="CoachContractGoal" />
+			<attribute name="OCContractGoal2Status" idx="181" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="OCContractGoal3" idx="182" type="CoachContractGoal" />
+			<attribute name="OCContractGoal3Status" idx="183" type="CoachContractGoalStatus" default="CoachContractGoalStatus:Invalid_" />
+			<attribute name="OffenseActiveAbilitiesPlayers" idx="184" type="Player[]" />
+			<attribute name="OffensiveCoordinator" idx="185" type="Coach" />
+			<attribute name="OffensiveCoordinatorPointBudget" idx="186" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="OffensiveDrillComplete" idx="187" type="bool" default="False" />
+			<attribute name="OffensiveGameplan" idx="188" type="Gameplan" />
+			<attribute name="OffensiveRank" idx="189" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="OutDoorLoss" idx="190" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OutDoorTie" idx="191" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OutDoorWin" idx="192" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverallPopularity" idx="193" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverTimeLoss" idx="194" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverTimeTie" idx="195" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverTimeWin" idx="196" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Owner" idx="197" type="Owner" />
+			<attribute name="PaintedFanFirstWord" idx="198" type="string" maxLen="10" />
+			<attribute name="PaintedFanSecondWord" idx="199" type="string" maxLen="10" />
+			<attribute name="PaintedFanThirdWord" idx="200" type="string" maxLen="10" />
+			<attribute name="PendingFacilityUpgrade" idx="201" type="FacilityActionType" default="FacilityActionType:None" />
+			<attribute name="Philosophy" idx="202" type="TeamPhilosophy" />
+			<attribute name="PipelineInitialInfluence" idx="203" type="PipelineValueTable" />
+			<attribute name="PlaycallHistory" idx="204" type="PlaycallHistory" />
+			<attribute name="PlayerPersonnel" idx="205" type="PlayerPersonnel" />
+			<attribute name="PlayoffRoundReached" idx="206" type="PlayoffRoundType" default="PlayoffRoundType:None" />
+			<attribute name="PlayoffStatus" idx="207" type="PlayoffStatus" default="PlayoffStatus:NotInRunning" />
+			<attribute name="PracticeSquad" idx="208" type="Player[]" />
+			<attribute name="PreferredSchemeType" idx="209" type="SchemePreference" default="SchemePreference:Any" />
+			<attribute name="PreferredSecSchemeType" idx="210" type="SchemePreference" default="SchemePreference:Any" />
+			<attribute name="PresentationId" idx="211" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PrestigeDisplay" idx="212" type="string" maxLen="5" />
+			<attribute name="PrestigeRank" idx="213" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PrevSeasonDivStanding" idx="214" type="int" minValue="-1" maxValue="135" default="-1" />
+			<attribute name="PrevSeasonLeagStanding" idx="215" type="int" minValue="-1" maxValue="135" default="-1" />
+			<attribute name="PrevSeasonWinLossStreak" idx="216" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="PrevYearConfLosses" idx="217" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="PrevYearConfWins" idx="218" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="ProgramPointBudget" idx="219" type="int" minValue="0" maxValue="25000" default="0" />
+			<attribute name="ProgramPointsBrandExposureGrade" idx="220" type="LetterGrade" default="LetterGrade:Incomplete" />
+			<attribute name="ProgramPointsBudgetGrade" idx="221" type="LetterGrade" default="LetterGrade:Incomplete" />
+			<attribute name="ProgramPointsConferencePrestigeGrade" idx="222" type="LetterGrade" default="LetterGrade:Incomplete" />
+			<attribute name="ProgramPointsProgramTraditionsGrade" idx="223" type="LetterGrade" default="LetterGrade:Incomplete" />
+			<attribute name="ProgramPointsStadiumAtmosphereGrade" idx="224" type="LetterGrade" default="LetterGrade:Incomplete" />
+			<attribute name="ProgramTraditionsProgramPoints" idx="225" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="RecruitingBoard" idx="226" type="RecruitingBoard" />
+			<attribute name="RecruitProgramPointsSpent" idx="227" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="RelativeTempBuffsList" idx="228" type="TeamTempBuffAbility[]" />
+			<attribute name="RemainingProgramPoints" idx="229" type="int" minValue="-6000" maxValue="25000" default="0" />
+			<attribute name="RevenueTable" idx="230" type="TeamRevenueTable" />
+			<attribute name="Rival1TeamRef" idx="231" type="Team" />
+			<attribute name="Rival2TeamRef" idx="232" type="Team" />
+			<attribute name="Rival3TeamRef" idx="233" type="Team" />
+			<attribute name="Rivalries" idx="234" type="Rivalry[]" />
+			<attribute name="RoadLoss" idx="235" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Roadmap" idx="236" type="TeamRoadmap" />
+			<attribute name="RoadTie" idx="237" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RoadWin" idx="238" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RolloverCap" idx="239" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="RolloverProgramPoints" idx="240" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="Roster" idx="241" type="Player[]" />
+			<attribute name="SalCapCapRoom" idx="242" type="int" minValue="-10000" maxValue="100000" default="0" />
+			<attribute name="SalCapLowReplaceSalary" idx="243" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="SalCapNextYearCapRoom" idx="244" type="int" minValue="-10000" maxValue="100000" default="0" />
+			<attribute name="SalCapNextYearOfferCount" idx="245" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SalCapNextYearOfferReserve" idx="246" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SalCapNextYearReserve" idx="247" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SalCapNextYearRosterSize" idx="248" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SalCapNextYearSalaryReserve" idx="249" type="int" minValue="-10000" maxValue="100000" default="0" />
+			<attribute name="SalCapOffersReserve" idx="250" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SalCapRookieCount" idx="251" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SalCapRookieReserve" idx="252" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SalCapRosterFillCount" idx="253" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SalCapRosterFillReserve" idx="254" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SalCapRosterReserve" idx="255" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SalCapRosterSize" idx="256" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SalCapSpendingMoney" idx="257" type="int" minValue="-10000" maxValue="100000" default="0" />
+			<attribute name="SalCapThisYearOfferCount" idx="258" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SalCapThisYearOfferReserve" idx="259" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SchoolPipelineInfluenceList" idx="260" type="SchoolPipelineInfluence[]" />
+			<attribute name="ScoutingFocus" idx="261" type="ScoutingFocus" />
+			<attribute name="ScoutingPoints" idx="262" type="int" minValue="0" maxValue="500000" default="0" />
+			<attribute name="Scouts" idx="263" type="Scout[]" />
+			<attribute name="SeasonConfPointsAgainst" idx="264" type="int" minValue="0" maxValue="8190" default="0" />
+			<attribute name="SeasonConfPointsFor" idx="265" type="int" minValue="0" maxValue="8190" default="0" />
+			<attribute name="SeasonDivPointsAgainst" idx="266" type="int" minValue="0" maxValue="8190" default="0" />
+			<attribute name="SeasonDivPointsFor" idx="267" type="int" minValue="0" maxValue="8190" default="0" />
+			<attribute name="SeasonLeagPointsAgainst" idx="268" type="int" minValue="0" maxValue="8190" default="0" />
+			<attribute name="SeasonLeagPointsFor" idx="269" type="int" minValue="0" maxValue="8190" default="0" />
+			<attribute name="SeasonStatRecords" idx="270" type="PlayerStatRecords" />
+			<attribute name="SeasonWinLossStreak" idx="271" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="SeasonWinPct" idx="272" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeatingType1TicketPrice" idx="273" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="SeatingType2TicketPrice" idx="274" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="SeatingType3TicketPrice" idx="275" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="SeatingType4TicketPrice" idx="276" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="SelectedDefensiveDrill" idx="277" type="DrillActivity" />
+			<attribute name="SelectedOffensiveDrill" idx="278" type="DrillActivity" />
+			<attribute name="SharedStadiumSlot" idx="279" type="bool" default="True" />
+			<attribute name="ShortName" idx="280" type="string" maxLen="6" />
+			<attribute name="SpecialTeamsCoach" idx="281" type="Coach" />
+			<attribute name="Stadium" idx="282" type="Stadium" />
+			<attribute name="StadiumAtmosphereProgramPoints" idx="283" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="StadiumPaymentWeekly" idx="284" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="StadiumPaymentYearsLeft" idx="285" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StaffPersonBlacklist" idx="286" type="StaffPerson[]" />
+			<attribute name="StaffPoints" idx="287" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="StaffProgramPointsSpent" idx="288" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="StartingBalance" idx="289" type="int" minValue="0" maxValue="1215752192" default="0" />
+			<attribute name="SupportStaffStatusList" idx="290" type="TeamUpgradeItemStatus[]" />
+			<attribute name="TEAM_AFL_DISPLAYNAME" idx="291" type="string" maxLen="18" />
+			<attribute name="TEAM_ALT_LOGO" idx="292" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="TEAM_ALT_LOGO_ASSETNAME" idx="293" type="string" maxLen="53" />
+			<attribute name="TEAM_ALT_LOGO_PRIME_B" idx="294" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_PRIME_G" idx="295" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_PRIME_R" idx="296" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_SEC_B" idx="297" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_SEC_G" idx="298" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_SEC_R" idx="299" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_SWAPPABLE_LIBRARY_PATH" idx="300" type="SwappableLibraryPath" default="SwappableLibraryPath:library_icons_brt" />
+			<attribute name="TEAM_ALT_LOGO_TRIM_PRIME_B" idx="301" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_TRIM_PRIME_G" idx="302" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_TRIM_PRIME_R" idx="303" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_TRIM_SEC_B" idx="304" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_TRIM_SEC_G" idx="305" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_ALT_LOGO_TRIM_SEC_R" idx="306" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORB" idx="307" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORB2" idx="308" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORG" idx="309" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORG2" idx="310" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORR" idx="311" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORR2" idx="312" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_CROWDPALETTE" idx="313" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_DBASSETNAME" idx="314" type="string" maxLen="21" />
+			<attribute name="TEAM_DEFPLAYBOOK" idx="315" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="TEAM_ENDPLAY_ANIM_VAL" idx="316" type="EndPlayTeamAnimation" default="EndPlayTeamAnimation:None" />
+			<attribute name="TEAM_FLAGRESID" idx="317" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_GOALPOST" idx="318" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_GROUP" idx="319" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="TEAM_HAS_SECONDARY_COLOR" idx="320" type="bool" default="True" />
+			<attribute name="TEAM_HASCHEERLEADERS" idx="321" type="bool" default="True" />
+			<attribute name="TEAM_HOMEUNIFORMORDER" idx="322" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="TEAM_ISAFL" idx="323" type="bool" default="True" />
+			<attribute name="TEAM_LOCKED" idx="324" type="bool" default="True" />
+			<attribute name="TEAM_LOGO" idx="325" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="TEAM_LOGO_ASSETNAME" idx="326" type="string" maxLen="53" />
+			<attribute name="TEAM_LOGO_LEFT_ANGLED" idx="327" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="TEAM_LOGO_PRIMARYB" idx="328" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_PRIMARYG" idx="329" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_PRIMARYR" idx="330" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_RIGHT_ANGLED" idx="331" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="TEAM_LOGO_SECONDARYB" idx="332" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_SECONDARYG" idx="333" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_SECONDARYR" idx="334" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_SMALL_ALT" idx="335" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="TEAM_LOGO_SMALL_ALT_ASSETNAME" idx="336" type="string" maxLen="53" />
+			<attribute name="TEAM_LOGO_SMALL_ALT_SWAPPABLE_LIBRARY_PATH" idx="337" type="SwappableLibraryPath" default="SwappableLibraryPath:library_icons_brt" />
+			<attribute name="TEAM_LOGO_SWAPPABLE_LIBRARY_PATH" idx="338" type="SwappableLibraryPath" default="SwappableLibraryPath:library_icons_brt" />
+			<attribute name="TEAM_LOGO_TRIM_PRIME_B" idx="339" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_TRIM_PRIME_G" idx="340" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_TRIM_PRIME_R" idx="341" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_TRIM_SEC_B" idx="342" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_TRIM_SEC_G" idx="343" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_LOGO_TRIM_SEC_R" idx="344" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_OFFPLAYBOOK" idx="345" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="TEAM_ORDER" idx="346" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="TEAM_ORIGID" idx="347" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="TEAM_PREFIX_NAME" idx="348" type="string" maxLen="6" />
+			<attribute name="TEAM_PREVSEASLOSSES" idx="349" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="TEAM_PREVSEASTIES" idx="350" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="TEAM_PREVSEASWINS" idx="351" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="TEAM_RATINGDB" idx="352" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGDEF" idx="353" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGDL" idx="354" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGLB" idx="355" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGOFF" idx="356" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGOL" idx="357" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGOVR" idx="358" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGQB" idx="359" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGRB" idx="360" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGST" idx="361" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGTE" idx="362" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_RATINGWR" idx="363" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TEAM_REPUTATION" idx="364" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="TEAM_ROSTER_TYPE" idx="365" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="TEAM_SALARY" idx="366" type="int" minValue="0" maxValue="524287" default="0" />
+			<attribute name="TEAM_SHAREDSTADIUMOWNER" idx="367" type="bool" default="True" />
+			<attribute name="TEAM_SHAREDSTADIUMSLOT" idx="368" type="bool" default="True" />
+			<attribute name="TEAM_SHOE" idx="369" type="TeamShoe" default="TeamShoe:White" />
+			<attribute name="TEAM_THANKSGIVEHOME" idx="370" type="bool" default="True" />
+			<attribute name="TEAM_TYPE" idx="371" type="TeamType" default="TeamType:Current" />
+			<attribute name="TEAM_VISIBLE" idx="372" type="bool" default="True" />
+			<attribute name="TEAM_VISIBLEINQUICKSTART" idx="373" type="bool" default="True" />
+			<attribute name="TeamApparel" idx="374" type="TeamApparel" default="TeamApparel:Nike" />
+			<attribute name="TeamBuilderData" idx="375" type="TeamBuilderData" />
+			<attribute name="TeamBuilding" idx="376" type="TeamBuilding" default="TeamBuilding:ThroughFreeAgency" />
+			<attribute name="TeamFan_Family" idx="377" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_Hardcore" idx="378" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_New" idx="379" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_Optimistic" idx="380" type="TweetAuthorInfo" />
+			<attribute name="TeamFan_Pessimistic" idx="381" type="TweetAuthorInfo" />
+			<attribute name="TeamGameStatsPreSeason" idx="382" type="TeamStats[]" />
+			<attribute name="TeamGameStatsRegSeason" idx="383" type="TeamStats[]" />
+			<attribute name="TeamHistoricalData" idx="384" type="TeamHistoricalData" />
+			<attribute name="TeamHistory" idx="385" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TeamIndex" idx="386" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="TeamPrestige" idx="387" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="TeamPrestigeBias" idx="388" type="int" minValue="0" maxValue="50" default="0" />
+			<attribute name="TeamRank" idx="389" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamRegressionOccurred" idx="390" type="bool" default="False" />
+			<attribute name="TeamSeasonStats" idx="391" type="TeamStats[]" />
+			<attribute name="TeamSeriesHistory" idx="392" type="TeamHistoricSeriesYear[]" />
+			<attribute name="TeamSettingRef" idx="393" type="TeamSetting" />
+			<attribute name="TeamTendencyStats" idx="394" type="TeamTendencyStats" />
+			<attribute name="TeamTraditions" idx="395" type="TeamTraditions" />
+			<attribute name="TeamUpgradeProgramStatus" idx="396" type="TeamUpgradeProgramStatus" />
+			<attribute name="TeamValueTrackingTable" idx="397" type="TeamValueTrackingTable" />
+			<attribute name="ThisWeekPlayerBonusExpense" idx="398" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="ThisWeekStadiumUpkeepExpense" idx="399" type="int" minValue="0" maxValue="1000000000" default="0" />
+			<attribute name="ThisWeekStartBalance" idx="400" type="int" minValue="-2147483648" maxValue="1215752192" default="0" />
+			<attribute name="ThisYearCapPenalties" idx="401" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="Title" idx="402" type="string" const="true" maxLen="1" />
+			<attribute name="TopClassConferenceRank" idx="403" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="TopClassRank" idx="404" type="int" minValue="0" maxValue="250" default="0" />
+			<attribute name="ToughestPlacesRank" idx="405" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="ToughestPlacesScore" idx="406" type="float" default="0" />
+			<attribute name="TradePlayerBlackList" idx="407" type="Player[]" />
+			<attribute name="TransactionAndCutCount" idx="408" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TypeName" idx="409" type="string" const="true" maxLen="1" />
+			<attribute name="UniformAssetName" idx="410" type="string" maxLen="43" />
+			<attribute name="UniformPrefix" idx="411" type="string" maxLen="6" />
+			<attribute name="UserCharacter" idx="412" type="UserEntity" />
+			<attribute name="UserCoachExpressedInterestCount" idx="413" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WasFacilityDowngraded" idx="414" type="bool" default="False" />
+			<attribute name="WasFacilityUpgradedLastYear" idx="415" type="bool" default="False" />
+			<attribute name="WeeklyDefenseMedal" idx="416" type="Medal" default="Medal:Invalid_" />
+			<attribute name="WeeklyOffenseMedal" idx="417" type="Medal" default="Medal:Invalid_" />
+			<attribute name="WeeklyTrainingData" idx="418" type="TeamWeeklyTrainingData" />
+			<attribute name="WeekPopularityList" idx="419" type="PopularityComponentTable[]" />
+			<attribute name="WinLossStreakAgainstRankedTeams" idx="420" type="int" minValue="-127" maxValue="127" default="0" />
+			<attribute name="YearSchoolEstablished" idx="421" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="YearStartOfFootballProgram" idx="422" type="int" minValue="0" maxValue="2047" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

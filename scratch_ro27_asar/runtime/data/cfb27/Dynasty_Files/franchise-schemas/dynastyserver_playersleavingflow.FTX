@@ -1,0 +1,35 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_PlayersLeavingFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_PlayersLeavingFlow" numMembers="24" base="FranTkServer_Flow" assetId="7693443" isRecordPersistent="true" majorVersionCRC="-979454248" minorVersionCRC="-1130365645">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="BodyPartGroupsEnumTable" idx="1" type="EnumTable" />
+			<attribute name="DevelopmentTraitEnumTable" idx="2" type="EnumTable" />
+			<attribute name="Dynasty" idx="3" type="Franchise" />
+			<attribute name="Form" idx="4" type="UIForm" />
+			<attribute name="FormManager" idx="5" type="FranTkServer_FormManager" />
+			<attribute name="HandednessEnumTable" idx="6" type="EnumTable" />
+			<attribute name="LeavingReasonEnumTable" idx="7" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="8" type="EnumTable" />
+			<attribute name="PersuasionChanceEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PipelineEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="11" type="EnumTable" />
+			<attribute name="PlayerGradeEval" idx="12" type="PlayerGradeEval" />
+			<attribute name="PlayersLeavingEval" idx="13" type="PlayersLeavingEval" />
+			<attribute name="PlayersLeavingTunables" idx="14" type="PlayersLeavingTunables" />
+			<attribute name="PlayerTypeEnumTable" idx="15" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="16" type="EnumTable" />
+			<attribute name="RecruitingMotivationEnumTable" idx="17" type="EnumTable" />
+			<attribute name="SchoolYearEnumTable" idx="18" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="19" type="SeasonInfo" />
+			<attribute name="SignatureAbilitiesEval" idx="20" type="SignatureAbilitiesEval" />
+			<attribute name="StateNameEnumTable" idx="21" type="EnumTable" />
+			<attribute name="TeamManager" idx="22" type="TeamManager" />
+			<attribute name="UserRegistry" idx="23" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

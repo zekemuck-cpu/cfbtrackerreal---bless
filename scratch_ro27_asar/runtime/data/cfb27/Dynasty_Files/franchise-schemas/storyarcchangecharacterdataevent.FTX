@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcChangeCharacterDataEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcChangeCharacterDataEvent" numMembers="10" base="Event" assetId="6495140" isRecordPersistent="true" majorVersionCRC="-1517011684" minorVersionCRC="-894911561">
+			<attribute name="Ability" idx="0" type="PlayerAbility" default="PlayerAbility:Invalid_" />
+			<attribute name="AbilityImproveCount" idx="1" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="DevTraitImprove" idx="2" type="int" minValue="-5" maxValue="5" default="0" />
+			<attribute name="Enqueue" idx="3" type="none()" guid="6495140-1895458" final="true" />
+			<attribute name="LegacyScoreImprove" idx="4" type="int" minValue="0" maxValue="5000" default="0" />
+			<attribute name="Person" idx="5" type="UserEntity" />
+			<attribute name="Send" idx="6" type="none()" guid="6495140-1895455" final="true" />
+			<attribute name="Source" idx="7" type="SequenceAction" />
+			<attribute name="Team" idx="8" type="Team" />
+			<attribute name="XPImprove" idx="9" type="int" minValue="0" maxValue="75000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

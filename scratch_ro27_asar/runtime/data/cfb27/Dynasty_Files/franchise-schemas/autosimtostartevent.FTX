@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\AutoSimToStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AutoSimToStartEvent" numMembers="7" base="Event" assetId="6499115" isRecordPersistent="true" majorVersionCRC="1612811801" minorVersionCRC="-701623397">
+			<attribute name="CurrentWeek" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6499115-1895458" final="true" />
+			<attribute name="InitiatingUser" idx="2" type="User" />
+			<attribute name="Send" idx="3" type="none()" guid="6499115-1895455" final="true" />
+			<attribute name="TargetStage" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TargetWeek" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="YearsAhead" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

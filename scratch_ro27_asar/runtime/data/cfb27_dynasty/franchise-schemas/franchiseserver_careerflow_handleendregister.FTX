@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleEndRegister.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleEndRegister" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="1208596924" minorVersionCRC="-1548323099">
+			<attribute name="event" idx="0" type="UserEndRegisterEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

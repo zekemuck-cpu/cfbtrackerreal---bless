@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\ReSignStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ReSignStatus" numMembers="14" assetId="6494686" isRecordPersistent="true" majorVersionCRC="-962141774" minorVersionCRC="468767601">
+			<attribute name="NotReady" idx="0" value="0" />
+			<attribute name="NotInterested" idx="1" value="1" />
+			<attribute name="NegotiatingBegin" idx="2" value="2" />
+			<attribute name="StartNegotiations" idx="3" value="2" />
+			<attribute name="AllBadResponse" idx="4" value="3" />
+			<attribute name="GoodLengthResponse" idx="5" value="4" />
+			<attribute name="GoodBonusResponse" idx="6" value="5" />
+			<attribute name="GoodSalaryResponse" idx="7" value="6" />
+			<attribute name="GoodBonusLengthResponse" idx="8" value="7" />
+			<attribute name="GoodSalaryBonusResponse" idx="9" value="8" />
+			<attribute name="GoodSalaryLengthResponse" idx="10" value="9" />
+			<attribute name="NegotiatingEnd" idx="11" value="9" />
+			<attribute name="ReSigned" idx="12" value="10" />
+			<attribute name="Invalid" idx="13" value="11" />
+		</enum>
+	</schemas>
+</FranTkData>

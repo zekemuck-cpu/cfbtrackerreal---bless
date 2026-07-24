@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\PlaysBallInAirLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlaysBallInAirLevel" numMembers="6" assetId="6494409" isRecordPersistent="true" majorVersionCRC="-1790110161" minorVersionCRC="1545476394">
+			<attribute name="Conservative" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Balanced" idx="2" value="1" />
+			<attribute name="Aggressive" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="2" />
+			<attribute name="Max_" idx="5" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

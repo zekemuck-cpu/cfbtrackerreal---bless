@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamPrestige_UpdateTeamPrestige_Rank.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamPrestige_UpdateTeamPrestige_Rank" numMembers="4" base="ModifierView" assetId="6499365" isRecordPersistent="true" majorVersionCRC="1054563024" minorVersionCRC="1180601240">
+			<attribute name="Formula" idx="0" type="UpdateTeamPrestige_UpdateTeamPrestige_Rank_Formula" guid="6499365-1937775" default="Subject.PrestigeRank = SubjectIndex;&#xD;&#xA;Subject.PrestigeDisplay = Env.RosterEvalRef.GetLetterGradeFromRank(SubjectIndex);" />
+			<attribute name="Source" idx="1" type="UpdateTeamPrestige_UpdateTeamPrestige_Sort" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6499365-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

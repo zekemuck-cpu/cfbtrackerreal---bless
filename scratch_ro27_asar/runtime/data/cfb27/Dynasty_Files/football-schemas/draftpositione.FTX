@@ -1,0 +1,51 @@
+<FranTkData fileName="Football-Schemas\DraftPositionE.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="DraftPositionE" numMembers="44" assetId="6378002" isRecordPersistent="true" majorVersionCRC="-525570630" minorVersionCRC="-1644886741">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="First_Normal_" idx="1" value="0" />
+			<attribute name="First_Offense_" idx="2" value="0" />
+			<attribute name="QB" idx="3" value="0" />
+			<attribute name="First_RB_" idx="4" value="1" />
+			<attribute name="HB" idx="5" value="1" />
+			<attribute name="FB" idx="6" value="2" />
+			<attribute name="Last_RB_" idx="7" value="2" />
+			<attribute name="WR" idx="8" value="3" />
+			<attribute name="TE" idx="9" value="4" />
+			<attribute name="First_OL_" idx="10" value="5" />
+			<attribute name="T" idx="11" value="5" />
+			<attribute name="G" idx="12" value="6" />
+			<attribute name="C" idx="13" value="7" />
+			<attribute name="Last_Offense_" idx="14" value="7" />
+			<attribute name="Last_OL_" idx="15" value="7" />
+			<attribute name="DE" idx="16" value="8" />
+			<attribute name="First_Defense_" idx="17" value="8" />
+			<attribute name="First_DL_" idx="18" value="8" />
+			<attribute name="DT" idx="19" value="9" />
+			<attribute name="Last_DL_" idx="20" value="9" />
+			<attribute name="First_LB_" idx="21" value="10" />
+			<attribute name="OLB" idx="22" value="10" />
+			<attribute name="Last_LB_" idx="23" value="11" />
+			<attribute name="MLB" idx="24" value="11" />
+			<attribute name="CB" idx="25" value="12" />
+			<attribute name="First_DB_" idx="26" value="12" />
+			<attribute name="FS" idx="27" value="13" />
+			<attribute name="Last_DB_" idx="28" value="14" />
+			<attribute name="Last_Defense_" idx="29" value="14" />
+			<attribute name="SS" idx="30" value="14" />
+			<attribute name="FIrst_Special_" idx="31" value="15" />
+			<attribute name="K" idx="32" value="15" />
+			<attribute name="Last_Normal_" idx="33" value="16" />
+			<attribute name="Last_Special_" idx="34" value="16" />
+			<attribute name="P" idx="35" value="16" />
+			<attribute name="LS" idx="36" value="17" />
+			<attribute name="Count_Normal_" idx="37" value="18" />
+			<attribute name="Last_" idx="38" value="18" />
+			<attribute name="MaxNormal_" idx="39" value="18" />
+			<attribute name="R" idx="40" value="18" />
+			<attribute name="Count_" idx="41" value="19" />
+			<attribute name="Max_" idx="42" value="19" />
+			<attribute name="Invalid_" idx="43" value="31" />
+		</enum>
+	</schemas>
+</FranTkData>

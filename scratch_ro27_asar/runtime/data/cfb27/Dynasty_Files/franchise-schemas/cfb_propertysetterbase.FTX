@@ -1,0 +1,6 @@
+<FranTkData fileName="Franchise-Schemas\CFB_PropertySetterBase.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CFB_PropertySetterBase" numMembers="0" assetId="6686869" isRecordPersistent="true" majorVersionCRC="1633188819" minorVersionCRC="-1658703962" />
+	</schemas>
+</FranTkData>

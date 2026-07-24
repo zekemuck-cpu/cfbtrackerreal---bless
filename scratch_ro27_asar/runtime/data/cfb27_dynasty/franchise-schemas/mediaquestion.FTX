@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\MediaQuestion.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaQuestion" numMembers="15" assetId="6498637" isRecordPersistent="true" majorVersionCRC="-966183300" minorVersionCRC="-258204109">
+			<attribute name="AudioId" idx="0" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="DebugQuestion" idx="1" type="bool" default="False" />
+			<attribute name="GetRating" idx="2" type="MediaQuestion_GetRating" guid="6498637-1925622" default="int priority = 75;&#xD;&#xA;&#xD;&#xA;priority;" />
+			<attribute name="ImageId" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="IsForCoach" idx="4" type="bool" default="False" />
+			<attribute name="IsForOwner" idx="5" type="bool" default="False" />
+			<attribute name="IsForPlayer" idx="6" type="bool" default="False" />
+			<attribute name="MaxStartDate" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxStartDateType" idx="8" type="DurationType" default="DurationType:Games" />
+			<attribute name="MediaPersonality" idx="9" type="MediaPersonality" />
+			<attribute name="MinStartDate" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinStartDateType" idx="11" type="DurationType" default="DurationType:Games" />
+			<attribute name="Question" idx="12" type="string" maxLen="256" />
+			<attribute name="QuestionId" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Responses" idx="14" type="MediaGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\TeamBuilderTemplateTeamType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TeamBuilderTemplateTeamType" numMembers="17" assetId="10844193" isRecordPersistent="true" majorVersionCRC="-539592213" minorVersionCRC="1960593527">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Powerhouse" idx="1" value="0" />
+			<attribute name="Cupcake" idx="2" value="1" />
+			<attribute name="SmartSchool" idx="3" value="2" />
+			<attribute name="PartySchool" idx="4" value="3" />
+			<attribute name="ProFactory" idx="5" value="4" />
+			<attribute name="SleepingGiant" idx="6" value="5" />
+			<attribute name="NewKidOnTheBlock" idx="7" value="6" />
+			<attribute name="UntappedPotential" idx="8" value="7" />
+			<attribute name="MidMajorDarling" idx="9" value="8" />
+			<attribute name="NewMoney" idx="10" value="9" />
+			<attribute name="SaltOfTheEarth" idx="11" value="10" />
+			<attribute name="Elitist" idx="12" value="11" />
+			<attribute name="FailU" idx="13" value="12" />
+			<attribute name="Last_" idx="14" value="12" />
+			<attribute name="Count_" idx="15" value="13" />
+			<attribute name="Invalid_" idx="16" value="13" />
+		</enum>
+	</schemas>
+</FranTkData>

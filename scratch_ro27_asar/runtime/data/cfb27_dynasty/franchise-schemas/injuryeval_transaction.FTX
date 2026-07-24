@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_Transaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_Transaction" numMembers="17" base="Transaction" assetId="6709345" isRecordPersistent="true" majorVersionCRC="-1069624856" minorVersionCRC="-1426971050">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="EndStage" idx="1" type="Stage" />
+			<attribute name="Franchise" idx="2" type="Franchise" />
+			<attribute name="IsBlocking" idx="3" type="bool" default="True" />
+			<attribute name="IsDone" idx="4" type="bool()" guid="6709345-1895538" />
+			<attribute name="IsDynamic" idx="5" type="bool" default="False" />
+			<attribute name="Process" idx="6" type="none()" guid="6709345-1895540" />
+			<attribute name="Sleep" idx="7" type="ITransaction_Sleep" guid="6709345-1895548" />
+			<attribute name="Start" idx="8" type="none()" guid="6709345-1895544" />
+			<attribute name="StartStage" idx="9" type="Stage" />
+			<attribute name="Team" idx="10" type="Team" />
+			<attribute name="TeamIndex" idx="11" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TimeScale" idx="12" type="float" default="0" />
+			<attribute name="TransitionPending" idx="13" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="14" type="Stage" />
+			<attribute name="UpdateInjuryView" idx="15" type="InjuryEval_UpdateTeamPlayerInjuries" />
+			<attribute name="UpdateStage" idx="16" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

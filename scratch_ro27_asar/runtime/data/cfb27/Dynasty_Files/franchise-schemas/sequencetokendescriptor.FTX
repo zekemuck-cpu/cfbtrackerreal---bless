@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SequenceTokenDescriptor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SequenceTokenDescriptor" numMembers="4" defaultStoreCapacity="2785" assetId="6498712" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="20147" majorVersionCRC="-1211091236" minorVersionCRC="-270543398">
+			<attribute name="Actor" idx="0" type="TargetedActorType" default="TargetedActorType:UserPlayer" />
+			<attribute name="ActorName" idx="1" type="string" maxLen="23" />
+			<attribute name="ActorNameEnum" idx="2" type="ActorName" default="ActorName:None" />
+			<attribute name="Token" idx="3" type="SequenceToken" default="SequenceToken:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

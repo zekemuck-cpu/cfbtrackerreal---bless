@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\AdvancedFeatureSettingChangedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AdvancedFeatureSettingChangedEvent" numMembers="3" base="Event" assetId="6498940" isRecordPersistent="true" majorVersionCRC="1979613008" minorVersionCRC="-1823054581">
+			<attribute name="AdvancedFeaturesEnabled" idx="0" type="bool" default="False" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6498940-1895458" final="true" />
+			<attribute name="Send" idx="2" type="none()" guid="6498940-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\CharacterVisuals.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CharacterVisuals" numMembers="2" defaultStoreCapacity="16000" assetId="8211469" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-51635172" minorVersionCRC="-1860530469">
+			<attribute name="Overflow" idx="0" type="CharacterVisuals" />
+			<attribute name="RawData" idx="1" type="binaryblob" maxLen="375" />
+		</schema>
+	</schemas>
+</FranTkData>

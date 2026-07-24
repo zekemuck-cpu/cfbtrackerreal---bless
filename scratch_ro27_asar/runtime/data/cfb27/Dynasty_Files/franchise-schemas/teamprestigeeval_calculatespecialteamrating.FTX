@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamPrestigeEval_CalculateSpecialTeamRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamPrestigeEval_CalculateSpecialTeamRating" numMembers="2" base="int()" ownerAssetId="6495397" isRecordPersistent="true" isExpr="true" majorVersionCRC="11155568" minorVersionCRC="1772917567">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

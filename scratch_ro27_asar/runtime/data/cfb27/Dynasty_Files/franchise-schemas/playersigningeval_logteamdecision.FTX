@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_LogTeamDecision.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_LogTeamDecision" numMembers="4" base="none()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-40953458" minorVersionCRC="678195833">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="decision" idx="2" type="TeamDecision" default="TeamDecision:Wait" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,56 @@
+<FranTkData fileName="Franchise-Schemas\GoalAwardRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalAwardRequest" numMembers="45" base="UIRequestForm" defaultStoreCapacity="100" assetId="6610482" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-526517477" minorVersionCRC="1854065274">
+			<attribute name="AcceptExtensionResponse" idx="0" type="UISelectForm" />
+			<attribute name="CanSubmitResponse" idx="1" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="2" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="3" type="none()" guid="6610482-1895689" final="true" />
+			<attribute name="CoachingStaffPersonRef" idx="4" type="CoachingStaffPerson" />
+			<attribute name="CoachManagerRef" idx="5" type="CoachManager" />
+			<attribute name="Commands" idx="6" type="Command[]" />
+			<attribute name="CompletionValue" idx="7" type="int" minValue="0" maxValue="50000" default="0" />
+			<attribute name="CpuResponseDuration" idx="8" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="9" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="10" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DeclineExtensionResponse" idx="11" type="UISelectForm" />
+			<attribute name="DefaultResponse" idx="12" type="ResponseForm" />
+			<attribute name="Description" idx="13" type="string" const="true" maxLen="1" />
+			<attribute name="Dismiss" idx="14" type="none()" guid="6610482-1895671" />
+			<attribute name="DismissResponse" idx="15" type="UISelectForm" />
+			<attribute name="ExperienceAward" idx="16" type="int" minValue="0" maxValue="50000" default="0" />
+			<attribute name="ExpirationDuration" idx="17" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="GoalTypeRef" idx="18" type="GoalType" default="GoalType:PlayerWeekly" />
+			<attribute name="HandleResponse" idx="19" type="none()" guid="6610482-1939267" final="true" />
+			<attribute name="HasResolution" idx="20" type="bool()" guid="6610482-1895676" />
+			<attribute name="IsBlocking" idx="21" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="22" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="23" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="24" type="bool()" guid="6610482-1895678" />
+			<attribute name="IsResponseRequired" idx="25" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="26" type="bool" default="True" />
+			<attribute name="Issue" idx="27" type="Request_Issue" guid="6610482-1895668" />
+			<attribute name="IssueTime" idx="28" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LegacyAward" idx="29" type="int" minValue="0" maxValue="50000" default="0" />
+			<attribute name="PlayerRef" idx="30" type="Player" />
+			<attribute name="Priority" idx="31" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="32" type="none()" guid="6610482-1895686" final="true" />
+			<attribute name="RequestData" idx="33" type="record" />
+			<attribute name="RequestForm" idx="34" type="ResponseForm" />
+			<attribute name="RequestId" idx="35" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="36" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="37" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="38" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="39" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="40" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="41" type="bool" default="True" />
+			<attribute name="TargetUser" idx="42" type="User" />
+			<attribute name="Title" idx="43" type="string" const="true" maxLen="1" />
+			<attribute name="TypeName" idx="44" type="string" const="true" maxLen="17" default="GoalNotification" />
+		</schema>
+	</schemas>
+</FranTkData>

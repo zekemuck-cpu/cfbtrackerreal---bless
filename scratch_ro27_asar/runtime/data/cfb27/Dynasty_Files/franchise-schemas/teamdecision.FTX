@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamDecision.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TeamDecision" numMembers="3" assetId="6495345" isRecordPersistent="true" majorVersionCRC="1959019908" minorVersionCRC="-630836004">
+			<attribute name="Wait" idx="0" value="0" />
+			<attribute name="Increase" idx="1" value="1" />
+			<attribute name="Withdraw" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

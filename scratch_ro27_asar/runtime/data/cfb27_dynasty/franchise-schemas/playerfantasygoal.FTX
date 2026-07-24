@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\PlayerFantasyGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\PlayerGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerFantasyGoal" numMembers="18" base="PlayerGoal" defaultStoreCapacity="49" assetId="6548412" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="2464" majorVersionCRC="1820709452" minorVersionCRC="-776710215">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CompletionValueUnit" idx="1" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Description" idx="2" type="string" maxLen="111" />
+			<attribute name="ExperienceAwardUnit" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="FromStats" idx="4" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="5" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="6" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="7" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="8" type="bool" default="True" />
+			<attribute name="LegacyScoreAward" idx="9" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="10" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="11" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="12" type="string" maxLen="31" />
+			<attribute name="LegacyScoreUnit" idx="13" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="PlayerStat" idx="14" type="StatType" default="StatType:PassYards" />
+			<attribute name="PositionCategory" idx="15" type="PositionCategory" default="PositionCategory:All" />
+			<attribute name="TeamStat" idx="16" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="Title" idx="17" type="string" maxLen="51" />
+		</schema>
+	</schemas>
+</FranTkData>

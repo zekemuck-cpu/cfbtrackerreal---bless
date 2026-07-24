@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ActivatedBrandContract.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ActivatedBrandContract" numMembers="2" defaultStoreCapacity="5" assetId="8519454" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-999406656" minorVersionCRC="-1184772995">
+			<attribute name="BrandContractData" idx="0" type="BrandContract" />
+			<attribute name="WeeksRemaining" idx="1" type="int" minValue="-1" maxValue="8" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

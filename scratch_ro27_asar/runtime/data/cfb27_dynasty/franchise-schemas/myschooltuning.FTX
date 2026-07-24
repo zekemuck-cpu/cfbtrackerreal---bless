@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolTuning" numMembers="18" base="BaseTuning" defaultStoreCapacity="1" assetId="6514528" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1814343723" minorVersionCRC="1384764540">
+			<attribute name="AthleticFacilitiesTuning" idx="0" type="MySchoolFacilitiesTuning" />
+			<attribute name="BrandExposureTuning" idx="1" type="MySchoolBrandExposureTuning" />
+			<attribute name="CampusLifestyleTuning" idx="2" type="MySchoolFacilitiesTuning" />
+			<attribute name="ChampionshipContenderTuning" idx="3" type="MySchoolChampionshipContenderTuning" />
+			<attribute name="CoachPrestigeTuning" idx="4" type="MySchoolCoachPrestigeTuning" />
+			<attribute name="CoachStabilityTuning" idx="5" type="MySchoolCoachStabilityTuning" />
+			<attribute name="ConferencePrestigeToGradeRange" idx="6" type="MySchoolRankingRangesTable" />
+			<attribute name="HawaiiNearestCity" idx="7" type="record" />
+			<attribute name="IndependentConfPrestigeSpline" idx="8" type="Spline" />
+			<attribute name="JobDifficultyTuning" idx="9" type="JobDifficultyTuning" />
+			<attribute name="MySchoolGradeInfoList" idx="10" type="MySchoolGradeInfo[]" />
+			<attribute name="PlayingStyleTuning" idx="11" type="MySchoolPlayingStyleTuning" />
+			<attribute name="PlayTimeTuning" idx="12" type="MySchoolPlayingTimeTuning" />
+			<attribute name="ProgramTraditionTuning" idx="13" type="MySchoolProgramTraditionTuning" />
+			<attribute name="ProPotentialTuning" idx="14" type="MySchoolProPotentialTuning" />
+			<attribute name="ProximityToHomeSpline" idx="15" type="Spline" />
+			<attribute name="StadiumAtmosphereTPTPRange" idx="16" type="MySchoolRankingRangesTable" />
+			<attribute name="TeamPrestigeTuning" idx="17" type="MySchoolTeamPrestigeTuning" />
+		</schema>
+	</schemas>
+</FranTkData>

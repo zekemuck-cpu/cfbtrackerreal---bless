@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\MinigamePlayerSubsMode.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MinigamePlayerSubsMode" numMembers="2" assetId="12640985" isRecordPersistent="true" majorVersionCRC="1867993247" minorVersionCRC="467751516">
+			<attribute name="PlayerIndex" idx="0" value="0" />
+			<attribute name="NoSubs" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

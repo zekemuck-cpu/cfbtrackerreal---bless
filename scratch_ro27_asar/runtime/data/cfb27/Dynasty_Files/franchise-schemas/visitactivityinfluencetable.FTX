@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\VisitActivityInfluenceTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="VisitActivityInfluenceTable" numMembers="2" defaultStoreCapacity="3" assetId="9196620" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-679653906" minorVersionCRC="-1454192547">
+			<attribute name="InfluenceTable" idx="0" type="LetterGradeValueTable" />
+			<attribute name="InterestLevel" idx="1" type="VisitActivityInterestLevel" default="VisitActivityInterestLevel:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\GrantXPAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GrantXPAction" numMembers="5" base="SequenceAction" defaultStoreCapacity="128" assetId="6536978" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="468717222" minorVersionCRC="2017919265">
+			<attribute name="Actor" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="Amount" idx="1" type="int" minValue="0" maxValue="75000" default="0" />
+			<attribute name="Default" idx="2" type="bool" default="False" />
+			<attribute name="Enabled" idx="3" type="bool" default="True" />
+			<attribute name="Target" idx="4" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

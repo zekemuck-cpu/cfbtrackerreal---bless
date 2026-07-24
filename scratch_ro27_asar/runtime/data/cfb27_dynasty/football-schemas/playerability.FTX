@@ -1,0 +1,68 @@
+<FranTkData fileName="Football-Schemas\PlayerAbility.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayerAbility" numMembers="61" assetId="6320532" isRecordPersistent="true" majorVersionCRC="-1512016865" minorVersionCRC="-1747508407">
+			<attribute name="Acceleration" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Agility" idx="2" value="1" />
+			<attribute name="Awareness" idx="3" value="2" />
+			<attribute name="BCVision" idx="4" value="3" />
+			<attribute name="BlockShedding" idx="5" value="4" />
+			<attribute name="BreakSack" idx="6" value="5" />
+			<attribute name="BreakTackle" idx="7" value="6" />
+			<attribute name="Carrying" idx="8" value="7" />
+			<attribute name="CatchInTraffic" idx="9" value="8" />
+			<attribute name="Catching" idx="10" value="9" />
+			<attribute name="ChangeOfDirection" idx="11" value="10" />
+			<attribute name="Confidence" idx="12" value="11" />
+			<attribute name="DeepRouteRunning" idx="13" value="12" />
+			<attribute name="FinesseMoves" idx="14" value="13" />
+			<attribute name="HitPower" idx="15" value="14" />
+			<attribute name="ImpactBlocking" idx="16" value="15" />
+			<attribute name="Injury" idx="17" value="16" />
+			<attribute name="JukeMove" idx="18" value="17" />
+			<attribute name="Jumping" idx="19" value="18" />
+			<attribute name="KickAccuracy" idx="20" value="19" />
+			<attribute name="KickPower" idx="21" value="20" />
+			<attribute name="KickReturn" idx="22" value="21" />
+			<attribute name="LeadBlock" idx="23" value="22" />
+			<attribute name="ManCoverage" idx="24" value="23" />
+			<attribute name="MediumRouteRunning" idx="25" value="24" />
+			<attribute name="PassBlock" idx="26" value="25" />
+			<attribute name="PassBlockFinesse" idx="27" value="26" />
+			<attribute name="PassBlockPower" idx="28" value="27" />
+			<attribute name="PlayAction" idx="29" value="28" />
+			<attribute name="PlayRecognition" idx="30" value="29" />
+			<attribute name="PowerMoves" idx="31" value="30" />
+			<attribute name="Press" idx="32" value="31" />
+			<attribute name="Pursuit" idx="33" value="32" />
+			<attribute name="Release" idx="34" value="33" />
+			<attribute name="RunBlock" idx="35" value="34" />
+			<attribute name="RunBlockFinesse" idx="36" value="35" />
+			<attribute name="RunBlockPower" idx="37" value="36" />
+			<attribute name="RunningStyle" idx="38" value="37" />
+			<attribute name="ShortRouteRunning" idx="39" value="38" />
+			<attribute name="SpectacularCatch" idx="40" value="39" />
+			<attribute name="Speed" idx="41" value="40" />
+			<attribute name="SpinMove" idx="42" value="41" />
+			<attribute name="Stamina" idx="43" value="42" />
+			<attribute name="StiffArm" idx="44" value="43" />
+			<attribute name="Strength" idx="45" value="44" />
+			<attribute name="Tackle" idx="46" value="45" />
+			<attribute name="ThrowAccuracy" idx="47" value="46" />
+			<attribute name="ThrowAccuracyDeep" idx="48" value="47" />
+			<attribute name="ThrowAccuracyMid" idx="49" value="48" />
+			<attribute name="ThrowAccuracyShort" idx="50" value="49" />
+			<attribute name="ThrowOnTheRun" idx="51" value="50" />
+			<attribute name="ThrowPower" idx="52" value="51" />
+			<attribute name="ThrowUnderPressure" idx="53" value="52" />
+			<attribute name="Toughness" idx="54" value="53" />
+			<attribute name="Trucking" idx="55" value="54" />
+			<attribute name="LongSnap" idx="56" value="55" />
+			<attribute name="ZoneCoverage" idx="57" value="56" />
+			<attribute name="Max_" idx="58" value="57" />
+			<attribute name="None" idx="59" value="58" />
+			<attribute name="Invalid_" idx="60" value="63" />
+		</enum>
+	</schemas>
+</FranTkData>

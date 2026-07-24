@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\NarrativeTargetedActor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceActor.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativeTargetedActor" numMembers="3" base="SequenceActor" defaultStoreCapacity="103" assetId="11909767" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-2035805172" minorVersionCRC="450842384">
+			<attribute name="ActorName" idx="0" type="ActorName" default="ActorName:Player" />
+			<attribute name="PluginType" idx="1" type="NarrativeActorPluginType" default="NarrativeActorPluginType:NarrativeTargetedActor" />
+			<attribute name="Target" idx="2" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

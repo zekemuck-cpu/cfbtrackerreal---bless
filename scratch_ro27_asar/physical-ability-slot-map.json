@@ -1,0 +1,401 @@
+{
+ "QB_FieldGeneral": [
+  "Resistance",
+  "Step Up",
+  "Sleight Of Hand",
+  "Dot",
+  "On Time"
+ ],
+ "DT_PurePower": [
+  "Grip Breaker",
+  "Workhorse",
+  "Inside Disruptor",
+  "Pocket Disruptor",
+  "Hammer"
+ ],
+ "OT_Agile": [
+  "Screen Enforcer",
+  "Quick Step",
+  "Option Shield",
+  "Outside Shield",
+  "Quick Drop"
+ ],
+ "OLB_PassCoverage": [
+  "House Call",
+  "Knockout",
+  "Bouncer",
+  "Robber",
+  "Wrap Up"
+ ],
+ "S_Zone": [
+  "Ballhawk",
+  "Lay Out",
+  "House Call",
+  "Robber",
+  "Knockout"
+ ],
+ "G_PassProtector": [
+  "PA Shield",
+  "Quick Drop",
+  "Pocket Shield",
+  "Strong Grip",
+  "Wear Down"
+ ],
+ "DT_PowerRusher": [
+  "Duress",
+  "Pocket Disruptor",
+  "Grip Breaker",
+  "Workhorse",
+  "Take Down"
+ ],
+ "CB_Zone": [
+  "Knockout",
+  "Lay Out",
+  "House Call",
+  "Ballhawk",
+  "Bouncer"
+ ],
+ "G_Agile": [
+  "Screen Enforcer",
+  "Quick Step",
+  "Option Shield",
+  "Quick Drop",
+  "Outside Shield"
+ ],
+ "WR_PhysicalRouteRunner": [
+  "Downhill",
+  "50/50",
+  "Cutter",
+  "Press Pro",
+  "Sure Hands"
+ ],
+ "WR_ShiftyRouteRunner": [
+  "360",
+  "Cutter",
+  "Double Dip",
+  "Recoup",
+  "Side Step"
+ ],
+ "OT_Power": [
+  "Strong Grip",
+  "Workhorse",
+  "Second Level",
+  "Inside Shield",
+  "Ground N Pound"
+ ],
+ "CB_MantoMan": [
+  "Blanket Coverage",
+  "Jammer",
+  "House Call",
+  "Ballhawk",
+  "Knockout"
+ ],
+ "S_RunSupport": [
+  "Aftershock",
+  "Wrap Up",
+  "Hammer",
+  "Blow Up",
+  "Workhorse"
+ ],
+ "HB_ReceivingBack": [
+  "360",
+  "Safety Valve",
+  "Takeoff",
+  "Side Step",
+  "Recoup"
+ ],
+ "CB_Slot": [
+  "Jammer",
+  "Quick Jump",
+  "Lay Out",
+  "Wrap Up",
+  "Blanket Coverage"
+ ],
+ "WR_GadgetReceiver": [
+  "Side Step",
+  "Shifty",
+  "Cutter",
+  "Dot",
+  "Extender"
+ ],
+ "OLB_RunStopper": [
+  "Wrap Up",
+  "Aftershock",
+  "Blow Up",
+  "Hammer",
+  "Grip Breaker"
+ ],
+ "DT_NoseTackle": [
+  "Inside Disruptor",
+  "Outside Disruptor",
+  "Workhorse",
+  "Option Disruptor",
+  "Grip Breaker"
+ ],
+ "DE_PurePower": [
+  "Grip Breaker",
+  "Pocket Disruptor",
+  "Inside Disruptor",
+  "Workhorse",
+  "Hammer"
+ ],
+ "TE_PossessionBlocking": [
+  "Workhorse",
+  "Strong Grip",
+  "Battering Ram",
+  "Outside Shield",
+  "Sure Hands"
+ ],
+ "KP_Power": [
+  "Deep Range",
+  "Mega Leg",
+  "Coffin Corner",
+  null,
+  null
+ ],
+ "HB_PowerReceiving": [
+  "Balanced",
+  "Downhill",
+  "Arm Bar",
+  "Headfirst",
+  "Safety Valve"
+ ],
+ "HB_ElusiveBack": [
+  "Recoup",
+  "Shifty",
+  "Side Step",
+  "360",
+  "Arm Bar"
+ ],
+ "CB_HybridCorner": [
+  "Wrap Up",
+  "Robber",
+  "Knockout",
+  "Blanket Coverage",
+  "Ballhawk"
+ ],
+ "C_Agile": [
+  "Screen Enforcer",
+  "Quick Step",
+  "Option Shield",
+  "Outside Shield",
+  "Quick Drop"
+ ],
+ "G_Power": [
+  "Strong Grip",
+  "Workhorse",
+  "Second Level",
+  "Inside Shield",
+  "Ground N Pound"
+ ],
+ "WR_DeepThreat": [
+  "Side Step",
+  "Double Dip",
+  "Takeoff",
+  "Recoup",
+  "Shifty"
+ ],
+ "DE_SmallerSpeedRusher": [
+  "Quick Jump",
+  "Pocket Disruptor",
+  "Take Down",
+  "Duress",
+  "Recoup"
+ ],
+ "QB_PureScrambler": [
+  "Option King",
+  "Magician",
+  "Shifty",
+  "Side Step",
+  "Workhorse"
+ ],
+ "DT_SpeedRusher": [
+  "Pocket Disruptor",
+  "Quick Jump",
+  "Take Down",
+  "Duress",
+  "Recoup"
+ ],
+ "C_PassProtector": [
+  "PA Shield",
+  "Quick Drop",
+  "Pocket Shield",
+  "Strong Grip",
+  "Wear Down"
+ ],
+ "WR_Physical": [
+  "50/50",
+  "Workhorse",
+  "Balanced",
+  "Headfirst",
+  "Downhill"
+ ],
+ "OT_PassProtector": [
+  "PA Shield",
+  "Quick Drop",
+  "Pocket Shield",
+  "Strong Grip",
+  "Wear Down"
+ ],
+ "HB_PowerBack": [
+  "Downhill",
+  "Workhorse",
+  "Battering Ram",
+  "Ball Security",
+  "Balanced"
+ ],
+ "MLB_RunStopper": [
+  "Grip Breaker",
+  "Wrap Up",
+  "Hammer",
+  "Blow Up",
+  "Aftershock"
+ ],
+ "KP_Accurate": [
+  "Chip Shot",
+  "Deep Range",
+  "Mega Leg",
+  null,
+  null
+ ],
+ "HB_PowerBlocking": [
+  "Battering Ram",
+  "Balanced",
+  "Ball Security",
+  "Downhill",
+  "Workhorse"
+ ],
+ "C_Power": [
+  "Strong Grip",
+  "Workhorse",
+  "Second Level",
+  "Inside Shield",
+  "Ground N Pound"
+ ],
+ "QB_Improviser": [
+  "Off Platform",
+  "Pull Down",
+  "On Time",
+  "Sleight Of Hand",
+  "Mobile Deadeye"
+ ],
+ "S_Hybrid": [
+  "Wrap Up",
+  "Aftershock",
+  "Knockout",
+  "Hammer",
+  "Blow Up"
+ ],
+ "MLB_PassCoverage": [
+  "Knockout",
+  "House Call",
+  "Robber",
+  "Bouncer",
+  "Wrap Up"
+ ],
+ "DE_RunStopper": [
+  "Option Disruptor",
+  "Inside Disruptor",
+  "Outside Disruptor",
+  "Grip Breaker",
+  "Workhorse"
+ ],
+ "TE_VerticalThreat": [
+  "Workhorse",
+  "Balanced",
+  "Takeoff",
+  "Recoup",
+  "50/50"
+ ],
+ "TE_PhysicalRouteRunner": [
+  "Balanced",
+  "50/50",
+  "Cutter",
+  "Downhill",
+  "Sure Hands"
+ ],
+ "MLB_FieldGeneral": [
+  "Blow Up",
+  "Wrap Up",
+  "Workhorse",
+  "Take Down",
+  "Hammer"
+ ],
+ "WR_Playmaker": [
+  "Cutter",
+  "Lay Out",
+  "Recoup",
+  "Double Dip",
+  "Sure Hands"
+ ],
+ "DE_PowerRusher": [
+  "Duress",
+  "Grip Breaker",
+  "Pocket Disruptor",
+  "Workhorse",
+  "Take Down"
+ ],
+ "TE_Blocking": [
+  "Second Level",
+  "Quick Drop",
+  "Outside Shield",
+  "Pocket Shield",
+  "Strong Grip"
+ ],
+ "WR_PhysicalBlocker": [
+  "Second Level",
+  "Strong Grip",
+  "Sure Hands",
+  "Outside Shield",
+  "Workhorse"
+ ],
+ "HB_ElusivePower": [
+  "Shifty",
+  "Headfirst",
+  "Side Step",
+  "Downhill",
+  "Arm Bar"
+ ],
+ "QB_Scrambler": [
+  "Downhill",
+  "Extender",
+  "Option King",
+  "Dot",
+  "Mobile Resistance"
+ ],
+ "OLB_PowerRusher": [
+  "Blow Up",
+  "Workhorse",
+  "Take Down",
+  "Wrap Up",
+  "Hammer"
+ ],
+ "FB_Utility": [
+  "Safety Valve",
+  "Downhill",
+  "Balanced",
+  "Headfirst",
+  "Arm Bar"
+ ],
+ "C_WellRounded": [
+  "Inside Shield",
+  "Option Shield",
+  "Outside Shield",
+  "Pocket Shield",
+  "Strong Grip"
+ ],
+ "G_WellRounded": [
+  "Inside Shield",
+  "Option Shield",
+  "Outside Shield",
+  "Pocket Shield",
+  "Strong Grip"
+ ],
+ "OT_WellRounded": [
+  "Inside Shield",
+  "Option Shield",
+  "Outside Shield",
+  "Pocket Shield",
+  "Strong Grip"
+ ]
+}

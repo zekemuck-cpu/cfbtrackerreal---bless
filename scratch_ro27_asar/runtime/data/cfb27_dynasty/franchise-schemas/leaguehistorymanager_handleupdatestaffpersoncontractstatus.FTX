@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\LeagueHistoryManager_HandleUpdateStaffPersonContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LeagueHistoryManager_HandleUpdateStaffPersonContractStatus" numMembers="2" base="none()" ownerAssetId="11094446" isRecordPersistent="true" isExpr="true" majorVersionCRC="-59428732" minorVersionCRC="-2077461666">
+			<attribute name="EventRecord" idx="0" type="UpdateStaffPersonContractStatusEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

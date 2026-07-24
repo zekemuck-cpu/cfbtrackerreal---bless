@@ -1,0 +1,51 @@
+<FranTkData fileName="Franchise-Schemas\TradeAcceptOfferRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeAcceptOfferRequest" numMembers="40" base="UIRequestForm" assetId="6378037" isRecordPersistent="true" majorVersionCRC="1200705043" minorVersionCRC="-1057205583">
+			<attribute name="AcceptResponse" idx="0" type="ResponseForm" />
+			<attribute name="CanSubmitResponse" idx="1" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="2" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="3" type="none()" guid="6378037-1895689" final="true" />
+			<attribute name="Commands" idx="4" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="7" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DeclineResponse" idx="8" type="ResponseForm" />
+			<attribute name="DefaultResponse" idx="9" type="ResponseForm" />
+			<attribute name="DelegateResponse" idx="10" type="ResponseForm" />
+			<attribute name="Description" idx="11" type="string" const="true" maxLen="129" default="Evaluate trade offers from other teams." />
+			<attribute name="Dismiss" idx="12" type="none()" guid="6378037-1895671" />
+			<attribute name="ExpirationDuration" idx="13" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="14" type="none()" guid="6378037-1902704" final="true" default="// Process the request.&#xD;&#xA;TradeNegotiationManagerRef.ProcessAcceptOfferRequest(this, Negotiation);&#xD;&#xA;&#xD;&#xA;// Clear the references.&#xD;&#xA;TradeNegotiationManagerRef = null;&#xD;&#xA;Negotiation = null;&#xD;&#xA;" />
+			<attribute name="HasResolution" idx="15" type="bool()" guid="6378037-1895676" />
+			<attribute name="IsBlocking" idx="16" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="17" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="18" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="19" type="bool()" guid="6378037-1895678" />
+			<attribute name="IsResponseRequired" idx="20" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="21" type="bool" default="True" />
+			<attribute name="Issue" idx="22" type="Request_Issue" guid="6378037-1895668" />
+			<attribute name="IssueTime" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Negotiation" idx="24" type="TradeNegotiation" />
+			<attribute name="Priority" idx="25" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="26" type="none()" guid="6378037-1895686" final="true" />
+			<attribute name="RequestData" idx="27" type="record" />
+			<attribute name="RequestForm" idx="28" type="ResponseForm" />
+			<attribute name="RequestId" idx="29" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="30" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="33" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="34" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="35" type="bool" default="True" />
+			<attribute name="TargetUser" idx="36" type="User" />
+			<attribute name="Title" idx="37" type="string" const="true" maxLen="33" default="Trade Offers" />
+			<attribute name="TradeNegotiationManagerRef" idx="38" type="TradeNegotiationManager" />
+			<attribute name="TypeName" idx="39" type="string" const="true" maxLen="33" default="TradeOffers" />
+		</schema>
+	</schemas>
+</FranTkData>

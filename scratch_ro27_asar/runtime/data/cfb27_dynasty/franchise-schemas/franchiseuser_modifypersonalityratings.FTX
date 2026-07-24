@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseUser_ModifyPersonalityRatings.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseUser_ModifyPersonalityRatings" numMembers="3" base="none()" ownerAssetId="6495217" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1575811522" minorVersionCRC="-1069999513">
+			<attribute name="PersonalityModifier" idx="0" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="PersonalityType" idx="1" type="Personality" default="Personality:Leader" />
+		</schema>
+	</schemas>
+</FranTkData>

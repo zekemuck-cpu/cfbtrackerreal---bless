@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_PerformDefaultActions.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_PerformDefaultActions" numMembers="3" base="none()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="1604970779" minorVersionCRC="-1959773625">
+			<attribute name="actionMapEntries" idx="0" type="SequenceActionMapEntry[]" />
+			<attribute name="arcContext" idx="1" type="ArcContext" />
+		</schema>
+	</schemas>
+</FranTkData>

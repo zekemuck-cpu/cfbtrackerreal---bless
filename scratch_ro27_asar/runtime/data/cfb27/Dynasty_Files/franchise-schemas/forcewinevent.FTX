@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\ForceWinEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ForceWinEvent" numMembers="4" base="Event" assetId="6499023" isRecordPersistent="true" majorVersionCRC="-1847565201" minorVersionCRC="-608748633">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6499023-1895458" final="true" />
+			<attribute name="NeedsResim" idx="1" type="bool" default="True" />
+			<attribute name="Send" idx="2" type="none()" guid="6499023-1895455" final="true" />
+			<attribute name="WinTeam" idx="3" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

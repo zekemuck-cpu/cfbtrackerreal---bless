@@ -1,0 +1,24 @@
+<FranTkData fileName="Football-Schemas\CharacterBodyType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CharacterBodyType" numMembers="17" assetId="9365442" isRecordPersistent="true" majorVersionCRC="-55110868" minorVersionCRC="220034649">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="FirstMain_" idx="1" value="0" />
+			<attribute name="Standard" idx="2" value="0" />
+			<attribute name="Thin" idx="3" value="1" />
+			<attribute name="Muscular" idx="4" value="2" />
+			<attribute name="Heavy" idx="5" value="3" />
+			<attribute name="Freshman" idx="6" value="4" />
+			<attribute name="LastMain_" idx="7" value="4" />
+			<attribute name="ReservedMain_1" idx="8" value="5" />
+			<attribute name="ReservedMain_2" idx="9" value="6" />
+			<attribute name="ReservedMain_3" idx="10" value="7" />
+			<attribute name="FirstAlternate_" idx="11" value="8" />
+			<attribute name="Standard_Alternate" idx="12" value="8" />
+			<attribute name="LastAlternate_" idx="13" value="9" />
+			<attribute name="Thin_Alternate" idx="14" value="9" />
+			<attribute name="Max_" idx="15" value="10" />
+			<attribute name="Invalid_" idx="16" value="15" />
+		</enum>
+	</schemas>
+</FranTkData>

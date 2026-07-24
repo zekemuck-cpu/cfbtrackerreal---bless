@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\UserExperienceEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserExperienceEvent" numMembers="10" base="Event" assetId="9072474" isRecordPersistent="true" majorVersionCRC="-1484898884" minorVersionCRC="-217892461">
+			<attribute name="Enqueue" idx="0" type="none()" guid="9072474-1895458" final="true" />
+			<attribute name="ExtraPoints" idx="1" type="int" minValue="0" maxValue="4096" default="0" />
+			<attribute name="MaxXp" idx="2" type="int" minValue="0" maxValue="1000000" default="0" />
+			<attribute name="NewLevel" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NewXp" idx="4" type="int" minValue="0" maxValue="1000000" default="0" />
+			<attribute name="OldLevel" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OldXp" idx="6" type="int" minValue="0" maxValue="1000000" default="0" />
+			<attribute name="Send" idx="7" type="none()" guid="9072474-1895455" final="true" />
+			<attribute name="User" idx="8" type="UserEntity" />
+			<attribute name="XpGain" idx="9" type="int" minValue="0" maxValue="100000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalTable" numMembers="5" defaultStoreCapacity="17" assetId="6378668" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-997827532" minorVersionCRC="-1282269033">
+			<attribute name="DefensiveCoordinatorGoals" idx="0" type="CoachGoal[]" />
+			<attribute name="GamePlanningGoals" idx="1" type="CoachGoal[]" />
+			<attribute name="HeadCoachGoalList" idx="2" type="CoachGoal[]" />
+			<attribute name="OffensiveCoordinatorGoals" idx="3" type="CoachGoal[]" />
+			<attribute name="OwnerGoalList" idx="4" type="CoachGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Football-Schemas\TreeBlackboard_GetFloatValue.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TreeBlackboard_GetFloatValue" numMembers="2" base="float()" ownerAssetId="12273725" isRecordPersistent="true" isExpr="true" majorVersionCRC="381267795" minorVersionCRC="-1037879162">
+			<attribute name="variableEnum" idx="0" type="TreeBlackboardMembers" default="TreeBlackboardMembers:INVALID" />
+		</schema>
+	</schemas>
+</FranTkData>

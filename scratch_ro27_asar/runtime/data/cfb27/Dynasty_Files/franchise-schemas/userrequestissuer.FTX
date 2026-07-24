@@ -1,0 +1,47 @@
+<FranTkData fileName="Franchise-Schemas\UserRequestIssuer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserRequestIssuer" numMembers="40" base="Module" assetId="6495405" isRecordPersistent="true" majorVersionCRC="-1177281817" minorVersionCRC="163406220">
+			<attribute name="AcquisitionsResponse" idx="0" type="UIFlowForm" />
+			<attribute name="AdjustLineupResponse" idx="1" type="UIFlowForm" />
+			<attribute name="AutoSubsResponse" idx="2" type="UIFlowForm" />
+			<attribute name="ContractResponse" idx="3" type="UIFlowForm" />
+			<attribute name="DepthChartResponse" idx="4" type="UIFlowForm" />
+			<attribute name="EditAppearanceResponse" idx="5" type="UIFlowForm" />
+			<attribute name="EditPlayerRequest" idx="6" type="MyPlayerRequest" />
+			<attribute name="FootballNotifications" idx="7" type="FootballNotification[]" />
+			<attribute name="FormationSubsResponse" idx="8" type="UIFlowForm" />
+			<attribute name="FreeAgentsResponse" idx="9" type="UIFlowForm" />
+			<attribute name="HandleBeginWeekEvent" idx="10" type="UserRequestIssuer_HandleBeginWeekEvent" guid="6495405-1923095" final="true" />
+			<attribute name="HandleCoachContractStatusRequestChangesEvent" idx="11" type="UserRequestIssuer_HandleCoachContractStatusRequestChangesEvent" guid="6495405-1923137" final="true" />
+			<attribute name="HandleDevelopmentTraitUpdatedEvent" idx="12" type="UserRequestIssuer_HandleDevelopmentTraitUpdatedEvent" guid="6495405-2437200" final="true" />
+			<attribute name="HandleFootballNotificationEvent" idx="13" type="UserRequestIssuer_HandleFootballNotificationEvent" guid="6495405-2437204" final="true" />
+			<attribute name="HandleFootballRecordEvent" idx="14" type="UserRequestIssuer_HandleFootballRecordEvent" guid="6495405-2560012" final="true" />
+			<attribute name="HandlePlayerContractStatusRequestChangesEvent" idx="15" type="UserRequestIssuer_HandlePlayerContractStatusRequestChangesEvent" guid="6495405-1923141" final="true" />
+			<attribute name="HandleRegisterUserEvent" idx="16" type="UserRequestIssuer_HandleRegisterUserEvent" guid="6495405-1923099" final="true" />
+			<attribute name="InjuryReportResponse" idx="17" type="UIFlowForm" />
+			<attribute name="IssueFootballNotificationRequest" idx="18" type="UserRequestIssuer_IssueFootballNotificationRequest" guid="6495405-2416107" final="true" default="FootballNotificationRequest request = new FootballNotificationRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.Notification = Notification;&#xD;&#xA;request.Data = Data;&#xD;&#xA;request.ContextCharacterEntity = ContextCharacterEntity;&#xD;&#xA;&#xD;&#xA;// Issue the request&#xD;&#xA;request.Issue(UserEntity);" />
+			<attribute name="IssueManageRosterRequestForUser" idx="19" type="UserRequestIssuer_IssueManageRosterRequestForUser" guid="6495405-1923118" final="true" />
+			<attribute name="IssueManageStaffRequestForUser" idx="20" type="UserRequestIssuer_IssueManageStaffRequestForUser" guid="6495405-1923122" final="true" />
+			<attribute name="IssueUserRequests" idx="21" type="none()" guid="6495405-1923134" final="true" />
+			<attribute name="LeagueSetting" idx="22" type="LeagueSetting" />
+			<attribute name="ManageRosterRequest" idx="23" type="ManageRosterRequest" />
+			<attribute name="ManageStaffRequest" idx="24" type="ManageStaffRequest" />
+			<attribute name="ManageTeamRequest" idx="25" type="ManageTeamRequest" />
+			<attribute name="MyPlayerRequest" idx="26" type="MyPlayerRequest" />
+			<attribute name="PlayerProgressionEval" idx="27" type="PlayerProgressionEval" />
+			<attribute name="RequestServer" idx="28" type="RequestServer" />
+			<attribute name="RosterResponse" idx="29" type="UIFlowForm" />
+			<attribute name="SalariesResponse" idx="30" type="UIFlowForm" />
+			<attribute name="SchemesResponse" idx="31" type="UIFlowForm" />
+			<attribute name="SeasonInfo" idx="32" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="33" type="SeasonManager" />
+			<attribute name="StaffHiringEval" idx="34" type="StaffHiringEval" />
+			<attribute name="StaffManagementResponse" idx="35" type="UIFlowForm" />
+			<attribute name="TalentTreeEval" idx="36" type="TalentTreeEval" />
+			<attribute name="TradeCenterResponse" idx="37" type="UIFlowForm" />
+			<attribute name="UserRegistry" idx="38" type="UserRegistry" />
+			<attribute name="UserRequestIssuerTuningData" idx="39" type="UserRequestIssuerTuningData" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\ArcContext.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ArcContext" numMembers="18" defaultStoreCapacity="320" assetId="6498733" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="812471229" minorVersionCRC="-803146712">
+			<attribute name="ArcId" idx="0" type="StoryArcMetadata" />
+			<attribute name="DefensiveBoss" idx="1" type="Player" />
+			<attribute name="DynamicActorsArray" idx="2" type="DynamicActor[]" />
+			<attribute name="ExitArc" idx="3" type="bool" default="False" />
+			<attribute name="InGameCommentaryID" idx="4" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="LastCompletedSequenceGUID" idx="5" type="string" maxLen="37" />
+			<attribute name="StageLastSequenceCompleted" idx="6" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="TargetSequence" idx="7" type="SequenceMetadata" />
+			<attribute name="Team" idx="8" type="Team" />
+			<attribute name="TeamPlayer" idx="9" type="Player" />
+			<attribute name="TeamPlayer2" idx="10" type="Player" />
+			<attribute name="TrackedSeasonGame" idx="11" type="SeasonGame" />
+			<attribute name="TrackedWeeklyGoal" idx="12" type="Goal" />
+			<attribute name="TrackedWeeklyGoalActor" idx="13" type="record" />
+			<attribute name="UserCoach" idx="14" type="Coach" />
+			<attribute name="UserPlayer" idx="15" type="Player" />
+			<attribute name="WeekLastSequenceCompleted" idx="16" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="YearLastSequenceCompleted" idx="17" type="int" minValue="0" maxValue="31" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,34 @@
+<FranTkData fileName="Franchise-Schemas\ScenarioTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScenarioTransaction" numMembers="27" base="Transaction" assetId="6498890" isRecordPersistent="true" majorVersionCRC="-384205920" minorVersionCRC="658957229">
+			<attribute name="AbortResponse" idx="0" type="UISelectForm" />
+			<attribute name="CooldownStage" idx="1" type="Stage" />
+			<attribute name="CreateStoryArcStartRequest" idx="2" type="ScenarioTransaction_CreateStoryArcStartRequest" guid="6498890-1927586" final="true" default="StoryArcStartRequest request = null;&#xD;&#xA;if (StoryArcContext != null)&#xD;&#xA;{&#xD;&#xA; if(sequenceMetadata.StoryRequestStyle == StoryRequestStyle.CareerClockRequest)&#xD;&#xA; {&#xD;&#xA; request = new CareerClockRequest;&#xD;&#xA; request.RequestStyle = RequestStyle.Blocker;&#xD;&#xA; }&#xD;&#xA; else &#xD;&#xA; {&#xD;&#xA; request = new StoryArcStartRequest;&#xD;&#xA; }&#xD;&#xA; &#xD;&#xA; request.ResponseForms = new ResponseForm[1]; &#xD;&#xA; request.ResponseForms.Append(StoryArcRequestResponse);&#xD;&#xA; request.IsPersistent = false;&#xD;&#xA; request.Priority = 1;&#xD;&#xA; request.ArcContext = StoryArcContext;&#xD;&#xA; request.ArcMetadata = StoryArcMetadata;&#xD;&#xA; request.RequestData = sequenceMetadata;&#xD;&#xA;&#xD;&#xA;}&#xD;&#xA;request;" />
+			<attribute name="CurrentSequence" idx="3" type="SequenceMetadata" />
+			<attribute name="CurrentStage" idx="4" type="Stage" />
+			<attribute name="DismissStage" idx="5" type="Stage" />
+			<attribute name="EndResponse" idx="6" type="UISelectForm" />
+			<attribute name="EndSequence" idx="7" type="none()" guid="6498890-1927576" final="true" default="SequenceStartRequest = null;&#xD;&#xA;StoryArcContext.WeekLastSequenceCompleted = StoryArcUtil.SeasonInfo.CurrentWeek;&#xD;&#xA;StoryArcContext.StageLastSequenceCompleted = StoryArcUtil.SeasonInfo.CurrentStage;&#xD;&#xA;StoryArcContext.YearLastSequenceCompleted = StoryArcUtil.SeasonInfo.CurrentYear;" />
+			<attribute name="IsBlocking" idx="8" type="bool" default="True" />
+			<attribute name="IsDone" idx="9" type="bool()" guid="6498890-1895538" />
+			<attribute name="IsDynamic" idx="10" type="bool" default="False" />
+			<attribute name="IssueSequenceStartRequest" idx="11" type="ScenarioTransaction_IssueSequenceStartRequest" guid="6498890-1927590" final="true" default="if ((StoryArcContext.Team != null) &amp;&amp; (StoryArcContext.Team.UserCharacter != null))&#xD;&#xA;{&#xD;&#xA; // Create the new request&#xD;&#xA; SequenceStartRequest_User request = new SequenceStartRequest_User;&#xD;&#xA;&#xD;&#xA; // Setup the responses. Note that we don't need to setup request.ResponseForms.&#xD;&#xA; request.EndResponse = EndResponse;&#xD;&#xA; request.AbortResponse = AbortResponse;&#xD;&#xA; request.DefaultResponse = EndResponse;&#xD;&#xA; request.IsResponseRequired = true;&#xD;&#xA; request.ArcContext = StoryArcContext;&#xD;&#xA;&#xD;&#xA; request.RequestData = sequenceMetadata;&#xD;&#xA;&#xD;&#xA; // Issue the request&#xD;&#xA; request.Issue(StoryArcContext.Team.UserCharacter);&#xD;&#xA;&#xD;&#xA; // Save the request reference so this Stage can wait for the response.&#xD;&#xA; SequenceStartRequest = request;&#xD;&#xA; StoryArcUtil.LogSequenceStartRequest(sequenceMetadata, StoryArcContext);&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="Process" idx="12" type="none()" guid="6498890-1895540" />
+			<attribute name="SeqStage" idx="13" type="Stage" />
+			<attribute name="SequenceStartRequest" idx="14" type="SequenceStartRequest_User" />
+			<attribute name="Sleep" idx="15" type="ITransaction_Sleep" guid="6498890-1895548" />
+			<attribute name="Start" idx="16" type="none()" guid="6498890-1895544" />
+			<attribute name="StartStage" idx="17" type="Stage" />
+			<attribute name="StoryArcContext" idx="18" type="ArcContext" />
+			<attribute name="StoryArcMetadata" idx="19" type="StoryArcMetadata" />
+			<attribute name="StoryArcRequest" idx="20" type="StoryArcStartRequest" />
+			<attribute name="StoryArcRequestResponse" idx="21" type="ResponseForm" />
+			<attribute name="StoryArcUtil" idx="22" type="StoryArcUtil" />
+			<attribute name="TimeScale" idx="23" type="float" default="0" />
+			<attribute name="TransitionPending" idx="24" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="25" type="Stage" />
+			<attribute name="WaitStage" idx="26" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

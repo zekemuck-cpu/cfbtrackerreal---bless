@@ -1,0 +1,37 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_TeamProgressionFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_TeamProgressionFlow" numMembers="26" base="FranTkServer_Flow" assetId="6498444" isRecordPersistent="true" majorVersionCRC="-634394729" minorVersionCRC="1341580023">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="CoachProgressionEvalRef" idx="1" type="CoachProgressionEval" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="4" type="Franchise" />
+			<attribute name="HistoryManager" idx="5" type="HistoryManager" />
+			<attribute name="MedalEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="7" type="EnumTable" />
+			<attribute name="PlayerGoalsEval" idx="8" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEval" idx="9" type="PlayerGradeEval" />
+			<attribute name="PlayerProgressionEvalRef" idx="10" type="PlayerProgressionEval" />
+			<attribute name="PlayerTraitEnumTable" idx="11" type="EnumTable" />
+			<attribute name="PlayerTypeEnumTable" idx="12" type="EnumTable" />
+			<attribute name="PlayoffRoundTypeEnumTable" idx="13" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="14" type="EnumTable" />
+			<attribute name="RequestServer" idx="15" type="RequestServer" />
+			<attribute name="RosterEval" idx="16" type="RosterEval" />
+			<attribute name="SeasonInfo" idx="17" type="SeasonInfo" />
+			<attribute name="SeasonScheduleManager" idx="18" type="SeasonScheduleManager" />
+			<attribute name="SignatureAbilitiesEval" idx="19" type="SignatureAbilitiesEval" />
+			<attribute name="StaffPositionEnumTable" idx="20" type="EnumTable" />
+			<attribute name="StatManager" idx="21" type="StatManager" />
+			<attribute name="StringManager" idx="22" type="StringManager" />
+			<attribute name="TutorialList" idx="23" type="TutorialInfo[]" />
+			<attribute name="TutorialManager" idx="24" type="TutorialManager" />
+			<attribute name="UserRegistry" idx="25" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

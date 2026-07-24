@@ -1,0 +1,124 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil" numMembers="117" base="Module" assetId="6498729" isRecordPersistent="true" majorVersionCRC="1750265009" minorVersionCRC="-2052422324">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="ChallengesEval" idx="1" type="ChallengesEval" />
+			<attribute name="CloneTransaction" idx="2" type="StoryArcUtil_CloneTransaction" guid="6498729-1926444" final="true" />
+			<attribute name="CoachGoalsEval" idx="3" type="CoachGoalsEval" />
+			<attribute name="CoachPersonalityEnumTable" idx="4" type="EnumTable" />
+			<attribute name="CoachRetirementEval" idx="5" type="CoachRetirementEval" />
+			<attribute name="CreateArcContext" idx="6" type="StoryArcUtil_CreateArcContext" guid="6498729-1926453" final="true" default="ArcContext context = null;&#xD;&#xA;if ((arcTeam != null))&#xD;&#xA;{&#xD;&#xA; context = new ArcContext;&#xD;&#xA; context.ArcId = templateArc.StoryArcMetadata;&#xD;&#xA; context.Team = arcTeam;&#xD;&#xA;}&#xD;&#xA;context;" />
+			<attribute name="CreateArcContextRecord" idx="7" type="StoryArcUtil_CreateArcContextRecord" guid="6498729-1926518" final="true" default="ArcContext context = null;&#xD;&#xA;if ((arcTeam != null))&#xD;&#xA;{&#xD;&#xA; context = new ArcContext;&#xD;&#xA; context.ArcId = arcMetadata;&#xD;&#xA; context.Team = arcTeam;&#xD;&#xA;}&#xD;&#xA;context;" />
+			<attribute name="CreateTransaction" idx="8" type="StoryArcUtil_CreateTransaction" guid="6498729-1926514" default="// Create a new Transaction instance from the Template.&#xD;&#xA;Transaction transaction = CloneTransaction(TemplateTransaction);&#xD;&#xA;&#xD;&#xA;if (transaction != null)&#xD;&#xA;{&#xD;&#xA; // Transaction init&#xD;&#xA; TeamStoryArcTransaction teamArc = transaction;&#xD;&#xA; if (teamArc != null)&#xD;&#xA; {&#xD;&#xA;  teamArc.StoryArcContext = StoryArcContext;&#xD;&#xA; } &#xD;&#xA;}&#xD;&#xA;transaction;" />
+			<attribute name="CrossArcDataNames" idx="9" type="CrossArcDataNameDefinition[]" />
+			<attribute name="DebugModule" idx="10" type="FranchiseDebugModule" />
+			<attribute name="DepthChartEval" idx="11" type="DepthChartEval" />
+			<attribute name="DidCompleteTeamChallenge" idx="12" type="StoryArcUtil_DidCompleteTeamChallenge" guid="6498729-2445117" final="true" />
+			<attribute name="DoesATopSchoolUseScheme" idx="13" type="StoryArcUtil_DoesATopSchoolUseScheme" guid="6498729-2445111" final="true" />
+			<attribute name="DoesPlayerHaveANewScholarshipOffer" idx="14" type="StoryArcUtil_DoesPlayerHaveANewScholarshipOffer" guid="6498729-2501111" final="true" />
+			<attribute name="DoesTeamHaveStrictCodeOfConduct" idx="15" type="StoryArcUtil_DoesTeamHaveStrictCodeOfConduct" guid="6498729-2501103" final="true" />
+			<attribute name="DraftClassScouting" idx="16" type="DraftClassScouting" />
+			<attribute name="DraftManager" idx="17" type="record" />
+			<attribute name="FindActor_Team" idx="18" type="StoryArcUtil_FindActor_Team" guid="6498729-1926561" final="true" />
+			<attribute name="FindActor_UserEntity" idx="19" type="StoryArcUtil_FindActor_UserEntity" guid="6498729-1926556" final="true" />
+			<attribute name="FindNamedActor_Team" idx="20" type="StoryArcUtil_FindNamedActor_Team" guid="6498729-2461175" final="true" />
+			<attribute name="FindNamedActor_UserEntity" idx="21" type="StoryArcUtil_FindNamedActor_UserEntity" guid="6498729-2461176" final="true" />
+			<attribute name="ForcedUserTeamChangeEvent" idx="22" type="ForcedUserTeamChangeEvent" />
+			<attribute name="Franchise" idx="23" type="Franchise" />
+			<attribute name="GameplayModifierEval" idx="24" type="GameplayModifierEval" />
+			<attribute name="GetAcademicStatus" idx="25" type="StoryArcUtil_GetAcademicStatus" guid="6498729-2557004" final="true" />
+			<attribute name="GetCoachContractStatus" idx="26" type="StoryArcUtil_GetCoachContractStatus" guid="6498729-2697000" />
+			<attribute name="GetCoachHappinessState" idx="27" type="int()" guid="6498729-2445179" final="true" />
+			<attribute name="GetCrossArcData" idx="28" type="StoryArcUtil_GetCrossArcData" guid="6498729-1926546" final="true" />
+			<attribute name="GetDepthChartPositionStatus" idx="29" type="StoryArcUtil_GetDepthChartPositionStatus" guid="6498729-2190015" final="true" />
+			<attribute name="GetHeismanStatus" idx="30" type="StoryArcUtil_GetHeismanStatus" guid="6498729-2501027" final="true" />
+			<attribute name="GetHSChallengePerformanceLevel" idx="31" type="StoryArcUtil_GetHSChallengePerformanceLevel" guid="6498729-2445026" final="true" />
+			<attribute name="GetIsHighSchoolExperienceEnabled" idx="32" type="bool()" guid="6498729-2417010" final="true" />
+			<attribute name="GetMeterActionCount" idx="33" type="StoryArcUtil_GetMeterActionCount" guid="6498729-2445106" final="true" />
+			<attribute name="GetMySchoolGrade" idx="34" type="StoryArcUtil_GetMySchoolGrade" guid="6498729-2190075" final="true" />
+			<attribute name="GetNextSeasonGame" idx="35" type="StoryArcUtil_GetNextSeasonGame" guid="6498729-1926533" final="true" default="SeasonGame result = null;&#xD;&#xA;if ((SeasonManager != null) &amp;&amp; (SeasonInfo != null))&#xD;&#xA;{&#xD;&#xA;    result = SeasonManager.GetNextGame(team, SeasonInfo.CurrentWeekType, SeasonInfo.CurrentWeek);&#xD;&#xA;}&#xD;&#xA;result;&#xD;&#xA;" />
+			<attribute name="GetPersonalityRating" idx="36" type="StoryArcUtil_GetPersonalityRating" guid="6498729-1926487" final="true" />
+			<attribute name="GetPlayerDraftProjection" idx="37" type="StoryArcUtil_GetPlayerDraftProjection" guid="6498729-2703008" final="true" />
+			<attribute name="GetPlayerFitnessLevel" idx="38" type="int()" guid="6498729-2445182" final="true" />
+			<attribute name="GetPlayerMeterValue" idx="39" type="StoryArcUtil_GetPlayerMeterValue" guid="6498729-2143253" final="true" />
+			<attribute name="GetPlayerTransferChance" idx="40" type="StoryArcUtil_GetPlayerTransferChance" guid="6498729-2501107" final="true" />
+			<attribute name="GetScholarshipOfferStatus" idx="41" type="StoryArcUtil_GetScholarshipOfferStatus" guid="6498729-2445101" final="true" />
+			<attribute name="GetScholarshipScoreProgress" idx="42" type="StoryArcUtil_GetScholarshipScoreProgress" guid="6498729-2445021" final="true" />
+			<attribute name="GetTeamConference" idx="43" type="StoryArcUtil_GetTeamConference" guid="6498729-2445163" final="true" />
+			<attribute name="GetTopSchoolsHighestMySchoolGrade" idx="44" type="StoryArcUtil_GetTopSchoolsHighestMySchoolGrade" guid="6498729-2445122" final="true" />
+			<attribute name="GetTopSchoolsHighestRating" idx="45" type="StoryArcUtil_GetTopSchoolsHighestRating" guid="6498729-2445133" final="true" />
+			<attribute name="GetWeeklyGoalActor" idx="46" type="StoryArcUtil_GetWeeklyGoalActor" guid="6498729-1926603" final="true" />
+			<attribute name="GetYearsEligibilityRemaining" idx="47" type="StoryArcUtil_GetYearsEligibilityRemaining" guid="6498729-2501067" final="true" />
+			<attribute name="HandleBeginYear" idx="48" type="StoryArcUtil_HandleBeginYear" guid="6498729-1926610" final="true" />
+			<attribute name="HandleRegisterUser" idx="49" type="StoryArcUtil_HandleRegisterUser" guid="6498729-2061080" />
+			<attribute name="HandleSwitchFranchiseStyle" idx="50" type="StoryArcUtil_HandleSwitchFranchiseStyle" guid="6498729-1926552" final="true" />
+			<attribute name="HandleUpdateCoachContractStatus" idx="51" type="StoryArcUtil_HandleUpdateCoachContractStatus" guid="6498729-2654044" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="52" type="StoryArcUtil_HandleUpdatePlayerContractStatus" guid="6498729-2247103" final="true" />
+			<attribute name="HasEnoughTimePassed" idx="53" type="StoryArcUtil_HasEnoughTimePassed" guid="6498729-1926503" final="true" />
+			<attribute name="HasPlayerTransferred" idx="54" type="StoryArcUtil_HasPlayerTransferred" guid="6498729-2190020" final="true" default="bool result = false;&#xD;&#xA;&#xD;&#xA;if (player != null)&#xD;&#xA;{&#xD;&#xA;  result = player.TeamIndex != player.PrevTeamIndex;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;result;" />
+			<attribute name="IncreaseUserLegacyScoreEvent" idx="55" type="IncreaseUserLegacyScoreEvent" />
+			<attribute name="InitializeActor" idx="56" type="StoryArcUtil_InitializeActor" guid="6498729-1926458" final="true" />
+			<attribute name="InitializeArc" idx="57" type="StoryArcUtil_InitializeArc" guid="6498729-1926578" final="true" />
+			<attribute name="InitNamedActor" idx="58" type="StoryArcUtil_InitNamedActor" guid="6498729-2461190" final="true" />
+			<attribute name="InjuryEval" idx="59" type="InjuryEval" />
+			<attribute name="IsGameComplete" idx="60" type="StoryArcUtil_IsGameComplete" guid="6498729-1926529" final="true" default="bool isComplete = false;&#xD;&#xA;&#xD;&#xA;if (seasonGame != null &amp;&amp;seasonGame.GameStatus &gt;= GameStatus.FirstComplete_ &amp;&amp; seasonGame.GameStatus&lt;= GameStatus.LastComplete_ &amp;&amp; seasonGame.HasBeenPublished)&#xD;&#xA;{&#xD;&#xA;    isComplete = true;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;isComplete;" />
+			<attribute name="IsHSRecruitVerballyCommitted" idx="61" type="StoryArcUtil_IsHSRecruitVerballyCommitted" guid="6498729-2445128" final="true" />
+			<attribute name="IsTeamEligibleForArc" idx="62" type="StoryArcUtil_IsTeamEligibleForArc" guid="6498729-1926480" final="true" default="IsTeamEligibleForScenarioArc(team, arcId.StoryArcMetadata, maxArcInstances);" />
+			<attribute name="IsTeamEligibleForScenarioArc" idx="63" type="StoryArcUtil_IsTeamEligibleForScenarioArc" guid="6498729-1926523" final="true" />
+			<attribute name="IsTeamRival" idx="64" type="StoryArcUtil_IsTeamRival" guid="6498729-2143267" final="true" />
+			<attribute name="IsValidActor" idx="65" type="StoryArcUtil_IsValidActor" guid="6498729-1926570" final="true" />
+			<attribute name="IsValidNamedActor" idx="66" type="StoryArcUtil_IsValidNamedActor" guid="6498729-2461185" final="true" />
+			<attribute name="LeagueSetting" idx="67" type="LeagueSetting" />
+			<attribute name="LegacyScoreEval" idx="68" type="LegacyScoreEval" />
+			<attribute name="LogSequenceStartRequest" idx="69" type="StoryArcUtil_LogSequenceStartRequest" guid="6498729-1926595" final="true" />
+			<attribute name="LogStoryArcStartRequest" idx="70" type="StoryArcUtil_LogStoryArcStartRequest" guid="6498729-1926590" final="true" />
+			<attribute name="MarketplaceRepeatableRewardEvent" idx="71" type="MarketplaceRepeatableRewardEvent" />
+			<attribute name="MySchoolGradeEval" idx="72" type="MySchoolGradeEval" />
+			<attribute name="NarrativePlayerMetersEval" idx="73" type="NarrativePlayerMetersEval" />
+			<attribute name="ObjectiveManager" idx="74" type="ObjectiveManager" />
+			<attribute name="PerformDefaultActions" idx="75" type="StoryArcUtil_PerformDefaultActions" guid="6498729-1926497" final="true" />
+			<attribute name="PlayableMomentsEval" idx="76" type="PlayableMomentsEval" />
+			<attribute name="PlayerGoalsEval" idx="77" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEval" idx="78" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="79" type="PlayerManager" />
+			<attribute name="PlayerPersonalityEnumTable" idx="80" type="EnumTable" />
+			<attribute name="PlayerProgressionEval" idx="81" type="PlayerProgressionEval" />
+			<attribute name="PlayerRegressionEval" idx="82" type="PlayerRegressionEval" />
+			<attribute name="PlayerSigningEval" idx="83" type="PlayerSigningEval" />
+			<attribute name="PlayersLeavingEval" idx="84" type="PlayersLeavingEval" />
+			<attribute name="PracticeEval" idx="85" type="PracticeEval" />
+			<attribute name="PrologueProgress" idx="86" type="PrologueProgress" />
+			<attribute name="PrologueSetupInfo" idx="87" type="PrologueSetupInfo" />
+			<attribute name="Random" idx="88" type="Random" />
+			<attribute name="RecruitingEval" idx="89" type="RecruitingEval" />
+			<attribute name="RecruitingTunables" idx="90" type="RecruitingTunables" />
+			<attribute name="RecruitManager" idx="91" type="RecruitManager" />
+			<attribute name="RequestServer" idx="92" type="RequestServer" />
+			<attribute name="ResignNegotiationManager" idx="93" type="ReSignNegotiationManager" />
+			<attribute name="RosterEval" idx="94" type="RosterEval" />
+			<attribute name="SeasonInfo" idx="95" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="96" type="SeasonManager" />
+			<attribute name="SeasonStandings" idx="97" type="SeasonStandings" />
+			<attribute name="SendStoryWeekStartEvents" idx="98" type="none()" guid="6498729-1926475" final="true" />
+			<attribute name="SendStoryWeekStartEventsForTeam" idx="99" type="StoryArcUtil_SendStoryWeekStartEventsForTeam" guid="6498729-1926510" />
+			<attribute name="SequenceActorMap" idx="100" type="SequenceActorMapEntry[]" />
+			<attribute name="ShutdownArc" idx="101" type="StoryArcUtil_ShutdownArc" guid="6498729-1926585" final="true" />
+			<attribute name="SignatureAbilitiesEval" idx="102" type="SignatureAbilitiesEval" />
+			<attribute name="StatManager" idx="103" type="StatManager" />
+			<attribute name="StoryArcChangeCharacterDataEvent" idx="104" type="StoryArcChangeCharacterDataEvent" />
+			<attribute name="StoryCharacters" idx="105" type="StoryCharacter[]" />
+			<attribute name="StorySideActivityStartEvent" idx="106" type="StorySideActivityStartEvent" />
+			<attribute name="StoryUserEntities" idx="107" type="StoryUserEntity[]" />
+			<attribute name="StoryWeekStartEvent" idx="108" type="StoryWeekStartEvent" />
+			<attribute name="TeamManager" idx="109" type="TeamManager" />
+			<attribute name="TeamPrestigeEval" idx="110" type="TeamPrestigeEval" />
+			<attribute name="TempBuffEval" idx="111" type="TempBuffEval" />
+			<attribute name="TradeEval" idx="112" type="TradeEval" />
+			<attribute name="Transactions" idx="113" type="Transaction[]" />
+			<attribute name="UserRegistry" idx="114" type="UserRegistry" />
+			<attribute name="WasPlayerDemotedThisWeek" idx="115" type="StoryArcUtil_WasPlayerDemotedThisWeek" guid="6498729-2557008" final="true" />
+			<attribute name="WeatherEval" idx="116" type="WeatherEval" />
+		</schema>
+	</schemas>
+</FranTkData>

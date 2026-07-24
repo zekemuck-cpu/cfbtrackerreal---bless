@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\CoachStance.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachStance" numMembers="6" assetId="9830443" isRecordPersistent="true" majorVersionCRC="416367364" minorVersionCRC="1945408217">
+			<attribute name="Classic" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="PlaySheet" idx="2" value="1" />
+			<attribute name="HandsOnKnees" idx="3" value="2" />
+			<attribute name="Max_" idx="4" value="3" />
+			<attribute name="Invalid_" idx="5" value="15" />
+		</enum>
+	</schemas>
+</FranTkData>

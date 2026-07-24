@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\DraftStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftStartReaction" numMembers="14" base="Reaction" assetId="6499138" isRecordPersistent="true" majorVersionCRC="-1187771712" minorVersionCRC="1095097307">
+			<attribute name="AdvanceTransaction" idx="0" type="AdvanceSeasonWeekTransaction" />
+			<attribute name="CareerFlow" idx="1" type="FranchiseServer_CareerFlow" />
+			<attribute name="DraftPreviewEvent" idx="2" type="DraftPreviewEvent" />
+			<attribute name="DraftTransaction" idx="3" type="DraftTransaction" />
+			<attribute name="EventRecord" idx="4" type="DraftStartEvent" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="GamePrepView" idx="6" type="CreatePracticeActionItems" />
+			<attribute name="Handle" idx="7" type="bool()" guid="6499138-1895461" />
+			<attribute name="PlayerGradesEval" idx="8" type="PlayerGradeEval" />
+			<attribute name="PracticeEval" idx="9" type="PracticeEval" />
+			<attribute name="Priority" idx="10" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfo" idx="11" type="SeasonInfo" />
+			<attribute name="SeasonInfoUpdateEvent" idx="12" type="SeasonInfoUpdateEvent" />
+			<attribute name="TeamValueTransaction" idx="13" type="TeamValueUpdateTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

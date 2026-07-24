@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\AlternateUniformUsedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AlternateUniformUsedEvent" numMembers="6" base="Event" assetId="6498821" isRecordPersistent="true" majorVersionCRC="1462538604" minorVersionCRC="-1537568073">
+			<attribute name="AwayTeam" idx="0" type="record" />
+			<attribute name="AwayUniformIndex" idx="1" type="int" minValue="-1" maxValue="100" default="-1" />
+			<attribute name="Enqueue" idx="2" type="none()" guid="6498821-1895458" final="true" />
+			<attribute name="HomeTeam" idx="3" type="record" />
+			<attribute name="HomeUniformIndex" idx="4" type="int" minValue="-1" maxValue="100" default="-1" />
+			<attribute name="Send" idx="5" type="none()" guid="6498821-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

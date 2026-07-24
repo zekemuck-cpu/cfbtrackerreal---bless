@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\CoachContractGoalStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachContractGoalStatus" numMembers="8" assetId="12178721" isRecordPersistent="true" majorVersionCRC="1739404468" minorVersionCRC="-746281667">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="InProgress" idx="1" value="0" />
+			<attribute name="Passed" idx="2" value="1" />
+			<attribute name="Failed" idx="3" value="2" />
+			<attribute name="Last_" idx="4" value="3" />
+			<attribute name="NotApplicable" idx="5" value="3" />
+			<attribute name="Count_" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

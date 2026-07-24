@@ -1,0 +1,65 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGameContextStatMilestoneGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\PlayerStatMilestoneGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGameContextStatMilestoneGoal" numMembers="54" base="PlayerStatMilestoneGoal" defaultStoreCapacity="14" assetId="9753453" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1170" majorVersionCRC="1375992072" minorVersionCRC="456149230">
+			<attribute name="AbilityRankType" idx="0" type="AbilitiesRank" default="AbilitiesRank:None" />
+			<attribute name="AchievementWeight" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BaseLegacyScore" idx="2" type="int" minValue="-5000" maxValue="10000" default="0" />
+			<attribute name="BaseRegressionPoints" idx="3" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="CapBreakers" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CompleteEvalFrequency" idx="5" type="PlayerGoalEvalFrequency" default="PlayerGoalEvalFrequency:Weekly" />
+			<attribute name="CompletionValue" idx="6" type="int" minValue="0" maxValue="80000" default="0" />
+			<attribute name="ConfidenceTitle" idx="7" type="string" maxLen="41" />
+			<attribute name="ConfSpline" idx="8" type="Spline" />
+			<attribute name="Description" idx="9" type="string" maxLen="111" />
+			<attribute name="DevTraitChanceNormalToFast" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DevTraitChanceSlowToNormal" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="EvaluateAtEndOfSeason" idx="12" type="bool" default="False" />
+			<attribute name="ExperienceAward" idx="13" type="int" minValue="0" maxValue="75000" default="0" />
+			<attribute name="FourthQuarterScoreDiff" idx="14" type="int" minValue="0" maxValue="14" default="7" />
+			<attribute name="FromStats" idx="15" type="bool" default="False" />
+			<attribute name="GetConfidenceAward" idx="16" type="PlayerMilestoneGoal_GetConfidenceAward" guid="9753453-1912453" default="int confidenceaward = 0;&#xD;&#xA;confidenceaward;" />
+			<attribute name="GetExperienceAward" idx="17" type="PlayerMilestoneGoal_GetExperienceAward" guid="9753453-1912438" default="int award = 0;&#xD;&#xA;&#xD;&#xA;award;" />
+			<attribute name="GetLegacyScore" idx="18" type="PlayerMilestoneGoal_GetLegacyScore" guid="9753453-1912446" default="int legacyScore = LegacyScoreAward;&#xD;&#xA;&#xD;&#xA;legacyScore;" />
+			<attribute name="GetProgress" idx="19" type="PlayerStatMilestoneGoal_GetProgress" guid="9753453-2195296" default="int progress = 0;&#xD;&#xA;&#xD;&#xA;progress;" />
+			<attribute name="GetRegressionPoints" idx="20" type="PlayerStatMilestoneGoal_GetRegressionPoints" guid="9753453-1920276" default="int points = BaseRegressionPoints;&#xD;&#xA;&#xD;&#xA;points;" />
+			<attribute name="IconAssetId" idx="21" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="22" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="23" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="InvertedGoalDownsPlayedThreshold" idx="24" type="int" minValue="0" maxValue="500" default="10" />
+			<attribute name="IsAwayGame" idx="25" type="bool" default="False" />
+			<attribute name="IsBadWeather" idx="26" type="bool" default="False" />
+			<attribute name="IsDisplayed" idx="27" type="bool" default="True" />
+			<attribute name="IsEvaluatedInGame" idx="28" type="bool" default="True" />
+			<attribute name="IsGreaterOVR" idx="29" type="bool" default="False" />
+			<attribute name="IsInverted" idx="30" type="bool" default="False" />
+			<attribute name="IsOpponentRanked" idx="31" type="bool" default="False" />
+			<attribute name="IsPlayoffBowlGame" idx="32" type="bool" default="False" />
+			<attribute name="IsPreSeasonAllowed" idx="33" type="bool" default="False" />
+			<attribute name="IsRival" idx="34" type="bool" default="False" />
+			<attribute name="IsUsingFourthQuarterScoreDiff" idx="35" type="bool" default="False" />
+			<attribute name="LegacyScoreAward" idx="36" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="37" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="38" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="39" type="string" maxLen="31" />
+			<attribute name="MarketplaceRepeatableReward" idx="40" type="int" minValue="0" maxValue="60000" default="0" />
+			<attribute name="MarketplaceRepeatableRewardType" idx="41" type="MarketplaceRewardType" default="MarketplaceRewardType:Invalid" />
+			<attribute name="MarketplaceReward" idx="42" type="MarketplaceReward" />
+			<attribute name="MaxOpponentRank" idx="43" type="int" minValue="1" maxValue="25" default="25" />
+			<attribute name="MentalAbilityType" idx="44" type="MentalAbilities" default="MentalAbilities:None" />
+			<attribute name="PlayerAgeSpline" idx="45" type="Spline" />
+			<attribute name="PlayerOverallSpline" idx="46" type="Spline" />
+			<attribute name="PlayerStat" idx="47" type="StatType" default="StatType:PassYards" />
+			<attribute name="PositionCategory" idx="48" type="PositionCategory" default="PositionCategory:All" />
+			<attribute name="PositionSignatureAbilityReward" idx="49" type="PositionSignatureAbility" />
+			<attribute name="SendEvent" idx="50" type="bool" default="False" />
+			<attribute name="StatPeriod" idx="51" type="StatPeriod" default="StatPeriod:Season" />
+			<attribute name="TeamStat" idx="52" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="Title" idx="53" type="string" maxLen="51" />
+		</schema>
+	</schemas>
+</FranTkData>

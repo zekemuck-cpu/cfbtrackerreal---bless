@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_GetExpectedScoutSalary.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_GetExpectedScoutSalary" numMembers="2" base="int()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="-258185124" minorVersionCRC="1372241816">
+			<attribute name="scout" idx="0" type="Scout" />
+		</schema>
+	</schemas>
+</FranTkData>

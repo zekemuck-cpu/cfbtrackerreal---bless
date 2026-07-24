@@ -1,0 +1,38 @@
+<FranTkData fileName="Franchise-Schemas\UserCoachSeasonalGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachSeasonalGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserCoachSeasonalGoal" numMembers="27" base="CoachSeasonalGoal" defaultStoreCapacity="20" assetId="6493976" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-194439470" minorVersionCRC="278682371">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachExperienceAward" idx="1" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="CoachPrestigeScore" idx="2" type="int" minValue="-1000" maxValue="1000" default="0" />
+			<attribute name="CompletionValue" idx="3" type="int[]" />
+			<attribute name="Description" idx="4" type="string" maxLen="81" />
+			<attribute name="DynastyPointAward" idx="5" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="FromStats" idx="6" type="bool" default="False" />
+			<attribute name="GetCompletedLevel" idx="7" type="CoachSeasonalGoal_GetCompletedLevel" guid="6493976-1931884" final="true" default="int returnVal = 0;&#xD;&#xA;&#xD;&#xA;int progress = GetProgress(coach, team, teamSeasonStats);&#xD;&#xA;&#xD;&#xA;if (progress &gt;= CompletionValue[4])&#xD;&#xA;{&#xD;&#xA;    returnVal = 4;&#xD;&#xA;}&#xD;&#xA;else if (progress &gt;= CompletionValue[3])&#xD;&#xA;{&#xD;&#xA;    returnVal = 3;&#xD;&#xA;}&#xD;&#xA;else if (progress &gt;= CompletionValue[2])&#xD;&#xA;{&#xD;&#xA;    returnVal = 2;&#xD;&#xA;}&#xD;&#xA;else if (progress &gt;= CompletionValue[1])&#xD;&#xA;{&#xD;&#xA;    returnVal = 1;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    returnVal = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;returnVal;" />
+			<attribute name="GetCompletionValue" idx="8" type="CoachSeasonalGoal_GetCompletionValue" guid="6493976-1931892" final="true" default="CompletionValue[completionLevel];" />
+			<attribute name="GetProgress" idx="9" type="CoachSeasonalGoal_GetProgress" guid="6493976-1931869" />
+			<attribute name="GetProgressPercentage" idx="10" type="CoachSeasonalGoal_GetProgressPercentage" guid="6493976-1931878" final="true" default="int completedLevel = GetCompletedLevel(coach, team, teamSeasonStats);&#xD;&#xA;&#xD;&#xA;int progressPercentage = 25 * completedLevel;&#xD;&#xA;&#xD;&#xA;if (progressPercentage &gt; 100) &#xD;&#xA;{&#xD;&#xA;    progressPercentage = 100;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;progressPercentage;" />
+			<attribute name="GetStaffPointAward" idx="11" type="CoachSeasonalGoal_GetStaffPointAward" guid="6493976-1931897" final="true" default="StaffPointAward[completionLevel];" />
+			<attribute name="GoalData" idx="12" type="UserGoalEnumTableEntry" />
+			<attribute name="GoalDisplayTier" idx="13" type="int" minValue="0" maxValue="5" default="3" />
+			<attribute name="IconAssetId" idx="14" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="15" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="16" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="17" type="bool" default="False" />
+			<attribute name="LegacyScoreAward" idx="18" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="19" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="20" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="21" type="string" maxLen="31" />
+			<attribute name="MaxLevel" idx="22" type="int" minValue="0" maxValue="4" default="4" />
+			<attribute name="Priority" idx="23" type="int" minValue="0" maxValue="10" default="1" />
+			<attribute name="RateGoalForCoach" idx="24" type="CoachSeasonalGoal_RateGoalForCoach" guid="6493976-1931874" />
+			<attribute name="StaffPointAward" idx="25" type="int[]" />
+			<attribute name="Title" idx="26" type="string" maxLen="61" />
+		</schema>
+	</schemas>
+</FranTkData>

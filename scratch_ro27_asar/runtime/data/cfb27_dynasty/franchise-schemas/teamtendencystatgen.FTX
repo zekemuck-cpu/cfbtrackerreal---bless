@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\TeamTendencyStatGen.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamTendencyStatGen" numMembers="8" defaultStoreCapacity="34" assetId="6378909" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="328372788" minorVersionCRC="1276348054">
+			<attribute name="RelatedTeamTendencyStatGen" idx="0" type="TeamTendencyStatGen[]" />
+			<attribute name="ShiftPercentage" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ShiftTendency" idx="2" type="TeamTendencyStatType" default="TeamTendencyStatType:First_Offense" />
+			<attribute name="TeamStat" idx="3" type="TeamStatType" default="TeamStatType:SpecialTeamYards" />
+			<attribute name="TeamTendencyStat" idx="4" type="TeamTendencyStatType" default="TeamTendencyStatType:First_Offense" />
+			<attribute name="TendencyPercentage" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TotalTeamTendencyStat" idx="6" type="TeamTendencyStatType" default="TeamTendencyStatType:Invalid" />
+			<attribute name="UseOpposingTeamStat" idx="7" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

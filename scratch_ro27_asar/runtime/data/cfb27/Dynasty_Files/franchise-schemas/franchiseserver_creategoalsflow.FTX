@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CreateGoalsFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CreateGoalsFlow" numMembers="13" base="FranTkServer_Flow" assetId="6499240" isRecordPersistent="true" majorVersionCRC="-1632185325" minorVersionCRC="1664258604">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="GoalDataEnumTable" idx="3" type="EnumTable" />
+			<attribute name="GoalDifficultyEnumTable" idx="4" type="EnumTable" />
+			<attribute name="GoalRiskEnumTable" idx="5" type="EnumTable" />
+			<attribute name="PlayerGoalsEval" idx="6" type="PlayerGoalsEval" />
+			<attribute name="PlayoffRoundEnumTable" idx="7" type="EnumTable" />
+			<attribute name="RequestServer" idx="8" type="RequestServer" />
+			<attribute name="TutorialList" idx="9" type="TutorialInfo[]" />
+			<attribute name="TutorialManager" idx="10" type="TutorialManager" />
+			<attribute name="UserGoalsUpdatedEvent" idx="11" type="UserGoalsUpdatedEvent" />
+			<attribute name="UserRegistry" idx="12" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

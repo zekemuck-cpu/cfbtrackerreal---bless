@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\Objective.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Objective" numMembers="3" defaultStoreCapacity="1" assetId="6495212" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1" majorVersionCRC="138116168" minorVersionCRC="2108388802">
+			<attribute name="Enabled" idx="0" type="bool" default="True" />
+			<attribute name="Hidden" idx="1" type="bool" default="False" />
+			<attribute name="Title" idx="2" type="string" maxLen="101" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\ContractViewType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ContractViewType" numMembers="8" assetId="8624644" isRecordPersistent="true" majorVersionCRC="199308272" minorVersionCRC="-1993461024">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Renew" idx="1" value="0" />
+			<attribute name="Firing" idx="2" value="1" />
+			<attribute name="Offer" idx="3" value="2" />
+			<attribute name="Current" idx="4" value="3" />
+			<attribute name="HotSeat" idx="5" value="4" />
+			<attribute name="Last_" idx="6" value="4" />
+			<attribute name="Count_" idx="7" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\CoachTalentPosGroup.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachTalentPosGroup" numMembers="12" assetId="7742542" isRecordPersistent="true" majorVersionCRC="-1819736483" minorVersionCRC="914101105">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="QB" idx="1" value="0" />
+			<attribute name="RB" idx="2" value="1" />
+			<attribute name="WR_TE" idx="3" value="2" />
+			<attribute name="OL" idx="4" value="3" />
+			<attribute name="DB" idx="5" value="4" />
+			<attribute name="LB" idx="6" value="5" />
+			<attribute name="KP_ATH" idx="7" value="6" />
+			<attribute name="LE_RE_DT" idx="8" value="7" />
+			<attribute name="Invalid" idx="9" value="8" />
+			<attribute name="Max" idx="10" value="8" />
+			<attribute name="None" idx="11" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

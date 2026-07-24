@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\GeneratorTuningDataRandomNormalDistribution.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\GeneratorTuningDataRandom.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GeneratorTuningDataRandomNormalDistribution" numMembers="5" base="GeneratorTuningDataRandom" assetId="6733479" isRecordPersistent="true" majorVersionCRC="721463064" minorVersionCRC="2036686130">
+			<attribute name="DesiredCountMaximum" idx="0" type="int" minValue="1" maxValue="1024" default="1" />
+			<attribute name="DesiredCountMean" idx="1" type="float" default="0" />
+			<attribute name="DesiredCountMinimum" idx="2" type="int" minValue="1" maxValue="1024" default="1" />
+			<attribute name="DesiredCountStandardDeviation" idx="3" type="float" default="0" />
+			<attribute name="Generator" idx="4" type="RandomAssetGenerator" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffersRequestPlayers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffersRequestPlayers" numMembers="5" base="ModifierView" assetId="6610499" isRecordPersistent="true" majorVersionCRC="1231446196" minorVersionCRC="234198242">
+			<attribute name="Formula" idx="0" type="EvaluateContractOffersRequestPlayers_Formula" guid="6610499-1939286" default="if(Subject.IsUserControlled)&#xD;&#xA;{&#xD;&#xA;  EvaluateContractOffersRequest request = PlayerSigningEvalRef.CreateEvaluateOffersRequest(Subject);&#xD;&#xA;  if(request != null)&#xD;&#xA;  {&#xD;&#xA;    request.Issue(Subject);&#xD;&#xA;  }  &#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="PlayerSigningEvalRef" idx="1" type="PlayerSigningEval" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Player[]" />
+			<attribute name="Update" idx="4" type="none()" guid="6610499-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,66 @@
+<FranTkData fileName="Franchise-Schemas\PositionalAbilitySplines.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionalAbilitySplines" numMembers="59" assetId="6494571" isRecordPersistent="true" majorVersionCRC="1482033432" minorVersionCRC="2065605432">
+			<attribute name="Acceleration" idx="0" type="Spline" />
+			<attribute name="Agility" idx="1" type="Spline" />
+			<attribute name="Awareness" idx="2" type="Spline" />
+			<attribute name="BcVision" idx="3" type="Spline" />
+			<attribute name="BlockShedding" idx="4" type="Spline" />
+			<attribute name="BreakSack" idx="5" type="Spline" />
+			<attribute name="BreakTackle" idx="6" type="Spline" />
+			<attribute name="Carrying" idx="7" type="Spline" />
+			<attribute name="Catching" idx="8" type="Spline" />
+			<attribute name="CatchInTraffic" idx="9" type="Spline" />
+			<attribute name="ChangeOfDirection" idx="10" type="Spline" />
+			<attribute name="Confidence" idx="11" type="Spline" />
+			<attribute name="Consistency" idx="12" type="Spline" />
+			<attribute name="FinesseMoves" idx="13" type="Spline" />
+			<attribute name="HitPower" idx="14" type="Spline" />
+			<attribute name="ImpactBlocking" idx="15" type="Spline" />
+			<attribute name="Injury" idx="16" type="Spline" />
+			<attribute name="JukeMove" idx="17" type="Spline" />
+			<attribute name="Jumping" idx="18" type="Spline" />
+			<attribute name="KickAccuracy" idx="19" type="Spline" />
+			<attribute name="KickPower" idx="20" type="Spline" />
+			<attribute name="KickReturn" idx="21" type="Spline" />
+			<attribute name="LeadBlock" idx="22" type="Spline" />
+			<attribute name="LongSnap" idx="23" type="Spline" />
+			<attribute name="ManCoverage" idx="24" type="Spline" />
+			<attribute name="PassBlock" idx="25" type="Spline" />
+			<attribute name="PassBlockFinesse" idx="26" type="Spline" />
+			<attribute name="PassBlockPower" idx="27" type="Spline" />
+			<attribute name="PlayAction" idx="28" type="Spline" />
+			<attribute name="PlayRecognition" idx="29" type="Spline" />
+			<attribute name="Position" idx="30" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="PowerMoves" idx="31" type="Spline" />
+			<attribute name="Press" idx="32" type="Spline" />
+			<attribute name="Pursuit" idx="33" type="Spline" />
+			<attribute name="Release" idx="34" type="Spline" />
+			<attribute name="RouteRunningDeep" idx="35" type="Spline" />
+			<attribute name="RouteRunningMid" idx="36" type="Spline" />
+			<attribute name="RouteRunningShort" idx="37" type="Spline" />
+			<attribute name="RunBlock" idx="38" type="Spline" />
+			<attribute name="RunBlockFinesse" idx="39" type="Spline" />
+			<attribute name="RunBlockPower" idx="40" type="Spline" />
+			<attribute name="RunningStyle" idx="41" type="Spline" />
+			<attribute name="SpectacularCatch" idx="42" type="Spline" />
+			<attribute name="Speed" idx="43" type="Spline" />
+			<attribute name="SpinMove" idx="44" type="Spline" />
+			<attribute name="Stamina" idx="45" type="Spline" />
+			<attribute name="StiffArm" idx="46" type="Spline" />
+			<attribute name="Strength" idx="47" type="Spline" />
+			<attribute name="Tackle" idx="48" type="Spline" />
+			<attribute name="ThrowAccuracy" idx="49" type="Spline" />
+			<attribute name="ThrowAccuracyDeep" idx="50" type="Spline" />
+			<attribute name="ThrowAccuracyMid" idx="51" type="Spline" />
+			<attribute name="ThrowAccuracyShort" idx="52" type="Spline" />
+			<attribute name="ThrowOnTheRun" idx="53" type="Spline" />
+			<attribute name="ThrowPower" idx="54" type="Spline" />
+			<attribute name="ThrowUnderPressure" idx="55" type="Spline" />
+			<attribute name="Toughness" idx="56" type="Spline" />
+			<attribute name="Trucking" idx="57" type="Spline" />
+			<attribute name="ZoneCoverage" idx="58" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

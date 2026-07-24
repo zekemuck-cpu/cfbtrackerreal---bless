@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\NewsManager_HandleBeginAdvanceWeek.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsManager_HandleBeginAdvanceWeek" numMembers="2" base="none()" ownerAssetId="6499038" isRecordPersistent="true" isExpr="true" majorVersionCRC="715350026" minorVersionCRC="-78179204">
+			<attribute name="event" idx="0" type="BeginAdvanceWeekEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

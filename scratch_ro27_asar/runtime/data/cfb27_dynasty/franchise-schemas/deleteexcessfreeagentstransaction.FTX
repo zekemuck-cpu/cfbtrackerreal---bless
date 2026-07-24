@@ -1,0 +1,27 @@
+<FranTkData fileName="Franchise-Schemas\DeleteExcessFreeAgentsTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DeleteExcessFreeAgentsTransaction" numMembers="20" base="Transaction" assetId="6499126" isRecordPersistent="true" majorVersionCRC="-1675924254" minorVersionCRC="1763120084">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="FinalStage" idx="1" type="Stage" />
+			<attribute name="Franchise" idx="2" type="Franchise" />
+			<attribute name="IsBlocking" idx="3" type="bool" default="True" />
+			<attribute name="IsDone" idx="4" type="bool()" guid="6499126-1895538" />
+			<attribute name="IsDynamic" idx="5" type="bool" default="False" />
+			<attribute name="PlayerManager" idx="6" type="PlayerManager" />
+			<attribute name="PlayerRetirement" idx="7" type="PlayersLeavingEval" />
+			<attribute name="PlayerSigningEval" idx="8" type="PlayerSigningEval" />
+			<attribute name="Position" idx="9" type="PlayerPosition" />
+			<attribute name="PositionIndex" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PositionList" idx="11" type="PlayerPosition[]" />
+			<attribute name="Process" idx="12" type="none()" guid="6499126-1895540" />
+			<attribute name="Sleep" idx="13" type="ITransaction_Sleep" guid="6499126-1895548" />
+			<attribute name="Start" idx="14" type="none()" guid="6499126-1895544" />
+			<attribute name="StartStage" idx="15" type="Stage" />
+			<attribute name="TimeScale" idx="16" type="float" default="0" />
+			<attribute name="TransitionPending" idx="17" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="18" type="Stage" />
+			<attribute name="UpdateStage" idx="19" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbilitiesTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignatureAbilitiesTable" numMembers="13" defaultStoreCapacity="1" assetId="6495024" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-800937848" minorVersionCRC="-1731171824">
+			<attribute name="CBSignatureAbilities" idx="0" type="SignatureByPosition" />
+			<attribute name="DESignatureAbilities" idx="1" type="SignatureByPosition" />
+			<attribute name="DTSignatureAbilities" idx="2" type="SignatureByPosition" />
+			<attribute name="FBSignatureAbilities" idx="3" type="SignatureByPosition" />
+			<attribute name="FS_SSSignatureAbilities" idx="4" type="SignatureByPosition" />
+			<attribute name="HBSignatureAbilities" idx="5" type="SignatureByPosition" />
+			<attribute name="K_PSignatureAbilities" idx="6" type="SignatureByPosition" />
+			<attribute name="MLBSignatureAbilities" idx="7" type="SignatureByPosition" />
+			<attribute name="OLBSignatureAbilities" idx="8" type="SignatureByPosition" />
+			<attribute name="OLSignatureAbilities" idx="9" type="SignatureByPosition" />
+			<attribute name="QBSignatureAbilities" idx="10" type="SignatureByPosition" />
+			<attribute name="TESignatureAbilities" idx="11" type="SignatureByPosition" />
+			<attribute name="WRSignatureAbilities" idx="12" type="SignatureByPosition" />
+		</schema>
+	</schemas>
+</FranTkData>

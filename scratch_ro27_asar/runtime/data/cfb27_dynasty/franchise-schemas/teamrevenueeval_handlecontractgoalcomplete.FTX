@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueEval_HandleContractGoalComplete.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueEval_HandleContractGoalComplete" numMembers="5" base="none()" ownerAssetId="6498983" isRecordPersistent="true" isExpr="true" majorVersionCRC="1565658832" minorVersionCRC="1325526638">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="coach" idx="1" type="Coach" />
+			<attribute name="coachContractGoal" idx="2" type="CoachContractGoal" />
+			<attribute name="isPassed" idx="3" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

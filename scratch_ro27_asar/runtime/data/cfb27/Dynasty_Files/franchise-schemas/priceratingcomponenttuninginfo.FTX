@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PriceRatingComponentTuningInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PriceRatingComponentTuningInfo" numMembers="1" base="BaseTuning" defaultStoreCapacity="3" assetId="6494954" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="884613376" minorVersionCRC="2089431706">
+			<attribute name="PricePercentToRankSpline" idx="0" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

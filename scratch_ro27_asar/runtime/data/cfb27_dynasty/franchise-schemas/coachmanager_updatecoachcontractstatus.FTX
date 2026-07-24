@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\CoachManager_UpdateCoachContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachManager_UpdateCoachContractStatus" numMembers="7" base="none()" ownerAssetId="6495150" isRecordPersistent="true" isExpr="true" majorVersionCRC="-636274335" minorVersionCRC="-583260966">
+			<attribute name="coach" idx="0" type="Coach" />
+			<attribute name="oldTeam" idx="1" type="Team" />
+			<attribute name="oldPosition" idx="2" type="CoachPosition" default="CoachPosition:First_" />
+			<attribute name="newTeam" idx="3" type="Team" />
+			<attribute name="newPosition" idx="4" type="CoachPosition" default="CoachPosition:First_" />
+			<attribute name="newContractStatus" idx="5" type="StaffPersonContractStatus" default="StaffPersonContractStatus:Signed" />
+		</schema>
+	</schemas>
+</FranTkData>

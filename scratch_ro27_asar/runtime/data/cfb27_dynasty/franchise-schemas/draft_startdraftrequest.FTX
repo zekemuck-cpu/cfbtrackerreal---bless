@@ -1,0 +1,53 @@
+<FranTkData fileName="Franchise-Schemas\Draft_StartDraftRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Draft_StartDraftRequest" numMembers="42" base="UIRequestForm" defaultStoreCapacity="32" assetId="6499000" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1079437824" minorVersionCRC="-1831395477">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6499000-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="Description" idx="8" type="string" const="true" maxLen="29" default="Start or simulate the draft." />
+			<attribute name="Dismiss" idx="9" type="none()" guid="6499000-1895671" />
+			<attribute name="DraftTransaction" idx="10" type="DraftTransaction" />
+			<attribute name="ExpirationDuration" idx="11" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="Franchise" idx="12" type="Franchise" />
+			<attribute name="HandleResponse" idx="13" type="none()" guid="6499000-1931512" final="true" default="// If a valid response was provided and the draft has not yet been started, start it. Note that in&#xD;&#xA;// an offline multi-user league, all users will respond. Only the first response should be handled.&#xD;&#xA;if ((Response != null) &amp;&amp; (DraftTransaction.CurrentStage == null))&#xD;&#xA;{&#xD;&#xA;    // If the &quot;Start&quot; response was selected, start the draft.&#xD;&#xA;    if (Response == StartResponse)&#xD;&#xA;    {&#xD;&#xA;        DraftTransaction.SetSimState(DraftSimState.Live);&#xD;&#xA;        DraftTransaction.Start();&#xD;&#xA;    }&#xD;&#xA;    // If the &quot;Sim&quot; response was selected, sim the draft.&#xD;&#xA;    else if (Response == SimResponse)&#xD;&#xA;    {&#xD;&#xA;        DraftTransaction.SetSimState(DraftSimState.SimToEnd);&#xD;&#xA;        DraftTransaction.Start();&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="HasResolution" idx="14" type="bool()" guid="6499000-1895676" />
+			<attribute name="IsBlocking" idx="15" type="bool" default="False" />
+			<attribute name="IsCommissioner" idx="16" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="17" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="18" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="19" type="bool()" guid="6499000-1895678" />
+			<attribute name="IsResponseRequired" idx="20" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="21" type="bool" default="True" />
+			<attribute name="Issue" idx="22" type="Request_Issue" guid="6499000-1895668" />
+			<attribute name="IssueTime" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Priority" idx="24" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="ReadyResponse" idx="25" type="ResponseForm" />
+			<attribute name="Refresh" idx="26" type="none()" guid="6499000-1895686" final="true" />
+			<attribute name="RequestData" idx="27" type="record" />
+			<attribute name="RequestForm" idx="28" type="ResponseForm" />
+			<attribute name="RequestId" idx="29" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="30" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="33" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="34" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="35" type="bool" default="True" />
+			<attribute name="SimResponse" idx="36" type="ResponseForm" />
+			<attribute name="StartResponse" idx="37" type="ResponseForm" />
+			<attribute name="TargetUser" idx="38" type="User" />
+			<attribute name="TeamRequestManager" idx="39" type="TeamRequestManager" />
+			<attribute name="Title" idx="40" type="string" const="true" maxLen="14" default="The NFL Draft" />
+			<attribute name="TypeName" idx="41" type="string" const="true" maxLen="17" default="Draft.StartDraft" />
+		</schema>
+	</schemas>
+</FranTkData>

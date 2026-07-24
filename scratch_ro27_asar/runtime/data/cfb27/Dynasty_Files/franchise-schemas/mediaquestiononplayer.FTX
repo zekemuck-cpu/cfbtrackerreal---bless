@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\MediaQuestionOnPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\MediaQuestion.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaQuestionOnPlayer" numMembers="18" base="MediaQuestion" defaultStoreCapacity="10" assetId="6548883" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-371273380" minorVersionCRC="-246452714">
+			<attribute name="AudioId" idx="0" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="DebugQuestion" idx="1" type="bool" default="False" />
+			<attribute name="GetRating" idx="2" type="MediaQuestion_GetRating" guid="6548883-1925622" default="int priority = 75;&#xD;&#xA;&#xD;&#xA;priority;" />
+			<attribute name="GetRatingWithPlayerData" idx="3" type="MediaQuestionOnPlayer_GetRatingWithPlayerData" guid="6548883-1935584" default="int rating = 100;&#xD;&#xA;&#xD;&#xA;rating;" />
+			<attribute name="ImageId" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="IsForCoach" idx="5" type="bool" default="False" />
+			<attribute name="IsForOwner" idx="6" type="bool" default="False" />
+			<attribute name="IsForPlayer" idx="7" type="bool" default="False" />
+			<attribute name="MaxStartDate" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxStartDateType" idx="9" type="DurationType" default="DurationType:Games" />
+			<attribute name="MediaPersonality" idx="10" type="MediaPersonality" />
+			<attribute name="MinStartDate" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinStartDateType" idx="12" type="DurationType" default="DurationType:Games" />
+			<attribute name="PlayerDepth" idx="13" type="int" minValue="0" maxValue="6" default="0" />
+			<attribute name="PlayerPosition" idx="14" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="Question" idx="15" type="string" maxLen="256" />
+			<attribute name="QuestionId" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Responses" idx="17" type="MediaGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

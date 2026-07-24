@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayableMomentsEval_IssueSeasonGamePlayableMomentRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayableMomentsEval_IssueSeasonGamePlayableMomentRequest" numMembers="5" base="none()" ownerAssetId="6498721" isRecordPersistent="true" isExpr="true" majorVersionCRC="1183653690" minorVersionCRC="248559452">
+			<attribute name="SeasonGame" idx="0" type="SeasonGame" />
+			<attribute name="Title" idx="1" type="string" maxLen="101" />
+			<attribute name="Description" idx="2" type="string" maxLen="101" />
+			<attribute name="NavigateToHub" idx="3" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

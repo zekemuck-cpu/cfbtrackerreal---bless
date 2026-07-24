@@ -1,0 +1,37 @@
+<FranTkData fileName="Franchise-Schemas\GameSetup.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameSetup" numMembers="30" defaultStoreCapacity="1" assetId="6321233" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="205393424" minorVersionCRC="192544713">
+			<attribute name="AwayDefPlaybookId" idx="0" type="int" minValue="0" maxValue="63" default="63" />
+			<attribute name="AwayOffPlaybookId" idx="1" type="int" minValue="0" maxValue="63" default="63" />
+			<attribute name="AwayScoreQtr1" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQtr2" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQtr3" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQtr4" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayScoreQtrOT" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AwayUniform" idx="7" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="Down" idx="8" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="GameTime" idx="9" type="int" minValue="-1" maxValue="10000" default="-1" />
+			<attribute name="HomeDefPlaybookId" idx="10" type="int" minValue="0" maxValue="63" default="63" />
+			<attribute name="HomeOffPlaybookId" idx="11" type="int" minValue="0" maxValue="63" default="63" />
+			<attribute name="HomeScoreQtr1" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQtr2" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQtr3" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQtr4" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeScoreQtrOT" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeUniform" idx="17" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="InOT" idx="18" type="bool" default="False" />
+			<attribute name="LineOfScrimmage" idx="19" type="float" default="999.99" />
+			<attribute name="OpponentScore" idx="20" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="OpponentTimeOuts" idx="21" type="int" minValue="0" maxValue="4" default="4" />
+			<attribute name="Posession" idx="22" type="PossessionType" default="PossessionType:None" />
+			<attribute name="PressureMomentId" idx="23" type="PressureMomentId" default="PressureMomentId:Invalid_" />
+			<attribute name="Quarter" idx="24" type="int" minValue="0" maxValue="15" default="15" />
+			<attribute name="QuarterLen" idx="25" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="TimeOfDay" idx="26" type="int" minValue="-1" maxValue="2047" default="0" />
+			<attribute name="UserScore" idx="27" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="UserTimeOuts" idx="28" type="int" minValue="0" maxValue="4" default="4" />
+			<attribute name="YardsToGo" idx="29" type="float" default="999.99" />
+		</schema>
+	</schemas>
+</FranTkData>

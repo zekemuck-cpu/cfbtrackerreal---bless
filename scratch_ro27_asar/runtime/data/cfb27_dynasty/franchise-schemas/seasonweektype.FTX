@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\SeasonWeekType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SeasonWeekType" numMembers="13" assetId="6321334" isRecordPersistent="true" majorVersionCRC="180005999" minorVersionCRC="122671997">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="PreSeason" idx="1" value="0" />
+			<attribute name="RegularSeason" idx="2" value="1" />
+			<attribute name="BowlSeason1" idx="3" value="2" />
+			<attribute name="FirstPlayoff_" idx="4" value="2" />
+			<attribute name="BowlSeason2" idx="5" value="3" />
+			<attribute name="BowlSeason3" idx="6" value="4" />
+			<attribute name="LastPlayoff_" idx="7" value="5" />
+			<attribute name="NationalChampionship" idx="8" value="5" />
+			<attribute name="Last_" idx="9" value="6" />
+			<attribute name="OffSeason" idx="10" value="6" />
+			<attribute name="Count_" idx="11" value="7" />
+			<attribute name="Invalid" idx="12" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

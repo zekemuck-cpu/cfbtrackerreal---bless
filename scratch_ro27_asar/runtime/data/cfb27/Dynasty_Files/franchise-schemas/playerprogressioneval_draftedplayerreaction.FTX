@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayerProgressionEval_DraftedPlayerReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerProgressionEval_DraftedPlayerReaction" numMembers="4" base="Reaction" assetId="9235527" isRecordPersistent="true" majorVersionCRC="195730094" minorVersionCRC="-714737500">
+			<attribute name="EventRecord" idx="0" type="Draft_DraftPlayerEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="9235527-1895461" />
+			<attribute name="Module" idx="2" type="PlayerProgressionEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

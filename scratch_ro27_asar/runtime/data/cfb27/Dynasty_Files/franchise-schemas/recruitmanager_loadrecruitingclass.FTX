@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\RecruitManager_LoadRecruitingClass.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitManager_LoadRecruitingClass" numMembers="4" base="none()" ownerAssetId="6733442" isRecordPersistent="true" isExpr="true" majorVersionCRC="1576561000" minorVersionCRC="432339337">
+			<attribute name="year" idx="0" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="isCoachesOnly" idx="1" type="bool" default="False" />
+			<attribute name="isTestbedDebugGeneration" idx="2" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

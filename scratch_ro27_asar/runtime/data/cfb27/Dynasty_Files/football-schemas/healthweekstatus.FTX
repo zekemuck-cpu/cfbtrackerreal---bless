@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\HealthWeekStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="HealthWeekStatus" numMembers="8" assetId="11661646" isRecordPersistent="true" majorVersionCRC="-219338651" minorVersionCRC="88504930">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Healthy" idx="1" value="0" />
+			<attribute name="Probable" idx="2" value="1" />
+			<attribute name="Questionable" idx="3" value="2" />
+			<attribute name="Doubtful" idx="4" value="3" />
+			<attribute name="Max_" idx="5" value="4" />
+			<attribute name="Out" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

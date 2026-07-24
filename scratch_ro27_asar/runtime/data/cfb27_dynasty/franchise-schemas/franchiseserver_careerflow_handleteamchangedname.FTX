@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleTeamChangedName.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleTeamChangedName" numMembers="3" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="1605287080" minorVersionCRC="950283336">
+			<attribute name="Team" idx="0" type="Team" />
+			<attribute name="SortedTeams" idx="1" type="Team[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\GoalsEval_AssignWeeklyGoals.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalsEval_AssignWeeklyGoals" numMembers="13" base="DataFlow" assetId="6702165" isRecordPersistent="true" majorVersionCRC="1573579489" minorVersionCRC="1975693188">
+			<attribute name="Clear" idx="0" type="none()" guid="6702165-1937749" />
+			<attribute name="CoachGoalsEval" idx="1" type="CoachGoalsEval" />
+			<attribute name="CoachProgressionEvalRef" idx="2" type="CoachProgressionEval" />
+			<attribute name="PlayerGoalsEval" idx="3" type="PlayerGoalsEval" />
+			<attribute name="PlayerProgressionEvalRef" idx="4" type="PlayerProgressionEval" />
+			<attribute name="Results" idx="5" type="SeasonGame[]" />
+			<attribute name="SeasonWeek" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SeasonWeekType" idx="7" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="Source" idx="8" type="record" />
+			<attribute name="Subjects" idx="9" type="SeasonGame[]" />
+			<attribute name="TailView" idx="10" type="GoalsEval_AssignWeeklyGoals_AssignWeeklyGoals" />
+			<attribute name="TalentTreeEvalRef" idx="11" type="TalentTreeEval" />
+			<attribute name="Update" idx="12" type="none()" guid="6702165-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

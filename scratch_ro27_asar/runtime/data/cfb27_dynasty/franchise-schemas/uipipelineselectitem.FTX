@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UIPipelineSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIPipelineSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="42" assetId="9197508" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="461" majorVersionCRC="1408759572" minorVersionCRC="-1983250037">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="Pipeline" default="Pipeline:Alabama" />
+		</schema>
+	</schemas>
+</FranTkData>

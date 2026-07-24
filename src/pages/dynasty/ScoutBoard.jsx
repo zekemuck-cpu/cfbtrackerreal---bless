@@ -14,6 +14,7 @@ import GemBustIcon from '../../components/GemBustIcon'
 import ClearAllTargetsModal from '../../components/ClearAllTargetsModal'
 import { shapeTargetForDatabase, positionBucket } from '../../utils/recruitAttributes'
 import { useToast } from '../../components/ui/Toast'
+import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 
 // Scout Board (the Targets tab): tracked recruiting targets. Each compact
 // row shows name, stars, ranks, and a grade + composite score (local Scout
@@ -33,13 +34,18 @@ const Chevron = ({ open }) => (
   </svg>
 )
 
-function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalScores, allPlayers, weightsMap, pool, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver, onToggleRemove, canEdit, isOpen, onToggleOpen }) {
+function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalScores, allPlayers, weightsMap, pool, draggable: isDraggable, onDragStart, onDragOver, onDrop, isDragOver, onToggleRemove, onHide, dynastyTeams, canEdit, isOpen, onToggleOpen }) {
   const { p, status } = r
   const navigate = useNavigate()
   const open = isOpen
   const lost = status === 'committed_elsewhere'
   const committed = status === 'committed_us'
   const removed = !!p.boardRemoved
+  // Which school actually landed this recruit — resolved from the same
+  // commitmentTid the "Lost" status itself is computed from, so the logo
+  // always matches (never guessed from name text).
+  const lostTeamName = lost && p.commitmentTid != null ? getMascotName(p.commitmentTid, dynastyTeams) : null
+  const lostTeamLogo = lost && p.commitmentTid != null ? getTeamLogoByTid(p.commitmentTid, dynastyTeams) : null
 
   // National/state/position rank now live in the always-visible row itself
   // (alongside position); archetype + Proj Ovr stay in the expanded dropdown.
@@ -119,7 +125,19 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
             </span>
             {Number(p.stars) > 0 && <span className="text-[10px] flex-shrink-0 tracking-tight" style={{ color: 'var(--accent-warning)' }}>{STAR(p.stars)}</span>}
             {committed && <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide flex-shrink-0">· Committed</span>}
-            {lost && <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide flex-shrink-0">· Lost</span>}
+            {lost && (
+              <span className="inline-flex items-center gap-1 flex-shrink-0">
+                <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide">· Lost</span>
+                {lostTeamLogo && (
+                  <img
+                    src={lostTeamLogo}
+                    alt={lostTeamName || 'Committed elsewhere'}
+                    title={lostTeamName ? `Committed to ${lostTeamName}` : undefined}
+                    className="w-4 h-4 object-contain flex-shrink-0"
+                  />
+                )}
+              </span>
+            )}
             {removed && (
               <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider text-slate-500 border border-slate-700 bg-slate-900 flex-shrink-0">Removed</span>
             )}
@@ -169,6 +187,19 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
           </button>
         )}
 
+        {canEdit && onHide && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onHide(p) }}
+            className="flex-shrink-0 p-1.5 rounded transition text-slate-600 hover:text-red-500 hover:bg-red-950/40"
+            title="Hide from this page completely (kept in the Recruiting Database)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+            </svg>
+          </button>
+        )}
+
         <Chevron open={open} />
       </div>
 
@@ -210,6 +241,19 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     const players = dynasty.players || []
     const newPlayers = players.map(p => p.pid === pl.pid ? { ...p, boardRemoved: !p.boardRemoved } : p)
     await updateDynasty(dynasty.id, { players: newPlayers }, { changedPlayerPids: [pl.pid] })
+  }
+
+  // Hide a recruit from THIS page entirely (Big Board and Removed) without
+  // touching the underlying player record — isTarget stays true, so the
+  // Recruiting Database / Scout Staff grading pool (which reads dynasty.players
+  // directly, not this list) is completely unaffected. Mirrors the existing
+  // recruitingDatabaseExcludedPids pattern (PlayerDatabase.jsx), just scoped to
+  // this page's board instead of the Database view.
+  const handleHideFromBoard = async (pl) => {
+    if (!dynasty) return
+    const hidden = new Set((dynasty.recruitingBoardHiddenPids || []).map(String))
+    hidden.add(String(pl.pid))
+    await updateDynasty(dynasty.id, { recruitingBoardHiddenPids: [...hidden] })
   }
 
   const [showClearAll, setShowClearAll] = useState(false)
@@ -298,14 +342,26 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
   // display (badges, rank labels) unchanged.
   const targets = useMemo(() => {
     if (!viewingOwnTeam) return []
+    const hiddenPids = new Set((dynasty?.recruitingBoardHiddenPids || []).map(String))
     const out = []
     for (const p of dynasty?.players || []) {
       if (!p.isTarget || Number(p.targetYear) !== yearN) continue
+      // Hidden from THIS page only (see handleHideFromBoard) — isTarget is
+      // untouched, so the Recruiting Database / Scout Staff grading pool
+      // below still sees this recruit exactly as before.
+      if (hiddenPids.has(String(p.pid))) continue
+      const status = getTargetStatus(p, userTid)
+      // Once committed to US, this recruit's home is the Commitments tab —
+      // showing them here too (active board OR Removed) is exactly the
+      // clutter the user asked to eliminate. Commitments reads the separate
+      // recruitingCommitments ledger, not isTarget/boardRemoved, so nothing
+      // is lost by dropping them from this page entirely.
+      if (status === 'committed_us') continue
       const bucketed = { ...p, rawPosition: p.position, position: positionBucket(p.position) }
-      out.push({ p: bucketed, status: getTargetStatus(p, userTid) })
+      out.push({ p: bucketed, status })
     }
     return out
-  }, [dynasty?.players, yearN, userTid, viewingOwnTeam])
+  }, [dynasty?.players, dynasty?.recruitingBoardHiddenPids, yearN, userTid, viewingOwnTeam])
 
   // Grading comp pool — every recruit the Recruiting Database itself grades
   // against (real Targets across every class year, bucketed the same way,
@@ -486,6 +542,8 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
               onToggleOpen={() => toggleOpenPid(r.p.pid)}
               canEdit={canEdit}
               onToggleRemove={handleToggleRemove}
+              onHide={handleHideFromBoard}
+              dynastyTeams={dynasty?.teams}
               draggable
               onDragStart={() => { dragPid.current = r.p.pid; dragFromRemoved.current = false }}
               onDragOver={(e) => { e.preventDefault(); setDragOverPid(r.p.pid); setDragOverRemoved(false) }}
@@ -542,6 +600,8 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
                   onToggleOpen={() => toggleOpenPid(r.p.pid)}
                   canEdit={canEdit}
                   onToggleRemove={handleToggleRemove}
+                  onHide={handleHideFromBoard}
+                  dynastyTeams={dynasty?.teams}
                   draggable
                   onDragStart={() => { dragPid.current = r.p.pid; dragFromRemoved.current = true }}
                   onDragEnd={() => { dragPid.current = null; dragFromRemoved.current = false; setDragOverRemoved(false) }}

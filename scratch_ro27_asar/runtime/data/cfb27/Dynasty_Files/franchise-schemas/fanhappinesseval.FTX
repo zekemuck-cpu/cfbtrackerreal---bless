@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\FanHappinessEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FanHappinessEval" numMembers="3" base="Module" assetId="6494947" isRecordPersistent="true" majorVersionCRC="668010836" minorVersionCRC="658192583">
+			<attribute name="CalculateTeamValueComponentValue" idx="0" type="FanHappinessEval_CalculateTeamValueComponentValue" guid="6494947-1913366" final="true" />
+			<attribute name="PersonalityTuningTable" idx="1" type="CityPersonalityRecordTable" />
+			<attribute name="ValidateExpressions" idx="2" type="none()" guid="6494947-1913371" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

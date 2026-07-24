@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\IconAndString.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="IconAndString" numMembers="2" assetId="6495188" isRecordPersistent="true" majorVersionCRC="1267550500" minorVersionCRC="-321346150">
+			<attribute name="Description" idx="0" type="string" maxLen="1" />
+			<attribute name="IconId" idx="1" type="int" minValue="-3" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

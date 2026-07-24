@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\PressureMomentId.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PressureMomentId" numMembers="14" assetId="6321214" isRecordPersistent="true" majorVersionCRC="1381037150" minorVersionCRC="-767142061">
+			<attribute name="Invalid_" idx="0" value="-1" />
+			<attribute name="None" idx="1" value="0" />
+			<attribute name="HWGH_Offense" idx="2" value="1" />
+			<attribute name="HWGH_Defense" idx="3" value="2" />
+			<attribute name="SSUX_Offense" idx="4" value="3" />
+			<attribute name="SSUX_Defense" idx="5" value="4" />
+			<attribute name="SWGX_Offense" idx="6" value="5" />
+			<attribute name="SWGX_Defense" idx="7" value="6" />
+			<attribute name="FSUX_Offense" idx="8" value="7" />
+			<attribute name="FSUX_Defense" idx="9" value="8" />
+			<attribute name="ECBX_Offense" idx="10" value="9" />
+			<attribute name="TTNL_Offense" idx="11" value="10" />
+			<attribute name="PTUU_Offense" idx="12" value="11" />
+			<attribute name="PTUU_Defense" idx="13" value="12" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,17 @@
+<FranTkData fileName="Football-Schemas\PersonaDNA.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaDNA" numMembers="10" assetId="12355452" isRecordPersistent="true" majorVersionCRC="839943868" minorVersionCRC="-1797297350">
+			<attribute name="Description" idx="0" type="string" maxLen="1" />
+			<attribute name="Eligibility" idx="1" type="PersonaDNAEligibility" default="PersonaDNAEligibility:Player" />
+			<attribute name="Exclusions" idx="2" type="PersonaDNA[]" />
+			<attribute name="Icon" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MoraleGainsMod" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MoralePenaltiesMod" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Priority" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Title" idx="7" type="string" maxLen="1" />
+			<attribute name="XPGainsMod" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="XPPenaltiesMod" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_CreateTeamRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_CreateTeamRequest" numMembers="4" base="ReSign_TeamRequest()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-221158799" minorVersionCRC="1736452470">
+			<attribute name="contractLength" idx="0" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="contractSalary" idx="1" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="contractBonus" idx="2" type="int" minValue="0" maxValue="8191" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

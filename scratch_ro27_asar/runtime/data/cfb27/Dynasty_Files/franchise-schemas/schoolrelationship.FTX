@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\SchoolRelationship.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SchoolRelationship" numMembers="17" defaultStoreCapacity="138" assetId="10605447" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-962382640" minorVersionCRC="-1572947178">
+			<attribute name="AcademicsMeterBonus" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BrandMeterBonus" idx="1" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="CoachTrustBonus" idx="2" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="ExperiencePointsBonus" idx="3" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="FitnessMeterBonus" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeadershipMeterBonus" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrevTeamNeedScore" idx="6" type="int" minValue="-3000" maxValue="200" default="0" />
+			<attribute name="ScenarioScholarshipBonusTier" idx="7" type="int" minValue="-4" maxValue="4" default="0" />
+			<attribute name="ScenarioScholarshipScore" idx="8" type="int" minValue="-5000" maxValue="5000" default="0" />
+			<attribute name="ScholarshipBonusTier" idx="9" type="ScholarshipBonusOfferTier" default="ScholarshipBonusOfferTier:Bronze" />
+			<attribute name="ScholarshipOfferStatus" idx="10" type="ScholarshipStatus" default="ScholarshipStatus:None" />
+			<attribute name="ScholarshipScore" idx="11" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="SkillPointsBonus" idx="12" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TapeScoreBonus" idx="13" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Team" idx="14" type="Team" />
+			<attribute name="TeamNeedScore" idx="15" type="int" minValue="-3000" maxValue="200" default="0" />
+			<attribute name="WasDecommitted" idx="16" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

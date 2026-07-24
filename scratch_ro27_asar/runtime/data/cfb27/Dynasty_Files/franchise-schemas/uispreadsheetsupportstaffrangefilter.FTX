@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetSupportStaffRangeFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntRangeFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetSupportStaffRangeFilter" numMembers="4" base="UISpreadsheetIntRangeFilter" defaultStoreCapacity="2" assetId="12133616" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="36" majorVersionCRC="-214964016" minorVersionCRC="1989493643">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="MaxValue" idx="2" type="TeamUpgradeEffectType" default="TeamUpgradeEffectType:Last_" />
+			<attribute name="MinValue" idx="3" type="TeamUpgradeEffectType" default="TeamUpgradeEffectType:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

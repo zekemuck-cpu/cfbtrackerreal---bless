@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\PlayerDurabilityGradePhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerDurabilityGradePhilosophy" numMembers="6" assetId="6378046" isRecordPersistent="true" majorVersionCRC="-144266544" minorVersionCRC="-1526014928">
+			<attribute name="DesiredHigh" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DesiredLow" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GradeWeights" idx="2" type="PlayerDurabilityGradeWeights" />
+			<attribute name="MaxRating" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverallDurabilityWeight" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverallDurabilityWeightSpline" idx="5" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

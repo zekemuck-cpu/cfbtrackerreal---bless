@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\SetPersonalityAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SetPersonalityAction" numMembers="5" base="SequenceAction" defaultStoreCapacity="1" assetId="10944484" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1701108704" minorVersionCRC="-1196195157">
+			<attribute name="Actor" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="Default" idx="1" type="bool" default="False" />
+			<attribute name="Enabled" idx="2" type="bool" default="True" />
+			<attribute name="Personality" idx="3" type="Personality" default="Personality:First_" />
+			<attribute name="Target" idx="4" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

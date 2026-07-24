@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\GameplayModifierEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameplayModifierEval" numMembers="7" base="Module" assetId="6498655" isRecordPersistent="true" majorVersionCRC="1392811721" minorVersionCRC="-1278183611">
+			<attribute name="ActiveTempModifier" idx="0" type="TempGameModifier[]" />
+			<attribute name="ClearSeasonGameWeightedGameplayModifiers" idx="1" type="GameplayModifierEval_ClearSeasonGameWeightedGameplayModifiers" guid="6498655-1925761" final="true" />
+			<attribute name="ProgressTeamHomeFieldAdvantages" idx="2" type="none()" guid="6498655-1925757" />
+			<attribute name="Random" idx="3" type="Random" />
+			<attribute name="Teams" idx="4" type="Team[]" />
+			<attribute name="TeamValueEval" idx="5" type="TeamValueEval" />
+			<attribute name="TeamWeightedGameplayModArray" idx="6" type="TeamWeightedGameplayMod[]" />
+		</schema>
+	</schemas>
+</FranTkData>

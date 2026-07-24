@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UICoachAdaptiveAISelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UICoachAdaptiveAISelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="9" assetId="9197519" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="156" majorVersionCRC="-1280133124" minorVersionCRC="1501905755">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="CoachAdaptiveAI" default="CoachAdaptiveAI:Conservative" />
+		</schema>
+	</schemas>
+</FranTkData>

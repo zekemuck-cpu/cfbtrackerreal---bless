@@ -1,0 +1,56 @@
+<FranTkData fileName="Franchise-Schemas\HUBPanelType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="HUBPanelType" numMembers="49" assetId="8227445" isRecordPersistent="true" majorVersionCRC="739284155" minorVersionCRC="-1799204263">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="Actions_PlayGame" idx="1" value="1" />
+			<attribute name="Start_" idx="2" value="1" />
+			<attribute name="Actions_PlayGame_Helmets" idx="3" value="2" />
+			<attribute name="Actions_POTW" idx="4" value="3" />
+			<attribute name="All_American" idx="5" value="4" />
+			<attribute name="Awards_Flow" idx="6" value="5" />
+			<attribute name="Bowl_Projections" idx="7" value="6" />
+			<attribute name="Bracket_Board" idx="8" value="7" />
+			<attribute name="Coach_CoachContracts" idx="9" value="8" />
+			<attribute name="Coach_XP_Goals" idx="10" value="9" />
+			<attribute name="Coaching_Staff" idx="11" value="10" />
+			<attribute name="Conference_Standings_Divison" idx="12" value="11" />
+			<attribute name="Conference_Standings_NoDivison" idx="13" value="12" />
+			<attribute name="Game_InjuryReport" idx="14" value="13" />
+			<attribute name="Game_TeamStats" idx="15" value="14" />
+			<attribute name="Heisman_Watch" idx="16" value="15" />
+			<attribute name="Postgame_FinalScore" idx="17" value="16" />
+			<attribute name="Single_Icon" idx="18" value="17" />
+			<attribute name="Snapshot_Flow" idx="19" value="18" />
+			<attribute name="Stat_Table" idx="20" value="19" />
+			<attribute name="Team_InjuryReport" idx="21" value="20" />
+			<attribute name="Top_25_Polls" idx="22" value="21" />
+			<attribute name="Top_Players" idx="23" value="22" />
+			<attribute name="Toughest_Places_User_Top_10" idx="24" value="23" />
+			<attribute name="Toughest_Places_User_Not_Top_25" idx="25" value="24" />
+			<attribute name="HighShool_TopSchools" idx="26" value="25" />
+			<attribute name="Coach_Info" idx="27" value="26" />
+			<attribute name="Lineup_offense" idx="28" value="27" />
+			<attribute name="Lineup_defense" idx="29" value="28" />
+			<attribute name="Teams_StatsRecap" idx="30" value="29" />
+			<attribute name="Match_ResultRecap" idx="31" value="30" />
+			<attribute name="Match_ResultDetailed" idx="32" value="31" />
+			<attribute name="Schedule" idx="33" value="32" />
+			<attribute name="Team_WithPose" idx="34" value="33" />
+			<attribute name="Team_PosedPlayers" idx="35" value="34" />
+			<attribute name="Award_Contenders" idx="36" value="35" />
+			<attribute name="Rivalry" idx="37" value="36" />
+			<attribute name="Players_To_Watch" idx="38" value="37" />
+			<attribute name="Bye_Week" idx="39" value="38" />
+			<attribute name="Player_LegacyScore" idx="40" value="39" />
+			<attribute name="Actions_PlayGame_Detailed" idx="41" value="40" />
+			<attribute name="Game_TeamStats_WithDescription" idx="42" value="41" />
+			<attribute name="Players_To_Watch_With_Description" idx="43" value="42" />
+			<attribute name="Championship_Match" idx="44" value="43" />
+			<attribute name="InfoSentience_Hero" idx="45" value="44" />
+			<attribute name="InfoSentience_BoxScore" idx="46" value="45" />
+			<attribute name="Count_" idx="47" value="46" />
+			<attribute name="End_" idx="48" value="46" />
+		</enum>
+	</schemas>
+</FranTkData>

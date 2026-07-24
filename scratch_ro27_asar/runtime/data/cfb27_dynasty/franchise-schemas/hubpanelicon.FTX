@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\HUBPanelIcon.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\HUBPanel.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HUBPanelIcon" numMembers="8" base="HUBPanel" defaultStoreCapacity="64" assetId="8521446" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="4015" majorVersionCRC="26733240" minorVersionCRC="-1440026385">
+			<attribute name="CanShow" idx="0" type="HUBPanel_CanShow" guid="8521446-2079090" final="true" default="bool canShow = true;&#xD;&#xA;&#xD;&#xA;canShow ;" />
+			<attribute name="Header" idx="1" type="string" maxLen="81" />
+			<attribute name="HUBPanelData" idx="2" type="HUBPanelData" default="HUBPanelData:None_None" />
+			<attribute name="HUBPanelType" idx="3" type="HUBPanelType" default="HUBPanelType:None" />
+			<attribute name="ImageId" idx="4" type="int" minValue="0" maxValue="5100" default="0" />
+			<attribute name="LibraryId" idx="5" type="int" minValue="0" maxValue="100" default="34" />
+			<attribute name="RequiresContext" idx="6" type="bool" default="True" />
+			<attribute name="Tag" idx="7" type="string" maxLen="181" />
+		</schema>
+	</schemas>
+</FranTkData>

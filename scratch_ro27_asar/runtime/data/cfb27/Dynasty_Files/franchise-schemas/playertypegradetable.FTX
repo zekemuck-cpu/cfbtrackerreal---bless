@@ -1,0 +1,70 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTypeGradeTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTypeGradeTable" numMembers="63" defaultStoreCapacity="138" assetId="11148411" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1880026960" minorVersionCRC="-687705004">
+			<attribute name="C_Agile" idx="0" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="C_PassProtector" idx="1" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="C_Power" idx="2" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="C_WellRounded" idx="3" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="CB_HybridCorner" idx="4" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="CB_MantoMan" idx="5" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="CB_Slot" idx="6" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="CB_Zone" idx="7" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DE_PowerRusher" idx="8" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DE_PurePower" idx="9" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DE_RunStopper" idx="10" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DE_SmallerSpeedRusher" idx="11" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DT_NoseTackle" idx="12" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DT_PowerRusher" idx="13" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DT_PurePower" idx="14" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="DT_SpeedRusher" idx="15" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="FB_Blocking" idx="16" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="FB_Utility" idx="17" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="G_Agile" idx="18" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="G_PassProtector" idx="19" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="G_Power" idx="20" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="HB_ElusiveBack" idx="21" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="HB_ElusivePower" idx="22" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="HB_ElusiveReceiving" idx="23" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="HB_PowerBack" idx="24" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="HB_PowerBlocking" idx="25" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="HB_PowerReceiving" idx="26" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="HB_ReceivingBack" idx="27" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="KP_Accurate" idx="28" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="KP_Power" idx="29" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="MLB_FieldGeneral" idx="30" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="MLB_PassCoverage" idx="31" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="MLB_RunStopper" idx="32" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OG_WellRounded" idx="33" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OLB_PassCoverage" idx="34" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OLB_PowerRusher" idx="35" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OLB_RunStopper" idx="36" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OLB_SpeedRusher" idx="37" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OT_Agile" idx="38" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OT_PassProtector" idx="39" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OT_Power" idx="40" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="OT_WellRounded" idx="41" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="QB_FieldGeneral" idx="42" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="QB_Improviser" idx="43" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="QB_PureScrambler" idx="44" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="QB_Scrambler" idx="45" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="QB_StrongArm" idx="46" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="S_Hybrid" idx="47" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="S_RunSupport" idx="48" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="S_Zone" idx="49" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="TE_Blocking" idx="50" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="TE_PhysicalRouteRunner" idx="51" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="TE_Possession" idx="52" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="TE_PossessionBlocking" idx="53" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="TE_VerticalThreat" idx="54" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_DeepThreat" idx="55" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_GadgetReceiver" idx="56" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_Physical" idx="57" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_PhysicalBlocker" idx="58" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_PhysicalRouteRunner" idx="59" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_Playmaker" idx="60" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_ShiftyRouteRunner" idx="61" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="WR_Slot" idx="62" type="LetterGrade" default="LetterGrade:Aplus" />
+		</schema>
+	</schemas>
+</FranTkData>

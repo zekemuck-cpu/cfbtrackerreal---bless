@@ -1,0 +1,57 @@
+<FranTkData fileName="Franchise-Schemas\CoachWeeklyActorGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachWeeklyGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachWeeklyActorGoal" numMembers="46" base="CoachWeeklyGoal" assetId="6536972" isRecordPersistent="true" majorVersionCRC="1761197525" minorVersionCRC="-1342070631">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BaseCompletionValue" idx="1" type="int" minValue="-1" maxValue="20000" default="0" />
+			<attribute name="BasePartialCompletionValue" idx="2" type="int" minValue="-1" maxValue="20000" default="-1" />
+			<attribute name="BasePartialStaffPointAward" idx="3" type="int" minValue="0" maxValue="2047" default="2" />
+			<attribute name="BaseRating" idx="4" type="int" minValue="1" maxValue="100" default="1" />
+			<attribute name="BaseStaffPointAward" idx="5" type="int" minValue="0" maxValue="2047" default="2" />
+			<attribute name="CalculatePlayerXPAward" idx="6" type="CoachWeeklyGoal_CalculatePlayerXPAward" guid="6536972-1935412" final="true" default="// no modifiers.&#xD;&#xA;int award = 0;&#xD;&#xA;&#xD;&#xA;if (isComplete)&#xD;&#xA;{&#xD;&#xA;    award = (award + PlayerXPAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (PartialPlayerXPAward &gt; 0)&#xD;&#xA;{&#xD;&#xA;    award = (award + PartialPlayerXPAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;award;" />
+			<attribute name="CanShowProgressValues" idx="7" type="bool" default="True" />
+			<attribute name="CoachExperienceAward" idx="8" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="CoachPrestigeScore" idx="9" type="int" minValue="-1000" maxValue="1000" default="0" />
+			<attribute name="Description" idx="10" type="string" maxLen="81" />
+			<attribute name="DynastyPointAward" idx="11" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="FromStats" idx="12" type="bool" default="False" />
+			<attribute name="GetCompletionValue" idx="13" type="CoachWeeklyGoal_GetCompletionValue" guid="6536972-1935396" final="true" default="int value = BaseCompletionValue;&#xD;&#xA;if (value &lt; MinCompletionValue)&#xD;&#xA;{&#xD;&#xA;    value = MinCompletionValue;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (value &gt; MaxCompletionValue)&#xD;&#xA;{ &#xD;&#xA;    value = MaxCompletionValue;&#xD;&#xA;}&#xD;&#xA;value;" />
+			<attribute name="GetPartialCompletionValue" idx="14" type="CoachWeeklyGoal_GetPartialCompletionValue" guid="6536972-1935424" final="true" default="int value = BasePartialCompletionValue;&#xD;&#xA;&#xD;&#xA;if(IsInvertedGoal)&#xD;&#xA;{&#xD;&#xA; if (value &lt; MinCompletionValue)&#xD;&#xA; { &#xD;&#xA;      value = MinCompletionValue;&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA; if (value &gt; MaxCompletionValue)&#xD;&#xA; { &#xD;&#xA;      value = MaxCompletionValue;&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;value;" />
+			<attribute name="GetProgress" idx="15" type="CoachWeeklyGoal_GetProgress" guid="6536972-1935368" />
+			<attribute name="GetRating" idx="16" type="CoachWeeklyGoal_GetRating" guid="6536972-1935375" />
+			<attribute name="GetStaffPointAward" idx="17" type="CoachWeeklyGoal_GetStaffPointAward" guid="6536972-1935388" final="true" default="int award = 0;&#xD;&#xA;&#xD;&#xA;if (isComplete)&#xD;&#xA;{&#xD;&#xA;    award = (award + BaseStaffPointAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (BasePartialStaffPointAward &gt; 0)&#xD;&#xA;{&#xD;&#xA;    award = (award + BasePartialStaffPointAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (award &lt; MinStaffPointAward)&#xD;&#xA;{&#xD;&#xA;    award = MinStaffPointAward;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (award &gt; MaxStaffPointAward)&#xD;&#xA;{ &#xD;&#xA;    award = MaxStaffPointAward;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;award;" />
+			<attribute name="IconAssetId" idx="18" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="19" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="20" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="21" type="bool" default="False" />
+			<attribute name="IsInvertedGoal" idx="22" type="bool" default="False" />
+			<attribute name="IsScenarioGoal" idx="23" type="bool" default="False" />
+			<attribute name="LegacyScoreAward" idx="24" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="25" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="26" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="27" type="string" maxLen="31" />
+			<attribute name="LevelSpline" idx="28" type="Spline" />
+			<attribute name="MaxCompletionValue" idx="29" type="int" minValue="0" maxValue="20000" default="20000" />
+			<attribute name="MaxStaffPointAward" idx="30" type="int" minValue="0" maxValue="2047" default="3" />
+			<attribute name="MinCompletionValue" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinStaffPointAward" idx="32" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="OppOverall" idx="33" type="Spline" />
+			<attribute name="OwnTeamOverall" idx="34" type="Spline" />
+			<attribute name="PartialLegacyScoreAward" idx="35" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="PartialPlayerXPAward" idx="36" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="PlayerWeeklyGoal" idx="37" type="PlayerWeeklyGoal" />
+			<attribute name="PlayerXPAward" idx="38" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="PrimaryCoachStat" idx="39" type="CoachStatType" default="CoachStatType:Invalid" />
+			<attribute name="PrimaryTeamStat" idx="40" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="SecondaryCoachStat" idx="41" type="CoachStatType" default="CoachStatType:Invalid" />
+			<attribute name="SecondaryTeamStat" idx="42" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="TargetActor" idx="43" type="TargetedActorType" default="TargetedActorType:UserPlayer" />
+			<attribute name="Title" idx="44" type="string" maxLen="61" />
+			<attribute name="UseOpponentTeamStats" idx="45" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

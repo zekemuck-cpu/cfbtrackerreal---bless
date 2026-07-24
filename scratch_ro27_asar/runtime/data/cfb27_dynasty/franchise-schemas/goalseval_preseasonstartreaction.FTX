@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\GoalsEval_PreSeasonStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalsEval_PreSeasonStartReaction" numMembers="9" base="Reaction" assetId="6499106" isRecordPersistent="true" majorVersionCRC="1972732512" minorVersionCRC="-2037977068">
+			<attribute name="AssignSeasonGoalsTransaction" idx="0" type="AssignSeasonGoalsTransaction" />
+			<attribute name="CoachGoalsEvalRef" idx="1" type="CoachGoalsEval" />
+			<attribute name="EventRecord" idx="2" type="PreseasonStartEvent" />
+			<attribute name="FranchiseRef" idx="3" type="Franchise" />
+			<attribute name="Handle" idx="4" type="bool()" guid="6499106-1895461" />
+			<attribute name="PlayerGoalsEvalRef" idx="5" type="PlayerGoalsEval" />
+			<attribute name="Priority" idx="6" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonalGoalUpdateEventRef" idx="7" type="SeasonGoalUpdateEvent" />
+			<attribute name="SeasonInfoUpdateEventRef" idx="8" type="SeasonInfoUpdateEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

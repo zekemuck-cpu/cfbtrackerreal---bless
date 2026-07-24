@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\CoachSpecialtyType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachSpecialtyType" numMembers="3" assetId="8624640" isRecordPersistent="true" majorVersionCRC="-641040511" minorVersionCRC="-111769014">
+			<attribute name="Offense" idx="0" value="0" />
+			<attribute name="Defense" idx="1" value="1" />
+			<attribute name="Any" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

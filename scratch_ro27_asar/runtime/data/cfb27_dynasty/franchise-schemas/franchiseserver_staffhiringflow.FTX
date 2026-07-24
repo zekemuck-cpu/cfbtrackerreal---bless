@@ -1,0 +1,42 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_StaffHiringFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_StaffHiringFlow" numMembers="31" base="FranTkServer_Flow" assetId="6498929" isRecordPersistent="true" majorVersionCRC="1597526832" minorVersionCRC="1801328093">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="CoachPrestigeEnumTable" idx="1" type="EnumTable" />
+			<attribute name="ContractStatusEnumTable" idx="2" type="EnumTable" />
+			<attribute name="DefensivePlaybookEnumTable" idx="3" type="EnumTable" />
+			<attribute name="Form" idx="4" type="UIForm" />
+			<attribute name="FormManager" idx="5" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="6" type="Franchise" />
+			<attribute name="JobSecurityEnumTable" idx="7" type="EnumTable" />
+			<attribute name="OffensivePlaybookEnumTable" idx="8" type="EnumTable" />
+			<attribute name="PipelineEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PlayerGoalsEval" idx="11" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEnumTable" idx="12" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="13" type="EnumTable" />
+			<attribute name="PositionGroupEnumTable" idx="14" type="EnumTable" />
+			<attribute name="RequestServer" idx="15" type="RequestServer" />
+			<attribute name="SchemeEnumTable" idx="16" type="EnumTable" />
+			<attribute name="SeasonManager" idx="17" type="SeasonManager" />
+			<attribute name="SeasonScheduleManager" idx="18" type="SeasonScheduleManager" />
+			<attribute name="StaffHiringEval" idx="19" type="StaffHiringEval" />
+			<attribute name="StaffPositionEnumTable" idx="20" type="EnumTable" />
+			<attribute name="StatusEnumTable" idx="21" type="EnumTable" />
+			<attribute name="StringManager" idx="22" type="StringManager" />
+			<attribute name="TalentArchetypeEnumTable" idx="23" type="EnumTable" />
+			<attribute name="TalentTreeEval" idx="24" type="TalentTreeEval" />
+			<attribute name="TeamManager" idx="25" type="TeamManager" />
+			<attribute name="TeamRevenueEval" idx="26" type="TeamRevenueEval" />
+			<attribute name="TeamSideEnumTable" idx="27" type="EnumTable" />
+			<attribute name="TeamUpgradeEffectTypeEnumTable" idx="28" type="EnumTable" />
+			<attribute name="TransactionHistoryManager" idx="29" type="TransactionHistoryManager" />
+			<attribute name="UserRegistry" idx="30" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

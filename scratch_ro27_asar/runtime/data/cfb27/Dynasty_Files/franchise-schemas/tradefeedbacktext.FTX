@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TradeFeedbackText.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeFeedbackText" numMembers="2" defaultStoreCapacity="1" assetId="6495410" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1940217312" minorVersionCRC="1730458065">
+			<attribute name="Response1" idx="0" type="string" maxLen="33" />
+			<attribute name="Response2" idx="1" type="string" maxLen="33" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_HandleOffSeasonStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_HandleOffSeasonStartEvent" numMembers="2" base="none()" ownerAssetId="6498459" isRecordPersistent="true" isExpr="true" majorVersionCRC="1883429942" minorVersionCRC="1146763102">
+			<attribute name="event" idx="0" type="OffseasonStartEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

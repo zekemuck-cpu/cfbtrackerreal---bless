@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\SequenceActorMapEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SequenceActorMapEntry" numMembers="2" assetId="11909765" isRecordPersistent="true" majorVersionCRC="-1766499158" minorVersionCRC="1617542763">
+			<attribute name="ActorName" idx="0" type="ActorName" default="ActorName:Player" />
+			<attribute name="SequenceActor" idx="1" type="SequenceActor" />
+		</schema>
+	</schemas>
+</FranTkData>

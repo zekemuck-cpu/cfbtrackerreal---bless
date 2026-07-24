@@ -1,0 +1,51 @@
+<FranTkData fileName="Franchise-Schemas\OfferManagementRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OfferManagementRequest" numMembers="40" base="UIRequestForm" defaultStoreCapacity="32" assetId="7742632" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="340188336" minorVersionCRC="1818609537">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="7742632-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="Description" idx="8" type="string" const="true" maxLen="14" default="CoachCarousel" />
+			<attribute name="Dismiss" idx="9" type="none()" guid="7742632-1895671" />
+			<attribute name="ExpirationDuration" idx="10" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="11" type="none()" guid="7742632-2079324" final="true" />
+			<attribute name="HasResolution" idx="12" type="bool()" guid="7742632-1895676" />
+			<attribute name="Header" idx="13" type="string" maxLen="81" default="Enter the Coach Carousel" />
+			<attribute name="IsBlocking" idx="14" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="15" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="16" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="17" type="bool()" guid="7742632-1895678" />
+			<attribute name="IsResponseRequired" idx="18" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="19" type="bool" default="True" />
+			<attribute name="Issue" idx="20" type="Request_Issue" guid="7742632-1895668" />
+			<attribute name="IssueTime" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxStoriesToShow" idx="22" type="int" minValue="0" maxValue="4" default="1" />
+			<attribute name="NewsCategory" idx="23" type="NewsCategory" default="NewsCategory:COACH_INFO" />
+			<attribute name="OfferManagementType" idx="24" type="OfferManagementType" default="OfferManagementType:CoachCarousel" />
+			<attribute name="Priority" idx="25" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="26" type="none()" guid="7742632-1895686" final="true" />
+			<attribute name="RequestData" idx="27" type="record" />
+			<attribute name="RequestForm" idx="28" type="ResponseForm" />
+			<attribute name="RequestId" idx="29" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="30" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="33" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="34" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="35" type="bool" default="True" />
+			<attribute name="Tag" idx="36" type="string" maxLen="181" default="Check out the latest Job Offers!" />
+			<attribute name="TargetUser" idx="37" type="User" />
+			<attribute name="Title" idx="38" type="string" const="true" maxLen="15" default="Coach Carousel" />
+			<attribute name="TypeName" idx="39" type="string" const="true" maxLen="14" default="CoachCarousel" />
+		</schema>
+	</schemas>
+</FranTkData>

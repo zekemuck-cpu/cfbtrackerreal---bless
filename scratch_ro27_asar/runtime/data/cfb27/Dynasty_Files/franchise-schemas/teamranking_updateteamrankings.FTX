@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\TeamRanking_UpdateTeamRankings.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRanking_UpdateTeamRankings" numMembers="6" base="DataFlow" assetId="6499051" isRecordPersistent="true" majorVersionCRC="-1700763410" minorVersionCRC="-1246882974">
+			<attribute name="Clear" idx="0" type="none()" guid="6499051-1937749" />
+			<attribute name="Results" idx="1" type="Team[]" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="Subjects" idx="3" type="Team[]" />
+			<attribute name="TailView" idx="4" type="TeamRanking_UpdateTeamRankings_UpdateDefensiveRank" />
+			<attribute name="Update" idx="5" type="none()" guid="6499051-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

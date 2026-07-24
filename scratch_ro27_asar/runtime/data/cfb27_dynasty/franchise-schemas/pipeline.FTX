@@ -1,0 +1,54 @@
+<FranTkData fileName="Franchise-Schemas\Pipeline.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Pipeline" numMembers="47" assetId="6716467" isRecordPersistent="true" majorVersionCRC="-1117495901" minorVersionCRC="1077920564">
+			<attribute name="Alabama" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Arizona" idx="2" value="1" />
+			<attribute name="Arkansas" idx="3" value="2" />
+			<attribute name="BigApple" idx="4" value="3" />
+			<attribute name="BigSky" idx="5" value="4" />
+			<attribute name="CentralFlorida" idx="6" value="5" />
+			<attribute name="Colorado" idx="7" value="6" />
+			<attribute name="EastTexas" idx="8" value="7" />
+			<attribute name="Hawaii" idx="9" value="8" />
+			<attribute name="Illinois" idx="10" value="9" />
+			<attribute name="Indiana" idx="11" value="10" />
+			<attribute name="Iowa" idx="12" value="11" />
+			<attribute name="Kansas" idx="13" value="12" />
+			<attribute name="Kentucky" idx="14" value="13" />
+			<attribute name="Louisiana" idx="15" value="14" />
+			<attribute name="MetroAtlanta" idx="16" value="15" />
+			<attribute name="Michigan" idx="17" value="16" />
+			<attribute name="Minnesota" idx="18" value="17" />
+			<attribute name="Mississippi" idx="19" value="18" />
+			<attribute name="Missouri" idx="20" value="19" />
+			<attribute name="Nebraska" idx="21" value="20" />
+			<attribute name="Nevada" idx="22" value="21" />
+			<attribute name="NewEngland" idx="23" value="22" />
+			<attribute name="NewMexico" idx="24" value="23" />
+			<attribute name="NorthCarolina" idx="25" value="24" />
+			<attribute name="NorthFlorida" idx="26" value="25" />
+			<attribute name="NorthTexas" idx="27" value="26" />
+			<attribute name="NorthernCalifornia" idx="28" value="27" />
+			<attribute name="Ohio" idx="29" value="28" />
+			<attribute name="Oklahoma" idx="30" value="29" />
+			<attribute name="PacificNorthwest" idx="31" value="30" />
+			<attribute name="Pennsylvania" idx="32" value="31" />
+			<attribute name="SouthCarolina" idx="33" value="32" />
+			<attribute name="SouthFlorida" idx="34" value="33" />
+			<attribute name="SouthGeorgia" idx="35" value="34" />
+			<attribute name="SouthernCalifornia" idx="36" value="35" />
+			<attribute name="SouthwestTexas" idx="37" value="36" />
+			<attribute name="Tennessee" idx="38" value="37" />
+			<attribute name="Tidewater" idx="39" value="38" />
+			<attribute name="Utah" idx="40" value="39" />
+			<attribute name="WestVirginia" idx="41" value="40" />
+			<attribute name="Wisconsin" idx="42" value="41" />
+			<attribute name="International" idx="43" value="42" />
+			<attribute name="Last_" idx="44" value="42" />
+			<attribute name="Count_" idx="45" value="43" />
+			<attribute name="Invalid" idx="46" value="44" />
+		</enum>
+	</schemas>
+</FranTkData>

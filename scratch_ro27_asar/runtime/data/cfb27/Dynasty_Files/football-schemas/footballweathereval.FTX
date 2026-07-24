@@ -1,0 +1,11 @@
+<FranTkData fileName="Football-Schemas\FootballWeatherEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FootballWeatherEval" numMembers="4" base="Module" assetId="12671892" isRecordPersistent="true" majorVersionCRC="-1782583074" minorVersionCRC="2088129249">
+			<attribute name="LightBreezeValue" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ModerateBreezeValue" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RandomRef" idx="2" type="Random" />
+			<attribute name="VeryWindyValue" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

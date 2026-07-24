@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_SeasonYearStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_SeasonYearStartReaction" numMembers="5" base="Reaction" assetId="6498867" isRecordPersistent="true" majorVersionCRC="1645207760" minorVersionCRC="-1408091213">
+			<attribute name="EventRecord" idx="0" type="SeasonYearStartEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6498867-1895461" />
+			<attribute name="Module" idx="3" type="PlayerSigningEval" />
+			<attribute name="Priority" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

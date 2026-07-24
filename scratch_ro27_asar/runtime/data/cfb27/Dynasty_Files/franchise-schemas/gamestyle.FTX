@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\GameStyle.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GameStyle" numMembers="9" assetId="6378522" isRecordPersistent="true" majorVersionCRC="-295406280" minorVersionCRC="-1893568204">
+			<attribute name="Arcade" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Default_" idx="2" value="1" />
+			<attribute name="Simulation" idx="3" value="1" />
+			<attribute name="Competitive" idx="4" value="2" />
+			<attribute name="Last_" idx="5" value="3" />
+			<attribute name="Yard" idx="6" value="3" />
+			<attribute name="Max_" idx="7" value="4" />
+			<attribute name="Invalid_" idx="8" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

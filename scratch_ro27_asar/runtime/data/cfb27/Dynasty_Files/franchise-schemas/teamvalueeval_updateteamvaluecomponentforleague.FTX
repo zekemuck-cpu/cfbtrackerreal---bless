@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamValueEval_UpdateTeamValueComponentForLeague.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamValueEval_UpdateTeamValueComponentForLeague" numMembers="2" base="none()" ownerAssetId="6498642" isRecordPersistent="true" isExpr="true" majorVersionCRC="867040668" minorVersionCRC="1778197077">
+			<attribute name="teamValueComponent" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

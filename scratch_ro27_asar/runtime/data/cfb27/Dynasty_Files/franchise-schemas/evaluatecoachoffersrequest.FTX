@@ -1,0 +1,54 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateCoachOffersRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateCoachOffersRequest" numMembers="43" base="UIRequestForm" assetId="6378751" isRecordPersistent="true" majorVersionCRC="795634051" minorVersionCRC="-195760264">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6378751-1895689" final="true" />
+			<attribute name="coach" idx="3" type="StaffPerson" />
+			<attribute name="Commands" idx="4" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="7" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="8" type="ResponseForm" />
+			<attribute name="DelegateResponse" idx="9" type="UISelectForm" />
+			<attribute name="Description" idx="10" type="string" const="true" maxLen="36" default="Select a contract offer from a team" />
+			<attribute name="Dismiss" idx="11" type="none()" guid="6378751-1895671" />
+			<attribute name="ExpirationDuration" idx="12" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="13" type="none()" guid="6378751-1904968" final="true" default="StaffHiringEvalRef.ProcessEvaluateCoachContractOffersRequest(this);&#xD;&#xA;" />
+			<attribute name="HasResolution" idx="14" type="bool()" guid="6378751-1895676" />
+			<attribute name="IgnoreResponse" idx="15" type="UISelectForm" />
+			<attribute name="IsBlocking" idx="16" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="17" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="18" type="bool" default="False" />
+			<attribute name="isReSigning" idx="19" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="20" type="bool()" guid="6378751-1895678" />
+			<attribute name="IsResponseRequired" idx="21" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="22" type="bool" default="True" />
+			<attribute name="Issue" idx="23" type="Request_Issue" guid="6378751-1895668" />
+			<attribute name="IssueTime" idx="24" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OfferList" idx="25" type="StaffPersonContractOffer[]" />
+			<attribute name="Priority" idx="26" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="27" type="none()" guid="6378751-1895686" final="true" />
+			<attribute name="RequestData" idx="28" type="record" />
+			<attribute name="RequestForm" idx="29" type="ResponseForm" />
+			<attribute name="RequestId" idx="30" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="31" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="reSigningTeam" idx="32" type="Team" />
+			<attribute name="Resolution" idx="33" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="34" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="35" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="36" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="37" type="bool" default="True" />
+			<attribute name="SelectOfferResponse" idx="38" type="UIFlowForm" />
+			<attribute name="StaffHiringEvalRef" idx="39" type="StaffHiringEval" />
+			<attribute name="TargetUser" idx="40" type="User" />
+			<attribute name="Title" idx="41" type="string" const="true" maxLen="10" default="Job Offer" />
+			<attribute name="TypeName" idx="42" type="string" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

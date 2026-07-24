@@ -1,0 +1,48 @@
+<FranTkData fileName="Franchise-Schemas\PositionPlusFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PositionPlusFilter" numMembers="41" assetId="10605650" isRecordPersistent="true" majorVersionCRC="-359263588" minorVersionCRC="-816559150">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="FirstNormal_" idx="1" value="0" />
+			<attribute name="FirstOffense_" idx="2" value="0" />
+			<attribute name="QB" idx="3" value="0" />
+			<attribute name="HB" idx="4" value="1" />
+			<attribute name="FB" idx="5" value="2" />
+			<attribute name="WR" idx="6" value="3" />
+			<attribute name="PlusFilterCount_" idx="7" value="4" />
+			<attribute name="TE" idx="8" value="4" />
+			<attribute name="LT" idx="9" value="5" />
+			<attribute name="LG" idx="10" value="6" />
+			<attribute name="C" idx="11" value="7" />
+			<attribute name="RG" idx="12" value="8" />
+			<attribute name="LastOffense_" idx="13" value="9" />
+			<attribute name="RT" idx="14" value="9" />
+			<attribute name="FirstDefense_" idx="15" value="10" />
+			<attribute name="LE" idx="16" value="10" />
+			<attribute name="RE" idx="17" value="11" />
+			<attribute name="DT" idx="18" value="12" />
+			<attribute name="LOLB" idx="19" value="13" />
+			<attribute name="MLB" idx="20" value="14" />
+			<attribute name="ROLB" idx="21" value="15" />
+			<attribute name="CB" idx="22" value="16" />
+			<attribute name="FS" idx="23" value="17" />
+			<attribute name="LastDefense_" idx="24" value="18" />
+			<attribute name="SS" idx="25" value="18" />
+			<attribute name="FirstSpecialTeams_" idx="26" value="19" />
+			<attribute name="K" idx="27" value="19" />
+			<attribute name="P" idx="28" value="20" />
+			<attribute name="LastNormal_" idx="29" value="21" />
+			<attribute name="LastSpecialTeams_" idx="30" value="21" />
+			<attribute name="LS" idx="31" value="21" />
+			<attribute name="NormalCount_" idx="32" value="22" />
+			<attribute name="Count_" idx="33" value="26" />
+			<attribute name="AtRisk" idx="34" value="64" />
+			<attribute name="FirstPlusFilter_" idx="35" value="64" />
+			<attribute name="Offense" idx="36" value="65" />
+			<attribute name="Defense" idx="37" value="66" />
+			<attribute name="Last_" idx="38" value="67" />
+			<attribute name="LastPlusFilter_" idx="39" value="67" />
+			<attribute name="SpecialTeams" idx="40" value="67" />
+		</enum>
+	</schemas>
+</FranTkData>

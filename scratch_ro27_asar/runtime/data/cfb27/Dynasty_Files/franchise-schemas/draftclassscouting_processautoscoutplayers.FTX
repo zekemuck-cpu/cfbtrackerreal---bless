@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassScouting_ProcessAutoScoutPlayers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassScouting_ProcessAutoScoutPlayers" numMembers="3" base="none()" ownerAssetId="6708687" isRecordPersistent="true" isExpr="true" majorVersionCRC="576316952" minorVersionCRC="1951945042">
+			<attribute name="Request" idx="0" type="Scouting_ScoutingPointsRequest" />
+			<attribute name="Team" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

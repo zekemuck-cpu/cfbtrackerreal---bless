@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\ChallengeSlotPriority.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ChallengeSlotPriority" numMembers="5" assetId="10834690" isRecordPersistent="true" majorVersionCRC="478285440" minorVersionCRC="1393726100">
+			<attribute name="Any" idx="0" value="0" />
+			<attribute name="Low" idx="1" value="1" />
+			<attribute name="Medium" idx="2" value="2" />
+			<attribute name="High" idx="3" value="3" />
+			<attribute name="Count_" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

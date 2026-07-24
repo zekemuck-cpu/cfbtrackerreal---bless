@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerRegressionEval_AutoRegressFreeAgents.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerRegressionEval_AutoRegressFreeAgents" numMembers="2" base="none()" ownerAssetId="6498447" isRecordPersistent="true" isExpr="true" majorVersionCRC="319148885" minorVersionCRC="-1470764082">
+			<attribute name="players" idx="0" type="Player[]" />
+		</schema>
+	</schemas>
+</FranTkData>

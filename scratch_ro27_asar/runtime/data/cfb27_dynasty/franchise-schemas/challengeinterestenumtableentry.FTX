@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\ChallengeInterestEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ChallengeInterestEnumTableEntry" numMembers="5" base="EnumTableEntry" defaultStoreCapacity="13" assetId="10834452" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="283" majorVersionCRC="1353927300" minorVersionCRC="1444514744">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="Multiplier" idx="2" type="float" default="1" />
+			<attribute name="ShortName" idx="3" type="string" maxLen="33" />
+			<attribute name="Value" idx="4" type="ChallengeInterest" default="ChallengeInterest:Some" />
+		</schema>
+	</schemas>
+</FranTkData>

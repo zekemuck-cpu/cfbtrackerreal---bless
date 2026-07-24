@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetWeekTypeFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetWeekTypeFilter" numMembers="3" base="UISpreadsheetIntFilter" assetId="6572373" isRecordPersistent="true" majorVersionCRC="-834294220" minorVersionCRC="-312683368">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="Value" idx="2" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+		</schema>
+	</schemas>
+</FranTkData>

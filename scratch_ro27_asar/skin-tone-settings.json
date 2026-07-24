@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-06T21:19:09.321Z",
+  "positions": {
+    "QB": {
+      "light": 50,
+      "medium": 27,
+      "dark": 23
+    },
+    "HB": {
+      "light": 15,
+      "medium": 20,
+      "dark": 65
+    },
+    "RB": {
+      "light": 20,
+      "medium": 30,
+      "dark": 50
+    },
+    "FB": {
+      "light": 38,
+      "medium": 30,
+      "dark": 32
+    },
+    "WR": {
+      "light": 18,
+      "medium": 29,
+      "dark": 53
+    },
+    "TE": {
+      "light": 40,
+      "medium": 30,
+      "dark": 30
+    },
+    "LT": {
+      "light": 46,
+      "medium": 29,
+      "dark": 25
+    },
+    "LG": {
+      "light": 48,
+      "medium": 29,
+      "dark": 23
+    },
+    "C": {
+      "light": 50,
+      "medium": 30,
+      "dark": 20
+    },
+    "RG": {
+      "light": 48,
+      "medium": 29,
+      "dark": 23
+    },
+    "RT": {
+      "light": 46,
+      "medium": 29,
+      "dark": 25
+    },
+    "LE": {
+      "light": 24,
+      "medium": 31,
+      "dark": 45
+    },
+    "RE": {
+      "light": 24,
+      "medium": 31,
+      "dark": 45
+    },
+    "DT": {
+      "light": 22,
+      "medium": 30,
+      "dark": 48
+    },
+    "LOLB": {
+      "light": 28,
+      "medium": 31,
+      "dark": 41
+    },
+    "MLB": {
+      "light": 30,
+      "medium": 31,
+      "dark": 39
+    },
+    "ROLB": {
+      "light": 28,
+      "medium": 31,
+      "dark": 41
+    },
+    "CB": {
+      "light": 5,
+      "medium": 10,
+      "dark": 85
+    },
+    "FS": {
+      "light": 10,
+      "medium": 36,
+      "dark": 54
+    },
+    "SS": {
+      "light": 14,
+      "medium": 33,
+      "dark": 53
+    },
+    "K": {
+      "light": 68,
+      "medium": 22,
+      "dark": 10
+    },
+    "P": {
+      "light": 70,
+      "medium": 21,
+      "dark": 9
+    },
+    "ATH": {
+      "light": 11,
+      "medium": 15,
+      "dark": 74
+    }
+  }
+}

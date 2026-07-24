@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGoalsEval_RegisterUser.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGoalsEval_RegisterUser" numMembers="3" base="none()" ownerAssetId="6498442" isRecordPersistent="true" isExpr="true" majorVersionCRC="709743884" minorVersionCRC="623697283">
+			<attribute name="user" idx="0" type="User" />
+			<attribute name="team" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

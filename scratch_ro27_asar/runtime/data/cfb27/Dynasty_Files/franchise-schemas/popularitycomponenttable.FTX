@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PopularityComponentTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PopularityComponentTable" numMembers="3" defaultStoreCapacity="256" assetId="6494941" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1636209524" minorVersionCRC="-443102156">
+			<attribute name="LocalPopularity" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NationalPopularity" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RegionalPopularity" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

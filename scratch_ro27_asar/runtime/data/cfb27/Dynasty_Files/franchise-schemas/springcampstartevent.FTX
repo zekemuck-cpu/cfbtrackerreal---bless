@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\SpringCampStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SpringCampStartEvent" numMembers="2" base="Event" assetId="6498873" isRecordPersistent="true" majorVersionCRC="902916782" minorVersionCRC="-1333714340">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498873-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6498873-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

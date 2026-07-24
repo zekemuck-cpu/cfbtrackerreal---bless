@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamValueEval_GetFanHappinessRatingForComponent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamValueEval_GetFanHappinessRatingForComponent" numMembers="3" base="int()" ownerAssetId="6498642" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1009490576" minorVersionCRC="-942382282">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="teamValueComponent" idx="1" type="TeamValueComponent" default="TeamValueComponent:TeamSuccess" />
+		</schema>
+	</schemas>
+</FranTkData>

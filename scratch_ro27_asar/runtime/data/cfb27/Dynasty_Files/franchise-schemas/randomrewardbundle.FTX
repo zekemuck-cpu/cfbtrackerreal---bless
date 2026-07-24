@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RandomRewardBundle.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RandomRewardBundle" numMembers="1" defaultStoreCapacity="1" assetId="6536920" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1003610976" minorVersionCRC="186089174">
+			<attribute name="RewardBundles" idx="0" type="RewardBundle[]" />
+		</schema>
+	</schemas>
+</FranTkData>

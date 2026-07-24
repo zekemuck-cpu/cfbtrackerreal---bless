@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ForcedResult.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ForcedResult" numMembers="2" assetId="6542993" isRecordPersistent="true" majorVersionCRC="1796626883" minorVersionCRC="1468795112">
+			<attribute name="Win" idx="0" value="0" />
+			<attribute name="Loss" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

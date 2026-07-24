@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\OfferValueMagnitude.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="OfferValueMagnitude" numMembers="3" assetId="9070457" isRecordPersistent="true" majorVersionCRC="-1568765990" minorVersionCRC="1519450834">
+			<attribute name="Low" idx="0" value="0" />
+			<attribute name="Medium" idx="1" value="1" />
+			<attribute name="High" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

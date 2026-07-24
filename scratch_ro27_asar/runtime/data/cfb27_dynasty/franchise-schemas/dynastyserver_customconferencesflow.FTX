@@ -1,0 +1,27 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_CustomConferencesFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_CustomConferencesFlow" numMembers="16" base="FranTkServer_Flow" assetId="8995443" isRecordPersistent="true" majorVersionCRC="265623936" minorVersionCRC="-1516994290">
+			<attribute name="Conferences" idx="0" type="Conference[]" />
+			<attribute name="CreateCustomConfRequest" idx="1" type="CustomConferences_CustomConferencesRequest()" guid="8995443-2257154" final="true" />
+			<attribute name="CustomConferencesDelegateResponse" idx="2" type="UISelectForm" />
+			<attribute name="CustomConferencesPanel" idx="3" type="HUBPanel" />
+			<attribute name="CustomConferencesResponse" idx="4" type="UIFlowForm" />
+			<attribute name="Dynasty" idx="5" type="Franchise" />
+			<attribute name="Form" idx="6" type="UIForm" />
+			<attribute name="FormManager" idx="7" type="FranTkServer_FormManager" />
+			<attribute name="HandleCustomConfStart" idx="8" type="none()" guid="8995443-2257157" final="true" />
+			<attribute name="IssueCustomConfRequest" idx="9" type="DynastyServer_CustomConferencesFlow_IssueCustomConfRequest" guid="8995443-2257149" final="true" default="CustomConferences_CustomConferencesRequest request = CreateCustomConfRequest();&#xD;&#xA;if (request != null)&#xD;&#xA;{&#xD;&#xA; // Create the response forms.&#xD;&#xA;  request.ResponseForms = new ResponseForm[1];&#xD;&#xA;  request.ResponseForms.Append(CustomConferencesResponse);&#xD;&#xA;&#xD;&#xA;  // Set the default response forms.&#xD;&#xA;  request.DefaultResponse = CustomConferencesDelegateResponse;&#xD;&#xA;  request.IsPersistent = true;&#xD;&#xA;  request.Priority = 1;&#xD;&#xA;  request.IsResponseRequired = true;&#xD;&#xA;  request.DelegateResponse = CustomConferencesDelegateResponse;&#xD;&#xA;  request.HubPanel = CustomConferencesPanel;&#xD;&#xA;  &#xD;&#xA;  // Return the request record.  &#xD;&#xA;  request.Issue(userEntity);&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="MySchoolGradeEval" idx="10" type="MySchoolGradeEval" />
+			<attribute name="ScheduleManager" idx="11" type="SeasonScheduleManager" />
+			<attribute name="ScheduleStructure" idx="12" type="ScheduleStructure" />
+			<attribute name="SchemeEnumTable" idx="13" type="EnumTable" />
+			<attribute name="StadiumSelectionArray" idx="14" type="Stadium[]" />
+			<attribute name="UserRegistry" idx="15" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

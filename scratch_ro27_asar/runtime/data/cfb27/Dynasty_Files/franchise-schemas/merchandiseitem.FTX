@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\MerchandiseItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MerchandiseItem" numMembers="21" assetId="6494956" isRecordPersistent="true" majorVersionCRC="-2102427784" minorVersionCRC="-865557637">
+			<attribute name="TeamJersey" idx="0" value="0" />
+			<attribute name="TeamTShirt" idx="1" value="1" />
+			<attribute name="SuperbowlTShirt" idx="2" value="2" />
+			<attribute name="MarketedPlayerA_Jersey" idx="3" value="3" />
+			<attribute name="MarketedPlayerA_SignedFootball" idx="4" value="4" />
+			<attribute name="MarketedPlayerB_Jersey" idx="5" value="5" />
+			<attribute name="MarketedPlayerC_Jersey" idx="6" value="6" />
+			<attribute name="LegendA_Jersey" idx="7" value="7" />
+			<attribute name="LegendB_Jersey" idx="8" value="8" />
+			<attribute name="LegendC_Jersey" idx="9" value="9" />
+			<attribute name="TeamHat1" idx="10" value="10" />
+			<attribute name="MarketedPlayerD_Jersey" idx="11" value="11" />
+			<attribute name="MarketedPlayerE_Jersey" idx="12" value="12" />
+			<attribute name="LegendD_Jersey" idx="13" value="13" />
+			<attribute name="LegendE_Jersey" idx="14" value="14" />
+			<attribute name="TeamSweatshirt" idx="15" value="15" />
+			<attribute name="TeamJacket" idx="16" value="16" />
+			<attribute name="KnitHat" idx="17" value="17" />
+			<attribute name="TeamHat2" idx="18" value="18" />
+			<attribute name="MiniHelmet" idx="19" value="19" />
+			<attribute name="Count_" idx="20" value="20" />
+		</enum>
+	</schemas>
+</FranTkData>

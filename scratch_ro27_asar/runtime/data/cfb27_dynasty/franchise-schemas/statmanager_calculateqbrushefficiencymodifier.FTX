@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StatManager_CalculateQBRushEfficiencyModifier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManager_CalculateQBRushEfficiencyModifier" numMembers="3" base="int()" ownerAssetId="6493950" isRecordPersistent="true" isExpr="true" majorVersionCRC="-41836116" minorVersionCRC="1045321054">
+			<attribute name="passingAttempts" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="rushingAttempts" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_FillTeamRoster.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_FillTeamRoster" numMembers="3" base="bool()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="1953458174" minorVersionCRC="-713417083">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="playerArray" idx="1" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

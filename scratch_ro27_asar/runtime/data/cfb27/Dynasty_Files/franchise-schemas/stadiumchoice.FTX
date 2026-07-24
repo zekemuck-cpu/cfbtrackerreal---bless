@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\StadiumChoice.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StadiumChoice" numMembers="14" defaultStoreCapacity="20" assetId="6377678" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-2063308952" minorVersionCRC="1667428027">
+			<attribute name="Cost" idx="0" type="int" minValue="0" maxValue="2000000000" default="0" />
+			<attribute name="DisplayName" idx="1" type="string" maxLen="1" />
+			<attribute name="ImageId" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Popularity" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ProposalImageId0" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="ProposalImageId1" idx="5" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="ProposalImageId2" idx="6" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Stadium" idx="7" type="Stadium" />
+			<attribute name="TweetMessage0" idx="8" type="string" maxLen="26" default="placeholder tweet message" />
+			<attribute name="TweetMessage1" idx="9" type="string" maxLen="26" default="placeholder tweet message" />
+			<attribute name="TweetMessage2" idx="10" type="string" maxLen="26" default="placeholder tweet message" />
+			<attribute name="TweetName0" idx="11" type="string" maxLen="21" default="placeholderTweetName" />
+			<attribute name="TweetName1" idx="12" type="string" maxLen="21" default="placeholderTweetName" />
+			<attribute name="TweetName2" idx="13" type="string" maxLen="21" default="placeholderTweetName" />
+		</schema>
+	</schemas>
+</FranTkData>

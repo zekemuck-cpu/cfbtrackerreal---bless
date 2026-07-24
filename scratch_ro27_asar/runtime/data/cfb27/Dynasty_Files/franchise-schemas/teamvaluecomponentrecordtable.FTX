@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\TeamValueComponentRecordTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamValueComponentRecordTable" numMembers="10" defaultStoreCapacity="7" assetId="6553572" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1324804494" minorVersionCRC="-436266539">
+			<attribute name="ConcessionPrices" idx="0" type="record" />
+			<attribute name="MarketSize" idx="1" type="record" />
+			<attribute name="MerchandisePrices" idx="2" type="record" />
+			<attribute name="Revenue" idx="3" type="record" />
+			<attribute name="Roster" idx="4" type="record" />
+			<attribute name="Stadium" idx="5" type="record" />
+			<attribute name="Staff" idx="6" type="record" />
+			<attribute name="TeamPopularity" idx="7" type="record" />
+			<attribute name="TeamSuccess" idx="8" type="record" />
+			<attribute name="TicketPrices" idx="9" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\AdjustTeamRoster_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AdjustTeamRoster_Formula" numMembers="3" base="none()" ownerAssetId="6499143" isRecordPersistent="true" isExpr="true" majorVersionCRC="-536034062" minorVersionCRC="506018260">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

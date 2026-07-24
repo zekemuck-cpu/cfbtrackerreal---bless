@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingBoard.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingBoard" numMembers="4" defaultStoreCapacity="138" assetId="6716567" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1536492832" minorVersionCRC="1576398531">
+			<attribute name="RecruitingHoursAssigned" idx="0" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="RecruitingHoursProcessed" idx="1" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="RecruitingHoursTotal" idx="2" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="Recruits" idx="3" type="RecruitTarget[]" />
+		</schema>
+	</schemas>
+</FranTkData>

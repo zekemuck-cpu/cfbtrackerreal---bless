@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\MediaRelations_StadiumPartUpgrade_Reaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaRelations_StadiumPartUpgrade_Reaction" numMembers="3" base="Reaction" assetId="6499276" isRecordPersistent="true" majorVersionCRC="197817940" minorVersionCRC="-1741354484">
+			<attribute name="EventRecord" idx="0" type="StadiumPartUpgradeEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499276-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

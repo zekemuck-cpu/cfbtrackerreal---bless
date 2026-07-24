@@ -1,0 +1,24 @@
+<FranTkData fileName="Football-Schemas\BuildingTeamUpgrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\TeamUpgradeItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BuildingTeamUpgrade" numMembers="13" base="TeamUpgradeItem" defaultStoreCapacity="5" assetId="12345530" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="489" majorVersionCRC="1380980688" minorVersionCRC="-58789147">
+			<attribute name="Cost" idx="0" type="int" minValue="0" maxValue="10000" default="100" />
+			<attribute name="Description" idx="1" type="string" maxLen="301" />
+			<attribute name="Effects" idx="2" type="TeamUpgradeEffect[]" />
+			<attribute name="EquipmentSlotCap" idx="3" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="IconId" idx="4" type="int" minValue="0" maxValue="2010" default="0" />
+			<attribute name="Level" idx="5" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="LibraryId" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MaxFacilityGrade" idx="7" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="MinFacilityGrade" idx="8" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="Name" idx="9" type="string" maxLen="46" />
+			<attribute name="NormalGradeThreshold" idx="10" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="PlusGradeThreshold" idx="11" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="RenewCost" idx="12" type="int" minValue="0" maxValue="10000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

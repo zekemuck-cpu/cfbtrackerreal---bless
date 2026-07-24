@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamRoadmapForTeams_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamRoadmapForTeams_Formula" numMembers="3" base="none()" ownerAssetId="6498957" isRecordPersistent="true" isExpr="true" majorVersionCRC="1491269032" minorVersionCRC="1601855008">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="2147483647" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

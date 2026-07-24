@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\FreeAgencyPlayerOfferPeriodEndEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FreeAgencyPlayerOfferPeriodEndEvent" numMembers="2" base="Event" assetId="6598557" isRecordPersistent="true" majorVersionCRC="8813546" minorVersionCRC="1821724996">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598557-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598557-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\CoachTrustUpdateEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachTrustUpdateEvent" numMembers="5" base="Event" defaultStoreCapacity="10" assetId="9072520" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1273665920" minorVersionCRC="-545014164">
+			<attribute name="Enqueue" idx="0" type="none()" guid="9072520-1895458" final="true" />
+			<attribute name="OldPlayerDepth" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OldValue" idx="2" type="int" minValue="-32000" maxValue="32000" default="0" />
+			<attribute name="Send" idx="3" type="none()" guid="9072520-1895455" final="true" />
+			<attribute name="User" idx="4" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

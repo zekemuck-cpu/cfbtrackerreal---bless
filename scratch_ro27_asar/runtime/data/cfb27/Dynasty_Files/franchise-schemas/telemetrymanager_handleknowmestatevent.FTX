@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_HandleKnowMeStatEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_HandleKnowMeStatEvent" numMembers="2" base="none()" ownerAssetId="6499176" isRecordPersistent="true" isExpr="true" majorVersionCRC="1388048840" minorVersionCRC="249964462">
+			<attribute name="event" idx="0" type="KnowMeStatEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\SkillGroupCapUpgradeGenerationInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SkillGroupCapUpgradeGenerationInfo" numMembers="2" defaultStoreCapacity="4" assetId="8800637" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="300104096" minorVersionCRC="-695168954">
+			<attribute name="UpgradeMax" idx="0" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="UpgradeMin" idx="1" type="int" minValue="0" maxValue="10" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

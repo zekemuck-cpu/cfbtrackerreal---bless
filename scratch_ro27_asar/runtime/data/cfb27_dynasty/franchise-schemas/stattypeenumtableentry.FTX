@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\StatTypeEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatTypeEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="98" assetId="6571153" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="3613" majorVersionCRC="-157755617" minorVersionCRC="177964872">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="StatType" default="StatType:PassYards" />
+		</schema>
+	</schemas>
+</FranTkData>

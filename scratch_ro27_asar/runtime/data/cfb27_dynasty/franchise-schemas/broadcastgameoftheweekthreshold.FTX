@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\BroadcastGameOfTheWeekThreshold.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BroadcastGameOfTheWeekThreshold" numMembers="2" defaultStoreCapacity="2" assetId="7738581" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-624154096" minorVersionCRC="2084218932">
+			<attribute name="BroadcastNetwork" idx="0" type="BroadcastNetwork" default="BroadcastNetwork:First_" />
+			<attribute name="Threshold" idx="1" type="int" minValue="0" maxValue="500" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

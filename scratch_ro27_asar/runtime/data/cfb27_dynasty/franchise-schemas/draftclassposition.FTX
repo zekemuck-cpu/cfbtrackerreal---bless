@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassPosition.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="DraftClassPosition" numMembers="14" assetId="6820691" isRecordPersistent="true" majorVersionCRC="-549380828" minorVersionCRC="-1373733897">
+			<attribute name="FIRST" idx="0" value="0" />
+			<attribute name="QB" idx="1" value="0" />
+			<attribute name="RB" idx="2" value="1" />
+			<attribute name="WR" idx="3" value="2" />
+			<attribute name="TE" idx="4" value="3" />
+			<attribute name="C" idx="5" value="4" />
+			<attribute name="G" idx="6" value="5" />
+			<attribute name="T" idx="7" value="6" />
+			<attribute name="DE" idx="8" value="7" />
+			<attribute name="DT" idx="9" value="8" />
+			<attribute name="LB" idx="10" value="9" />
+			<attribute name="DB" idx="11" value="10" />
+			<attribute name="COUNT" idx="12" value="11" />
+			<attribute name="INVALID" idx="13" value="11" />
+		</enum>
+	</schemas>
+</FranTkData>

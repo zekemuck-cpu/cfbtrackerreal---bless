@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ResetGameStatsForPlayers_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ResetGameStatsForPlayers_Formula" numMembers="3" base="none()" ownerAssetId="6814788" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1333649036" minorVersionCRC="-409830387">
+			<attribute name="Subject" idx="0" type="Player" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

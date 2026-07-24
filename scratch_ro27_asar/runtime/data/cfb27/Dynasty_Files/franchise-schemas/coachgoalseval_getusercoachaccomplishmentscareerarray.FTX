@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalsEval_GetUserCoachAccomplishmentsCareerArray.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalsEval_GetUserCoachAccomplishmentsCareerArray" numMembers="2" base="Goal[]()" ownerAssetId="6495218" isRecordPersistent="true" isExpr="true" majorVersionCRC="745331056" minorVersionCRC="-617891851">
+			<attribute name="user" idx="0" type="User" />
+		</schema>
+	</schemas>
+</FranTkData>

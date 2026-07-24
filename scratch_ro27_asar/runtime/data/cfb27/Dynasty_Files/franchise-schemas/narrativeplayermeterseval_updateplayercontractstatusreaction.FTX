@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersEval_UpdatePlayerContractStatusReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersEval_UpdatePlayerContractStatusReaction" numMembers="4" base="Reaction" assetId="9194521" isRecordPersistent="true" majorVersionCRC="-352188934" minorVersionCRC="6342809">
+			<attribute name="EventRecord" idx="0" type="Player_UpdatePlayerContractStatusEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="9194521-1895461" />
+			<attribute name="Module" idx="2" type="NarrativePlayerMetersEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

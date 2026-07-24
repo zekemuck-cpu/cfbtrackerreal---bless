@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\StatManager_FindPlayerRankingByStat.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StatManager_FindPlayerRankingByStat" numMembers="4" base="int()" ownerAssetId="6493950" isRecordPersistent="true" isExpr="true" majorVersionCRC="1858892572" minorVersionCRC="-2108793914">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="position" idx="1" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="statType" idx="2" type="StatType" default="StatType:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

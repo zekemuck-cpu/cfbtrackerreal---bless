@@ -1,0 +1,14 @@
+<FranTkData fileName="Core-Schemas\Command.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Command" numMembers="7" defaultStoreCapacity="146" assetId="6210689" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="9033" majorVersionCRC="555212714" minorVersionCRC="-981895643">
+			<attribute name="ConfirmationMessage" idx="0" type="string" maxLen="248" />
+			<attribute name="DisplayHint" idx="1" type="string" maxLen="65" />
+			<attribute name="DisplayName" idx="2" type="string" maxLen="33" />
+			<attribute name="Icon" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Input" idx="4" type="CommandInput" default="CommandInput:None" />
+			<attribute name="IsConfirmationRequired" idx="5" type="bool" default="False" />
+			<attribute name="Name" idx="6" type="string" maxLen="33" />
+		</schema>
+	</schemas>
+</FranTkData>

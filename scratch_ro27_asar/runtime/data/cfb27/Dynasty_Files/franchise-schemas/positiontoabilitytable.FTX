@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\PositionToAbilityTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionToAbilityTable" numMembers="22" assetId="6498476" isRecordPersistent="true" majorVersionCRC="-1524076358" minorVersionCRC="249760319">
+			<attribute name="C" idx="0" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="CB" idx="1" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="DT" idx="2" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="FB" idx="3" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="FS" idx="4" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="HB" idx="5" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="K" idx="6" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="LE" idx="7" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="LG" idx="8" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="LOLB" idx="9" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="LS" idx="10" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="LT" idx="11" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="MLB" idx="12" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="P" idx="13" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="QB" idx="14" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="RE" idx="15" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="RG" idx="16" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="ROLB" idx="17" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="RT" idx="18" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="SS" idx="19" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="TE" idx="20" type="PlayerAbility" default="PlayerAbility:First_" />
+			<attribute name="WR" idx="21" type="PlayerAbility" default="PlayerAbility:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

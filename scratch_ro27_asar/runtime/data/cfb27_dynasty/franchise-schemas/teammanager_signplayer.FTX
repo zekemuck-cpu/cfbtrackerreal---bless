@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_SignPlayer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_SignPlayer" numMembers="4" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1577388215" minorVersionCRC="-175718828">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="contract" idx="2" type="PlayerContract" />
+		</schema>
+	</schemas>
+</FranTkData>

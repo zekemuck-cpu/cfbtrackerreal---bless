@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\RosterTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterTuning" numMembers="8" base="BaseTuning" defaultStoreCapacity="1" assetId="9822444" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="276" majorVersionCRC="-1950010856" minorVersionCRC="-2081329424">
+			<attribute name="CoachWeight" idx="0" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="DefensiveWeight" idx="1" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="DesiredMaxTeamRatingValue" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DesiredMinTeamRatingValue" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffensiveWeight" idx="4" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="PracticeSquadHubDescription" idx="5" type="string" maxLen="276" />
+			<attribute name="SpecialTeamsWeight" idx="6" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="TeamHistoryWeight" idx="7" type="int" minValue="0" maxValue="200" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

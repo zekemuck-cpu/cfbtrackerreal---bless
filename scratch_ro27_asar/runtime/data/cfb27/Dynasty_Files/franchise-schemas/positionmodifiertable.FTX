@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\PositionModifierTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionModifierTable" numMembers="21" defaultStoreCapacity="21" assetId="8215469" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1745443664" minorVersionCRC="-1914220284">
+			<attribute name="C" idx="0" type="float" default="0" />
+			<attribute name="CB" idx="1" type="float" default="0" />
+			<attribute name="DT" idx="2" type="float" default="0" />
+			<attribute name="FB" idx="3" type="float" default="0" />
+			<attribute name="FS" idx="4" type="float" default="0" />
+			<attribute name="HB" idx="5" type="float" default="0" />
+			<attribute name="K" idx="6" type="float" default="0" />
+			<attribute name="LE" idx="7" type="float" default="0" />
+			<attribute name="LG" idx="8" type="float" default="0" />
+			<attribute name="LOLB" idx="9" type="float" default="0" />
+			<attribute name="LT" idx="10" type="float" default="0" />
+			<attribute name="MLB" idx="11" type="float" default="0" />
+			<attribute name="P" idx="12" type="float" default="0" />
+			<attribute name="QB" idx="13" type="float" default="0" />
+			<attribute name="RE" idx="14" type="float" default="0" />
+			<attribute name="RG" idx="15" type="float" default="0" />
+			<attribute name="ROLB" idx="16" type="float" default="0" />
+			<attribute name="RT" idx="17" type="float" default="0" />
+			<attribute name="SS" idx="18" type="float" default="0" />
+			<attribute name="TE" idx="19" type="float" default="0" />
+			<attribute name="WR" idx="20" type="float" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

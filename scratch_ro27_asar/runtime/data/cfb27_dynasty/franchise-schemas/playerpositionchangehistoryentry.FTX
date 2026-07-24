@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\PlayerPositionChangeHistoryEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TransactionHistoryEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerPositionChangeHistoryEntry" numMembers="11" base="TransactionHistoryEntry" defaultStoreCapacity="742" assetId="6498828" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-917611456" minorVersionCRC="374021065">
+			<attribute name="NewPlayerType" idx="0" type="PlayerType" default="PlayerType:QB_First_" />
+			<attribute name="NewPosition" idx="1" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="NewTeam" idx="2" type="Team" />
+			<attribute name="OldPlayerType" idx="3" type="PlayerType" default="PlayerType:QB_First_" />
+			<attribute name="OldPosition" idx="4" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="OldTeam" idx="5" type="Team" />
+			<attribute name="Player" idx="6" type="Player" />
+			<attribute name="SeasonStage" idx="7" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="SeasonWeek" idx="8" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="SeasonYear" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TransactionId" idx="10" type="int" minValue="0" maxValue="16777215" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

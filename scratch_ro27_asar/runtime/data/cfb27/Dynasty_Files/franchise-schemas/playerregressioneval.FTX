@@ -1,0 +1,38 @@
+<FranTkData fileName="Franchise-Schemas\PlayerRegressionEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerRegressionEval" numMembers="31" base="Module" assetId="6498447" isRecordPersistent="true" majorVersionCRC="-1957735104" minorVersionCRC="918987711">
+			<attribute name="AbilityDowngradeCapPerSkillPoint" idx="0" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="AutoRegressFreeAgents" idx="1" type="PlayerRegressionEval_AutoRegressFreeAgents" guid="6498447-1924617" final="true" />
+			<attribute name="AutoRegressTeam" idx="2" type="PlayerRegressionEval_AutoRegressTeam" guid="6498447-1924610" final="true" />
+			<attribute name="BucketAbilityDowngradeEvent" idx="3" type="BucketAbilityDowngradeEvent" />
+			<attribute name="ConvertRegressionPointsToOVRDrop" idx="4" type="PlayerRegressionEval_ConvertRegressionPointsToOVRDrop" guid="6498447-1924648" final="true" default="0;" />
+			<attribute name="DevelopmentTraitUpdatedEvent" idx="5" type="DevelopmentTraitUpdatedEvent" />
+			<attribute name="DevTraitRegressionTuning" idx="6" type="DevTraitRegressionTuning" />
+			<attribute name="IssueViewPlayerRegressionRequest" idx="7" type="PlayerRegressionEval_IssueViewPlayerRegressionRequest" guid="6498447-1924633" />
+			<attribute name="IssueViewTeamRegressionRequest" idx="8" type="PlayerRegressionEval_IssueViewTeamRegressionRequest" guid="6498447-1924638" />
+			<attribute name="LeagueSetting" idx="9" type="LeagueSetting" />
+			<attribute name="MaxPurchasesPerPackage" idx="10" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="ModifyRegressionPoints" idx="11" type="PlayerRegressionEval_ModifyRegressionPoints" guid="6498447-1924621" final="true" default="0;&#xD;&#xA;" />
+			<attribute name="PlayerAgeRegressionSplineTable" idx="12" type="PositionSplineTable" />
+			<attribute name="PlayerGradeEval" idx="13" type="PlayerGradeEval" />
+			<attribute name="PlayerOverallUpdateEvent" idx="14" type="PlayerOverallUpdateEvent" />
+			<attribute name="PlayerRegressionAgeSplineTable" idx="15" type="record" />
+			<attribute name="PlayerTypeProgressionBuckets" idx="16" type="PlayerTypeProgressionBucket[]" />
+			<attribute name="RandomRef" idx="17" type="Random" />
+			<attribute name="RegressDevelopmentTraits" idx="18" type="none()" guid="6498447-1924658" final="true" />
+			<attribute name="RegressionPackagePurchasedEvent" idx="19" type="RegressionPackagePurchasedEvent" />
+			<attribute name="RegressionPointsIncreasedEvent" idx="20" type="RegressionPointsIncreasedEvent" />
+			<attribute name="RegressionRequest_PlayerViewRegressionResponse" idx="21" type="UIFlowForm" />
+			<attribute name="RegressionRequest_TeamViewRegressionResponse" idx="22" type="UIFlowForm" />
+			<attribute name="SeasonInfoRef" idx="23" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="24" type="SeasonManager" />
+			<attribute name="SeasonScheduleManager" idx="25" type="SeasonScheduleManager" />
+			<attribute name="SignatureAbilitiesEval" idx="26" type="SignatureAbilitiesEval" />
+			<attribute name="StatManager" idx="27" type="StatManager" />
+			<attribute name="TeamManager" idx="28" type="TeamManager" />
+			<attribute name="TrainerRatingRegressionModifierSpline" idx="29" type="Spline" />
+			<attribute name="ValidateExpressions" idx="30" type="none()" guid="6498447-1924644" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

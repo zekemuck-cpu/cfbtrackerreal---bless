@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\TalentTreeEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentTreeEval" numMembers="22" base="Module" assetId="6495415" isRecordPersistent="true" majorVersionCRC="1373063224" minorVersionCRC="2078019444">
+			<attribute name="AutoProgressTeam" idx="0" type="TalentTreeEval_AutoProgressTeam" guid="6495415-1923840" final="true" />
+			<attribute name="CoachGoalsEval" idx="1" type="CoachGoalsEval" />
+			<attribute name="HandleAdvanceWeekEnd" idx="2" type="none()" guid="6495415-1923848" final="true" />
+			<attribute name="HandleBeginWeek" idx="3" type="none()" guid="6495415-2255015" final="true" />
+			<attribute name="HandleDraftStart" idx="4" type="TalentTreeEval_HandleDraftStart" guid="6495415-1923871" final="true" />
+			<attribute name="HandleGameEnd" idx="5" type="TalentTreeEval_HandleGameEnd" guid="6495415-1923854" final="true" />
+			<attribute name="HandleSeasonBegin" idx="6" type="none()" guid="6495415-1923851" final="true" />
+			<attribute name="HandleUpdateCoachContractStatus" idx="7" type="TalentTreeEval_HandleUpdateCoachContractStatus" guid="6495415-1923863" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatusEvent" idx="8" type="TalentTreeEval_HandleUpdatePlayerContractStatusEvent" guid="6495415-1923867" final="true" />
+			<attribute name="IssueUnlockNotificationRequest" idx="9" type="TalentTreeEval_IssueUnlockNotificationRequest" guid="6495415-2252029" final="true" default="UnlockNotificationRequest request = new UnlockNotificationRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.Team = team;&#xD;&#xA;request.StaffPerson = staffPerson;&#xD;&#xA;request.TalentSubtree = talentSubtree;&#xD;&#xA;request.TalentNode = talentNode;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;// Issue the request&#xD;&#xA;request.Issue(team.UserCharacter);" />
+			<attribute name="IssueUpgradeCoachNotificationRequest" idx="10" type="TalentTreeEval_IssueUpgradeCoachNotificationRequest" guid="6495415-2255005" final="true" default="UpgradeCoachNotificationRequest request = new UpgradeCoachNotificationRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.IsSubmittable = true;&#xD;&#xA;request.RequestData = userEntity;&#xD;&#xA;&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( UpgradeCoachResponse);&#xD;&#xA;    request.DefaultResponse = UpgradeCoachResponse;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="LeagueSettingRef" idx="11" type="LeagueSetting" />
+			<attribute name="PlayerSigningEval" idx="12" type="PlayerSigningEval" />
+			<attribute name="RandomRef" idx="13" type="Random" />
+			<attribute name="SeasonInfoRef" idx="14" type="SeasonInfo" />
+			<attribute name="SignatureAbilitiesEval" idx="15" type="SignatureAbilitiesEval" />
+			<attribute name="TalentsUpdatedEvent" idx="16" type="TalentsUpdatedEvent" />
+			<attribute name="TalentTreeTuning" idx="17" type="TalentTreeTuning" />
+			<attribute name="TeamManager" idx="18" type="TeamManager" />
+			<attribute name="TempBuffEval" idx="19" type="TempBuffEval" />
+			<attribute name="UpgradeCoachResponse" idx="20" type="UIFlowForm" />
+			<attribute name="UserRegistry" idx="21" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

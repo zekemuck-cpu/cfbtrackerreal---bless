@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UICoverBallTraitSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UICoverBallTraitSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="5" assetId="6663029" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="53" majorVersionCRC="574361084" minorVersionCRC="1128821286">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="CoverBallLevel" default="CoverBallLevel:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

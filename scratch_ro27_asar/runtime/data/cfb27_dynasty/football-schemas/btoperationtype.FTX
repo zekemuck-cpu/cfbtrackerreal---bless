@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\BtOperationType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BtOperationType" numMembers="6" assetId="14085284" isRecordPersistent="true" majorVersionCRC="-2111091363" minorVersionCRC="1458634177">
+			<attribute name="OPERATION_INVALID" idx="0" value="-1" />
+			<attribute name="OPERATION_ADD" idx="1" value="0" />
+			<attribute name="OPERATION_SUBTRACT" idx="2" value="1" />
+			<attribute name="OPERATION_MULTIPLY" idx="3" value="2" />
+			<attribute name="OPERATION_DIVIDE" idx="4" value="3" />
+			<attribute name="OPERATION_ASSIGN" idx="5" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

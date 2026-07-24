@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TalentStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TalentStatus" numMembers="5" assetId="6378187" isRecordPersistent="true" majorVersionCRC="1196934459" minorVersionCRC="-1490092454">
+			<attribute name="NotOwned" idx="0" value="0" />
+			<attribute name="Purchasable" idx="1" value="1" />
+			<attribute name="Owned" idx="2" value="2" />
+			<attribute name="Locked" idx="3" value="3" />
+			<attribute name="Invalid" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

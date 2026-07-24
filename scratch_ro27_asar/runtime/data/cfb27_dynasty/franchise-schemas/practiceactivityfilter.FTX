@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PracticeActivityFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PracticeActivityFilter" numMembers="4" assetId="6572362" isRecordPersistent="true" majorVersionCRC="424268207" minorVersionCRC="267974072">
+			<attribute name="RecommendedActivities" idx="0" value="0" />
+			<attribute name="EarnXP" idx="1" value="1" />
+			<attribute name="InGameDrills" idx="2" value="2" />
+			<attribute name="ImproveConfidence" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\Player_InjuryHealedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Player_InjuryHealedEvent" numMembers="5" base="Event" assetId="6495001" isRecordPersistent="true" majorVersionCRC="649702176" minorVersionCRC="-164408427">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6495001-1895458" final="true" />
+			<attribute name="Player" idx="1" type="Player" />
+			<attribute name="Send" idx="2" type="none()" guid="6495001-1895455" final="true" />
+			<attribute name="Team" idx="3" type="Team" />
+			<attribute name="WasEarlyReturn" idx="4" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

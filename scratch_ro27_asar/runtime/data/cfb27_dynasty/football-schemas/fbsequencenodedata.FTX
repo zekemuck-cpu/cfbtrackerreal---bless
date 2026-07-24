@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\FbSequenceNodeData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\TreeNode.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FbSequenceNodeData" numMembers="2" base="TreeNode" assetId="12462268" isRecordPersistent="true" majorVersionCRC="-465690369" minorVersionCRC="826694472">
+			<attribute name="Children" idx="0" type="TreeNode[]" />
+			<attribute name="Run" idx="1" type="TreeNode_Run" guid="12462268-2618001" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

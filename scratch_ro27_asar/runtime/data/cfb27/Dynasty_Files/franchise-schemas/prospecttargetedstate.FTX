@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\ProspectTargetedState.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ProspectTargetedState" numMembers="10" assetId="8532564" isRecordPersistent="true" majorVersionCRC="-1682407493" minorVersionCRC="98731734">
+			<attribute name="PROSPECTTARGETEDSTATE_FIRST" idx="0" value="0" />
+			<attribute name="PROSPECTTARGETEDSTATE_INTERESTED" idx="1" value="0" />
+			<attribute name="PROSPECTTARGETEDSTATE_NONE" idx="2" value="1" />
+			<attribute name="PROSPECTTARGETEDSTATE_TARGETED" idx="3" value="2" />
+			<attribute name="PROSPECTTARGETEDSTATE_VISITREADY" idx="4" value="3" />
+			<attribute name="PROSPECTTARGETEDSTATE_VISITING" idx="5" value="4" />
+			<attribute name="PROSPECTTARGETEDSTATE_LOCKEDOUT" idx="6" value="5" />
+			<attribute name="PROSPECTTARGETEDSTATE_DEALBREAKER" idx="7" value="6" />
+			<attribute name="PROSPECTTARGETEDSTATE_COMMITTED" idx="8" value="7" />
+			<attribute name="PROSPECTTARGETEDSTATE_LAST" idx="9" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

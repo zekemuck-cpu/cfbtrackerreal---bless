@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\UIBCCarryStylesSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIBCCarryStylesSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="6" assetId="11334630" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="71" majorVersionCRC="-960047932" minorVersionCRC="358612363">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="BCCarryStyle" default="BCCarryStyle:Default" />
+		</schema>
+	</schemas>
+</FranTkData>

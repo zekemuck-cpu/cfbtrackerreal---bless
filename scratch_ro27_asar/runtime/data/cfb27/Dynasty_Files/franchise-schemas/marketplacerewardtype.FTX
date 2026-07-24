@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\MarketplaceRewardType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MarketplaceRewardType" numMembers="4" assetId="6493959" isRecordPersistent="true" majorVersionCRC="-1068752777" minorVersionCRC="300885360">
+			<attribute name="Invalid" idx="0" value="-1" />
+			<attribute name="Cred" idx="1" value="0" />
+			<attribute name="PlayerRep" idx="2" value="1" />
+			<attribute name="GlobalRep" idx="3" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

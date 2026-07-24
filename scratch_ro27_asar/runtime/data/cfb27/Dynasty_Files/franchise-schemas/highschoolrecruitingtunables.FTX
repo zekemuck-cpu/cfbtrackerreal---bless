@@ -1,0 +1,46 @@
+<FranTkData fileName="Franchise-Schemas\HighSchoolRecruitingTunables.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HighSchoolRecruitingTunables" numMembers="39" defaultStoreCapacity="1" assetId="10605446" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1889582392" minorVersionCRC="325791857">
+			<attribute name="AcademicsMeterBonusMax" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AcademicsMeterBonusSpline" idx="1" type="Spline" />
+			<attribute name="BrandMeterBonusMax" idx="2" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="BrandMeterBonusSpline" idx="3" type="Spline" />
+			<attribute name="ChallengePerformanceThreshold" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrustBonusMax" idx="5" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="CoachTrustBonusSpline" idx="6" type="Spline" />
+			<attribute name="CommittedRecruitsFactorSpline" idx="7" type="Spline" />
+			<attribute name="CommittedRecruitsFactorWeight" idx="8" type="float" default="0" />
+			<attribute name="ExperiencePointsBonusMax" idx="9" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="ExperiencePointsBonusSpline" idx="10" type="Spline" />
+			<attribute name="FitnessMeterBonusMax" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FitnessMeterBonusSpline" idx="12" type="Spline" />
+			<attribute name="HoursSpentFactorSpline" idx="13" type="Spline" />
+			<attribute name="HoursSpentFactorWeight" idx="14" type="float" default="0" />
+			<attribute name="InitialTapeScoreBoostDecrementRate" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InitialTapeScoreBoostSpline" idx="16" type="Spline" />
+			<attribute name="InterestToBonusTierSpline" idx="17" type="Spline" />
+			<attribute name="LeadershipMeterBonusMax" idx="18" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeadershipMeterBonusSpline" idx="19" type="Spline" />
+			<attribute name="NumberOfRecommendedSchoolScholarshipOffers" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OfferLetterBodyArray" idx="21" type="StringArrayElement[]" />
+			<attribute name="PipelineEffectSpline" idx="22" type="Spline" />
+			<attribute name="RankChangeExpectedPerformanceMax" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RankChangeOverPerformanceMax" idx="24" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RankChangeUnderPerformanceMax" idx="25" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ScholarshipBonusDecommitPenalty" idx="26" type="int" minValue="0" maxValue="3" default="0" />
+			<attribute name="ScholarshipBonusOfferInterestSpline" idx="27" type="Spline" />
+			<attribute name="ScholarshipBonusVariance" idx="28" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ScholarshipScoreDecommitPenalty" idx="29" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="ScholarshipTierToBonusPercentSpline" idx="30" type="Spline" />
+			<attribute name="SchoolPrestigeFactorSpline" idx="31" type="Spline" />
+			<attribute name="SchoolPrestigeFactorWeight" idx="32" type="float" default="0" />
+			<attribute name="SkillPointsBonusMax" idx="33" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SkillPointsBonusSpline" idx="34" type="Spline" />
+			<attribute name="StarLevelToNationalRecruitingRankSpline" idx="35" type="Spline" />
+			<attribute name="TapeScoreToStarLevelThresholds" idx="36" type="Spline" />
+			<attribute name="TeamNeedFactorSpline" idx="37" type="Spline" />
+			<attribute name="TeamNeedFactorWeight" idx="38" type="float" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

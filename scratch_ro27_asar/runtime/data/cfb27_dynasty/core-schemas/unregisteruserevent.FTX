@@ -1,0 +1,12 @@
+<FranTkData fileName="Core-Schemas\UnregisterUserEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UnregisterUserEvent" numMembers="5" base="Event" assetId="6210611" isRecordPersistent="true" majorVersionCRC="-237461347" minorVersionCRC="-485636050">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6210611-1895458" final="true" />
+			<attribute name="IsBanned" idx="1" type="bool" default="False" />
+			<attribute name="IsComingBack" idx="2" type="bool" default="False" />
+			<attribute name="Send" idx="3" type="none()" guid="6210611-1895455" final="true" />
+			<attribute name="User" idx="4" type="User" />
+		</schema>
+	</schemas>
+</FranTkData>

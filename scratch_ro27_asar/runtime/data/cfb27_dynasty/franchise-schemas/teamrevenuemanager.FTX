@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueManager" numMembers="16" base="Module" assetId="6495100" isRecordPersistent="true" majorVersionCRC="1573315552" minorVersionCRC="1026902468">
+			<attribute name="FinancialProbationNotifyResponse" idx="0" type="UIForm" />
+			<attribute name="HandleStaffProbation" idx="1" type="TeamRevenueManager_HandleStaffProbation" guid="6495100-1913840" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="2" type="TeamRevenueManager_HandleUpdatePlayerContractStatus" guid="6495100-1913845" final="true" />
+			<attribute name="InitializeWeekTable" idx="3" type="none()" guid="6495100-1913826" final="true" />
+			<attribute name="InitializeYearTable" idx="4" type="none()" guid="6495100-1913820" final="true" />
+			<attribute name="MerchandiseItemList" idx="5" type="MerchandiseItemInfo[]" />
+			<attribute name="PlayerMerchandiseImageList" idx="6" type="PlayerMerchandiseImageInfo[]" />
+			<attribute name="SalaryInfo" idx="7" type="SalaryInfo" />
+			<attribute name="SeasonInfo" idx="8" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="9" type="SeasonManager" />
+			<attribute name="TeamMerchandiseImageList" idx="10" type="TeamMerchandiseImageInfo[]" />
+			<attribute name="TeamRevenueUpdatedEvent" idx="11" type="TeamRevenueUpdatedEvent" />
+			<attribute name="Teams" idx="12" type="Team[]" />
+			<attribute name="UpdateLeagueWeeklySharedRevenue" idx="13" type="int()" guid="6495100-1913835" final="true" default="SalaryInfo.WeeklySharedRevenue = SalaryInfo.TeamSharedRevenuePerYear[SeasonInfo.CurrentYear] / SeasonManager.GetTotalYearLength();&#xD;&#xA;&#xD;&#xA;" />
+			<attribute name="UpdateWeekTable" idx="14" type="none()" guid="6495100-1913829" final="true" />
+			<attribute name="UpdateYearTable" idx="15" type="none()" guid="6495100-1913823" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

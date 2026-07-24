@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueTable" numMembers="5" defaultStoreCapacity="32" assetId="6494939" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-148042905" minorVersionCRC="1380123712">
+			<attribute name="ConcessionItemPriceTable" idx="0" type="int[]" />
+			<attribute name="MerchandiseItemPriceTable" idx="1" type="int[]" />
+			<attribute name="SeasonRevenueTable" idx="2" type="TeamRevenueInfo[]" />
+			<attribute name="TicketPriceTable" idx="3" type="int[]" />
+			<attribute name="WeeklyRevenueTable" idx="4" type="TeamRevenueInfo[]" />
+		</schema>
+	</schemas>
+</FranTkData>

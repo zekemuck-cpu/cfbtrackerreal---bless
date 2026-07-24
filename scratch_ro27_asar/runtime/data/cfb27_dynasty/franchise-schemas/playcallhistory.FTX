@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlaycallHistory.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlaycallHistory" numMembers="4" assetId="6495008" isRecordPersistent="true" majorVersionCRC="170071440" minorVersionCRC="1382532864">
+			<attribute name="DefensiveAiGroupDetails" idx="0" type="PlaycallHistoryAiGroupDetails[]" />
+			<attribute name="IsDefenseDataReported" idx="1" type="bool" default="False" />
+			<attribute name="IsOffenseDataReported" idx="2" type="bool" default="False" />
+			<attribute name="OffensiveAiGroupDetails" idx="3" type="PlaycallHistoryAiGroupDetails[]" />
+		</schema>
+	</schemas>
+</FranTkData>

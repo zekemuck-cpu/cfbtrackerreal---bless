@@ -1,0 +1,36 @@
+<FranTkData fileName="Franchise-Schemas\TeamRoadmapEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRoadmapEval" numMembers="29" base="Module" assetId="6494567" isRecordPersistent="true" majorVersionCRC="-1188061743" minorVersionCRC="-330483923">
+			<attribute name="AgeValueDevelopmentModifierTable" idx="0" type="int[]" />
+			<attribute name="AgeValueModifierSplineTable" idx="1" type="PlayerPositionLookupTable" />
+			<attribute name="BuildImproveTeamRequest" idx="2" type="TeamRoadmapEval_BuildImproveTeamRequest" guid="6494567-1912082" />
+			<attribute name="CreateImproveTeamRequest" idx="3" type="TeamNeeds_ImproveTeamRequest()" guid="6494567-1912080" />
+			<attribute name="CreatePlayerPool" idx="4" type="TeamRoadmapEval_CreatePlayerPool" guid="6494567-1912036" final="true" />
+			<attribute name="DestroyPlayerPool" idx="5" type="none()" guid="6494567-1912040" final="true" />
+			<attribute name="DraftPlayerGradeSplineTable" idx="6" type="PlayerPositionLookupTable" />
+			<attribute name="Franchise" idx="7" type="Franchise" />
+			<attribute name="HandleConvertPlayerPosition" idx="8" type="TeamRoadmapEval_HandleConvertPlayerPosition" guid="6494567-1912060" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatusEvent" idx="9" type="TeamRoadmapEval_HandleUpdatePlayerContractStatusEvent" guid="6494567-1912052" final="true" />
+			<attribute name="ImportanceAveragingThreshold" idx="10" type="int" minValue="0" maxValue="99" default="75" />
+			<attribute name="ImproveTeamRequest_DelegateResponse" idx="11" type="UISelectForm" />
+			<attribute name="ImproveTeamRequest_ViewTeamNeedsResponse" idx="12" type="UIFlowForm" />
+			<attribute name="InitImproveTeamRequest" idx="13" type="TeamRoadmapEval_InitImproveTeamRequest" guid="6494567-1912075" final="true" default="// Construct the request form.&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;" />
+			<attribute name="IsDraftPeriodActive" idx="14" type="bool" default="False" />
+			<attribute name="IsDraftPlayerEvaluationActive" idx="15" type="bool" default="False" />
+			<attribute name="IssueImproveTeamRequest" idx="16" type="TeamRoadmapEval_IssueImproveTeamRequest" guid="6494567-1912071" final="true" default="TeamNeeds_ImproveTeamRequest request = BuildImproveTeamRequest(Team);&#xD;&#xA;TeamRequestManager.Issue(Team, request);" />
+			<attribute name="LeagueSetting" idx="17" type="LeagueSetting" />
+			<attribute name="MinimumPlayerGrade" idx="18" type="int" minValue="15" maxValue="99" default="15" />
+			<attribute name="OLineImportanceAveragingThreshold" idx="19" type="int" minValue="0" maxValue="99" default="69" />
+			<attribute name="PlayerAddedValueSpline" idx="20" type="Spline" />
+			<attribute name="RequestServer" idx="21" type="RequestServer" />
+			<attribute name="SetImproveTeamRequestFlags" idx="22" type="none()" guid="6494567-1912088" final="true" />
+			<attribute name="TuningValues" idx="23" type="RoadmapValueTuning" />
+			<attribute name="TypeMatchValueBoost" idx="24" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="UpdateTeamNeedRankings" idx="25" type="TeamRoadmapEval_UpdateTeamNeedRankings" guid="6494567-1912048" final="true" />
+			<attribute name="UpdateTeamRoadmap" idx="26" type="TeamRoadmapEval_UpdateTeamRoadmap" guid="6494567-1912043" final="true" />
+			<attribute name="UserRegistry" idx="27" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="28" type="none()" guid="6494567-1912092" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

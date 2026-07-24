@@ -1,0 +1,27 @@
+<FranTkData fileName="Franchise-Schemas\MediaQuestionOnTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\MediaQuestion.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaQuestionOnTeam" numMembers="16" base="MediaQuestion" defaultStoreCapacity="10" assetId="6549023" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1033985110" minorVersionCRC="1411404135">
+			<attribute name="AudioId" idx="0" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="DebugQuestion" idx="1" type="bool" default="False" />
+			<attribute name="GetRating" idx="2" type="MediaQuestion_GetRating" guid="6549023-1925622" default="int priority = 75;&#xD;&#xA;&#xD;&#xA;priority;" />
+			<attribute name="GetRatingUsingTeam" idx="3" type="MediaQuestionOnTeam_GetRatingUsingTeam" guid="6549023-1935596" default="int rating = 0;&#xD;&#xA;&#xD;&#xA;rating;" />
+			<attribute name="ImageId" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="IsForCoach" idx="5" type="bool" default="False" />
+			<attribute name="IsForOwner" idx="6" type="bool" default="False" />
+			<attribute name="IsForPlayer" idx="7" type="bool" default="False" />
+			<attribute name="MaxStartDate" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxStartDateType" idx="9" type="DurationType" default="DurationType:Games" />
+			<attribute name="MediaPersonality" idx="10" type="MediaPersonality" />
+			<attribute name="MinStartDate" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinStartDateType" idx="12" type="DurationType" default="DurationType:Games" />
+			<attribute name="Question" idx="13" type="string" maxLen="256" />
+			<attribute name="QuestionId" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Responses" idx="15" type="MediaGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

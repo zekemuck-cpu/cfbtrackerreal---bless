@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\TeamAwardEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamAwardEvent" numMembers="8" base="Event" assetId="6378183" isRecordPersistent="true" majorVersionCRC="-1775431912" minorVersionCRC="-2144139778">
+			<attribute name="AwardType" idx="0" type="AwardType" default="AwardType:First_" />
+			<attribute name="Coach" idx="1" type="Coach" />
+			<attribute name="Enqueue" idx="2" type="none()" guid="6378183-1895458" final="true" />
+			<attribute name="Period" idx="3" type="StatPeriod" default="StatPeriod:Season" />
+			<attribute name="PeriodIndex" idx="4" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="Send" idx="5" type="none()" guid="6378183-1895455" final="true" />
+			<attribute name="Team" idx="6" type="Team" />
+			<attribute name="Trophy" idx="7" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

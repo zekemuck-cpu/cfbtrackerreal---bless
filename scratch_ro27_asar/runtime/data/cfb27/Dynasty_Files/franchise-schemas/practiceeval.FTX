@@ -1,0 +1,111 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval" numMembers="104" base="Module" assetId="6708631" isRecordPersistent="true" majorVersionCRC="1346773145" minorVersionCRC="1501192359">
+			<attribute name="ActivityCompletedEvent" idx="0" type="ActivityCompletedEvent" />
+			<attribute name="ActivityCompletedNewsEvent" idx="1" type="ActivityCompletedNewsEvent" />
+			<attribute name="BaseMaxFocusPlayers" idx="2" type="int" minValue="0" maxValue="7" default="3" />
+			<attribute name="ChallengesSchedule" idx="3" type="ChallengesWeek[]" />
+			<attribute name="ChallengesTuning" idx="4" type="ChallengesTuning" />
+			<attribute name="ClearPlayerRankingCache" idx="5" type="none()" guid="6708631-1948237" final="true" />
+			<attribute name="CreatePracticeRequest" idx="6" type="PracticeEval_CreatePracticeRequest" guid="6708631-1948154" final="true" default="PracticeRequest request = new PracticeRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.PracticeEvalRef = this;&#xD;&#xA;request.RequestData = PracticeGame;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;&#xD;&#xA;request.ResponseForms = new ResponseForm[2];&#xD;&#xA;&#xD;&#xA;request.ResponseForms.Append(PracticeRequestPlayResponse);&#xD;&#xA;&#xD;&#xA;if (IsDelegateResponseAvailable)&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(PracticeRequestDelegateResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.DefaultResponse = PracticeRequestDelegateResponse;&#xD;&#xA;request.CanUpdateResponse = true;&#xD;&#xA;&#xD;&#xA;request;" />
+			<attribute name="DebugModule" idx="7" type="DebugModule" />
+			<attribute name="DefenseWeeklyFocusPositionGroups" idx="8" type="WeeklyFocusPositionGroup[]" />
+			<attribute name="DelegatePracticeTime" idx="9" type="PracticeEval_DelegatePracticeTime" guid="6708631-1948111" final="true" />
+			<attribute name="ExecuteWeeklyPractice" idx="10" type="PracticeEval_ExecuteWeeklyPractice" guid="6708631-2590057" final="true" />
+			<attribute name="FillTopThreatPlayerStatRankingsCache" idx="11" type="none()" guid="6708631-1948240" final="true" />
+			<attribute name="FocusTraining" idx="12" type="FocusTraining" />
+			<attribute name="Franchise" idx="13" type="Franchise" />
+			<attribute name="FreePracticeResponse" idx="14" type="ResponseForm" />
+			<attribute name="GameplanFeaturesEnabled" idx="15" type="bool" default="False" />
+			<attribute name="GameplanningRequestDelegateResponse" idx="16" type="ResponseForm" />
+			<attribute name="GameplanningRequestGameplanningResponse" idx="17" type="ResponseForm" />
+			<attribute name="GetDepthChartPositionPhilosophy" idx="18" type="PracticeEval_GetDepthChartPositionPhilosophy" guid="6708631-1948116" final="true" />
+			<attribute name="GetMedalForDrill" idx="19" type="PracticeEval_GetMedalForDrill" guid="6708631-1948233" />
+			<attribute name="GetMedalForPlayerDrill" idx="20" type="PracticeEval_GetMedalForPlayerDrill" guid="6708631-1948197" />
+			<attribute name="GetMiniGameFromPool" idx="21" type="PracticeEval_GetMiniGameFromPool" guid="6708631-2653274" final="true" />
+			<attribute name="GetStorySideActivityCompletions" idx="22" type="PracticeEval_GetStorySideActivityCompletions" guid="6708631-1948224" final="true" />
+			<attribute name="HandleFocusTraining" idx="23" type="PracticeEval_HandleFocusTraining" guid="6708631-1948165" default="if(player != null &amp;&amp; team != null)&#xD;&#xA;{&#xD;&#xA;  int xpAward = RandomRef.GetRandomIntRange(MinFocusTrainingXpAward, MaxFocusTrainingXpAward);&#xD;&#xA;  player.ExperiencePoints = player.ExperiencePoints + xpAward;&#xD;&#xA;&#xD;&#xA;  PersonHistoryTrackerNotificationEvent event = PlayerHistoryEventRef;&#xD;&#xA;  event.Person = player;&#xD;&#xA;  event.SourceRecord = FocusTraining;&#xD;&#xA;  event.ExperienceValue = xpAward;&#xD;&#xA;  event.Team = team;&#xD;&#xA;&#xD;&#xA;  event.Send();&#xD;&#xA;}" />
+			<attribute name="HandlePlayerInjuredEvent" idx="24" type="PracticeEval_HandlePlayerInjuredEvent" guid="6708631-1948208" final="true" />
+			<attribute name="HandlePreSeasonStartEvent" idx="25" type="none()" guid="6708631-1948205" final="true" />
+			<attribute name="HandleRegisterUser" idx="26" type="PracticeEval_HandleRegisterUser" guid="6708631-1948135" final="true" />
+			<attribute name="HandleRegularSeasonStartEvent" idx="27" type="none()" guid="6708631-1948249" final="true" />
+			<attribute name="HandleSeasonBeginWeekEvent" idx="28" type="PracticeEval_HandleSeasonBeginWeekEvent" guid="6708631-2590042" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="29" type="PracticeEval_HandleUpdatePlayerContractStatus" guid="6708631-1948201" final="true" />
+			<attribute name="HandleUserPlayerSign" idx="30" type="PracticeEval_HandleUserPlayerSign" guid="6708631-2653152" final="true" />
+			<attribute name="InitializeWeeklyPractice" idx="31" type="PracticeEval_InitializeWeeklyPractice" guid="6708631-1948244" final="true" />
+			<attribute name="InjuryEval" idx="32" type="InjuryEval" />
+			<attribute name="IsDelegateResponseAvailable" idx="33" type="bool" default="False" />
+			<attribute name="IsMinigameDebugSelectionEnabled" idx="34" type="bool()" guid="6708631-2653275" final="true" />
+			<attribute name="IssueGameplanningRequest" idx="35" type="PracticeEval_IssueGameplanningRequest" guid="6708631-2590046" final="true" default="GameplanningRequest request = new GameplanningRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.PracticeEvalRef = this;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;&#xD;&#xA;request.Team = team;&#xD;&#xA;&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;&#xD;&#xA;request.ResponseForms.Append(GameplanningRequestGameplanningResponse);&#xD;&#xA;&#xD;&#xA;request.DefaultResponse = GameplanningRequestDelegateResponse;&#xD;&#xA;request.CanUpdateResponse = true;&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssuePracticeGameRequest" idx="36" type="PracticeEval_IssuePracticeGameRequest" guid="6708631-1948146" final="true" default="// Get the season info needed&#xD;&#xA;SeasonWeekType weekType = SeasonInfo.CurrentWeekType;&#xD;&#xA;int week = SeasonInfo.CurrentWeek;&#xD;&#xA;&#xD;&#xA;if (inSeasonRequest)&#xD;&#xA;{  &#xD;&#xA;    // Get the info for the next game&#xD;&#xA;    SeasonGame seasonGame = SeasonManager.GetNextGame(team, weekType, week);&#xD;&#xA;  &#xD;&#xA;    bool hadPlayoffByeWeek = false;&#xD;&#xA;&#xD;&#xA;    // Handle Regular Season Bye Weeks&#xD;&#xA;    if (seasonGame == null)&#xD;&#xA;    {&#xD;&#xA;        // Likely a bye week, GetNextGame gets the game for a specific week type and week&#xD;&#xA;        // Pull in the next week, to use next relevant playbooks in practice&#xD;&#xA;&#xD;&#xA;        if(weekType == SeasonWeekType.RegularSeason)&#xD;&#xA;        {&#xD;&#xA;            seasonGame = SeasonManager.GetNextGame(team, weekType, week + 1);&#xD;&#xA;        }&#xD;&#xA;        else&#xD;&#xA;        {&#xD;&#xA;            SeasonWeekType nextWeekType = SeasonWeekType.OffSeason;&#xD;&#xA;            if (weekType == SeasonWeekType.BowlSeason1)&#xD;&#xA;            {&#xD;&#xA;                nextWeekType = SeasonWeekType.BowlSeason2;&#xD;&#xA;            }&#xD;&#xA;            else if (weekType == SeasonWeekType.BowlSeason2)&#xD;&#xA;            {&#xD;&#xA;                nextWeekType = SeasonWeekType.BowlSeason3;&#xD;&#xA;            }&#xD;&#xA;            else if (weekType == SeasonWeekType.BowlSeason3)&#xD;&#xA;            {&#xD;&#xA;                nextWeekType = SeasonWeekType.NationalChampionship;&#xD;&#xA;            }&#xD;&#xA;&#xD;&#xA;            if(nextWeekType != SeasonWeekType.OffSeason)&#xD;&#xA;            {&#xD;&#xA;                seasonGame = SeasonManager.GetNextGame(team, nextWeekType, week + 1);&#xD;&#xA;            }&#xD;&#xA;        }&#xD;&#xA;&#xD;&#xA;        if(weekType == SeasonWeekType.BowlSeason1)&#xD;&#xA;        {&#xD;&#xA;            hadPlayoffByeWeek = true;&#xD;&#xA;        }&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;    // If a game was found&#xD;&#xA;    if (seasonGame != null || weekType == SeasonWeekType.PreSeason)&#xD;&#xA;    {&#xD;&#xA;        // Create a practice game&#xD;&#xA;        SeasonGame practiceGame = PracticeGame;&#xD;&#xA;&#xD;&#xA;     if (practiceGame != null)&#xD;&#xA;     {&#xD;&#xA;          practiceGame.TimeOfDay = 975;&#xD;&#xA;          practiceGame.IsKickoffGame = false;&#xD;&#xA;          if(weekType == SeasonWeekType.PreSeason)&#xD;&#xA;          {&#xD;&#xA;            practiceGame.SeasonYear = SeasonInfo.CurrentYear;&#xD;&#xA;            practiceGame.SeasonWeekType = SeasonInfo.CurrentWeekType;&#xD;&#xA;          }&#xD;&#xA;          else&#xD;&#xA;          {&#xD;&#xA;            practiceGame.SeasonYear = seasonGame.SeasonYear ;&#xD;&#xA;            practiceGame.SeasonWeekType = seasonGame.SeasonWeekType;&#xD;&#xA;          }&#xD;&#xA;&#xD;&#xA;          practiceGame.SeasonGameNum = 0;&#xD;&#xA;          practiceGame.GameStatus = GameStatus.Unplayed;&#xD;&#xA;          practiceGame.IsPractice = true;&#xD;&#xA;          practiceGame.ThanksgivingFlag = false;&#xD;&#xA;&#xD;&#xA;          // Make sure the team is the home team, this is used so the practice session receives relevant playbooks&#xD;&#xA;          practiceGame.HomeTeam = team;&#xD;&#xA;          practiceGame.AwayTeam = PracticeTeam;&#xD;&#xA;&#xD;&#xA;          // Create the game request&#xD;&#xA;          PracticeRequest gameRequest = CreatePracticeRequest(isUserPlayer, team);&#xD;&#xA;          gameRequest.RequestData = practiceGame;&#xD;&#xA;          gameRequest.IsFreePractice = isFreePractice;&#xD;&#xA;&#xD;&#xA;          if(team.UserCharacter != null &amp;&amp; isUserPlayer)&#xD;&#xA;          {&#xD;&#xA;          bool debugMinigameSelectionEnabled = IsMinigameDebugSelectionEnabled();&#xD;&#xA;              gameRequest.ResponseForms = new ResponseForm[3];&#xD;&#xA;        if(!isFreePractice)&#xD;&#xA;        {&#xD;&#xA;               gameRequest.SelectedMinigame = GetMiniGameFromPool(team.UserCharacter, team);&#xD;&#xA;       if(gameRequest.SelectedMinigame != null)&#xD;&#xA;       {&#xD;&#xA;      gameRequest.ResponseForms.Append(PracticePlayerResponse);&#xD;&#xA;       }&#xD;&#xA;        }&#xD;&#xA;              &#xD;&#xA;              gameRequest.ResponseForms.Append(PracticeRequestDelegateResponse);&#xD;&#xA;              if (debugMinigameSelectionEnabled )&#xD;&#xA;              {&#xD;&#xA;                  gameRequest.ResponseForms.Append(PracticeSelectionResponse);&#xD;&#xA;              }&#xD;&#xA;&#xD;&#xA;              gameRequest.DefaultResponse = PracticePlayerResponse;&#xD;&#xA;          }&#xD;&#xA;&#xD;&#xA;         // Set team on request&#xD;&#xA;         gameRequest.Team = team;&#xD;&#xA;         gameRequest.UserEntity = team.UserCharacter;&#xD;&#xA;&#xD;&#xA;         // Issue the request&#xD;&#xA;         gameRequest.Issue(team.UserCharacter);&#xD;&#xA;&#xD;&#xA;         practiceGame.HomeRequestId = gameRequest.RequestId;&#xD;&#xA;     }&#xD;&#xA;   }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;" />
+			<attribute name="LeagueSettingRef" idx="37" type="LeagueSetting" />
+			<attribute name="MaxBronzeDrillFactor" idx="38" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MaxDevelopmentFactorSpline" idx="39" type="Spline" />
+			<attribute name="MaxFocusTrainingXpAward" idx="40" type="int" minValue="0" maxValue="500" default="150" />
+			<attribute name="MaxGoldDrillFactor" idx="41" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MaxMedalNoneDrillFactor" idx="42" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MaxPlayerOverallBarRange" idx="43" type="int" minValue="15" maxValue="99" default="99" />
+			<attribute name="MaxSilverDrillFactor" idx="44" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MaxTeamOverallBarRange" idx="45" type="int" minValue="1" maxValue="99" default="99" />
+			<attribute name="MaxUnlockableFocusPlayers" idx="46" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="MetersEval" idx="47" type="NarrativePlayerMetersEval" />
+			<attribute name="MinBronzeDrillFactor" idx="48" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MinDevelopmentFactorSpline" idx="49" type="Spline" />
+			<attribute name="MinFocusTrainingXpAward" idx="50" type="int" minValue="0" maxValue="500" default="100" />
+			<attribute name="MinGoldDrillFactor" idx="51" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MinMedalNoneDrillFactor" idx="52" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MinPlayerOverallBarRange" idx="53" type="int" minValue="15" maxValue="99" default="15" />
+			<attribute name="MinSilverDrillFactor" idx="54" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="MinTeamOverallBarRange" idx="55" type="int" minValue="1" maxValue="99" default="1" />
+			<attribute name="OffenseWeeklyFocusPositionGroups" idx="56" type="WeeklyFocusPositionGroup[]" />
+			<attribute name="OffSeasonStageTime" idx="57" type="int" minValue="0" maxValue="40" default="0" />
+			<attribute name="PlaycallHistoryEvalRef" idx="58" type="PlaycallHistoryEval" />
+			<attribute name="PlayerGoalsEval" idx="59" type="PlayerGoalsEval" />
+			<attribute name="PlayerHistoryEventRef" idx="60" type="PersonHistoryTrackerNotificationEvent" />
+			<attribute name="PlayerProgressionEval" idx="61" type="PlayerProgressionEval" />
+			<attribute name="PlayerRewardNotificationEvent" idx="62" type="record" />
+			<attribute name="PlayerRewardType" idx="63" type="PlayerRewardType" default="PlayerRewardType:Experience" />
+			<attribute name="PlayerSpecificDrills" idx="64" type="DrillActivity[]" />
+			<attribute name="PlayerSpecificDrillWeightBronze" idx="65" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="PlayerSpecificDrillWeightGold" idx="66" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="PlayerSpecificDrillWeightNone" idx="67" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="PlayerSpecificDrillWeightSilver" idx="68" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="PracticeEvalTuning" idx="69" type="PracticeEvalTuning" />
+			<attribute name="PracticeGame" idx="70" type="SeasonGame" />
+			<attribute name="PracticePlayerResponse" idx="71" type="ResponseForm" />
+			<attribute name="PracticeRequestDelegateResponse" idx="72" type="ResponseForm" />
+			<attribute name="PracticeRequestPlayResponse" idx="73" type="ResponseForm" />
+			<attribute name="PracticeSelectionResponse" idx="74" type="ResponseForm" />
+			<attribute name="PracticeTeam" idx="75" type="Team" />
+			<attribute name="PreSeasonStageTime" idx="76" type="int" minValue="0" maxValue="40" default="0" />
+			<attribute name="ProcessGameplanningRequest" idx="77" type="PracticeEval_ProcessGameplanningRequest" guid="6708631-2590053" final="true" default="ExecuteWeeklyPractice(gameplanningRequest.Team);" />
+			<attribute name="ProcessPracticeRequest" idx="78" type="PracticeEval_ProcessPracticeRequest" guid="6708631-1948141" final="true" default="UserEntity userEntity = null;&#xD;&#xA;&#xD;&#xA;if (practiceRequest.TargetUser != null)&#xD;&#xA;{&#xD;&#xA; userEntity = practiceRequest.TargetUser.UserEntity;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;DelegatePracticeTime(practiceRequest.Team, userEntity, practiceRequest.SelectedMinigame );&#xD;&#xA;&#xD;&#xA;" />
+			<attribute name="ProcessSeasonGameRequest" idx="79" type="PracticeEval_ProcessSeasonGameRequest" guid="6708631-1948107" final="true" default="if (seasonGameRequest.IsPractice)&#xD;&#xA;{&#xD;&#xA;  // DelegatePracticeTime(seasonGameRequest.Team, seasonGameRequest.Team.UserCharacter);&#xD;&#xA;}" />
+			<attribute name="RandomRef" idx="80" type="Random" />
+			<attribute name="RegularSeasonStageTime" idx="81" type="int" minValue="0" maxValue="40" default="0" />
+			<attribute name="RequestServer" idx="82" type="RequestServer" />
+			<attribute name="RewardRarity" idx="83" type="RewardRarity" />
+			<attribute name="RosterEval" idx="84" type="RosterEval" />
+			<attribute name="SchemeFitXpBoostPerPosition" idx="85" type="PositionCountTable" />
+			<attribute name="SeasonInfo" idx="86" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="87" type="SeasonManager" />
+			<attribute name="SeasonManagerRef" idx="88" type="SeasonManager" />
+			<attribute name="SelectFocusTrainingPlayers" idx="89" type="PracticeEval_SelectFocusTrainingPlayers" guid="6708631-1948187" final="true" />
+			<attribute name="SelectPlayerSpecificDrills" idx="90" type="PracticeEval_SelectPlayerSpecificDrills" guid="6708631-1948179" final="true" />
+			<attribute name="SelectWeeklyFocus" idx="91" type="PracticeEval_SelectWeeklyFocus" guid="6708631-1948229" final="true" />
+			<attribute name="SimDrillForPlayer" idx="92" type="PracticeEval_SimDrillForPlayer" guid="6708631-1948193" />
+			<attribute name="SimmedDrillBoostModifier" idx="93" type="float" default="0.75" />
+			<attribute name="StatManagerRef" idx="94" type="StatManager" />
+			<attribute name="StorySideActivitiesData" idx="95" type="StorySideActivitiesData" />
+			<attribute name="TalentTreeEvalRef" idx="96" type="TalentTreeEval" />
+			<attribute name="TeamActivityList" idx="97" type="TeamActivity[]" />
+			<attribute name="TeamPracticeActivity" idx="98" type="TeamPracticeActivity" />
+			<attribute name="TeamSideActivityList" idx="99" type="TeamSideActivity[]" />
+			<attribute name="TutorialManager" idx="100" type="TutorialManager" />
+			<attribute name="UpdateCareerHubInfoEvent" idx="101" type="UpdateCareerHubInfoEvent" />
+			<attribute name="UserRegistry" idx="102" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="103" type="none()" guid="6708631-1948212" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

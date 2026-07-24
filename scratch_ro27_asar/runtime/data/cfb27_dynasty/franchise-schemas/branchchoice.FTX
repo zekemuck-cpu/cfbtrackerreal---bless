@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\BranchChoice.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BranchChoice" numMembers="4" assetId="6498839" isRecordPersistent="true" majorVersionCRC="331795070" minorVersionCRC="-1924942372">
+			<attribute name="NoChange" idx="0" value="0" />
+			<attribute name="Branch1" idx="1" value="1" />
+			<attribute name="Branch2" idx="2" value="2" />
+			<attribute name="Branch3" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

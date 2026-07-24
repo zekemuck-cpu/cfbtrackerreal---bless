@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\PlayoffRoundType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayoffRoundType" numMembers="9" assetId="6494447" isRecordPersistent="true" majorVersionCRC="2115208591" minorVersionCRC="2064509568">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="FirstMadePlayoffs_" idx="1" value="1" />
+			<attribute name="FirstRound" idx="2" value="1" />
+			<attribute name="Quarterfinals" idx="3" value="2" />
+			<attribute name="Semifinals" idx="4" value="3" />
+			<attribute name="NationalChampionship" idx="5" value="4" />
+			<attribute name="LastMadePlayoffs_" idx="6" value="5" />
+			<attribute name="WonNationalChampionship" idx="7" value="5" />
+			<attribute name="Count_" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

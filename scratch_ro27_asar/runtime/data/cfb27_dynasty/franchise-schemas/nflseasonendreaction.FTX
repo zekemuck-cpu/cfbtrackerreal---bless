@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\NFLSeasonEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NFLSeasonEndReaction" numMembers="8" base="Reaction" assetId="6814610" isRecordPersistent="true" majorVersionCRC="1193369035" minorVersionCRC="-1624540879">
+			<attribute name="EventRecord" idx="0" type="SeasonEndEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6814610-1895461" />
+			<attribute name="OffSeasonStartRef" idx="3" type="Scheduler.RelativeAppt" />
+			<attribute name="Priority" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonManager" idx="5" type="SeasonManager" />
+			<attribute name="SeasonYearEndRef" idx="6" type="Scheduler.RelativeAppt" />
+			<attribute name="StatManager" idx="7" type="StatManager" />
+		</schema>
+	</schemas>
+</FranTkData>

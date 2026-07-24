@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\UniformShade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="UniformShade" numMembers="2" assetId="6321028" isRecordPersistent="true" majorVersionCRC="2043356395" minorVersionCRC="666415892">
+			<attribute name="Dark" idx="0" value="0" />
+			<attribute name="Light" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,103 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersTunable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersTunable" numMembers="92" base="BaseTuning" defaultStoreCapacity="1" assetId="7709449" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="32" majorVersionCRC="-1726289884" minorVersionCRC="-1142299253">
+			<attribute name="AcademicsMeterTunable" idx="0" type="NarrativePlayerAcademicsTunable" />
+			<attribute name="AcademicsScenarioModificationTable" idx="1" type="ScenarioMetersModificationTable" />
+			<attribute name="ActionEnumTable" idx="2" type="EnumTable" />
+			<attribute name="ActionInfoTable" idx="3" type="NarrativePlayerMeterActionInfo[]" />
+			<attribute name="AthleticFacilitiesXPMod" idx="4" type="int[]" />
+			<attribute name="BodyPartDamageDistribution" idx="5" type="int[]" />
+			<attribute name="BodyPartHealthThreshold" idx="6" type="int[]" />
+			<attribute name="BonusCoachTrustLevelFactor" idx="7" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="BowlGameFollowerModifier" idx="8" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="BrandContractSlotsUnlockLevel" idx="9" type="int[]" />
+			<attribute name="BrandEngagementLevel" idx="10" type="float[]" />
+			<attribute name="BrandExposureContentMultiplier" idx="11" type="int[]" />
+			<attribute name="BrandFollowerDecay" idx="12" type="int" minValue="0" maxValue="50" default="5" />
+			<attribute name="BrandFollowerIncreaseValueSpline" idx="13" type="Spline" />
+			<attribute name="BrandMaxMultiplier" idx="14" type="float" default="0" />
+			<attribute name="BrandScenarioModificationTable" idx="15" type="ScenarioMetersModificationTable" />
+			<attribute name="BrandStreakMaxNoAction" idx="16" type="int" minValue="-10" maxValue="10" default="-3" />
+			<attribute name="BrandTransferPenalty" idx="17" type="float" default="-0.25" />
+			<attribute name="CoachHappinessIneligablePenalty" idx="18" type="int" minValue="-99" maxValue="0" default="-80" />
+			<attribute name="CoachHappinessLevels" idx="19" type="int[]" />
+			<attribute name="CoachHappinessLevelToDemote" idx="20" type="CoachHappinessLevel" default="CoachHappinessLevel:CoachHappiness_Bottom" />
+			<attribute name="CoachHappinessOVRMod" idx="21" type="Spline" />
+			<attribute name="CoachHappinessPerCoachPrestigeSpline" idx="22" type="Spline" />
+			<attribute name="CoachHappinessPositionBattleLevel" idx="23" type="CoachHappinessLevel" default="CoachHappinessLevel:CoachHappiness_Normal" />
+			<attribute name="CoachHappinessScenarioModificationTable" idx="24" type="ScenarioMetersModificationTable" />
+			<attribute name="CoachHappinessSeasonStartValue" idx="25" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="CoachHappinessSimmedPracticeFactor" idx="26" type="float" default="0" />
+			<attribute name="CoachPrestigeLootRollMod" idx="27" type="int[]" />
+			<attribute name="CoachTrustAllowNoHuddlePlayCallUnlockLevel" idx="28" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrustAudiblesUnlockLevel" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrustDefensiveAdjustmentsUnlockLevel" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrustDepthChartBoostFactor" idx="31" type="float" default="0" />
+			<attribute name="CoachTrustExtraPlaysPerLevelSpline" idx="32" type="Spline" />
+			<attribute name="CoachTrustHappinessLevelModifiers" idx="33" type="int[]" />
+			<attribute name="CoachTrustHappinessLevelPercentDecreasers" idx="34" type="int[]" />
+			<attribute name="CoachTrustHotRoutesUnlockLevel" idx="35" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrustLevelConversionSpline" idx="36" type="Spline" />
+			<attribute name="CoachTrustMaxDepthChartOVRBoost" idx="37" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrustMinDepthChartOVRBoost" idx="38" type="int" minValue="-100" maxValue="0" default="0" />
+			<attribute name="CoachTrustPassProtectionUnlockLevel" idx="39" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachTrustPlayCountPerLevelSpline" idx="40" type="Spline" />
+			<attribute name="CoachTrustPointsOnPositionBattleLoss" idx="41" type="int" minValue="-1000" maxValue="0" default="-1" />
+			<attribute name="CoachTrustPointsOnPositionBattleWin" idx="42" type="int" minValue="0" maxValue="1000" default="1" />
+			<attribute name="CoachTrustPointsZeroOffset" idx="43" type="int" minValue="0" maxValue="32000" default="0" />
+			<attribute name="CoachTrustScenarioModificationTable" idx="44" type="ScenarioMetersModificationTable" />
+			<attribute name="CoachTrustSimmedPracticeFactor" idx="45" type="float" default="0" />
+			<attribute name="ConfChampionshipFollowerModifier" idx="46" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="EnergyScenarioModificationTable" idx="47" type="ScenarioMetersModificationTable" />
+			<attribute name="ExperienceSimmedPracticeFactor" idx="48" type="float" default="1" />
+			<attribute name="FanFavoriteEnableThreshHold" idx="49" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="FitnessMeterTunable" idx="50" type="NarrativePlayerFitnessMeterTunable" />
+			<attribute name="FitnessScenarioModificationTable" idx="51" type="ScenarioMetersModificationTable" />
+			<attribute name="FollowerLevelLowerBound" idx="52" type="int[]" />
+			<attribute name="FollowerLevelOnFieldMultiplier" idx="53" type="int[]" />
+			<attribute name="FollowerModifierPerFollowerLevel" idx="54" type="int[]" />
+			<attribute name="FollowerModifierPerPrestigeStar" idx="55" type="int[]" />
+			<attribute name="GameOfTheWeekFollowerModifier" idx="56" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="InitialPlayerGradeScore" idx="57" type="int" minValue="0" maxValue="500" default="450" />
+			<attribute name="InjuryRiskFatigueThreshold" idx="58" type="int[]" />
+			<attribute name="InjuryTextHigh" idx="59" type="string" maxLen="5" />
+			<attribute name="InjuryTextLow" idx="60" type="string" maxLen="4" />
+			<attribute name="InjuryTextMedium" idx="61" type="string" maxLen="7" />
+			<attribute name="IsNoHuddleCoachTrustUnlockEnabled" idx="62" type="bool" default="False" />
+			<attribute name="LeadershipAbilityThreshold" idx="63" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeadershipAnnualDepreciation" idx="64" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="LeadershipBadZone" idx="65" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LeadershipMeterEffects" idx="66" type="LeadershipMeterEffect[]" />
+			<attribute name="LeadershipScenarioModificationTable" idx="67" type="ScenarioMetersModificationTable" />
+			<attribute name="LeadershipTransferPenalty" idx="68" type="float" default="-0.1" />
+			<attribute name="LowerPositionBattleCooldown" idx="69" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxFollowers" idx="70" type="int" minValue="0" maxValue="12087148" default="12087148" />
+			<attribute name="NationalChampionshipFollowerModifier" idx="71" type="int" minValue="0" maxValue="100" default="4" />
+			<attribute name="NumEnergyTokensLongByeWeek" idx="72" type="int" minValue="1" maxValue="10" default="1" />
+			<attribute name="NumEnergyTokensNormalWeek" idx="73" type="int" minValue="1" maxValue="10" default="1" />
+			<attribute name="NumEnergyTokensShortWeek" idx="74" type="int" minValue="1" maxValue="10" default="1" />
+			<attribute name="OVRDeltaToDemote" idx="75" type="int" minValue="-50" maxValue="50" default="-10" />
+			<attribute name="PlayerDemotionCooldownWeekCount" idx="76" type="int" minValue="0" maxValue="10" default="3" />
+			<attribute name="PlayerGradeRewardTable" idx="77" type="PlayerGradeReward[]" />
+			<attribute name="PlayerRewardBySkillsPracticeMedalTable" idx="78" type="PlayerGradeReward[]" />
+			<attribute name="PlayerRewardByTeamPracticeMedalTable" idx="79" type="PlayerGradeReward[]" />
+			<attribute name="PlayOffGameFollowerModifier" idx="80" type="int" minValue="0" maxValue="100" default="4" />
+			<attribute name="PositionBattleMinDepth" idx="81" type="PositionValueTable" />
+			<attribute name="PositionBattleMinigamesTable" idx="82" type="PositionRecordTable" />
+			<attribute name="PositionBattleWinLevel" idx="83" type="MedalEnumTableEntry[]" />
+			<attribute name="RatingLootTable" idx="84" type="RatingsLootTable[]" />
+			<attribute name="RiskOfInjuryTitle" idx="85" type="string" maxLen="16" default="Risk of Injury:" />
+			<attribute name="RivalryFollowerModifier" idx="86" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="TagLowerBound" idx="87" type="int[]" />
+			<attribute name="TestCrammingMinScore" idx="88" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="TestCrammingWeeksRemaining" idx="89" type="int" minValue="0" maxValue="10" default="2" />
+			<attribute name="UpperPositionBattleCooldown" idx="90" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WearAndTearSeverityWeightArray" idx="91" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_InitEarlyReturnRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_InitEarlyReturnRequest" numMembers="3" base="Injury_EarlyReturnRequest()" ownerAssetId="6498459" isRecordPersistent="true" isExpr="true" majorVersionCRC="717374664" minorVersionCRC="903030705">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="request" idx="1" type="Injury_EarlyReturnRequest" />
+		</schema>
+	</schemas>
+</FranTkData>

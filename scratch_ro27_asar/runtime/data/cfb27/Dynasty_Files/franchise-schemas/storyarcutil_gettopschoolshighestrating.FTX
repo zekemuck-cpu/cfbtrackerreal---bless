@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_GetTopSchoolsHighestRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_GetTopSchoolsHighestRating" numMembers="4" base="int()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="1796337332" minorVersionCRC="1013171980">
+			<attribute name="arcContext" idx="0" type="ArcContext" />
+			<attribute name="topSchoolRange" idx="1" type="RecruitStage" default="RecruitStage:Invalid" />
+			<attribute name="rating" idx="2" type="TeamRatingType" default="TeamRatingType:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

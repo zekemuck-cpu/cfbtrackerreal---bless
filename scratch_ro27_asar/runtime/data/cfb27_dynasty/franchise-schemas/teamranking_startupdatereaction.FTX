@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TeamRanking_StartUpdateReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRanking_StartUpdateReaction" numMembers="5" base="Reaction" assetId="6499052" isRecordPersistent="true" majorVersionCRC="1577799672" minorVersionCRC="375645048">
+			<attribute name="EventRecord" idx="0" type="WeeklyDynamicEventsStartEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6499052-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="RankingDataFlow" idx="4" type="TeamRanking_UpdateTeamRankings" />
+		</schema>
+	</schemas>
+</FranTkData>

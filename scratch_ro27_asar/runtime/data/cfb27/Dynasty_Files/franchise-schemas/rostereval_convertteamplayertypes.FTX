@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RosterEval_ConvertTeamPlayerTypes.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterEval_ConvertTeamPlayerTypes" numMembers="2" base="none()" ownerAssetId="6494681" isRecordPersistent="true" isExpr="true" majorVersionCRC="1078001248" minorVersionCRC="-845989347">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

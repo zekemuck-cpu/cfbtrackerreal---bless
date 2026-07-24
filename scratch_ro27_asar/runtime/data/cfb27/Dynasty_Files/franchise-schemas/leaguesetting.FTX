@@ -1,0 +1,154 @@
+<FranTkData fileName="Franchise-Schemas\LeagueSetting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\FootballLeagueSetting.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LeagueSetting" numMembers="143" base="FootballLeagueSetting" defaultStoreCapacity="4" assetId="6378593" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-2077246467" minorVersionCRC="-185072467">
+			<attribute name="AbilityEditControls" idx="0" type="AbilityEditControlOptions" default="AbilityEditControlOptions:ANY" />
+			<attribute name="AbilityEditControlsDescription" idx="1" type="string" maxLen="224" default="This setting controls whether or not a league member can edit player ratings on their team. Regardless of this setting, only the Commissioner can edit players on other teams." />
+			<attribute name="AcceleratedClockDescription" idx="2" type="string" maxLen="119" default="Accelerated clock" />
+			<attribute name="AllowCoachRespecDescription" idx="3" type="string" maxLen="49" default="Allow coach respec" />
+			<attribute name="AllowCoordinatorRespecDescription" idx="4" type="string" maxLen="50" default="Allow coodinator respec" />
+			<attribute name="BallHawk" idx="5" type="TeamSettingOverride" default="TeamSettingOverride:KEEP_INDIVIDUAL" />
+			<attribute name="BallHawkDescription" idx="6" type="string" maxLen="108" default="Standardize the Ball Hawk setting for all users in the league, or allow for individual setting differences" />
+			<attribute name="BlockScaling" idx="7" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="CatchTackleScaling" idx="8" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="CoachFiring" idx="9" type="CoachFiringSetting" default="CoachFiringSetting:ON" />
+			<attribute name="CoachFiringDescription" idx="10" type="string" maxLen="204" default="This setting controls whether or not any Coach can be fired (ON), CPU Coaches only (CPU Only), or not at all (OFF). Regardless of settings, user coaches will not be fired in the first year of the league." />
+			<attribute name="CoachLevelsPurchaseDescription" idx="11" type="string" maxLen="161" default="If ON, players can purchase Coach Levels. If OFF, no user will be able to purchase Coach Levels." />
+			<attribute name="CoachStartingLevel" idx="12" type="int" minValue="1" maxValue="20" default="1" />
+			<attribute name="CoachStartingLevelDescription" idx="13" type="string" maxLen="1" />
+			<attribute name="CoachXPSpeedDescription" idx="14" type="string" maxLen="52" />
+			<attribute name="CoachXPSpeedSetting" idx="15" type="CoachExperienceSpeed" default="CoachExperienceSpeed:Normal" />
+			<attribute name="CPUPlayerTransferChance" idx="16" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="CPUPlayerTransferChanceDescription" idx="17" type="string" maxLen="188" default="Scales the chance that a player on a CPU controlled team transfers." />
+			<attribute name="CPUProgressionDescription" idx="18" type="string" maxLen="48" />
+			<attribute name="CPUProgressionFrequency" idx="19" type="LeagueProgressionFrequencySetting" default="LeagueProgressionFrequencySetting:WEEKLY" />
+			<attribute name="CPUTalentProgressionDescription" idx="20" type="string" maxLen="1" />
+			<attribute name="CPUTalentProgressionFrequency" idx="21" type="LeagueProgressionFrequencySetting" default="LeagueProgressionFrequencySetting:WEEKLY" />
+			<attribute name="CutStickImpact" idx="22" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="EndOfQuarterRecovery" idx="23" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="EntitlementAwardDescription" idx="24" type="string" maxLen="226" default="If ON, any user who has a pre-order bonus will be granted staff points IF they are the first coach on that team. If OFF, no user will get the bonus staff points." />
+			<attribute name="FranchiseStyle" idx="25" type="FranchiseStyle" default="FranchiseStyle:Classic" />
+			<attribute name="FullOnFieldControlDescription" idx="26" type="string" maxLen="132" default="REMOVE FROM DYNASTY" />
+			<attribute name="GameOptionSlider" idx="27" type="GameOptionSlider" />
+			<attribute name="GameStyle" idx="28" type="GameStyle" default="GameStyle:Default_" />
+			<attribute name="GameStyleDescription" idx="29" type="string" maxLen="31" default="Sets the game play experience." />
+			<attribute name="HalftimeRecovery" idx="30" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="HeatSeeker" idx="31" type="TeamSettingOverride" default="TeamSettingOverride:KEEP_INDIVIDUAL" />
+			<attribute name="HeatSeekerDescription" idx="32" type="string" maxLen="110" default="Standardize the Heat Seeker setting for all users in the league, or allow for individual setting differences" />
+			<attribute name="HighSchoolExperienceEnabledDescription" idx="33" type="string" maxLen="245" default="Enables the brand new High School Experience high school experience where you can build your recruiting tape by playing the defining moments of your Senior season. Manage your offers, cut down teams, and make the right selection on Signing Day." />
+			<attribute name="HitStickImpact" idx="34" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="ImpactBlockScaling" idx="35" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="ImportCoachDescription" idx="36" type="string" maxLen="53" default="This setting determines if the coach can be imported" />
+			<attribute name="InjuryDescription" idx="37" type="string" maxLen="40" default="Injuries" />
+			<attribute name="InstantStarterDescription" idx="38" type="string" maxLen="115" default="Commish edit players" />
+			<attribute name="IsAcceleratedClockEnabled" idx="39" type="bool" default="False" />
+			<attribute name="IsAllowCoachRespecEnabled" idx="40" type="bool" default="False" />
+			<attribute name="IsAllowCoordinatorRespecEnabled" idx="41" type="bool" default="False" />
+			<attribute name="IsCoachLevelsPurchaseEnabled" idx="42" type="bool" default="True" />
+			<attribute name="IsCoachModeAutopassEnabled" idx="43" type="bool" default="False" />
+			<attribute name="IsCoachModeAutopassEnabledDescription" idx="44" type="string" maxLen="135" default="When set to On, if Coach Mode is enabled, the Quarterback will automatically throw the ball if you do not take control after the snap." />
+			<attribute name="IsCoachModeAutosnapEnabled" idx="45" type="bool" default="False" />
+			<attribute name="IsCoachModeAutosnapEnabledDescription" idx="46" type="string" maxLen="82" default="When set to ON, if Coach Mode is enabled, the ball will be automatically snapped." />
+			<attribute name="IsCoachModeEnabled" idx="47" type="bool" default="False" />
+			<attribute name="IsCoachModeEnabledDescription" idx="48" type="string" maxLen="158" default="When set to ON, after selecting a play, the play will commence without requiring further input. The user can also apply pre-play adjustments before the snap." />
+			<attribute name="IsCoachModePreplayCutoffEnabled" idx="49" type="bool" default="False" />
+			<attribute name="IsCoachModePreplayCutoffEnabledDescription" idx="50" type="string" maxLen="94" default="When set to ON, if Coach Mode is enabled, the Preplay Menu will be cut off prior to the snap." />
+			<attribute name="IsCoachModeSuggestionsEnabled" idx="51" type="bool" default="False" />
+			<attribute name="IsCoachModeSuggestionsEnabledDescription" idx="52" type="string" maxLen="79" default="When set to ON, if Coach Mode is enabled, Coach Suggestions will be available." />
+			<attribute name="IsCrossplayEnabled" idx="53" type="bool" default="False" />
+			<attribute name="IsCrossplayEnabledDescription" idx="54" type="string" maxLen="601" default="Cross-Play allows your Dynsaty to contain players on other supported platforms. Disabling Cross-Play means that only players on your platform may participate in or join the created Dynasty. This setting exists per Dynasty and, once enabled, the setting becomes permanent. While enabled, players of other platforms may receive your platform's ID and other information necessary to enable Cross-Play. Please see the EA Privacy and Cookie Policy (https://privacy.ea.com) for more details." />
+			<attribute name="IsEntitlementAwardEnabled" idx="55" type="bool" default="True" />
+			<attribute name="IsFullOnFieldControlEnabled" idx="56" type="bool" default="True" />
+			<attribute name="IsHighSchoolExperienceEnabled" idx="57" type="bool" default="True" />
+			<attribute name="IsImportCoachEnabled" idx="58" type="bool" default="False" />
+			<attribute name="IsInjuryEnabled" idx="59" type="bool" default="False" />
+			<attribute name="IsInstantStarterEnabled" idx="60" type="bool" default="False" />
+			<attribute name="IsLegendEnabled" idx="61" type="bool" default="False" />
+			<attribute name="IsLineupControlEnabled" idx="62" type="bool" default="True" />
+			<attribute name="IsMarketplaceRewardEnabled" idx="63" type="bool" default="False" />
+			<attribute name="IsNextGenStatsEnabled" idx="64" type="bool" default="False" />
+			<attribute name="IsPlayClockEnabled" idx="65" type="bool" default="False" />
+			<attribute name="IsPlayerMetersEnabled" idx="66" type="bool" default="False" />
+			<attribute name="IsPracticeInjuryEnabled" idx="67" type="bool" default="True" />
+			<attribute name="IsProgressiveFatigueEnabled" idx="68" type="bool" default="False" />
+			<attribute name="IsPrologueActive" idx="69" type="bool" default="False" />
+			<attribute name="IsPublicEnabled" idx="70" type="bool" default="True" />
+			<attribute name="IsPublicEnabledDescription" idx="71" type="string" maxLen="141" default="When disabled, tutorial popups will not show up in Dynasty screens. Does not affect tutorials during Gameplay. On = Public, Off = Private." />
+			<attribute name="IsRecruitFlippingEnabled" idx="72" type="bool" default="True" />
+			<attribute name="IsRecruitFlippingEnabledDescription" idx="73" type="string" maxLen="218" default="When Recruit Flipping is enabled, recruits will Soft Commit. Other schools can attempt to influence this reccruit to flip before they Hard Commit." />
+			<attribute name="IsSimInjuryEnabled" idx="74" type="bool" default="False" />
+			<attribute name="IsSuperstar" idx="75" type="bool" default="False" />
+			<attribute name="IsSuperstarAbilitiesEnabled" idx="76" type="bool" default="True" />
+			<attribute name="IsUserPlayerReleaseEnabled" idx="77" type="bool" default="True" />
+			<attribute name="IsUserRetirementEnabled" idx="78" type="bool" default="True" />
+			<attribute name="IsWearAndTearEnabled" idx="79" type="bool" default="False" />
+			<attribute name="LeagueStartingPoint" idx="80" type="LeagueStartingPoint" default="LeagueStartingPoint:PRESEASON" />
+			<attribute name="LeagueType" idx="81" type="LeagueTypeSetting" default="LeagueTypeSetting:ALL" />
+			<attribute name="LeagueTypeDescription" idx="82" type="string" maxLen="52" default="League type" />
+			<attribute name="LegacyScoreEnabled" idx="83" type="bool" default="False" />
+			<attribute name="LegendDescription" idx="84" type="string" maxLen="33" default="Legends" />
+			<attribute name="LineupControlDescription" idx="85" type="string" maxLen="140" default="REMOVE FROM DYNASTY" />
+			<attribute name="ManualProgressionXPPenalty" idx="86" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="ManualProgressionXPPenaltyDescription" idx="87" type="string" maxLen="135" default="When Auto Progression is turned off for a user-controlled team, this penalty will be applied to all XP earned by players on that team." />
+			<attribute name="MaxTransfersPerTeam" idx="88" type="int" minValue="0" maxValue="30" default="15" />
+			<attribute name="MaxTransfersPerTeamDescription" idx="89" type="string" maxLen="126" default="The maximum number of players who can transfer from a team." />
+			<attribute name="MaxUsers" idx="90" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="MaxUsersDescription" idx="91" type="string" maxLen="62" default="Max users" />
+			<attribute name="MinPlayClock" idx="92" type="LeagueAcceleratedClockSetting" default="LeagueAcceleratedClockSetting:ACCELERATEDCLOCK_OFF" />
+			<attribute name="MinPlayClockDescription" idx="93" type="string" maxLen="119" default="Speeds up the clock after a play call. This shortens Game Length while also providing more realistic clock management." />
+			<attribute name="MinRosterSize" idx="94" type="MinRosterSize" default="MinRosterSize:MINIMUM_ROSTER_SIZE_46" />
+			<attribute name="MinRosterSizeDescription" idx="95" type="string" maxLen="129" default="Min Team Size" />
+			<attribute name="OffSeasonPlayerCutLimit" idx="96" type="OffSeasonPlayerCutLimit" default="OffSeasonPlayerCutLimit:PLAYER_CUT_LIMIT_UNLIMITED" />
+			<attribute name="OffSeasonPlayerCutLimitDescription" idx="97" type="string" maxLen="141" default="OffSeason Player Cut Limit" />
+			<attribute name="PerPlayRecovery" idx="98" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PlayCallCooldown" idx="99" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="PlayCallCooldownDescription" idx="100" type="string" maxLen="92" default="The number of plays that need to be called before a user can call a previously called play." />
+			<attribute name="PlayCallLimit" idx="101" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="PlayCallLimitDescription" idx="102" type="string" maxLen="100" default="The amount of times in a game a player can call the same play before it is locked from further use." />
+			<attribute name="PlayClockDescription" idx="103" type="string" maxLen="34" default="Play clock" />
+			<attribute name="PlayerMovementLimit" idx="104" type="PlayerMovementLimit" default="PlayerMovementLimit:PLAYER_MOVE_LIMIT_UNLIMITED" />
+			<attribute name="PlayerMovementLimitDescription" idx="105" type="string" maxLen="175" default="In-Season Player Movement Limit" />
+			<attribute name="PlayerOVRCutRestriction" idx="106" type="PlayerOVRCutRestriction" default="PlayerOVRCutRestriction:PLAYER_CUT_RESTRICTION_OFF" />
+			<attribute name="PlayerOVRCutRestrictionDescription" idx="107" type="string" maxLen="142" default="PlayerOVRCutRestriction" />
+			<attribute name="PlayerPlaycallDescription" idx="108" type="string" maxLen="81" default="Player playcall" />
+			<attribute name="PlayerPlaycallPermission" idx="109" type="PlayerPlaycallPermission" default="PlayerPlaycallPermission:ANY_PLAYER" />
+			<attribute name="PracticeInjuryDescription" idx="110" type="string" const="true" maxLen="193" default="REMOVE FROM DYNASTY" />
+			<attribute name="PrecipitationBrokenTackleScaling" idx="111" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationCatchChanceScaling" idx="112" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationKickingAccuracyScaling" idx="113" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationKickingStrengthScaling" idx="114" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationLocomotionPenaltyScaling" idx="115" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationPassAccuracyScaling" idx="116" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationPassStrengthScaling" idx="117" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrecipitationSlipScaling" idx="118" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="ProgressiveFatigueDescription" idx="119" type="string" const="true" maxLen="215" default="Progressive Fatigue causes your players to get more fatigued as the season goes on. Set this to On (enabled) or Off (disabled)." />
+			<attribute name="PublicLeagueDescription" idx="120" type="string" maxLen="132" default="Leagues can be public or private. Public leagues are open to anyone while private leagues require a password or invitation to join." />
+			<attribute name="QuarterLength" idx="121" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="QuarterLengthDescription" idx="122" type="string" maxLen="31" default="Quarter length" />
+			<attribute name="RecoveryPoolBasedOnQuarterLength" idx="123" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="SackScaling" idx="124" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="ScheduleManagerType" idx="125" type="ScheduleManagerType" default="ScheduleManagerType:GeneratorType" />
+			<attribute name="SimInjuriesDescription" idx="126" type="string" maxLen="46" default="Sim Injuries" />
+			<attribute name="SizeDifferentialImpact" idx="127" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="SkillLevel" idx="128" type="GameSkillLevelSetting" default="GameSkillLevelSetting:VARSITY" />
+			<attribute name="SkillLevelDescription" idx="129" type="string" maxLen="214" default="Select the game difficulty appropriate for you. Freshman is great for new users while Heisman gives the stiffest challenge." />
+			<attribute name="SoftCommitInfluenceBonus" idx="130" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="SoftCommitInfluenceBonusDescription" idx="131" type="string" maxLen="193" default="An increase to the amount of influence gained by a school that a recruit has Soft Committed to. Lowering this will make flipping recruits easier, while raising will make it more difficult." />
+			<attribute name="SuperstarAbilitiesDescription" idx="132" type="string" maxLen="141" />
+			<attribute name="SwitchAssist" idx="133" type="TeamSettingOverride" default="TeamSettingOverride:KEEP_INDIVIDUAL" />
+			<attribute name="SwitchAssistDescription" idx="134" type="string" maxLen="112" default="Standardize the Switch Assist setting for all users in the league, or allow for individual setting differences" />
+			<attribute name="TackleImpactScaling" idx="135" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="TalentProgressSpeed" idx="136" type="TalentProgressSpeed" default="TalentProgressSpeed:Normal" />
+			<attribute name="TalentProgressSpeedDescription" idx="137" type="string" maxLen="136" default="Multiply the amount of Staff Points needed to purchase each Talent. Slowest (3x), Slower (2x), Slow (1.5x), Normal (1x), or Fast (0.5x)" />
+			<attribute name="TimeOutRecovery" idx="138" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="UserPlayerTransferChance" idx="139" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="UserPlayerTransferChanceDescription" idx="140" type="string" maxLen="190" default="Scales the chance that a player on a user controlled team transfers." />
+			<attribute name="WearAndTearDescription" idx="141" type="string" maxLen="140" default="This setting determines if your players will accumulate Wear and Tear over the course of the season." />
+			<attribute name="WeekToWeekRecovery" idx="142" type="int" minValue="0" maxValue="100" default="50" />
+		</schema>
+	</schemas>
+</FranTkData>

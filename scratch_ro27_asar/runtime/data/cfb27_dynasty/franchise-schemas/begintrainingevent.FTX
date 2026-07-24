@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\BeginTrainingEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BeginTrainingEvent" numMembers="6" base="Event" assetId="6498948" isRecordPersistent="true" majorVersionCRC="972104382" minorVersionCRC="934456069">
+			<attribute name="ActivityRecord" idx="0" type="record" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6498948-1895458" final="true" />
+			<attribute name="IsDrillSimulated" idx="2" type="bool" default="False" />
+			<attribute name="LeagueId" idx="3" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="Person" idx="4" type="UserEntity" />
+			<attribute name="Send" idx="5" type="none()" guid="6498948-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

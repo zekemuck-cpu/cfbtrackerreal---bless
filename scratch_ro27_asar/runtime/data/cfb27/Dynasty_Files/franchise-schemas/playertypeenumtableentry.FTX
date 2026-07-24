@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTypeEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTypeEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="70" assetId="6570302" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="8687" majorVersionCRC="-484174606" minorVersionCRC="136019795">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="PlayerType" default="PlayerType:QB_First_" />
+		</schema>
+	</schemas>
+</FranTkData>

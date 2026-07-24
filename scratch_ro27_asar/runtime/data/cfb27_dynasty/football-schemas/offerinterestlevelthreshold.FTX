@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\OfferInterestLevelThreshold.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OfferInterestLevelThreshold" numMembers="3" defaultStoreCapacity="3" assetId="12133667" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1829009124" minorVersionCRC="-2013987977">
+			<attribute name="InterestLevelThreshold" idx="0" type="InterestLevelThreshold" default="InterestLevelThreshold:First_" />
+			<attribute name="MaxThreshold" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MinThreshold" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

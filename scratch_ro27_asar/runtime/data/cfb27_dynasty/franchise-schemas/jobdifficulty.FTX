@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\JobDifficulty.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="JobDifficulty" numMembers="8" assetId="13735460" isRecordPersistent="true" majorVersionCRC="716285613" minorVersionCRC="-374339335">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="VeryLow" idx="1" value="0" />
+			<attribute name="Low" idx="2" value="1" />
+			<attribute name="Medium" idx="3" value="2" />
+			<attribute name="High" idx="4" value="3" />
+			<attribute name="Last_" idx="5" value="4" />
+			<attribute name="VeryHigh" idx="6" value="4" />
+			<attribute name="Count_" idx="7" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

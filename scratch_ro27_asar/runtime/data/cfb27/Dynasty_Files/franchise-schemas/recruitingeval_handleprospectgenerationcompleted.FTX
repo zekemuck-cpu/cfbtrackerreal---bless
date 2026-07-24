@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_HandleProspectGenerationCompleted.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_HandleProspectGenerationCompleted" numMembers="2" base="none()" ownerAssetId="6812765" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1709164432" minorVersionCRC="-2107719721">
+			<attribute name="event" idx="0" type="ProspectGenerationCompletedEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

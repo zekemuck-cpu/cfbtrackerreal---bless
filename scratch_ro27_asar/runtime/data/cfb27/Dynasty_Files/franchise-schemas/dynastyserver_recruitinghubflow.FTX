@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_RecruitingHubFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_RecruitingHubFlow" numMembers="10" base="FranTkServer_Flow" assetId="6599454" isRecordPersistent="true" majorVersionCRC="1834083697" minorVersionCRC="-923572535">
+			<attribute name="Form" idx="0" type="UIForm" />
+			<attribute name="FormManager" idx="1" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="2" type="Franchise" />
+			<attribute name="LeagueSettings" idx="3" type="LeagueSetting" />
+			<attribute name="RecruitingTunables" idx="4" type="RecruitingTunables" />
+			<attribute name="RequestServer" idx="5" type="RequestServer" />
+			<attribute name="SeasonInfo" idx="6" type="SeasonInfo" />
+			<attribute name="TeamRevenueEvalRef" idx="7" type="TeamRevenueEval" />
+			<attribute name="UserFlow" idx="8" type="FranchiseServer_UserFlow" />
+			<attribute name="UserRegistry" idx="9" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

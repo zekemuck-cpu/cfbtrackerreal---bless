@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_AdvancePlayerContractYear.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_AdvancePlayerContractYear" numMembers="3" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="1473320608" minorVersionCRC="303077802">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

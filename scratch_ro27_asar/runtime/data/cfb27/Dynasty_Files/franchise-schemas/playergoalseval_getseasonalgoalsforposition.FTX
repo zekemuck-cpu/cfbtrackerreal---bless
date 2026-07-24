@@ -1,0 +1,6 @@
+<!--SCHEMAS-->
+<schemas>
+	<schema name="PlayerGoalsEval_GetSeasonalGoalsForPosition" numMembers="2" base="PlayerGoal[]()" ownerAssetId="6498442" isRecordPersistent="true" isExpr="true">
+		<attribute name="position" idx="0" type="PositionE" default="PositionE:QB" />
+	</schema>
+</schemas>

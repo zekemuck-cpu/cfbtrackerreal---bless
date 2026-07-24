@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_BoxScoreFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_BoxScoreFlow" numMembers="14" base="FranTkServer_Flow" assetId="6499320" isRecordPersistent="true" majorVersionCRC="-2052863530" minorVersionCRC="-457395468">
+			<attribute name="CFBTeamFilter" idx="0" type="UISpreadsheetRefFilter" />
+			<attribute name="Dynasty" idx="1" type="Franchise" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="HandednessEnumTable" idx="4" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="PipelineEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PlayerTypeEnumTable" idx="7" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="8" type="EnumTable" />
+			<attribute name="RecruitingMotivationEnumTable" idx="9" type="EnumTable" />
+			<attribute name="RequestServer" idx="10" type="RequestServer" />
+			<attribute name="SchoolYearEnumTable" idx="11" type="EnumTable" />
+			<attribute name="StateNameEnumTable" idx="12" type="EnumTable" />
+			<attribute name="UserRegistry" idx="13" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

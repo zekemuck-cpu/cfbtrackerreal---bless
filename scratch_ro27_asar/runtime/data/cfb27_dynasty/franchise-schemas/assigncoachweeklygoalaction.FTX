@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\AssignCoachWeeklyGoalAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AssignCoachWeeklyGoalAction" numMembers="5" base="SequenceAction" assetId="6542991" isRecordPersistent="true" majorVersionCRC="6073930" minorVersionCRC="-1690611808">
+			<attribute name="Actor" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="CoachWeeklyGoal" idx="1" type="CoachWeeklyGoal" />
+			<attribute name="Default" idx="2" type="bool" default="False" />
+			<attribute name="Enabled" idx="3" type="bool" default="True" />
+			<attribute name="Target" idx="4" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

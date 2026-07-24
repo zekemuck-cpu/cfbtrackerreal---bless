@@ -1,0 +1,19 @@
+<FranTkData fileName="Football-Schemas\BudgetAllocationType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BudgetAllocationType" numMembers="12" assetId="12069461" isRecordPersistent="true" majorVersionCRC="479800471" minorVersionCRC="-1535449182">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="1" />
+			<attribute name="FirstCategory_" idx="2" value="1" />
+			<attribute name="Staff" idx="3" value="1" />
+			<attribute name="Facilities" idx="4" value="2" />
+			<attribute name="Recruits" idx="5" value="3" />
+			<attribute name="LastCategory_" idx="6" value="4" />
+			<attribute name="NIL" idx="7" value="4" />
+			<attribute name="RemainingBudget" idx="8" value="5" />
+			<attribute name="Last_" idx="9" value="6" />
+			<attribute name="TotalBudget" idx="10" value="6" />
+			<attribute name="Max_" idx="11" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

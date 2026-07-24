@@ -1,0 +1,69 @@
+<FranTkData fileName="Franchise-Schemas\TeamStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamStats" numMembers="58" base="Enum" defaultStoreCapacity="2760" assetId="6320475" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2075022034" minorVersionCRC="-312107054">
+			<attribute name="BOWLSMADE" idx="0" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="BOWLSWON" idx="1" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="CFPSMADE" idx="2" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="CFPSWON" idx="3" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="CONFCHAMPSMADE" idx="4" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="CONFCHAMPSWON" idx="5" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="DEFINTS" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DEFPASSYARDS" idx="7" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="DEFREDZONEFGS" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DEFREDZONES" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DEFREDZONETDS" idx="10" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DEFRUSHYARDS" idx="11" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="FIRSTDOWNS" idx="12" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="FOURTHDOWNCONV" idx="13" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="FOURTHDOWNS" idx="14" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="FUMBLEREC" idx="15" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="FUMBLESLOST" idx="16" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="GIVEAWAYS" idx="17" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="HOMELOSSES" idx="18" type="int" minValue="0" maxValue="1200" default="0" />
+			<attribute name="HOMETIES" idx="19" type="int" minValue="0" maxValue="60" default="0" />
+			<attribute name="HOMEWINS" idx="20" type="int" minValue="0" maxValue="1200" default="0" />
+			<attribute name="KICKRETURNYARDS" idx="21" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="LOSSES" idx="22" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="NATCHAMPSMADE" idx="23" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="NATCHAMPSWON" idx="24" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="NY6BOWLSMADE" idx="25" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="NY6BOWLSWON" idx="26" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="OFFPASSYARDS" idx="27" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="OFFREDZONEFGS" idx="28" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="OFFREDZONES" idx="29" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="OFFREDZONETDS" idx="30" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="OFFRUSHYARDS" idx="31" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="OFFYARDS" idx="32" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="PASSATTEMPTS" idx="33" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PASSCOMPLETIONS" idx="34" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PASSDEFLECTIONS" idx="35" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PASSESTIPPED" idx="36" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PASSINTS" idx="37" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PASSTDS" idx="38" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PENALTIES" idx="39" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PENALTYYARDS" idx="40" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="POSSESSIONTIME" idx="41" type="int" minValue="0" maxValue="32768" default="0" />
+			<attribute name="PUNTRETURNYARDS" idx="42" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="PUNTS" idx="43" type="int" minValue="0" maxValue="256" default="0" />
+			<attribute name="PUNTYARDS" idx="44" type="int" minValue="-32768" maxValue="32768" default="0" />
+			<attribute name="RUSHATTEMPTS" idx="45" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RUSHTDS" idx="46" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SACKS" idx="47" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SACKSALLOWED" idx="48" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SPECIALTEAMYARDS" idx="49" type="int" minValue="-65536" maxValue="65535" default="0" />
+			<attribute name="TAKEAWAYS" idx="50" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="THIRDDOWNCONV" idx="51" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="THIRDDOWNS" idx="52" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="TIES" idx="53" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="TOTALYARDS" idx="54" type="int" minValue="-32768" maxValue="32767" default="0" />
+			<attribute name="TWOPOINTCONVATTEMPTS" idx="55" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TWOPOINTCONVMADE" idx="56" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="WINS" idx="57" type="int" minValue="0" maxValue="2047" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

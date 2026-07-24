@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\TradeEval_GetTradeFeedbackText.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeEval_GetTradeFeedbackText" numMembers="14" base="TradeFeedbackText()" ownerAssetId="6495411" isRecordPersistent="true" isExpr="true" majorVersionCRC="-451320912" minorVersionCRC="-570290921">
+			<attribute name="value" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="developmentValue" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="importanceValue" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="teamOverallValue" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="bestOverallValue" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="contractValue" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="faComparisonValue" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="addedValue" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="coachInfluenceValue" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="tradePhilosophyValue" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="acquisitionValue" idx="10" type="PlayerAcquisitionType" default="PlayerAcquisitionType:Signed" />
+			<attribute name="isPlayer" idx="11" type="bool" default="True" />
+			<attribute name="premiumValue" idx="12" type="int" minValue="0" maxValue="65535" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

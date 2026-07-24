@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\ProspectListSearch.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProspectListSearch" numMembers="13" assetId="6767477" isRecordPersistent="true" majorVersionCRC="129304820" minorVersionCRC="1546631663">
+			<attribute name="Handedness" idx="0" type="Handedness" default="Handedness:Left" />
+			<attribute name="HeightMax" idx="1" type="int" minValue="65" maxValue="84" default="84" />
+			<attribute name="HeightMin" idx="2" type="int" minValue="65" maxValue="84" default="65" />
+			<attribute name="InterestInYourSchool" idx="3" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="MaxStarRating" idx="4" type="int" minValue="0" maxValue="5" default="5" />
+			<attribute name="MinPipelineLevel" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinStarRating" idx="6" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="PlayerType" idx="7" type="PlayerType" default="PlayerType:First_" />
+			<attribute name="RecruitStage" idx="8" type="RecruitStage" default="RecruitStage:First_" />
+			<attribute name="State" idx="9" type="StateName" default="StateName:Alabama" />
+			<attribute name="TargetedRecruitFilterPosition" idx="10" type="TargetedRecruitFilter" default="TargetedRecruitFilter:All" />
+			<attribute name="WeightMax" idx="11" type="int" minValue="160" maxValue="415" default="415" />
+			<attribute name="WeightMin" idx="12" type="int" minValue="160" maxValue="415" default="160" />
+		</schema>
+	</schemas>
+</FranTkData>

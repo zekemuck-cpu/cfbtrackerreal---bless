@@ -1,0 +1,33 @@
+<FranTkData fileName="Franchise-Schemas\NewsManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsManager" numMembers="26" base="Module" assetId="6499038" isRecordPersistent="true" majorVersionCRC="1320293280" minorVersionCRC="1116494375">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="BreakingNewsEvent" idx="1" type="BreakingNewsEvent" />
+			<attribute name="CategoryToLog" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DeprecateNews" idx="3" type="none()" guid="6499038-1931682" final="true" />
+			<attribute name="Dynasty" idx="4" type="Franchise" />
+			<attribute name="FilterStoriesByTagHash" idx="5" type="bool" default="False" />
+			<attribute name="HandleBeginAdvanceWeek" idx="6" type="NewsManager_HandleBeginAdvanceWeek" guid="6499038-2274005" final="true" />
+			<attribute name="HandleDraftClassEdited" idx="7" type="none()" guid="6499038-1931696" final="true" />
+			<attribute name="HandleEvent" idx="8" type="NewsManager_HandleEvent" guid="6499038-1931677" final="true" />
+			<attribute name="InjuryEval" idx="9" type="InjuryEval" />
+			<attribute name="IssueTopStoriesRequest" idx="10" type="NewsManager_IssueTopStoriesRequest" guid="6499038-2079064" final="true" default="TopStoriesRequest request = new TopStoriesRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 4;&#xD;&#xA;&#xD;&#xA;// We intentionally don't add a response since the request isn't intended to take the user anywhere or perform an action.&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="LeagueSetting" idx="11" type="LeagueSetting" />
+			<attribute name="NewsArticleUpdateEvent" idx="12" type="NewsArticleUpdateEvent" />
+			<attribute name="NewsContextInfo" idx="13" type="PresentationContextData" />
+			<attribute name="NewsTuning" idx="14" type="NewsTuning" />
+			<attribute name="NewsTweetUpdateEvent" idx="15" type="NewsTweetUpdateEvent" />
+			<attribute name="NumberOfUserStoriesPerCategory" idx="16" type="int" minValue="0" maxValue="10" default="2" />
+			<attribute name="PlayerMarketingEval" idx="17" type="PlayerMarketingEval" />
+			<attribute name="SeasonInfo" idx="18" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="19" type="SeasonManager" />
+			<attribute name="StatManager" idx="20" type="StatManager" />
+			<attribute name="Stories" idx="21" type="Story[]" />
+			<attribute name="StringManager" idx="22" type="StringManager" />
+			<attribute name="TeamManager" idx="23" type="TeamManager" />
+			<attribute name="TeamValueEval" idx="24" type="TeamValueEval" />
+			<attribute name="Tweets" idx="25" type="Tweet[]" />
+		</schema>
+	</schemas>
+</FranTkData>

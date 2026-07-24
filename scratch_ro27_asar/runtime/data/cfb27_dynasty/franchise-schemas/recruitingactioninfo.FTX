@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingActionInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingActionInfo" numMembers="10" defaultStoreCapacity="12" assetId="7017450" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-732473902" minorVersionCRC="-542051810">
+			<attribute name="ActionType" idx="0" type="RecruitingActionType" default="RecruitingActionType:FIRST_ACTIVE_" />
+			<attribute name="BaseInfluenceGranted" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Cost" idx="2" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="IconId" idx="3" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="Intensity" idx="4" type="RecruitingActionIntensity" default="RecruitingActionIntensity:Invalid_" />
+			<attribute name="IsEnabled" idx="5" type="bool" default="False" />
+			<attribute name="IsImmediateAction" idx="6" type="bool" default="False" />
+			<attribute name="MotivationGradesInfluenceBonusTable" idx="7" type="LetterGradeValueTable[]" />
+			<attribute name="NonMatchingMotivationPenalty" idx="8" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="PipelineInfluenceBonusTable" idx="9" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

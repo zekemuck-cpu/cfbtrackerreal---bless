@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartEval_PlayerInjuryReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartEval_PlayerInjuryReaction" numMembers="4" base="Reaction" assetId="6708595" isRecordPersistent="true" majorVersionCRC="1326726379" minorVersionCRC="-1570514678">
+			<attribute name="DepthChartEval" idx="0" type="DepthChartEval" />
+			<attribute name="EventRecord" idx="1" type="Player_InjuredEvent" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6708595-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

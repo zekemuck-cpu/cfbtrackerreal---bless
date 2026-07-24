@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\UserRequestIssuer_CoachContractChangeReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserRequestIssuer_CoachContractChangeReaction" numMembers="4" base="Reaction" assetId="6814691" isRecordPersistent="true" majorVersionCRC="1535852861" minorVersionCRC="-560528013">
+			<attribute name="EventRecord" idx="0" type="Coach_UpdateCoachContractStatusEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814691-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="UserRequestIssuer" idx="3" type="UserRequestIssuer" />
+		</schema>
+	</schemas>
+</FranTkData>

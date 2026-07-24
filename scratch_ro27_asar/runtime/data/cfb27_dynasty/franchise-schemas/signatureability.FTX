@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbility.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignatureAbility" numMembers="10" defaultStoreCapacity="87" assetId="6377836" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="7154" majorVersionCRC="1679728926" minorVersionCRC="-563724010">
+			<attribute name="Activator" idx="0" type="SignatureAbilityTrigger" />
+			<attribute name="Advanced" idx="1" type="bool" default="False" />
+			<attribute name="Deactivator" idx="2" type="SignatureAbilityTrigger" />
+			<attribute name="Description" idx="3" type="string" maxLen="63" />
+			<attribute name="GUID" idx="4" type="string" maxLen="37" />
+			<attribute name="IconId" idx="5" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="MentalAbilityGroup" idx="6" type="MentalAbilityGroup" default="MentalAbilityGroup:Any" />
+			<attribute name="Name" idx="7" type="string" maxLen="19" />
+			<attribute name="Passive" idx="8" type="bool" default="False" />
+			<attribute name="UnlockedExternally" idx="9" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

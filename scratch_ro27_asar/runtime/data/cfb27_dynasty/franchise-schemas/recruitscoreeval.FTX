@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\RecruitScoreEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitScoreEval" numMembers="3" base="Module" assetId="7693296" isRecordPersistent="true" majorVersionCRC="1695958032" minorVersionCRC="956771614">
+			<attribute name="MySchoolGradeEval" idx="0" type="MySchoolGradeEval" />
+			<attribute name="RecruitManager" idx="1" type="RecruitManager" />
+			<attribute name="TeamManager" idx="2" type="TeamManager" />
+		</schema>
+	</schemas>
+</FranTkData>

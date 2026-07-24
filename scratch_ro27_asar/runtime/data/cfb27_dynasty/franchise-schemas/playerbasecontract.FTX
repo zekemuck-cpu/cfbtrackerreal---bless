@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerBaseContract.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerBaseContract" numMembers="3" defaultStoreCapacity="500" assetId="6377577" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1772194220" minorVersionCRC="-426045489">
+			<attribute name="Bonus" idx="0" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="Length" idx="1" type="int" minValue="1" maxValue="7" default="1" />
+			<attribute name="Salary" idx="2" type="int" minValue="0" maxValue="32767" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

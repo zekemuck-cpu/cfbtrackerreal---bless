@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\ToggleAutoPilotEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ToggleAutoPilotEvent" numMembers="3" base="Event" assetId="6499202" isRecordPersistent="true" majorVersionCRC="1059763446" minorVersionCRC="2074638293">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6499202-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6499202-1895455" final="true" />
+			<attribute name="UserEntity" idx="2" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

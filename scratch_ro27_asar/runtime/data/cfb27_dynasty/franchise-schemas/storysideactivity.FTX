@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\StorySideActivity.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StorySideActivity" numMembers="10" assetId="6495158" isRecordPersistent="true" majorVersionCRC="-331120446" minorVersionCRC="1715235124">
+			<attribute name="ArcMetadata" idx="0" type="StoryArcMetadata" />
+			<attribute name="Dependencies" idx="1" type="StorySideActivity[]" />
+			<attribute name="GetRating" idx="2" type="StorySideActivity_GetRating" guid="6495158-1921528" default="0;" />
+			<attribute name="IsTracked" idx="3" type="bool" default="False" />
+			<attribute name="RewardReply" idx="4" type="string" maxLen="1" />
+			<attribute name="RewardDescriptionRarity0" idx="5" type="string" maxLen="1" />
+			<attribute name="RewardDescriptionRarity1" idx="6" type="string" maxLen="1" />
+			<attribute name="RewardDescriptionRarity2" idx="7" type="string" maxLen="1" />
+			<attribute name="RewardDescriptionRarity3" idx="8" type="string" maxLen="1" />
+			<attribute name="Title" idx="9" type="string" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

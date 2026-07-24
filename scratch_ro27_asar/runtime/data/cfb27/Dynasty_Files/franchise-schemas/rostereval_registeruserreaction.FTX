@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\RosterEval_RegisterUserReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterEval_RegisterUserReaction" numMembers="4" base="Reaction" assetId="10604468" isRecordPersistent="true" majorVersionCRC="911610083" minorVersionCRC="-1424965108">
+			<attribute name="EventRecord" idx="0" type="RegisterUserEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="10604468-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="RosterEval" idx="3" type="RosterEval" />
+		</schema>
+	</schemas>
+</FranTkData>

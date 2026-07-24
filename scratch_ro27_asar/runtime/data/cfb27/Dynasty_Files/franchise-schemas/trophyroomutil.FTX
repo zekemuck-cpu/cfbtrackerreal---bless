@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\TrophyRoomUtil.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TrophyRoomUtil" numMembers="11" base="Module" assetId="10754442" isRecordPersistent="true" majorVersionCRC="-1290198579" minorVersionCRC="-176777899">
+			<attribute name="Franchise" idx="0" type="Franchise" />
+			<attribute name="HandleAwardEvent" idx="1" type="TrophyRoomUtil_HandleAwardEvent" guid="10754442-2426001" final="true" />
+			<attribute name="HandleGameEnd" idx="2" type="TrophyRoomUtil_HandleGameEnd" guid="10754442-2426014" final="true" />
+			<attribute name="HandleRegisterUser" idx="3" type="TrophyRoomUtil_HandleRegisterUser" guid="10754442-2455010" final="true" />
+			<attribute name="HandleSeasonBeginYear" idx="4" type="TrophyRoomUtil_HandleSeasonBeginYear" guid="10754442-2506036" final="true" />
+			<attribute name="HandleTeamAwardEvent" idx="5" type="TrophyRoomUtil_HandleTeamAwardEvent" guid="10754442-2506020" final="true" />
+			<attribute name="HandleUpdateCoachContractStatus" idx="6" type="TrophyRoomUtil_HandleUpdateCoachContractStatus" guid="10754442-2506029" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="7" type="TrophyRoomUtil_HandleUpdatePlayerContractStatus" guid="10754442-2506042" final="true" />
+			<attribute name="HandleWonConferenceChampionshipNoGame" idx="8" type="TrophyRoomUtil_HandleWonConferenceChampionshipNoGame" guid="10754442-2506011" final="true" />
+			<attribute name="SeasonManager" idx="9" type="SeasonManager" />
+			<attribute name="SeasonStandings" idx="10" type="SeasonStandings" />
+		</schema>
+	</schemas>
+</FranTkData>

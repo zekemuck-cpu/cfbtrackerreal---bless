@@ -1,0 +1,68 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval" numMembers="61" base="Module" assetId="6498459" isRecordPersistent="true" majorVersionCRC="2034045261" minorVersionCRC="1001430534">
+			<attribute name="BuildEarlyReturnRequest" idx="0" type="InjuryEval_BuildEarlyReturnRequest" guid="6498459-1924795" />
+			<attribute name="BuildInjuryReturnNotificationRequest" idx="1" type="InjuryEval_BuildInjuryReturnNotificationRequest" guid="6498459-1924839" />
+			<attribute name="BuildPlayerInjuredRequest" idx="2" type="InjuryEval_BuildPlayerInjuredRequest" guid="6498459-1924772" />
+			<attribute name="BuildWeeklyReminderRequest" idx="3" type="InjuryEval_BuildWeeklyReminderRequest" guid="6498459-1924858" />
+			<attribute name="ChooseEarlyReturnEvent" idx="4" type="ChooseEarlyReturnEvent" />
+			<attribute name="ConfidenceUpdateEvent" idx="5" type="ConfidenceUpdateEvent" />
+			<attribute name="CreateEarlyReturnRequest" idx="6" type="Injury_EarlyReturnRequest()" guid="6498459-1924800" />
+			<attribute name="CreateInjuryReturnNotificationRequest" idx="7" type="Injury_ReturnNotificationRequest()" guid="6498459-1924844" />
+			<attribute name="CreatePlayerInjuredRequest" idx="8" type="Injury_PlayerInjuredRequest()" guid="6498459-1924776" />
+			<attribute name="CreateWeeklyReminderRequest" idx="9" type="Injury_WeeklyReminderRequest()" guid="6498459-1924862" />
+			<attribute name="DepthChartEval" idx="10" type="DepthChartEval" />
+			<attribute name="EarlyReturnDecisionsList" idx="11" type="EarlyReturnDecision[]" />
+			<attribute name="EarlyReturnRequest_ChooseEarlyReturnResponse" idx="12" type="UISelectForm" />
+			<attribute name="EarlyReturnRequest_DeclineEarlyReturnResponse" idx="13" type="UISelectForm" />
+			<attribute name="EarlyReturnRequest_ViewBackupPlayersPlayerCardResponse" idx="14" type="UIFlowForm" />
+			<attribute name="EarlyReturnRequest_ViewInjuredPlayersPlayerCardResponse" idx="15" type="UIFlowForm" />
+			<attribute name="EarlyReturnRewardPositionLookupTable" idx="16" type="PlayerPositionLookupTable" />
+			<attribute name="Franchise" idx="17" type="Franchise" />
+			<attribute name="HandleChooseEarlyReturnResponse" idx="18" type="InjuryEval_HandleChooseEarlyReturnResponse" guid="6498459-1924826" final="true" />
+			<attribute name="HandleDeclineEarlyReturnResponse" idx="19" type="InjuryEval_HandleDeclineEarlyReturnResponse" guid="6498459-1924831" final="true" />
+			<attribute name="HandleOffSeasonStartEvent" idx="20" type="InjuryEval_HandleOffSeasonStartEvent" guid="6498459-2340009" final="true" />
+			<attribute name="HandlePlayerEarlyReturnEvent" idx="21" type="InjuryEval_HandlePlayerEarlyReturnEvent" guid="6498459-1924820" final="true" />
+			<attribute name="HandlePlayerInjuryHealedEvent" idx="22" type="InjuryEval_HandlePlayerInjuryHealedEvent" guid="6498459-1924814" final="true" />
+			<attribute name="HandleSeasonBeginWeekEvent" idx="23" type="InjuryEval_HandleSeasonBeginWeekEvent" guid="6498459-1924875" final="true" />
+			<attribute name="InitEarlyReturnRequest" idx="24" type="InjuryEval_InitEarlyReturnRequest" guid="6498459-1924790" final="true" default="// Construct the request form.&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;" />
+			<attribute name="InitInjuryReturnNotificationRequest" idx="25" type="InjuryEval_InitInjuryReturnNotificationRequest" guid="6498459-1924852" final="true" default="// Construct the request form.&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;" />
+			<attribute name="InitPlayerInjuredRequest" idx="26" type="InjuryEval_InitPlayerInjuredRequest" guid="6498459-1924766" final="true" default="// Construct the request form.&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;" />
+			<attribute name="InitWeeklyReminderRequest" idx="27" type="InjuryEval_InitWeeklyReminderRequest" guid="6498459-1924864" final="true" default="// Construct the request form.&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;" />
+			<attribute name="InjuryAttributeModifierList" idx="28" type="Injury_AttributeModifier[]" />
+			<attribute name="InjuryEnumTable" idx="29" type="EnumTable" />
+			<attribute name="InjuryEvalTable" idx="30" type="InjuryEval_LookupTableEntry[]" />
+			<attribute name="InjuryEvalTuningData" idx="31" type="InjuryEvalTuningData" />
+			<attribute name="InjuryReturnNotificationRequest_DelegateResponse" idx="32" type="UISelectForm" />
+			<attribute name="InjuryReturnNotificationRequest_ViewDepthChartResponse" idx="33" type="UIFlowForm" />
+			<attribute name="IsAppropriateForIR" idx="34" type="InjuryEval_IsAppropriateForIR" guid="6498459-1924754" />
+			<attribute name="IssueEarlyReturnRequest" idx="35" type="InjuryEval_IssueEarlyReturnRequest" guid="6498459-1924806" final="true" default="Injury_EarlyReturnRequest request = BuildEarlyReturnRequest(Team, injuredPlayer, backupPlayer);&#xD;&#xA;TeamRequestManager.Issue(Team, request);" />
+			<attribute name="IssueInjuryReturnNotificationRequest" idx="36" type="InjuryEval_IssueInjuryReturnNotificationRequest" guid="6498459-1924846" final="true" default="Injury_ReturnNotificationRequest request = BuildInjuryReturnNotificationRequest(Team, Player, WasEarlyReturn);&#xD;&#xA;TeamRequestManager.Issue(Team, request);" />
+			<attribute name="IssuePlayerInjuredRequest" idx="37" type="InjuryEval_IssuePlayerInjuredRequest" guid="6498459-1924783" final="true" default="Injury_PlayerInjuredRequest request = BuildPlayerInjuredRequest(Team, numPlayersInjured);&#xD;&#xA;TeamRequestManager.Issue(Team, request);" />
+			<attribute name="IssueWeeklyReminderRequest" idx="38" type="InjuryEval_IssueWeeklyReminderRequest" guid="6498459-1924870" final="true" default="Injury_WeeklyReminderRequest request = BuildWeeklyReminderRequest(Team, numPlayersInjured);&#xD;&#xA;TeamRequestManager.Issue(Team, request);" />
+			<attribute name="LeagueSettings" idx="39" type="LeagueSetting" />
+			<attribute name="numPlayersInjured" idx="40" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayerHealedEvent" idx="41" type="record" />
+			<attribute name="PlayerInjuredEvent" idx="42" type="Player_InjuredEvent" />
+			<attribute name="PlayerInjuredRequest_DelegateResponse" idx="43" type="UISelectForm" />
+			<attribute name="PlayerInjuredRequest_ViewInjuryReportResponse" idx="44" type="UIFlowForm" />
+			<attribute name="PlayerRegressionRef" idx="45" type="PlayerRegressionEval" />
+			<attribute name="ProcessEarlyReturnRequest" idx="46" type="InjuryEval_ProcessEarlyReturnRequest" guid="6498459-1924802" final="true" default="if( earlyReturnRequest.Response == EarlyReturnRequest_ChooseEarlyReturnResponse )&#xD;&#xA;{&#xD;&#xA;    HandleChooseEarlyReturnResponse(earlyReturnRequest.InjuredPlayer, earlyReturnRequest.BackupPlayer);&#xD;&#xA;}&#xD;&#xA;else if( earlyReturnRequest.Response == EarlyReturnRequest_DeclineEarlyReturnResponse )&#xD;&#xA;{&#xD;&#xA;    HandleDeclineEarlyReturnResponse(earlyReturnRequest.InjuredPlayer, earlyReturnRequest.BackupPlayer);&#xD;&#xA;}&#xD;&#xA;earlyReturnRequest.Dismiss();" />
+			<attribute name="ProcessPlayerInjuredRequest" idx="47" type="InjuryEval_ProcessPlayerInjuredRequest" guid="6498459-1924779" />
+			<attribute name="PublishInjuryCache" idx="48" type="InjuryEval_PublishInjuryCache" guid="6498459-1924763" />
+			<attribute name="Random" idx="49" type="Random" />
+			<attribute name="RegressionPointsIncreasedEvent" idx="50" type="RegressionPointsIncreasedEvent" />
+			<attribute name="RequestServer" idx="51" type="RequestServer" />
+			<attribute name="SeasonHealthPoolSpline" idx="52" type="Spline" />
+			<attribute name="SeasonInfoRef" idx="53" type="SeasonInfo" />
+			<attribute name="SeasonScheduleManagerRef" idx="54" type="SeasonScheduleManager" />
+			<attribute name="StatManager" idx="55" type="StatManager" />
+			<attribute name="TeamRequestManager" idx="56" type="TeamRequestManager" />
+			<attribute name="ValidateExpressions" idx="57" type="none()" guid="6498459-1924894" final="true" />
+			<attribute name="WearAndTearTuning" idx="58" type="WearAndTearTuning" />
+			<attribute name="WeeklyReminderRequest_DelegateResponse" idx="59" type="UISelectForm" />
+			<attribute name="WeeklyReminderRequest_ViewInjuryReportResponse" idx="60" type="UIFlowForm" />
+		</schema>
+	</schemas>
+</FranTkData>

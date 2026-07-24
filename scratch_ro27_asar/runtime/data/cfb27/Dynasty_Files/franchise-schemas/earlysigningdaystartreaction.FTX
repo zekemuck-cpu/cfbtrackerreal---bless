@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\EarlySigningDayStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EarlySigningDayStartReaction" numMembers="4" base="Reaction" assetId="7741463" isRecordPersistent="true" majorVersionCRC="-710205175" minorVersionCRC="-2091274968">
+			<attribute name="EventRecord" idx="0" type="EarlySigningDayStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="7741463-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="RecruitingEvalRef" idx="3" type="RecruitingEval" />
+		</schema>
+	</schemas>
+</FranTkData>

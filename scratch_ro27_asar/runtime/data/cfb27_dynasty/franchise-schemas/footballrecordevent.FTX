@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\FootballRecordEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FootballRecordEvent" numMembers="10" base="Event" assetId="6378163" isRecordPersistent="true" majorVersionCRC="-1833621626" minorVersionCRC="1811365429">
+			<attribute name="BrokeOwnRecord" idx="0" type="bool" default="False" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6378163-1895458" final="true" />
+			<attribute name="FootballRecordScope" idx="2" type="FootballRecordScope" default="FootballRecordScope:Invalid_" />
+			<attribute name="PlayerRecord" idx="3" type="Player" />
+			<attribute name="PreviousStatRecord" idx="4" type="PlayerStatRecord" />
+			<attribute name="SeasonGame" idx="5" type="SeasonGame" />
+			<attribute name="Send" idx="6" type="none()" guid="6378163-1895455" final="true" />
+			<attribute name="StatPeriod" idx="7" type="StatPeriod" default="StatPeriod:Season" />
+			<attribute name="StatRecord" idx="8" type="PlayerStatRecord" />
+			<attribute name="TeamRecord" idx="9" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\Season_EndOfCoachesSeasonView.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Season_EndOfCoachesSeasonView" numMembers="6" base="ModifierView" assetId="6499118" isRecordPersistent="true" majorVersionCRC="499046968" minorVersionCRC="1177570016">
+			<attribute name="CoachManagerRef" idx="0" type="CoachManager" />
+			<attribute name="CoachRetirementEvalRef" idx="1" type="CoachRetirementEval" />
+			<attribute name="Formula" idx="2" type="Season_EndOfCoachesSeasonView_Formula" guid="6499118-1936043" default="CoachManagerRef.AgeCoach(Subject);&#xD;&#xA;&#xD;&#xA;Team nullTeam = null;&#xD;&#xA;CoachRetirementEvalRef.EvaluateCoachForRetirement(Subject, nullTeam);&#xD;&#xA;" />
+			<attribute name="Source" idx="3" type="record" />
+			<attribute name="Subjects" idx="4" type="Coach[]" />
+			<attribute name="Update" idx="5" type="none()" guid="6499118-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

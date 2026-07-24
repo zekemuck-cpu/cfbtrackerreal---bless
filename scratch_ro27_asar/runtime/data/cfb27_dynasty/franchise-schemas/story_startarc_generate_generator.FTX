@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\Story_StartArc_Generate_Generator.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Story_StartArc_Generate_Generator" numMembers="4" base="none()" ownerAssetId="6498887" isRecordPersistent="true" isExpr="true" majorVersionCRC="-826681584" minorVersionCRC="-1120521032">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="Result" idx="1" type="Transaction" />
+			<attribute name="Env" idx="2" type="Story_StartArc" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\LegacyScoreEval_HandleLegacyScoreEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LegacyScoreEval_HandleLegacyScoreEvent" numMembers="2" base="none()" ownerAssetId="6494908" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1673370732" minorVersionCRC="816016199">
+			<attribute name="EventRecord" idx="0" type="LegacyScoreEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

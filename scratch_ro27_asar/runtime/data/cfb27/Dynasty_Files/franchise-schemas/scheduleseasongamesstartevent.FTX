@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ScheduleSeasonGamesStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScheduleSeasonGamesStartEvent" numMembers="2" base="Event" assetId="6598608" isRecordPersistent="true" majorVersionCRC="-2009858693" minorVersionCRC="1837004598">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598608-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598608-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

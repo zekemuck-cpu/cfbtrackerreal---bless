@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleSwitchFranchiseStyle.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleSwitchFranchiseStyle" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="507462016" minorVersionCRC="1050883504">
+			<attribute name="Event" idx="0" type="SwitchFranchiseStyleEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

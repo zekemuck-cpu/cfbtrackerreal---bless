@@ -1,0 +1,11 @@
+<FranTkData fileName="Football-Schemas\BTCareerPersonaGoalStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BTCareerPersonaGoalStatus" numMembers="4" assetId="12854387" isRecordPersistent="true" majorVersionCRC="857115324" minorVersionCRC="-1903800950">
+			<attribute name="Invalid" idx="0" value="0" />
+			<attribute name="InProgress" idx="1" value="1" />
+			<attribute name="Completed" idx="2" value="2" />
+			<attribute name="Failed" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,55 @@
+<FranTkData fileName="Franchise-Schemas\MetersNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MetersNotificationRequest" numMembers="44" base="UIRequestForm" defaultStoreCapacity="5" assetId="8519566" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="248516848" minorVersionCRC="319457959">
+			<attribute name="AssociatedMeter" idx="0" type="NarrativePlayerMeterType" default="NarrativePlayerMeterType:Academics" />
+			<attribute name="BrandContract" idx="1" type="BrandContract" />
+			<attribute name="CanSubmitResponse" idx="2" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="3" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="4" type="none()" guid="8519566-1895689" final="true" />
+			<attribute name="CoachTrustRewardType" idx="5" type="CoachTrustRewardType" default="CoachTrustRewardType:ExtraPlays" />
+			<attribute name="Commands" idx="6" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="7" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="8" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="9" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="10" type="ResponseForm" />
+			<attribute name="Description" idx="11" type="string" const="true" maxLen="24" default="DeactivateBrandContract" />
+			<attribute name="Dismiss" idx="12" type="none()" guid="8519566-1895671" />
+			<attribute name="ExpirationDuration" idx="13" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="14" type="none()" guid="8519566-2154133" final="true" />
+			<attribute name="HasResolution" idx="15" type="bool()" guid="8519566-1895676" />
+			<attribute name="IsBlocking" idx="16" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="17" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="18" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="19" type="bool()" guid="8519566-1895678" />
+			<attribute name="IsResponseRequired" idx="20" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="21" type="bool" default="True" />
+			<attribute name="Issue" idx="22" type="Request_Issue" guid="8519566-1895668" />
+			<attribute name="IssueTime" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IsSuspension" idx="24" type="bool" default="False" />
+			<attribute name="MentalsOnOff" idx="25" type="MentalsStatus" default="MentalsStatus:Invalid" />
+			<attribute name="Priority" idx="26" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="27" type="none()" guid="8519566-1895686" final="true" />
+			<attribute name="RequestData" idx="28" type="record" />
+			<attribute name="RequestForm" idx="29" type="ResponseForm" />
+			<attribute name="RequestId" idx="30" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="31" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="33" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="34" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="35" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="36" type="bool" default="True" />
+			<attribute name="ShowRoosterOnHubButton" idx="37" type="HUBMenuType" default="HUBMenuType:Invalid" />
+			<attribute name="ShowRoosterOnHubTab" idx="38" type="HUBTabType" default="HUBTabType:Invalid" />
+			<attribute name="TargetUser" idx="39" type="User" />
+			<attribute name="Title" idx="40" type="string" const="true" maxLen="27" default="Deactivated Brand Contract" />
+			<attribute name="TypeName" idx="41" type="string" const="true" maxLen="24" default="DeactivateBrandContract" />
+			<attribute name="UIDisplayStyle" idx="42" type="UIDisplayStyle" default="UIDisplayStyle:Invalid" />
+			<attribute name="UseFireworks" idx="43" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

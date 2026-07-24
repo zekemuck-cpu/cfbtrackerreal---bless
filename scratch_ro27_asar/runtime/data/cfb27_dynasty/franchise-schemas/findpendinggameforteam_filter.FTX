@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FindPendingGameForTeam_Filter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FindPendingGameForTeam_Filter" numMembers="2" base="bool()" ownerAssetId="6499011" isRecordPersistent="true" isExpr="true" majorVersionCRC="127989845" minorVersionCRC="1358980565">
+			<attribute name="Subject" idx="0" type="PendingSeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

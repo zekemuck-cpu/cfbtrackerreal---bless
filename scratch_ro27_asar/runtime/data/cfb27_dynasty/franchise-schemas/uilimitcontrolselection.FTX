@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\UILimitControlSelection.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UILimitControlSelection" numMembers="3" assetId="6812902" isRecordPersistent="true" majorVersionCRC="-1184545068" minorVersionCRC="-426206635">
+			<attribute name="FollowerControlName" idx="0" type="string" maxLen="11" />
+			<attribute name="LeaderControlName" idx="1" type="string" maxLen="30" />
+			<attribute name="LimitSelectionValues" idx="2" type="UILimitSelectionValues[]" />
+		</schema>
+	</schemas>
+</FranTkData>

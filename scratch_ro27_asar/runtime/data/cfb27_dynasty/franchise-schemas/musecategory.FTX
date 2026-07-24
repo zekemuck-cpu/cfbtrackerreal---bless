@@ -1,0 +1,49 @@
+<FranTkData fileName="Franchise-Schemas\MuseCategory.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MuseCategory" numMembers="42" assetId="6498758" isRecordPersistent="true" majorVersionCRC="-280916732" minorVersionCRC="221310243">
+			<attribute name="EndGame" idx="0" value="0" />
+			<attribute name="ContractUpdate" idx="1" value="1" />
+			<attribute name="CoachContract" idx="2" value="2" />
+			<attribute name="SeasonGamePreview" idx="3" value="3" />
+			<attribute name="ContractNegotiation" idx="4" value="4" />
+			<attribute name="ScoutingUpdate" idx="5" value="5" />
+			<attribute name="PlayerInjury" idx="6" value="6" />
+			<attribute name="PlayerHealed" idx="7" value="7" />
+			<attribute name="PlayerInjury_IR" idx="8" value="8" />
+			<attribute name="TradeProposal" idx="9" value="9" />
+			<attribute name="DepthChart" idx="10" value="10" />
+			<attribute name="StatRecord" idx="11" value="11" />
+			<attribute name="PlayerLegacy" idx="12" value="12" />
+			<attribute name="TradeBlock" idx="13" value="13" />
+			<attribute name="HallOfFame" idx="14" value="14" />
+			<attribute name="PlayerAward" idx="15" value="15" />
+			<attribute name="TeamAward" idx="16" value="16" />
+			<attribute name="StatApproach" idx="17" value="17" />
+			<attribute name="Introduction" idx="18" value="18" />
+			<attribute name="Trade" idx="19" value="19" />
+			<attribute name="Comebacks" idx="20" value="20" />
+			<attribute name="NFLSeasonEnd" idx="21" value="21" />
+			<attribute name="PlayerPositionConverted" idx="22" value="22" />
+			<attribute name="PracticeComplete" idx="23" value="23" />
+			<attribute name="AlternateUniformUsed" idx="24" value="24" />
+			<attribute name="PlayoffsClinched" idx="25" value="25" />
+			<attribute name="PlayerEarlyReturn" idx="26" value="26" />
+			<attribute name="PlayingThroughInjury" idx="27" value="27" />
+			<attribute name="WeeklyEvent" idx="28" value="28" />
+			<attribute name="Polls" idx="29" value="29" />
+			<attribute name="Recruiting" idx="30" value="30" />
+			<attribute name="TPTPRanking" idx="31" value="31" />
+			<attribute name="Heisman" idx="32" value="32" />
+			<attribute name="ByeWeek" idx="33" value="33" />
+			<attribute name="RTG_EndGame" idx="34" value="34" />
+			<attribute name="RTG_SeasonGamePreview" idx="35" value="35" />
+			<attribute name="RTG_ByeWeek" idx="36" value="36" />
+			<attribute name="LeagueSeasonStart" idx="37" value="37" />
+			<attribute name="TeamSeasonStart" idx="38" value="38" />
+			<attribute name="TeamSeasonEnd" idx="39" value="39" />
+			<attribute name="AwardPreview" idx="40" value="40" />
+			<attribute name="MaxCategory" idx="41" value="41" />
+		</enum>
+	</schemas>
+</FranTkData>

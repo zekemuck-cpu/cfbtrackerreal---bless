@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\WearAndTearGroupData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WearAndTearGroupData" numMembers="8" assetId="9072535" isRecordPersistent="true" majorVersionCRC="2057374741" minorVersionCRC="-316418462">
+			<attribute name="BodyPartGroup" idx="0" type="PlayerBodyPartGroups" default="PlayerBodyPartGroups:FIRST" />
+			<attribute name="ImpactedAbility1" idx="1" type="PlayerAbility" default="PlayerAbility:None" />
+			<attribute name="ImpactedAbility2" idx="2" type="PlayerAbility" default="PlayerAbility:None" />
+			<attribute name="ImpactedAbility3" idx="3" type="PlayerAbility" default="PlayerAbility:None" />
+			<attribute name="ImpactedValue1" idx="4" type="int" minValue="-32000" maxValue="32000" default="0" />
+			<attribute name="ImpactedValue2" idx="5" type="int" minValue="-32000" maxValue="32000" default="0" />
+			<attribute name="ImpactedValue3" idx="6" type="int" minValue="-32000" maxValue="32000" default="0" />
+			<attribute name="OldHealth" idx="7" type="int" minValue="-32000" maxValue="32000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

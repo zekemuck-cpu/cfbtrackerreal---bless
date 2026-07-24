@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_PositionChangesFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_PositionChangesFlow" numMembers="21" base="FranTkServer_Flow" assetId="6499349" isRecordPersistent="true" majorVersionCRC="-192788871" minorVersionCRC="-1636810984">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="BodyPartGroupsEnumTable" idx="1" type="EnumTable" />
+			<attribute name="DepthChartEval" idx="2" type="DepthChartEval" />
+			<attribute name="Dynasty" idx="3" type="Franchise" />
+			<attribute name="Form" idx="4" type="UIForm" />
+			<attribute name="FormManager" idx="5" type="FranTkServer_FormManager" />
+			<attribute name="HandednessEnumTable" idx="6" type="EnumTable" />
+			<attribute name="League" idx="7" type="League" />
+			<attribute name="LetterGradeEnumTable" idx="8" type="EnumTable" />
+			<attribute name="PipelineEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PlayerGradeEval" idx="11" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="12" type="PlayerManager" />
+			<attribute name="PlayerTypeEnumTable" idx="13" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="14" type="EnumTable" />
+			<attribute name="RecruitingMotivationEnumTable" idx="15" type="EnumTable" />
+			<attribute name="RosterEval" idx="16" type="RosterEval" />
+			<attribute name="SchoolYearEnumTable" idx="17" type="EnumTable" />
+			<attribute name="SignatureAbilitiesEval" idx="18" type="SignatureAbilitiesEval" />
+			<attribute name="StateNameEnumTable" idx="19" type="EnumTable" />
+			<attribute name="UserRegistry" idx="20" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

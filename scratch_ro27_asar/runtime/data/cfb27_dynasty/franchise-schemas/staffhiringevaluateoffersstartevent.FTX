@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEvaluateOffersStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEvaluateOffersStartEvent" numMembers="2" base="Event" assetId="6494884" isRecordPersistent="true" majorVersionCRC="1867396759" minorVersionCRC="2139462062">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6494884-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6494884-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

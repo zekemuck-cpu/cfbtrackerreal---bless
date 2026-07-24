@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_LogSequenceStartRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_LogSequenceStartRequest" numMembers="3" base="none()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1693985248" minorVersionCRC="470832944">
+			<attribute name="SequenceMetadata" idx="0" type="record" />
+			<attribute name="StoryArcContext" idx="1" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

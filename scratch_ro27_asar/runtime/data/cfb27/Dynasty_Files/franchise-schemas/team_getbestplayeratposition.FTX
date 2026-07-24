@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\Team_GetBestPlayerAtPosition.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Team_GetBestPlayerAtPosition" numMembers="2" base="Player()" ownerAssetId="6498740" isRecordPersistent="true" isExpr="true" majorVersionCRC="1816165837" minorVersionCRC="-659792622">
+			<attribute name="position" idx="0" type="PositionE" default="PositionE:FirstKeyOffense_" />
+		</schema>
+	</schemas>
+</FranTkData>

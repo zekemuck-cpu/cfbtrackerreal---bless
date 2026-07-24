@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\GeneratorTuningDataFixed.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\GeneratorTuningData.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GeneratorTuningDataFixed" numMembers="2" base="GeneratorTuningData" assetId="6733480" isRecordPersistent="true" majorVersionCRC="1742132688" minorVersionCRC="908642036">
+			<attribute name="DesiredCount" idx="0" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="Generator" idx="1" type="RandomAssetGenerator" />
+		</schema>
+	</schemas>
+</FranTkData>

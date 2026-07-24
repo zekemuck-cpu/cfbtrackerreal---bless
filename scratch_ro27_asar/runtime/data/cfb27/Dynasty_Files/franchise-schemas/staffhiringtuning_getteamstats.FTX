@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringTuning_GetTeamStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringTuning_GetTeamStats" numMembers="4" base="TeamStats()" ownerAssetId="6494903" isRecordPersistent="true" isExpr="true" majorVersionCRC="-723613658" minorVersionCRC="1310166275">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="currentYear" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="year" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

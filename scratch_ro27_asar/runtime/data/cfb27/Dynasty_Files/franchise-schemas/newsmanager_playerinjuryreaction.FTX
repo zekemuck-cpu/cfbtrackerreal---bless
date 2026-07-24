@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NewsManager_PlayerInjuryReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsManager_PlayerInjuryReaction" numMembers="4" base="Reaction" assetId="6499042" isRecordPersistent="true" majorVersionCRC="-1461804192" minorVersionCRC="-1661277867">
+			<attribute name="EventRecord" idx="0" type="Player_InjuredEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499042-1895461" />
+			<attribute name="NewsManager" idx="2" type="NewsManager" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

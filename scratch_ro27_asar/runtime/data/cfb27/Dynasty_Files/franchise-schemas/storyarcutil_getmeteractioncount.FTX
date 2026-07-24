@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_GetMeterActionCount.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_GetMeterActionCount" numMembers="3" base="int()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1124146052" minorVersionCRC="-759395509">
+			<attribute name="arcContext" idx="0" type="ArcContext" />
+			<attribute name="meterAction" idx="1" type="NarrativePlayerMeterAction" default="NarrativePlayerMeterAction:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

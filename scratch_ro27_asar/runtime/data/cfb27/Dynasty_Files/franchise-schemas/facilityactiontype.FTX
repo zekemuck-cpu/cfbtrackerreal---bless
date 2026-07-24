@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\FacilityActionType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="FacilityActionType" numMembers="4" assetId="13696513" isRecordPersistent="true" majorVersionCRC="-1738700921" minorVersionCRC="1866123986">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="Upgrade" idx="1" value="1" />
+			<attribute name="Renew" idx="2" value="2" />
+			<attribute name="Downgrade" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

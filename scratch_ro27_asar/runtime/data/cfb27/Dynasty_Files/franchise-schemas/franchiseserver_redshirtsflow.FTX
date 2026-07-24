@@ -1,0 +1,36 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_RedshirtsFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_RedshirtsFlow" numMembers="25" base="FranTkServer_Flow" assetId="6499347" isRecordPersistent="true" majorVersionCRC="-1661843751" minorVersionCRC="-285181187">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="BodyPartGroupsEnumTable" idx="1" type="EnumTable" />
+			<attribute name="DepthChartEval" idx="2" type="DepthChartEval" />
+			<attribute name="DevelopmentTraitEnumTable" idx="3" type="EnumTable" />
+			<attribute name="Dynasty" idx="4" type="Franchise" />
+			<attribute name="Form" idx="5" type="UIForm" />
+			<attribute name="FormManager" idx="6" type="FranTkServer_FormManager" />
+			<attribute name="HandednessEnumTable" idx="7" type="EnumTable" />
+			<attribute name="League" idx="8" type="League" />
+			<attribute name="LetterGradeEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PipelineEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PlayerAbilityEnumTable" idx="11" type="EnumTable" />
+			<attribute name="PlayerGradeEval" idx="12" type="PlayerGradeEval" />
+			<attribute name="PlayerTypeEnumTable" idx="13" type="EnumTable" />
+			<attribute name="PositionEnumFilter" idx="14" type="record" />
+			<attribute name="PositionEnumTable" idx="15" type="EnumTable" />
+			<attribute name="RecruitingMotivationEnumTable" idx="16" type="EnumTable" />
+			<attribute name="RedshirtStatusEnumTable" idx="17" type="EnumTable" />
+			<attribute name="RosterEval" idx="18" type="RosterEval" />
+			<attribute name="SchoolYearEnumTable" idx="19" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="20" type="SeasonInfo" />
+			<attribute name="SignatureAbilitiesEval" idx="21" type="SignatureAbilitiesEval" />
+			<attribute name="StateNameEnumTable" idx="22" type="EnumTable" />
+			<attribute name="StatManager" idx="23" type="StatManager" />
+			<attribute name="UserRegistry" idx="24" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

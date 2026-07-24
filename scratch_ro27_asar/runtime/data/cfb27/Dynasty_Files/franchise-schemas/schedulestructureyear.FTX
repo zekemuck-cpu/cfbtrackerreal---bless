@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\ScheduleStructureYear.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScheduleStructureYear" numMembers="1" defaultStoreCapacity="75" assetId="6845450" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1935781859" minorVersionCRC="984784668">
+			<attribute name="ScheduleEntries" idx="0" type="ScheduleStructureEntry[]" />
+		</schema>
+	</schemas>
+</FranTkData>

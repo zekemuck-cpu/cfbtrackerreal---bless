@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\UpdatePlayerGrades_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdatePlayerGrades_Formula" numMembers="3" base="none()" ownerAssetId="6498958" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1797084947" minorVersionCRC="-146317144">
+			<attribute name="Subject" idx="0" type="Player" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\SetCrossArcDataAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SetCrossArcDataAction" numMembers="4" base="SequenceAction" defaultStoreCapacity="3" assetId="6536982" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-2010587816" minorVersionCRC="970392507">
+			<attribute name="Default" idx="0" type="bool" default="False" />
+			<attribute name="Enabled" idx="1" type="bool" default="True" />
+			<attribute name="Id" idx="2" type="CrossArcDataId" default="CrossArcDataId:PLACEHOLDER" />
+			<attribute name="Value" idx="3" type="int" minValue="-32768" maxValue="32767" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_GetCoachContractOfferSalary.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_GetCoachContractOfferSalary" numMembers="3" base="int()" ownerAssetId="6495417" isRecordPersistent="true" isExpr="true" majorVersionCRC="1692141344" minorVersionCRC="1684046755">
+			<attribute name="coach" idx="0" type="Coach" />
+			<attribute name="team" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CoachManager_IssueStaffEventNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachManager_IssueStaffEventNotificationRequest" numMembers="3" base="none()" ownerAssetId="6495150" isRecordPersistent="true" isExpr="true" majorVersionCRC="-784180713" minorVersionCRC="-699594269">
+			<attribute name="staffPerson" idx="0" type="StaffPerson" />
+			<attribute name="eventType" idx="1" type="StaffEventType" default="StaffEventType:Hired" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\NewsTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsTuning" numMembers="2" base="BaseTuning" defaultStoreCapacity="1" assetId="10618443" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-127005040" minorVersionCRC="-1659958582">
+			<attribute name="EnableInfoSentience" idx="0" type="bool" default="False" />
+			<attribute name="SendClientUpdateOnEveryNews" idx="1" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

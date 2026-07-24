@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\StadiumEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StadiumEval" numMembers="13" base="Module" assetId="6494945" isRecordPersistent="true" majorVersionCRC="1400898211" minorVersionCRC="-178188556">
+			<attribute name="AverageRequiredRating" idx="0" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="GoodRequiredRating" idx="1" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="HandleBeginSeasonStage" idx="2" type="StadiumEval_HandleBeginSeasonStage" guid="6494945-1913343" final="true" />
+			<attribute name="HandleEndSeasonStage" idx="3" type="StadiumEval_HandleEndSeasonStage" guid="6494945-1913348" final="true" />
+			<attribute name="LevelDegredationSplineTable" idx="4" type="StadiumPartRecordTable" />
+			<attribute name="PracticeTeam" idx="5" type="Team" />
+			<attribute name="SeasonInfo" idx="6" type="SeasonInfo" />
+			<attribute name="StadiumPartRatingToRankingSpline" idx="7" type="Spline" />
+			<attribute name="Teams" idx="8" type="Team[]" />
+			<attribute name="ToughestPlacesTunable" idx="9" type="ToughestPlacesTunable" />
+			<attribute name="UpdateAttendanceRanks" idx="10" type="none()" guid="6494945-2082004" final="true" />
+			<attribute name="UpdateToughestPlacesInfo" idx="11" type="none()" guid="6494945-2072040" final="true" />
+			<attribute name="ValidateExpressions" idx="12" type="none()" guid="6494945-1913357" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

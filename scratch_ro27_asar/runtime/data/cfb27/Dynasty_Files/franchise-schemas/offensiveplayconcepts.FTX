@@ -1,0 +1,72 @@
+<FranTkData fileName="Franchise-Schemas\OffensivePlayConcepts.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="OffensivePlayConcepts" numMembers="65" assetId="6321038" isRecordPersistent="true" majorVersionCRC="-1873696362" minorVersionCRC="779386029">
+			<attribute name="Invalid" idx="0" value="-1" />
+			<attribute name="Run_Counter" idx="1" value="0" />
+			<attribute name="RUN_FIRST" idx="2" value="0" />
+			<attribute name="Run_Draw" idx="3" value="1" />
+			<attribute name="Run_Inside_Zone" idx="4" value="2" />
+			<attribute name="Run_Iso" idx="5" value="3" />
+			<attribute name="Run_Outside_Zone" idx="6" value="4" />
+			<attribute name="Run_Power" idx="7" value="5" />
+			<attribute name="Run_Sweep" idx="8" value="6" />
+			<attribute name="Run_Trap" idx="9" value="7" />
+			<attribute name="Run_Wham" idx="10" value="8" />
+			<attribute name="Run_End_Around" idx="11" value="9" />
+			<attribute name="Run_Reverse" idx="12" value="10" />
+			<attribute name="Option_Inverted_Veer" idx="13" value="11" />
+			<attribute name="Option_Load_Option" idx="14" value="12" />
+			<attribute name="Option_Midline_Option" idx="15" value="13" />
+			<attribute name="Option_Read_Option" idx="16" value="14" />
+			<attribute name="Option_Shovel_Option" idx="17" value="15" />
+			<attribute name="Option_Speed_Option" idx="18" value="16" />
+			<attribute name="Option_Triple_Option" idx="19" value="17" />
+			<attribute name="Option_Zone_Option" idx="20" value="18" />
+			<attribute name="RUN_LAST" idx="21" value="18" />
+			<attribute name="PASS_FIRST" idx="22" value="19" />
+			<attribute name="Quick_Pass_Hitch" idx="23" value="19" />
+			<attribute name="Quick_Pass_Ohio" idx="24" value="20" />
+			<attribute name="Quick_Pass_Omaha" idx="25" value="21" />
+			<attribute name="Quick_Pass_Scat" idx="26" value="22" />
+			<attribute name="Quick_Pass_Slant" idx="27" value="23" />
+			<attribute name="Quick_Pass_Spacing" idx="28" value="24" />
+			<attribute name="Quick_Pass_Stick" idx="29" value="25" />
+			<attribute name="Medium_Pass_Choice" idx="30" value="26" />
+			<attribute name="Medium_Pass_Curl" idx="31" value="27" />
+			<attribute name="Medium_Pass_Double_Moves" idx="32" value="28" />
+			<attribute name="Medium_Pass_Drive" idx="33" value="29" />
+			<attribute name="Medium_Pass_Levels" idx="34" value="30" />
+			<attribute name="Medium_Pass_Mesh" idx="35" value="31" />
+			<attribute name="Medium_Pass_Pivot" idx="36" value="32" />
+			<attribute name="Medium_Pass_Salem" idx="37" value="33" />
+			<attribute name="Medium_Pass_Shake" idx="38" value="34" />
+			<attribute name="Medium_Pass_Shallow_Cross" idx="39" value="35" />
+			<attribute name="Medium_Pass_Slot_Cross" idx="40" value="36" />
+			<attribute name="Medium_Pass_Smash" idx="41" value="37" />
+			<attribute name="Medium_Pass_Spot" idx="42" value="38" />
+			<attribute name="Medium_Pass_Texas" idx="43" value="39" />
+			<attribute name="Deep_Pass_Comeback" idx="44" value="40" />
+			<attribute name="Deep_Pass_Dagger" idx="45" value="41" />
+			<attribute name="Deep_Pass_Divide" idx="46" value="42" />
+			<attribute name="Deep_Pass_Double_Dig" idx="47" value="43" />
+			<attribute name="Deep_Pass_Double_Post" idx="48" value="44" />
+			<attribute name="Deep_Pass_Flood" idx="49" value="45" />
+			<attribute name="Deep_Pass_Four_Verticals" idx="50" value="46" />
+			<attribute name="Deep_Pass_Go" idx="51" value="47" />
+			<attribute name="Deep_Pass_Mills" idx="52" value="48" />
+			<attribute name="Deep_Pass_Portland" idx="53" value="49" />
+			<attribute name="Deep_Pass_Shot_Play" idx="54" value="50" />
+			<attribute name="Deep_Pass_Switch" idx="55" value="51" />
+			<attribute name="Deep_Pass_Y_Cross" idx="56" value="52" />
+			<attribute name="Playaction_Pass_Boot" idx="57" value="53" />
+			<attribute name="Playaction_Pass_Slide" idx="58" value="54" />
+			<attribute name="Screen_Pass_Bubble_Screen" idx="59" value="55" />
+			<attribute name="Screen_Pass_FL_SE_Screen" idx="60" value="56" />
+			<attribute name="Screen_Pass_HB_Slip_Screen" idx="61" value="57" />
+			<attribute name="PASS_LAST" idx="62" value="58" />
+			<attribute name="Screen_Pass_WR_Mid_Screen" idx="63" value="58" />
+			<attribute name="NumConcepts" idx="64" value="59" />
+		</enum>
+	</schemas>
+</FranTkData>

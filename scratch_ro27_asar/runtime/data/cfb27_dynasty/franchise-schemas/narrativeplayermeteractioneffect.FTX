@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMeterActionEffect.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMeterActionEffect" numMembers="5" defaultStoreCapacity="114" assetId="7709451" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-974270395" minorVersionCRC="-1786777900">
+			<attribute name="Activation" idx="0" type="NarrativePlayerMeterEffectActivation" default="NarrativePlayerMeterEffectActivation:Instant" />
+			<attribute name="Chance" idx="1" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="MaxValue" idx="2" type="int" minValue="-1000" maxValue="2500000" default="0" />
+			<attribute name="MinValue" idx="3" type="int" minValue="-1000" maxValue="2500000" default="0" />
+			<attribute name="Type" idx="4" type="NarrativePlayerMeterEffectType" default="NarrativePlayerMeterEffectType:Ratings" />
+		</schema>
+	</schemas>
+</FranTkData>

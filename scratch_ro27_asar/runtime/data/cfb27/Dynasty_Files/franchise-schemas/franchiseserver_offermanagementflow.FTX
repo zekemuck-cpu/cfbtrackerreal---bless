@@ -1,0 +1,43 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_OfferManagementFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_OfferManagementFlow" numMembers="32" base="FranTkServer_Flow" assetId="6499345" isRecordPersistent="true" majorVersionCRC="31847048" minorVersionCRC="1310546353">
+			<attribute name="BudgetAllocationEnumTable" idx="0" type="EnumTable" />
+			<attribute name="CarouselSubHeaderFilters" idx="1" type="UISpreadsheetFilter[]" />
+			<attribute name="CoachGoalsEval" idx="2" type="CoachGoalsEval" />
+			<attribute name="CoachLeaveEnumTable" idx="3" type="EnumTable" />
+			<attribute name="CoachTypeEnumTable" idx="4" type="EnumTable" />
+			<attribute name="ContractExpectationEnumTable" idx="5" type="EnumTable" />
+			<attribute name="DepthChartEval" idx="6" type="DepthChartEval" />
+			<attribute name="DynastyRecord" idx="7" type="Franchise" />
+			<attribute name="Form" idx="8" type="UIForm" />
+			<attribute name="FormManager" idx="9" type="FranTkServer_FormManager" />
+			<attribute name="JobSecurityEnumTable" idx="10" type="EnumTable" />
+			<attribute name="LeagueRecord" idx="11" type="League" />
+			<attribute name="LetterGradeEnumTable" idx="12" type="EnumTable" />
+			<attribute name="MySchoolGradeEnumTable" idx="13" type="EnumTable" />
+			<attribute name="MySchoolGradeEval" idx="14" type="MySchoolGradeEval" />
+			<attribute name="NarrativePlayer" idx="15" type="NarrativePlayer" />
+			<attribute name="NarrativePlayerMetersEval" idx="16" type="NarrativePlayerMetersEval" />
+			<attribute name="OfferValueMagnitudeEnumTable" idx="17" type="EnumTable" />
+			<attribute name="PlayerGradeEval" idx="18" type="PlayerGradeEval" />
+			<attribute name="PlayerProgressionEval" idx="19" type="PlayerProgressionEval" />
+			<attribute name="RecruitingEval" idx="20" type="RecruitingEval" />
+			<attribute name="RecruitOfferTypeEnumTable" idx="21" type="EnumTable" />
+			<attribute name="RequestServer" idx="22" type="RequestServer" />
+			<attribute name="SchemeEnumTable" idx="23" type="EnumTable" />
+			<attribute name="SchoolYearEnumTable" idx="24" type="EnumTable" />
+			<attribute name="StaffHiringEval" idx="25" type="StaffHiringEval" />
+			<attribute name="StaffPositionEnumTable" idx="26" type="EnumTable" />
+			<attribute name="StateNameEnumTable" idx="27" type="EnumTable" />
+			<attribute name="TalentTreeEval" idx="28" type="TalentTreeEval" />
+			<attribute name="TeamRevenueEval" idx="29" type="TeamRevenueEval" />
+			<attribute name="UserFlow" idx="30" type="FranchiseServer_UserFlow" />
+			<attribute name="UserRegistry" idx="31" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

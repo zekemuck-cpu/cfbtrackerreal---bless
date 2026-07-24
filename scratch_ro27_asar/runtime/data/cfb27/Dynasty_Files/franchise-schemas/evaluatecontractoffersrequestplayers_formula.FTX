@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffersRequestPlayers_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffersRequestPlayers_Formula" numMembers="3" base="none()" ownerAssetId="6610499" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1085164184" minorVersionCRC="2069575392">
+			<attribute name="Subject" idx="0" type="Player" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

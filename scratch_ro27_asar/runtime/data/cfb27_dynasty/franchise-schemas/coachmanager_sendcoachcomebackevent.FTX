@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CoachManager_SendCoachComebackEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachManager_SendCoachComebackEvent" numMembers="2" base="none()" ownerAssetId="6495150" isRecordPersistent="true" isExpr="true" majorVersionCRC="-91643683" minorVersionCRC="1462195340">
+			<attribute name="coach" idx="0" type="Coach" />
+		</schema>
+	</schemas>
+</FranTkData>

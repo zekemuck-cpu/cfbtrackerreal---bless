@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_PlayerProgressionFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_PlayerProgressionFlow" numMembers="11" base="FranTkServer_Flow" assetId="6499096" isRecordPersistent="true" majorVersionCRC="395514527" minorVersionCRC="-793926228">
+			<attribute name="CoachBackstoryEnumTable" idx="0" type="EnumTable" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="PlayerAbilityEnumTable" idx="3" type="EnumTable" />
+			<attribute name="PlayerProgressionEval" idx="4" type="PlayerProgressionEval" />
+			<attribute name="PlayerTraitDisplayTable" idx="5" type="PlayerTraitDisplayTable" />
+			<attribute name="PlayerTraitEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PlayerTypeEnumTable" idx="7" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="8" type="EnumTable" />
+			<attribute name="SchemeEnumTable" idx="9" type="EnumTable" />
+			<attribute name="UserRegistry" idx="10" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

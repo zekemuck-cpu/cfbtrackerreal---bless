@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\SignPlayersForTeams_InSeason.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignPlayersForTeams_InSeason" numMembers="13" base="ModifierView" assetId="6498964" isRecordPersistent="true" majorVersionCRC="384844861" minorVersionCRC="-443635352">
+			<attribute name="ChosenPlayer1" idx="0" type="Player" />
+			<attribute name="CutDayEval" idx="1" type="CutDayEval" />
+			<attribute name="Formula" idx="2" type="SignPlayersForTeams_InSeason_Formula" guid="6498964-1931062" default="int signingThreshold = PlayerSigningEval.AddedValueThreshold;&#xD;&#xA;int capRoomImpact = 0;&#xD;&#xA;&#xD;&#xA;if(Subject.Roster.Population() &lt; RosterSize)&#xD;&#xA;{&#xD;&#xA;    signingThreshold = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;bool cutPlayerToMakeRoom = (Subject.Roster.Population() &gt;= RosterSize);&#xD;&#xA;&#xD;&#xA;//if a player will need to be cut to add a free agent to the roster&#xD;&#xA;if(cutPlayerToMakeRoom)&#xD;&#xA;{&#xD;&#xA;    //Choose the least valueable player currently on the team to cut&#xD;&#xA;    PlayersToCut = CutDayEval.GenerateCutList(Subject, 1);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;ContractOffer offer = PlayerSigningEval.GenerateInSeasonFreeAgentOffer(Subject, FreeAgents, signingThreshold, capRoomImpact);&#xD;&#xA;&#xD;&#xA;if(offer != null)&#xD;&#xA;{&#xD;&#xA;    if(cutPlayerToMakeRoom)&#xD;&#xA;    {&#xD;&#xA;        PlayerManager.TeamManager.ReleasePlayer(Subject, PlayersToCut[0], false);&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;    PlayerManager.SignPlayer(Subject, offer.Player, offer.Contract);&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="FreeAgents" idx="3" type="Player[]" />
+			<attribute name="PlayerContract1" idx="4" type="PlayerContract" />
+			<attribute name="PlayerContractManager" idx="5" type="PlayerContractManager" />
+			<attribute name="PlayerManager" idx="6" type="PlayerManager" />
+			<attribute name="PlayerSigningEval" idx="7" type="PlayerSigningEval" />
+			<attribute name="PlayersToCut" idx="8" type="Player[]" />
+			<attribute name="RosterSize" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Source" idx="10" type="record" />
+			<attribute name="Subjects" idx="11" type="Team[]" />
+			<attribute name="Update" idx="12" type="none()" guid="6498964-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\ActivityCompletedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ActivityCompletedEvent" numMembers="16" base="Event" assetId="6377921" isRecordPersistent="true" majorVersionCRC="-1615489056" minorVersionCRC="1241656082">
+			<attribute name="AwardedMedal" idx="0" type="Medal" default="Medal:Bronze" />
+			<attribute name="BaseExperience" idx="1" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="BoostExperience" idx="2" type="int" minValue="-1000" maxValue="4000" default="0" />
+			<attribute name="ConfidenceMax" idx="3" type="int" minValue="-100" maxValue="200" default="0" />
+			<attribute name="ConfidenceMin" idx="4" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="Duration" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Enqueue" idx="6" type="none()" guid="6377921-1895458" final="true" />
+			<attribute name="ExperienceMax" idx="7" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="ExperienceMin" idx="8" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="IsSchemeFit" idx="9" type="bool" default="False" />
+			<attribute name="MiniGame" idx="10" type="MiniGame" />
+			<attribute name="Player" idx="11" type="Player" />
+			<attribute name="Send" idx="12" type="none()" guid="6377921-1895455" final="true" />
+			<attribute name="Team" idx="13" type="Team" />
+			<attribute name="WasSimmed" idx="14" type="bool" default="False" />
+			<attribute name="WasTeamActivity" idx="15" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

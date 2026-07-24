@@ -543,7 +543,22 @@ function PlayerInner() {
   // An uncommitted recruiting target has no team. NEVER fall back to YOUR team
   // name/logo/colors (that mislabel — and the resulting dead /team link — was
   // the M2 bug). Render it neutrally as a target instead.
-  const isUncommittedTarget = isOpenTarget(player)
+  //
+  // isOpenTarget() alone isn't enough here: it only means "commitmentTid is
+  // null", which used to be equivalent to "not committed to us" back when a
+  // target's commitmentTid could only ever be OUR OWN tid or null. CFB27
+  // sync (src/data/cfb27SaveSync.js) now also sets commitmentTid to a
+  // recruit's REAL destination when they commit to a different school
+  // (needed so recruitingTargets.js's getTargetStatus() can show the
+  // existing "committed elsewhere / Lost" board treatment) — which makes
+  // isOpenTarget() return false for them too, despite them never having
+  // committed to US. Without this extra check, exactly that recruit falls
+  // through every other branch below and hits the M2 fallback again —
+  // confirmed: this is what was still showing Jake Vretman as "Ohio State
+  // Buckeyes" after fixing the sync/ledger side of the same bug.
+  const committedElsewhere = player?.isTarget && player.commitmentTid != null
+    && Number(player.commitmentTid) !== Number(dynasty?.currentTid)
+  const isUncommittedTarget = isOpenTarget(player) || committedElsewhere
 
   // ScoutScore tab lifecycle: while a recruit (tracked target, committed or not,
   // not yet enrolled) ScoutScore leads — it IS the Overview tab. Once they enroll
@@ -559,6 +574,16 @@ function PlayerInner() {
     .some((y) => Number.isFinite(y) && y <= Number(currentYear))
   const isRecruitPhase = !scoutStaffEnabled && !!player?.isTarget && !enrolledOnRoster
   const scoutScoreAsLastTab = !scoutStaffEnabled && !isRecruitPhase && enrolledOnRoster && hasScoutAttributes
+  // The real school a committed-elsewhere recruit is going to — resolved
+  // from commitmentTid directly (NOT playerTeam/teamsByYear, which stay
+  // empty for them by design; this dynasty never tracks them as actually
+  // enrolled there). Shown as an informational label only — deliberately
+  // NOT treated as this player's "real" team below (no team colors/logo/
+  // link to that team's roster page, since they're not actually on it).
+  const committedElsewhereTeam = committedElsewhere ? (dynasty?.teams?.[player.commitmentTid] || null) : null
+  const committedElsewhereName = committedElsewhereTeam?.name
+    ? stripMascotFromName(committedElsewhereTeam.name) || committedElsewhereTeam.name
+    : null
   const playerTeamName = playerTeam?.name
     || getMascotName(playerTeamAbbr, dynasty?.teams || dynasty?.customTeams)
     || (isUncommittedTarget ? '' : dynasty?.teamName)
@@ -566,11 +591,27 @@ function PlayerInner() {
 
   // IMPORTANT: All hooks must be called before any early returns
   const teamColors = useTeamColors(playerTeamName, dynasty?.teams || dynasty?.customTeams)
+  // Real colors for whichever OTHER school a committed-elsewhere recruit is
+  // going to — called unconditionally (hooks rule) even though it's only
+  // used when committedElsewhere is true.
+  const elsewhereTeamColors = useTeamColors(committedElsewhereName || '', dynasty?.teams || dynasty?.customTeams)
 
-  const teamInfo = isUncommittedTarget ? {
-    // An uncommitted target has no team — render the hero in a neutral slate,
-    // never a team color (the empty-name color lookup would otherwise pick a
-    // default tint). Matches the grey target cards on the board.
+  const teamInfo = committedElsewhere ? {
+    // A recruit who committed to a DIFFERENT school gets that school's real
+    // colors/logo — the same hero treatment as a commitment to the user's
+    // own team, just pointed at the other school. Previously this stayed
+    // neutral gray like a fully-open target; the user asked for these to
+    // look the same as a real commitment (see this function's git history
+    // for the prior neutral-only version).
+    name: `Committed to ${committedElsewhereName || 'Another School'}`,
+    backgroundColor: committedElsewhereTeam?.primaryColor || elsewhereTeamColors.primary || '#3a3d47',
+    textColor: committedElsewhereTeam?.secondaryColor || elsewhereTeamColors.secondary || '#f3f4f6',
+    isTeambuilder: committedElsewhereTeam?.isCustom || false
+  } : isOpenTarget(player) ? {
+    // A fully open (uncommitted) target has no team — render the hero in a
+    // neutral slate, never a team color (the empty-name color lookup would
+    // otherwise pick a default tint). Matches the grey target cards on the
+    // board.
     name: 'Recruiting Target',
     backgroundColor: '#3a3d47',
     textColor: '#f3f4f6',
@@ -589,8 +630,11 @@ function PlayerInner() {
 
   // Faint team-logo watermark for the hero — same treatment as the team-page
   // header. Prefer the team's own logo fields, fall back to the registry lookup.
-  const heroLogo = playerTeam?.logo || playerTeam?.logoUrl
-    || getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams)
+  const heroLogo = committedElsewhere
+    ? (committedElsewhereTeam?.logo || committedElsewhereTeam?.logoUrl
+      || getTeamLogo(committedElsewhereName, dynasty?.teams || dynasty?.customTeams))
+    : (playerTeam?.logo || playerTeam?.logoUrl
+      || getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams))
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -1920,20 +1964,35 @@ function PlayerInner() {
               {/* Team link + status badges */}
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 {isUncommittedTarget ? (
-                  // An uncommitted target has no team — show a neutral identity
-                  // that links back to that class's Targets board on the
-                  // recruiting page (never a team logo or a dead /team link).
+                  // A target with no commitment to OUR team — links back to
+                  // that class's Targets board (never a dead /team link,
+                  // since they were never actually rostered here). A
+                  // committed-elsewhere recruit still gets that school's
+                  // real logo shown, matching the "same treatment as a
+                  // commit to the user school" ask — just without the link
+                  // going to a roster they were never added to.
                   (() => {
                     const tTid = currentDynasty?.currentTid ?? getTidFromAbbr(getCurrentTeamAbbr(currentDynasty), currentDynasty?.teams)
                     const tYear = player.targetYear || currentDynasty?.currentYear
                     const href = tTid && tYear ? `${pathPrefix}/recruiting/${tTid}/${tYear}?tab=targets` : null
                     const style = { color: teamBgText, fontSize: 'clamp(0.95rem, 1.5vw, 1.1rem)' }
+                    const label = committedElsewhereName ? `Committed to ${committedElsewhereName}` : 'Recruiting Target'
+                    const content = (
+                      <>
+                        {committedElsewhere && heroLogo && (
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-white" style={{ boxShadow: '0 0 0 1px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.2)', padding: '3px' }}>
+                            <img src={heroLogo} alt="" className="w-full h-full object-contain" />
+                          </div>
+                        )}
+                        <span className="truncate max-w-[180px] sm:max-w-none">{label}</span>
+                      </>
+                    )
                     return href ? (
                       <Link to={href} className="inline-flex items-center gap-2 font-display font-bold hover:opacity-80 transition-opacity" style={style}>
-                        Recruiting Target
+                        {content}
                       </Link>
                     ) : (
-                      <span className="inline-flex items-center gap-2 font-display font-bold" style={style}>Recruiting Target</span>
+                      <span className="inline-flex items-center gap-2 font-display font-bold" style={style}>{content}</span>
                     )
                   })()
                 ) : (
@@ -1950,7 +2009,7 @@ function PlayerInner() {
                   <span className="truncate max-w-[180px] sm:max-w-none">{playerTeamName}</span>
                 </Link>
                 )}
-                {isUnenrolledRecruit && (
+                {(isUnenrolledRecruit || committedElsewhere) && (
                   <span
                     className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-[0.12em]"
                     style={{ backgroundColor: teamBgText, color: teamInfo.backgroundColor }}

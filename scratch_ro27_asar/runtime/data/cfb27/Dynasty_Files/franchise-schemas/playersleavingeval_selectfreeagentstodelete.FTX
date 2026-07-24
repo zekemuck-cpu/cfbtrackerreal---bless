@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEval_SelectFreeAgentsToDelete.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEval_SelectFreeAgentsToDelete" numMembers="2" base="Player[]()" ownerAssetId="6498461" isRecordPersistent="true" isExpr="true" majorVersionCRC="270547649" minorVersionCRC="1823545200">
+			<attribute name="position" idx="0" type="PositionE" default="PositionE:QB" />
+		</schema>
+	</schemas>
+</FranTkData>

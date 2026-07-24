@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TeamLogo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamLogo" numMembers="5" defaultStoreCapacity="13" assetId="6498989" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="158" majorVersionCRC="-149947484" minorVersionCRC="2125919637">
+			<attribute name="ImageId" idx="0" type="int" minValue="0" maxValue="1024" default="0" />
+			<attribute name="LogoId" idx="1" type="int" minValue="0" maxValue="1024" default="0" />
+			<attribute name="Name" idx="2" type="string" maxLen="31" />
+			<attribute name="TemplateTeamId" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="UniformPrefix" idx="4" type="string" maxLen="4" />
+		</schema>
+	</schemas>
+</FranTkData>

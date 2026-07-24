@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NarrativeActorPluginType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="NarrativeActorPluginType" numMembers="4" assetId="11909755" isRecordPersistent="true" majorVersionCRC="-785705562" minorVersionCRC="-1714684849">
+			<attribute name="NarrativeTargetedActor" idx="0" value="0" />
+			<attribute name="ConditionalPositionActor" idx="1" value="1" />
+			<attribute name="PositionBasedPlayerActor" idx="2" value="2" />
+			<attribute name="PositionBasedCoachActor" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

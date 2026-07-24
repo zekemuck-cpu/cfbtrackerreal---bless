@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\ScoringSummary.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScoringSummary" numMembers="9" defaultStoreCapacity="1691" assetId="6321382" defaultStoreGroupId="64" isRecordPersistent="false" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="138376807" minorVersionCRC="1520599085">
+			<attribute name="AwayCurrentScore" idx="0" type="int" minValue="0" maxValue="512" default="0" />
+			<attribute name="AwayPlayerSnapshots" idx="1" type="record[]" />
+			<attribute name="AwayPreviousScore" idx="2" type="int" minValue="0" maxValue="512" default="0" />
+			<attribute name="Conversion" idx="3" type="ConversionType" default="ConversionType:None" />
+			<attribute name="HomeCurrentScore" idx="4" type="int" minValue="0" maxValue="512" default="0" />
+			<attribute name="HomePlayerSnapshots" idx="5" type="record[]" />
+			<attribute name="HomePreviousScore" idx="6" type="int" minValue="0" maxValue="512" default="0" />
+			<attribute name="Quarter" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TimeStampInSec" idx="8" type="int" minValue="0" maxValue="7200" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,148 @@
+<FranTkData fileName="Franchise-Schemas\Coach.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachingStaffPerson.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Coach" numMembers="137" base="CoachingStaffPerson" defaultStoreCapacity="632" assetId="6378353" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="623967272" minorVersionCRC="1215979234">
+			<attribute name="ActiveTalentTree" idx="0" type="ActiveTalentTree" />
+			<attribute name="Age" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="AlmaMater" idx="2" type="int" minValue="1100" maxValue="1300" default="1100" />
+			<attribute name="AssetName" idx="3" type="string" maxLen="41" />
+			<attribute name="AwardPoints" idx="4" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CareerBigLossMargin" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CareerBigWinMargin" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CareerLongWinStreak" idx="7" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="CareerPlayoffsMade" idx="8" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="CareerPointsAgainst" idx="9" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="CareerPointsFor" idx="10" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="CareerStats" idx="11" type="CareerCoachStats" />
+			<attribute name="CareerTies" idx="12" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="CareerWinSeasons" idx="13" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CharacterBodyType" idx="14" type="CharacterBodyType" default="CharacterBodyType:Standard" />
+			<attribute name="CharacterVisuals" idx="15" type="CharacterVisuals" />
+			<attribute name="COACH_ADAPTIVE_AI" idx="16" type="CoachAdaptiveAI" default="CoachAdaptiveAI:Balanced" />
+			<attribute name="COACH_CONSECTEAMCONTRACTS" idx="17" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="COACH_DB" idx="18" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_DEFENSE" idx="19" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_DEFENSETYPE" idx="20" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_DEFTENDENCYAGGRESSCONSERV" idx="21" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_DEFTENDENCYRUNPASS" idx="22" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_DEMEANOR" idx="23" type="CoachDemeanor" default="CoachDemeanor:Classic" />
+			<attribute name="COACH_DL" idx="24" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_FIREREPORTED" idx="25" type="bool" default="True" />
+			<attribute name="COACH_K" idx="26" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_LASTCONTRACTTEAM" idx="27" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="COACH_LASTTEAMFIRED" idx="28" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="COACH_LASTTEAMRESIGNED" idx="29" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="COACH_LB" idx="30" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_NO_HUDDLE_TEMPO" idx="31" type="CoachNoHuddleTempo" default="CoachNoHuddleTempo:Balanced" />
+			<attribute name="COACH_OFFENSE" idx="32" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_OFFTENDENCYAGGRESSCONSERV" idx="33" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_OFFTENDENCYRUNPASS" idx="34" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_OL" idx="35" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_P" idx="36" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_PERFORMANCELEVEL" idx="37" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="COACH_QB" idx="38" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_RATING" idx="39" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_RB" idx="40" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_RBTENDENCY" idx="41" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_RESIGNREPORTED" idx="42" type="bool" default="True" />
+			<attribute name="COACH_RETIREYRSLEFT" idx="43" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="COACH_S" idx="44" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="COACH_SPECIALTY" idx="45" type="CoachSpecialty" default="CoachSpecialty:Quarterbacks" />
+			<attribute name="COACH_STANCE" idx="46" type="CoachStance" default="CoachStance:Classic" />
+			<attribute name="COACH_WASPLAYER" idx="47" type="bool" default="True" />
+			<attribute name="COACH_WR" idx="48" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CoachBackstory" idx="49" type="CoachBackstory" default="CoachBackstory:Motivator" />
+			<attribute name="CoachPoints" idx="50" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="CoachPrestige" idx="51" type="LetterGrade" default="LetterGrade:Incomplete" />
+			<attribute name="CoachPrestigeScore" idx="52" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="ConfPlayoffWinStreak" idx="53" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="ContractExpectationProgress" idx="54" type="ContractExpectations" default="ContractExpectations:Invalid_" />
+			<attribute name="ContractLength" idx="55" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="ContractSalary" idx="56" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="ContractStatus" idx="57" type="StaffPersonContractStatus" default="StaffPersonContractStatus:FreeAgent" />
+			<attribute name="ContractYearsRemaining" idx="58" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="ContractYearSummaries" idx="59" type="ContractYearSummary[]" />
+			<attribute name="CurrentContractExpectation" idx="60" type="ContractExpectations" default="ContractExpectations:Invalid_" />
+			<attribute name="CurrentJobSecurityPercentage" idx="61" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CurrentJobSecurityPercentageRank" idx="62" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="CurrentJobSecurityStatus" idx="63" type="JobSecurityStatus" default="JobSecurityStatus:Invalid" />
+			<attribute name="CurrentStatRankPosition" idx="64" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="CurrentWinStreak" idx="65" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="DefaultTeamPhilosophy" idx="66" type="TeamPhilosophy" />
+			<attribute name="DefenseAudibles" idx="67" type="CoachAudibles" />
+			<attribute name="DefensivePlaybook" idx="68" type="DefensivePlaybookDataType" />
+			<attribute name="DefensiveScheme" idx="69" type="Scheme" />
+			<attribute name="DivPlayoffWinStreak" idx="70" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="DominantArchetype" idx="71" type="CoachTalentArcheType" default="CoachTalentArcheType:Invalid_" />
+			<attribute name="EarnedContractPoints_LastYear" idx="72" type="int" minValue="-300" maxValue="300" default="0" />
+			<attribute name="EarnedContractPoints_ThisYear" idx="73" type="int" minValue="-300" maxValue="300" default="0" />
+			<attribute name="EarnedContractPoints_TwoYearsAgo" idx="74" type="int" minValue="-300" maxValue="300" default="0" />
+			<attribute name="ExperiencePoints" idx="75" type="int" minValue="0" maxValue="1000000" default="0" />
+			<attribute name="FirstName" idx="76" type="string" maxLen="17" />
+			<attribute name="GenericHeadAssetName" idx="77" type="string" maxLen="33" />
+			<attribute name="HasTrait" idx="78" type="CoachingStaffPerson_HasTrait" guid="6378353-1904207" final="true" />
+			<attribute name="HatType" idx="79" type="CoachHatType" default="CoachHatType:None" />
+			<attribute name="Height" idx="80" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="HomeState" idx="81" type="StateName" default="StateName:Alabama" />
+			<attribute name="HomeTown" idx="82" type="City" />
+			<attribute name="IsCreated" idx="83" type="bool" default="False" />
+			<attribute name="IsLegend" idx="84" type="bool" default="False" />
+			<attribute name="IsNIL" idx="85" type="bool" default="False" />
+			<attribute name="IsUserControlled" idx="86" type="bool" default="False" />
+			<attribute name="LastName" idx="87" type="string" maxLen="21" />
+			<attribute name="LegacyScore" idx="88" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Level" idx="89" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Name" idx="90" type="string" maxLen="18" />
+			<attribute name="NumContractOffers" idx="91" type="int" minValue="0" maxValue="12" default="0" />
+			<attribute name="OffenseAudibles" idx="92" type="CoachAudibles" />
+			<attribute name="OffensivePlaybook" idx="93" type="OffensivePlaybookDataType" />
+			<attribute name="OffensiveScheme" idx="94" type="Scheme" />
+			<attribute name="OWNER_COMMENTID" idx="95" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="OWNER_COMMENTTYPE" idx="96" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="Personality" idx="97" type="Personality" default="Personality:Unpredictable" />
+			<attribute name="PersuadeAttempts" idx="98" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Portrait" idx="99" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="Portrait_Force_Silhouette" idx="100" type="bool" default="False" />
+			<attribute name="Portrait_Swappable_Library_Path" idx="101" type="SwappableLibraryPath" default="SwappableLibraryPath:library_icons_brt" />
+			<attribute name="Position" idx="102" type="CoachPosition" default="CoachPosition:HeadCoach" />
+			<attribute name="PreOrderCurrentTitle" idx="103" type="bool" default="False" />
+			<attribute name="PreOrderPartnerTitle" idx="104" type="bool" default="False" />
+			<attribute name="PresentationId" idx="105" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PrevPosition" idx="106" type="CoachPosition" default="CoachPosition:Invalid_" />
+			<attribute name="PrevTeamIndex" idx="107" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="PrimaryPipeline" idx="108" type="Pipeline" default="Pipeline:First_" />
+			<attribute name="Probation" idx="109" type="bool" default="False" />
+			<attribute name="ProgramPointsBudgetAllocationPosture" idx="110" type="ProgramPointsBudgetAllocationPosture" />
+			<attribute name="RegularWinStreak" idx="111" type="int" minValue="-512" maxValue="511" default="0" />
+			<attribute name="SeasBigLossMargin" idx="112" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SeasBigWinMargin" idx="113" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SeasLongWinStreak" idx="114" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SeasonalGoal" idx="115" type="CoachGoal" />
+			<attribute name="SeasonStartJobSecurityStatus" idx="116" type="JobSecurityStatus" default="JobSecurityStatus:Invalid" />
+			<attribute name="SeasonStats" idx="117" type="SeasonCoachStats" />
+			<attribute name="SeasonsWithTeam" idx="118" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SeasPointsAgainst" idx="119" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="SeasPointsFor" idx="120" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="SeasTies" idx="121" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SeasWinStreak" idx="122" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="SpecialtyType" idx="123" type="CoachSpecialtyType" default="CoachSpecialtyType:Any" />
+			<attribute name="SpeechId" idx="124" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="SuperbowlWinStreak" idx="125" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="TeamBuilding" idx="126" type="TeamBuilding" default="TeamBuilding:Balanced" />
+			<attribute name="TeamIndex" idx="127" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="TeamPhilosophy" idx="128" type="TeamPhilosophy" />
+			<attribute name="TradingTendency" idx="129" type="TradingTendency" default="TradingTendency:DoesNotTrade" />
+			<attribute name="TraitExpertScout" idx="130" type="bool" default="False" />
+			<attribute name="WCPlayoffWinStreak" idx="131" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="WeeklyGoals" idx="132" type="CoachGoal[]" />
+			<attribute name="Weight" idx="133" type="int" minValue="150" maxValue="512" default="160" />
+			<attribute name="WinSeasStreak" idx="134" type="int" minValue="-32" maxValue="31" default="0" />
+			<attribute name="YearlyAwardCount" idx="135" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="YearsCoaching" idx="136" type="int" minValue="0" maxValue="127" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

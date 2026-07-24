@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\ADDemeanorTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ADDemeanorTuning" numMembers="10" defaultStoreCapacity="4" assetId="13033448" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="2427" majorVersionCRC="233279635" minorVersionCRC="-546491260">
+			<attribute name="ADDemeanor" idx="0" type="ADDemeanor" default="ADDemeanor:Invalid_" />
+			<attribute name="Descriptor" idx="1" type="string" maxLen="119" />
+			<attribute name="FailValueMultiplier" idx="2" type="int" minValue="0" maxValue="200" default="100" />
+			<attribute name="MessageCurrent" idx="3" type="string" maxLen="91" />
+			<attribute name="MessageFire" idx="4" type="string" maxLen="109" />
+			<attribute name="MessageHotSeat" idx="5" type="string" maxLen="153" />
+			<attribute name="MessageOffer" idx="6" type="string" maxLen="152" />
+			<attribute name="MessageRenew" idx="7" type="string" maxLen="106" />
+			<attribute name="Name" idx="8" type="string" maxLen="12" />
+			<attribute name="PassValueMultiplier" idx="9" type="int" minValue="0" maxValue="200" default="100" />
+		</schema>
+	</schemas>
+</FranTkData>

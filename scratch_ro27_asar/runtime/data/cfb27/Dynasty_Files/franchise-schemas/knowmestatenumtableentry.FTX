@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\KnowMeStatEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="KnowMeStatEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="19" assetId="11016795" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1025" majorVersionCRC="-1236659364" minorVersionCRC="1921559338">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="KnowMeStats" default="KnowMeStats:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

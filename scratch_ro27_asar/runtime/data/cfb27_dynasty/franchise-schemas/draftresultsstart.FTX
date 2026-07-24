@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\DraftResultsStart.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftResultsStart" numMembers="4" base="Reaction" assetId="6820645" isRecordPersistent="true" majorVersionCRC="-1591271910" minorVersionCRC="-1161951059">
+			<attribute name="EventRecord" idx="0" type="DraftResultsStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6820645-1895461" />
+			<attribute name="PlayersLeavingEval" idx="2" type="PlayersLeavingEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

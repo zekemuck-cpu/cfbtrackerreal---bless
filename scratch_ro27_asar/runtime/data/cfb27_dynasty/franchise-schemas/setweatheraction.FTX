@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\SetWeatherAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SetWeatherAction" numMembers="11" base="SequenceAction" defaultStoreCapacity="6" assetId="6539666" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-832023648" minorVersionCRC="-805225072">
+			<attribute name="Actor" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="CloudCover" idx="1" type="CloudCover" default="CloudCover:First_" />
+			<attribute name="Default" idx="2" type="bool" default="False" />
+			<attribute name="Enabled" idx="3" type="bool" default="True" />
+			<attribute name="Precipitation" idx="4" type="Precipitation" default="Precipitation:First_" />
+			<attribute name="Target" idx="5" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="Temperature" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Weather" idx="7" type="Weather" default="Weather:First_" />
+			<attribute name="WeekNum" idx="8" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="WeekType" idx="9" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="Wind" idx="10" type="Wind" default="Wind:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

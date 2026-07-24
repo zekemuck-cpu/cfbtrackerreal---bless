@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\SuspensionType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SuspensionType" numMembers="5" assetId="8527458" isRecordPersistent="true" majorVersionCRC="-561090820" minorVersionCRC="2099355298">
+			<attribute name="First" idx="0" value="0" />
+			<attribute name="None" idx="1" value="0" />
+			<attribute name="GPATooLow" idx="2" value="1" />
+			<attribute name="Last" idx="3" value="1" />
+			<attribute name="Count" idx="4" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

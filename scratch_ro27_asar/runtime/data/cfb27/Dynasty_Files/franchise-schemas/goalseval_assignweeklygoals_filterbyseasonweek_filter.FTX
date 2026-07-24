@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\GoalsEval_AssignWeeklyGoals_FilterBySeasonWeek_Filter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalsEval_AssignWeeklyGoals_FilterBySeasonWeek_Filter" numMembers="3" base="bool()" ownerAssetId="6572414" isRecordPersistent="true" isExpr="true" majorVersionCRC="2019830025" minorVersionCRC="455652214">
+			<attribute name="Subject" idx="0" type="SeasonGame" />
+			<attribute name="Env" idx="1" type="GoalsEval_AssignWeeklyGoals" />
+		</schema>
+	</schemas>
+</FranTkData>

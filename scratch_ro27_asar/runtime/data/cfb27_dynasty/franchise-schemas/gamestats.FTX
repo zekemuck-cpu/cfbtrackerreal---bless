@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\GameStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameStats" numMembers="5" base="Enum" assetId="6377524" isRecordPersistent="false" majorVersionCRC="377672847" minorVersionCRC="2035770052">
+			<attribute name="DOWNSPLAYED" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="GAMERATING" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESSTARTED" idx="2" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="OpposingTeam" idx="3" type="Team" />
+			<attribute name="SeasonGame" idx="4" type="SeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

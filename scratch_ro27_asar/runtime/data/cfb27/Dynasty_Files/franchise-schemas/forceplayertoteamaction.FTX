@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\ForcePlayerToTeamAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ForcePlayerToTeamAction" numMembers="6" base="SequenceAction" defaultStoreCapacity="3" assetId="6542998" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="913926346" minorVersionCRC="497391882">
+			<attribute name="ActorPlayer" idx="0" type="ActorName" default="ActorName:None" />
+			<attribute name="ActorTeam" idx="1" type="ActorName" default="ActorName:None" />
+			<attribute name="Default" idx="2" type="bool" default="False" />
+			<attribute name="Enabled" idx="3" type="bool" default="True" />
+			<attribute name="TargetPlayer" idx="4" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="TargetTeam" idx="5" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

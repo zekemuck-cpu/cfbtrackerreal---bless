@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\AbilityEditControlOptions.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="AbilityEditControlOptions" numMembers="4" assetId="6378581" isRecordPersistent="true" majorVersionCRC="-167984399" minorVersionCRC="56441560">
+			<attribute name="NONE" idx="0" value="0" />
+			<attribute name="COMMISHONLY" idx="1" value="1" />
+			<attribute name="ANY" idx="2" value="2" />
+			<attribute name="MAX" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

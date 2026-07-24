@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerProgressionSettingXPModifier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerProgressionSettingXPModifier" numMembers="2" defaultStoreCapacity="6" assetId="12988463" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="127" majorVersionCRC="507453124" minorVersionCRC="-1940459670">
+			<attribute name="ModifierValue" idx="0" type="float" default="1" />
+			<attribute name="SettingName" idx="1" type="string" maxLen="33" />
+		</schema>
+	</schemas>
+</FranTkData>

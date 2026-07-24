@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcMetadata.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcMetadata" numMembers="14" defaultStoreCapacity="296" assetId="6708577" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="14328" majorVersionCRC="729770588" minorVersionCRC="-1682327010">
+			<attribute name="Cooldown" idx="0" type="StoryArcMetadata_Cooldown" guid="6708577-1941723" default="true;" />
+			<attribute name="CountTowardsWeekLimit" idx="1" type="bool" default="False" />
+			<attribute name="DebugArcName" idx="2" type="string" maxLen="45" />
+			<attribute name="DebugArcValue" idx="3" type="FranchiseSeasonStoryArc" default="FranchiseSeasonStoryArc:INVALID" />
+			<attribute name="Description" idx="4" type="string" maxLen="75" />
+			<attribute name="EvaluateCondition" idx="5" type="StoryArcMetadata_EvaluateCondition" guid="6708577-1941736" />
+			<attribute name="FeaturedActor" idx="6" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="IsCareerMoment" idx="7" type="bool" default="False" />
+			<attribute name="IsEnabled" idx="8" type="bool" default="True" />
+			<attribute name="PreArcActions" idx="9" type="SequenceAction[]" />
+			<attribute name="Priority" idx="10" type="int" minValue="-1" maxValue="5" default="-1" />
+			<attribute name="Repeatable" idx="11" type="bool" default="True" />
+			<attribute name="Sequences" idx="12" type="SequenceMetadata[]" />
+			<attribute name="Title" idx="13" type="string" maxLen="35" />
+		</schema>
+	</schemas>
+</FranTkData>

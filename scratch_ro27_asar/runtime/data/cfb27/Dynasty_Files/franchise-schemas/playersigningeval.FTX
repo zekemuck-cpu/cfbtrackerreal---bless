@@ -1,0 +1,122 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval" numMembers="115" base="Module" assetId="6708620" isRecordPersistent="true" majorVersionCRC="436349228" minorVersionCRC="-956068629">
+			<attribute name="AcceptContractOffer" idx="0" type="PlayerSigningEval_AcceptContractOffer" guid="6708620-1941952" final="true" />
+			<attribute name="AddedValueThreshold" idx="1" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="BaseContractInfo" idx="2" type="BaseContractPhilosophy" />
+			<attribute name="BeginTeamFreeAgentEvaluation" idx="3" type="PlayerSigningEval_BeginTeamFreeAgentEvaluation" guid="6708620-1941958" final="true" />
+			<attribute name="CalculatePlayerInterest" idx="4" type="PlayerSigningEval_CalculatePlayerInterest" guid="6708620-1941837" final="true" />
+			<attribute name="CanTeamOfferReSignPlayer" idx="5" type="PlayerSigningEval_CanTeamOfferReSignPlayer" guid="6708620-1941985" final="true" />
+			<attribute name="CanTeamSignPlayerToPracticeSquad" idx="6" type="PlayerSigningEval_CanTeamSignPlayerToPracticeSquad" guid="6708620-1948034" final="true" />
+			<attribute name="ChooseFreeAgentToSign" idx="7" type="PlayerSigningEval_ChooseFreeAgentToSign" guid="6708620-1941770" final="true" />
+			<attribute name="ChooseOfferToSign" idx="8" type="PlayerSigningEval_ChooseOfferToSign" guid="6708620-1941788" final="true" />
+			<attribute name="ClearOutstandingOffersList" idx="9" type="none()" guid="6708620-1941981" final="true" />
+			<attribute name="ClearPositionalFranchiseTagData" idx="10" type="none()" guid="6708620-1941995" final="true" />
+			<attribute name="CreateEndOfSeasonReSignRequest" idx="11" type="PlayerSigningEval_CreateEndOfSeasonReSignRequest" guid="6708620-1941936" final="true" default=";" />
+			<attribute name="CreateEvaluateOffersRequest" idx="12" type="PlayerSigningEval_CreateEvaluateOffersRequest" guid="6708620-1941885" final="true" default=";&#xD;&#xA;" />
+			<attribute name="CreateFranchiseTagRequest" idx="13" type="FranchiseTagRequest()" guid="6708620-1941866" final="true" />
+			<attribute name="CreateMakeContractOffersRequest" idx="14" type="PlayerSigningEval_CreateMakeContractOffersRequest" guid="6708620-1941881" final="true" default=";" />
+			<attribute name="CreatePlayerFreeAgentOffersRequest" idx="15" type="EvaluateContractOffersRequest()" guid="6708620-1941892" final="true" />
+			<attribute name="CreatePlayerOfferAcceptedRequest" idx="16" type="ReSign_PlayerAcceptedRequest()" guid="6708620-1941917" final="true" default=";" />
+			<attribute name="CreatePlayerOfferDeclinedRequest" idx="17" type="ReSign_PlayerDeclinedRequest()" guid="6708620-1941920" final="true" default=";" />
+			<attribute name="CreatePlayerRequest" idx="18" type="PlayerSigningEval_CreatePlayerRequest" guid="6708620-1941810" final="true" default=";&#xD;&#xA;" />
+			<attribute name="CreateTeamFreeAgentOffersRequest" idx="19" type="MakeContractOffersRequest()" guid="6708620-1941889" final="true" />
+			<attribute name="CreateTeamRequest" idx="20" type="PlayerSigningEval_CreateTeamRequest" guid="6708620-1941814" final="true" default=";&#xD;&#xA;" />
+			<attribute name="CutDayEval" idx="21" type="CutDayEval" />
+			<attribute name="DebugCall" idx="22" type="PlayerSigningEval_DebugCall" guid="6708620-1941795" final="true" />
+			<attribute name="DismissResponse" idx="23" type="ResponseForm" />
+			<attribute name="EndTeamFreeAgentEvaluation" idx="24" type="none()" guid="6708620-1941964" final="true" />
+			<attribute name="EvaluateOffers_DelegateResponse" idx="25" type="UISelectForm" />
+			<attribute name="EvaluateOffers_SelectOfferResponse" idx="26" type="UIFlowForm" />
+			<attribute name="EvaluatePlayerFreeAgentOffers" idx="27" type="PlayerSigningEval_EvaluatePlayerFreeAgentOffers" guid="6708620-1941946" final="true" />
+			<attribute name="EvaluateSeasonFreeAgentOffers" idx="28" type="PlayerSigningEval_EvaluateSeasonFreeAgentOffers" guid="6708620-1941974" final="true" />
+			<attribute name="EvaluateTeamFreeAgentOffers" idx="29" type="PlayerSigningEval_EvaluateTeamFreeAgentOffers" guid="6708620-1941942" final="true" />
+			<attribute name="FillPracticeSquads" idx="30" type="PlayerSigningEval_FillPracticeSquads" guid="6708620-1948070" final="true" />
+			<attribute name="FillTeamRoster" idx="31" type="PlayerSigningEval_FillTeamRoster" guid="6708620-1948001" final="true" />
+			<attribute name="FranchiseRef" idx="32" type="Franchise" />
+			<attribute name="FranchiseTagContractValues" idx="33" type="PositionValueTable" />
+			<attribute name="FranchiseTagTopGradeThreshold" idx="34" type="int" minValue="0" maxValue="31" default="3" />
+			<attribute name="FreeAgentTuning" idx="35" type="FreeAgentTuning" />
+			<attribute name="GenerateFranchiseTagContract" idx="36" type="PlayerSigningEval_GenerateFranchiseTagContract" guid="6708620-1941858" final="true" />
+			<attribute name="GenerateInSeasonFreeAgentOffer" idx="37" type="PlayerSigningEval_GenerateInSeasonFreeAgentOffer" guid="6708620-1941900" final="true" />
+			<attribute name="GenerateMarketValueContract" idx="38" type="PlayerSigningEval_GenerateMarketValueContract" guid="6708620-1941777" final="true" />
+			<attribute name="GeneratePlayerContract" idx="39" type="PlayerSigningEval_GeneratePlayerContract" guid="6708620-1941830" final="true" />
+			<attribute name="GetPlayerDesiredContractHigh" idx="40" type="PlayerSigningEval_GetPlayerDesiredContractHigh" guid="6708620-1941909" final="true" default="0;&#xD;&#xA;" />
+			<attribute name="GetPlayerDesiredContractLow" idx="41" type="PlayerSigningEval_GetPlayerDesiredContractLow" guid="6708620-1941913" final="true" default="0;&#xD;&#xA;" />
+			<attribute name="GetPlayerReSignListForTeam" idx="42" type="PlayerSigningEval_GetPlayerReSignListForTeam" guid="6708620-1941862" final="true" />
+			<attribute name="GetTeamNegotiationWithPlayer" idx="43" type="PlayerSigningEval_GetTeamNegotiationWithPlayer" guid="6708620-1948074" final="true" />
+			<attribute name="GetTotalInterestWeight" idx="44" type="int()" guid="6708620-1948067" final="true" default="0;" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="45" type="PlayerSigningEval_HandleUpdatePlayerContractStatus" guid="6708620-1941897" />
+			<attribute name="IncreaseContractOffer" idx="46" type="PlayerSigningEval_IncreaseContractOffer" guid="6708620-1941843" final="true" />
+			<attribute name="InitPlayerReSignList" idx="47" type="PlayerSigningEval_InitPlayerReSignList" guid="6708620-1941799" final="true" />
+			<attribute name="IsDelegateResponseAvailable" idx="48" type="bool" default="False" />
+			<attribute name="IsPlayerEligibleForPracticeSquad" idx="49" type="PlayerSigningEval_IsPlayerEligibleForPracticeSquad" guid="6708620-1948026" final="true" default="false;" />
+			<attribute name="IsPlayerInterestedInPracticeSquad" idx="50" type="PlayerSigningEval_IsPlayerInterestedInPracticeSquad" guid="6708620-1948030" final="true" default="false;" />
+			<attribute name="IssueEndOfSeasonReSignRequest" idx="51" type="PlayerSigningEval_IssueEndOfSeasonReSignRequest" guid="6708620-1948018" final="true" default=";&#xD;&#xA;" />
+			<attribute name="IssueLostPracticeSquadPlayerRequest" idx="52" type="PlayerSigningEval_IssueLostPracticeSquadPlayerRequest" guid="6708620-1948047" final="true" default=";" />
+			<attribute name="IssueSchoolSelectedRequest" idx="53" type="PlayerSigningEval_IssueSchoolSelectedRequest" guid="6708620-2411066" final="true" default="SchoolSelectedRequest request = new SchoolSelectedRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 1;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;&#xD;&#xA;// Set the request data.&#xD;&#xA;request.RequestData = narrativePlayer;&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueSignedPracticeSquadPlayerRequest" idx="54" type="PlayerSigningEval_IssueSignedPracticeSquadPlayerRequest" guid="6708620-1948053" final="true" default=";" />
+			<attribute name="LeagueSetting" idx="55" type="LeagueSetting" />
+			<attribute name="LogPlayerDecision" idx="56" type="PlayerSigningEval_LogPlayerDecision" guid="6708620-1941923" final="true" />
+			<attribute name="LogTeamDecision" idx="57" type="PlayerSigningEval_LogTeamDecision" guid="6708620-1941929" final="true" />
+			<attribute name="LostPracticeSquadPlayer_DelegateResponse" idx="58" type="UISelectForm" />
+			<attribute name="MakeOffers_DelegateResponse" idx="59" type="UISelectForm" />
+			<attribute name="MakeOffers_MakeOffersResponse" idx="60" type="UIForm" />
+			<attribute name="MaxAgeForPracticeSquad" idx="61" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="MaxPlayerNegotiationsPerWeek" idx="62" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MinPercentageForPracticeSquad" idx="63" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="MotivationList" idx="64" type="Motivation[]" />
+			<attribute name="NeedSeverityThreshold" idx="65" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="OfferDecision_MakeOfferDecision" idx="66" type="UIFlowForm" />
+			<attribute name="OfferEvaluationPhilosophy" idx="67" type="OfferEvaluationPhilosophy" />
+			<attribute name="OutstandingOffers" idx="68" type="ContractOffer[]" />
+			<attribute name="PlayerAcceptResponseForm" idx="69" type="ResponseForm" />
+			<attribute name="PlayerBaseInterest" idx="70" type="PlayerSigningEval_PlayerBaseInterest" guid="6708620-1941782" final="true" />
+			<attribute name="PlayerContractManager" idx="71" type="PlayerContractManager" />
+			<attribute name="PlayerContractManagerRef" idx="72" type="PlayerContractManager" />
+			<attribute name="PlayerDeclineResponseForm" idx="73" type="ResponseForm" />
+			<attribute name="PlayerDelegateResponseForm" idx="74" type="ResponseForm" />
+			<attribute name="PlayerGradeEval" idx="75" type="PlayerGradeEval" />
+			<attribute name="PlayerInterestLevelsSpline" idx="76" type="Spline" />
+			<attribute name="PlayerManagerRef" idx="77" type="PlayerManager" />
+			<attribute name="PlayerReSignList" idx="78" type="PlayerReSignNegotiation[]" />
+			<attribute name="PlayerSigningEval_AcknowledgeResponse" idx="79" type="ResponseForm" />
+			<attribute name="PlayerWaitResponseForm" idx="80" type="ResponseForm" />
+			<attribute name="PracticeSquadResponse_Declined" idx="81" type="string" maxLen="2" />
+			<attribute name="PracticeSquadResponse_Signed" idx="82" type="string" maxLen="2" />
+			<attribute name="ProcessEvaluateContractOffersRequest" idx="83" type="PlayerSigningEval_ProcessEvaluateContractOffersRequest" guid="6708620-1941873" final="true" default=";" />
+			<attribute name="ProcessFranchiseTagRequest" idx="84" type="PlayerSigningEval_ProcessFranchiseTagRequest" guid="6708620-1941849" final="true" default=";" />
+			<attribute name="ProcessLostPracticeSquadPlayerRequest" idx="85" type="PlayerSigningEval_ProcessLostPracticeSquadPlayerRequest" guid="6708620-1948039" final="true" default="0;" />
+			<attribute name="ProcessMakeContractOffersRequest" idx="86" type="PlayerSigningEval_ProcessMakeContractOffersRequest" guid="6708620-1941869" final="true" default=";" />
+			<attribute name="ProcessSignedPracticeSquadPlayerRequest" idx="87" type="PlayerSigningEval_ProcessSignedPracticeSquadPlayerRequest" guid="6708620-1948043" final="true" default="0;" />
+			<attribute name="RandomRef" idx="88" type="Random" />
+			<attribute name="RequestServer" idx="89" type="RequestServer" />
+			<attribute name="ReSignFlowForm" idx="90" type="UIFlowForm" />
+			<attribute name="ReSignNegotiationManager" idx="91" type="ReSignNegotiationManager" />
+			<attribute name="ReSignWeekSpline" idx="92" type="Spline" />
+			<attribute name="RosterEval" idx="93" type="RosterEval" />
+			<attribute name="RosterInfo" idx="94" type="RosterInfo" />
+			<attribute name="SalaryCapEval" idx="95" type="SalaryCapEval" />
+			<attribute name="SalaryMetrics" idx="96" type="SalaryMetrics" />
+			<attribute name="SalaryToBonusDeltaLimit" idx="97" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SeasonInfo" idx="98" type="SeasonInfo" />
+			<attribute name="SelectPlayerForFranchiseTag" idx="99" type="PlayerSigningEval_SelectPlayerForFranchiseTag" guid="6708620-1941854" final="true" />
+			<attribute name="SendFreeAgentSignedRequest" idx="100" type="PlayerSigningEval_SendFreeAgentSignedRequest" guid="6708620-1948006" final="true" />
+			<attribute name="SignedPracticeSquadPlayer_DelegateResponse" idx="101" type="UISelectForm" />
+			<attribute name="StringManager" idx="102" type="StringManager" />
+			<attribute name="TeamDelegateResponseForm" idx="103" type="ResponseForm" />
+			<attribute name="TeamIncreaseResponseForm" idx="104" type="ResponseForm" />
+			<attribute name="TeamManagerRef" idx="105" type="TeamManager" />
+			<attribute name="TeamRequestManager" idx="106" type="TeamRequestManager" />
+			<attribute name="TeamReSignInterest" idx="107" type="PlayerSigningEval_TeamReSignInterest" guid="6708620-1941805" final="true" default="0;" />
+			<attribute name="TeamRoadmapEval" idx="108" type="TeamRoadmapEval" />
+			<attribute name="TeamSubmitResponseForm" idx="109" type="ResponseForm" />
+			<attribute name="TeamWithdrawResponseForm" idx="110" type="ResponseForm" />
+			<attribute name="UnpredictablePlayerHoldoutChance" idx="111" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="UpdateEndOfSeasonReSignList" idx="112" type="PlayerSigningEval_UpdateEndOfSeasonReSignList" guid="6708620-1941969" final="true" />
+			<attribute name="UserRegistry" idx="113" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="114" type="none()" guid="6708620-1948080" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

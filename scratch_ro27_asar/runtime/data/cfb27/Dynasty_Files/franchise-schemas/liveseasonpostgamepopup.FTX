@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\LiveSeasonPostGamePopup.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="LiveSeasonPostGamePopup" numMembers="6" defaultStoreCapacity="1" assetId="6499207" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="249" majorVersionCRC="376907973" minorVersionCRC="-430530408">
+			<attribute name="ContinueButton" idx="0" type="string" maxLen="20" />
+			<attribute name="Description" idx="1" type="string" maxLen="301" />
+			<attribute name="Header" idx="2" type="string" maxLen="13" />
+			<attribute name="ReturnButton" idx="3" type="string" maxLen="20" />
+			<attribute name="SecondaryDescription" idx="4" type="string" maxLen="78" />
+			<attribute name="Title" idx="5" type="string" maxLen="20" />
+		</schema>
+	</schemas>
+</FranTkData>

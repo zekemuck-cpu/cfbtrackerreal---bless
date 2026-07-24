@@ -1,0 +1,21 @@
+<FranTkData fileName="Core-Schemas\Month.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Month" numMembers="14" assetId="6210619" isRecordPersistent="true" majorVersionCRC="553108010" minorVersionCRC="-383285170">
+			<attribute name="January" idx="0" value="0" />
+			<attribute name="February" idx="1" value="1" />
+			<attribute name="March" idx="2" value="2" />
+			<attribute name="April" idx="3" value="3" />
+			<attribute name="May" idx="4" value="4" />
+			<attribute name="June" idx="5" value="5" />
+			<attribute name="July" idx="6" value="6" />
+			<attribute name="August" idx="7" value="7" />
+			<attribute name="September" idx="8" value="8" />
+			<attribute name="October" idx="9" value="9" />
+			<attribute name="November" idx="10" value="10" />
+			<attribute name="December" idx="11" value="11" />
+			<attribute name="Max_" idx="12" value="12" />
+			<attribute name="Invalid_" idx="13" value="13" />
+		</enum>
+	</schemas>
+</FranTkData>

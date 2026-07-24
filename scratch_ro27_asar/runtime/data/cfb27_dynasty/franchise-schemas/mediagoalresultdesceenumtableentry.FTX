@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\MediaGoalResultDescEEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaGoalResultDescEEnumTableEntry" numMembers="4" base="EnumTableEntry" assetId="6548795" isRecordPersistent="true" majorVersionCRC="1175326505" minorVersionCRC="383056673">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="MediaGoalResultDescE" default="MediaGoalResultDescE:EmptyString" />
+		</schema>
+	</schemas>
+</FranTkData>

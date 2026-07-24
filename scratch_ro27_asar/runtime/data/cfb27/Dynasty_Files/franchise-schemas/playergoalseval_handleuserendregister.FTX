@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGoalsEval_HandleUserEndRegister.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGoalsEval_HandleUserEndRegister" numMembers="2" base="none()" ownerAssetId="6498442" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1324950919" minorVersionCRC="1196646445">
+			<attribute name="event" idx="0" type="UserEndRegisterEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

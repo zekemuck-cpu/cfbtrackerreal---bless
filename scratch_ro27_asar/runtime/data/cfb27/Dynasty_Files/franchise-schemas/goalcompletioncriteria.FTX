@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\GoalCompletionCriteria.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalCompletionCriteria" numMembers="1" assetId="6498535" isRecordPersistent="true" majorVersionCRC="2104006078" minorVersionCRC="-1982324569">
+			<attribute name="GetProgress" idx="0" type="GoalCompletionCriteria_GetProgress" guid="6498535-1925552" default="int progress = 1;&#xD;&#xA;&#xD;&#xA;progress;" />
+		</schema>
+	</schemas>
+</FranTkData>

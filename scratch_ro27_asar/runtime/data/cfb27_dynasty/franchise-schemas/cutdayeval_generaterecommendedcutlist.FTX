@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CutDayEval_GenerateRecommendedCutList.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CutDayEval_GenerateRecommendedCutList" numMembers="2" base="Player[]()" ownerAssetId="6495351" isRecordPersistent="true" isExpr="true" majorVersionCRC="-142824531" minorVersionCRC="-2041208392">
+			<attribute name="teamRecord" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

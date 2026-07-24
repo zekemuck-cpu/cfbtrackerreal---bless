@@ -1,0 +1,48 @@
+<FranTkData fileName="Franchise-Schemas\ImportDraftClassRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ImportDraftClassRequest" numMembers="37" base="UIRequestForm" defaultStoreCapacity="2" assetId="6498914" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-247716960" minorVersionCRC="-139811669">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6498914-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="Description" idx="8" type="string" const="true" maxLen="82" default="Draft scouting begins next week. Would you like to import a NCAA '14 draft class?" />
+			<attribute name="Dismiss" idx="9" type="none()" guid="6498914-1895671" />
+			<attribute name="DraftClassManager" idx="10" type="DraftClassManager" />
+			<attribute name="ExpirationDuration" idx="11" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="Franchise" idx="12" type="Franchise" />
+			<attribute name="HandleResponse" idx="13" type="none()" guid="6498914-1927722" final="true" default="int year = DraftClassManager.DraftClassInfo.DraftClassYear;&#xD;&#xA;&#xD;&#xA;LoadDraftClassEvent event = new LoadDraftClassEvent;&#xD;&#xA;&#xD;&#xA;// If no draft class was imported, load the default draft class now.&#xD;&#xA;if (Franchise.DraftClassPlayers == null)&#xD;&#xA;{&#xD;&#xA;    DraftClassManager.LoadDraftClass(year, false);&#xD;&#xA;    event.IsNcaaDraftClass = false;&#xD;&#xA;}&#xD;&#xA;// Otherwise, load only the draft class coaches.&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    DraftClassManager.LoadDraftClass(year, true);&#xD;&#xA;    event.IsNcaaDraftClass = true;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Year can be modified inside of load draft class (for inital random load), so reset to draft class year here.&#xD;&#xA;year = DraftClassManager.DraftClassInfo.DraftClassYear;&#xD;&#xA;&#xD;&#xA;// Increment the draft class year.&#xD;&#xA;DraftClassManager.DraftClassInfo.DraftClassYear = (year % 30) + 1;&#xD;&#xA;&#xD;&#xA;event.Send();&#xD;&#xA;" />
+			<attribute name="HasResolution" idx="14" type="bool()" guid="6498914-1895676" />
+			<attribute name="IsBlocking" idx="15" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="16" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="17" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="18" type="bool()" guid="6498914-1895678" />
+			<attribute name="IsResponseRequired" idx="19" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="20" type="bool" default="True" />
+			<attribute name="Issue" idx="21" type="Request_Issue" guid="6498914-1895668" />
+			<attribute name="IssueTime" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Priority" idx="23" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="24" type="none()" guid="6498914-1895686" final="true" />
+			<attribute name="RequestData" idx="25" type="record" />
+			<attribute name="RequestForm" idx="26" type="ResponseForm" />
+			<attribute name="RequestId" idx="27" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="28" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="31" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="32" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="33" type="bool" default="True" />
+			<attribute name="TargetUser" idx="34" type="User" />
+			<attribute name="Title" idx="35" type="string" const="true" maxLen="19" default="Import Draft Class" />
+			<attribute name="TypeName" idx="36" type="string" const="true" maxLen="17" default="ImportDraftClass" />
+		</schema>
+	</schemas>
+</FranTkData>

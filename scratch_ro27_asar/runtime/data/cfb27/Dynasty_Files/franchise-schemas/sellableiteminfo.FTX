@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\SellableItemInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SellableItemInfo" numMembers="7" assetId="6497697" isRecordPersistent="true" majorVersionCRC="1811171598" minorVersionCRC="-138969288">
+			<attribute name="DefaultPrice" idx="0" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DisplayName" idx="1" type="string" maxLen="33" />
+			<attribute name="ImageId" idx="2" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="MaxPrice" idx="3" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="MinPrice" idx="4" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PriceCurve" idx="5" type="Spline" />
+			<attribute name="PriceIncrement" idx="6" type="int" minValue="1" maxValue="100" default="1" />
+		</schema>
+	</schemas>
+</FranTkData>

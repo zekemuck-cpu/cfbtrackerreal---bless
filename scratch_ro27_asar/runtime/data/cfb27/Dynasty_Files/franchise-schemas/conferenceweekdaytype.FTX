@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\ConferenceWeekdayType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ConferenceWeekdayType" numMembers="3" assetId="6845533" isRecordPersistent="true" majorVersionCRC="362478020" minorVersionCRC="-1117835731">
+			<attribute name="TuesWedThurFriSat" idx="0" value="0" />
+			<attribute name="SatOnly" idx="1" value="1" />
+			<attribute name="ThurFriSat" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

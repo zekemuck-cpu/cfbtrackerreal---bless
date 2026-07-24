@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetFilterListFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetFilterListFilter" numMembers="2" base="UISpreadsheetFilter" assetId="6572341" isRecordPersistent="true" majorVersionCRC="975561332" minorVersionCRC="-569801049">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+		</schema>
+	</schemas>
+</FranTkData>

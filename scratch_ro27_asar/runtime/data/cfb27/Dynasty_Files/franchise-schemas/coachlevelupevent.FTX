@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\CoachLevelUpEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachLevelUpEvent" numMembers="7" base="Event" assetId="8656471" isRecordPersistent="true" majorVersionCRC="760310913" minorVersionCRC="-1770430334">
+			<attribute name="Coach" idx="0" type="Coach" />
+			<attribute name="CoachPoints" idx="1" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Enqueue" idx="2" type="none()" guid="8656471-1895458" final="true" />
+			<attribute name="ExperiencePoints" idx="3" type="int" minValue="0" maxValue="1000000" default="0" />
+			<attribute name="IsUserControlled" idx="4" type="bool" default="False" />
+			<attribute name="NewLevel" idx="5" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Send" idx="6" type="none()" guid="8656471-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

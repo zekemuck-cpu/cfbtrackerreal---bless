@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassGeneratorManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassGeneratorManager" numMembers="4" base="Module" assetId="6498837" isRecordPersistent="true" majorVersionCRC="1219156786" minorVersionCRC="1303181292">
+			<attribute name="Franchise" idx="0" type="Franchise" />
+			<attribute name="GenerationManager" idx="1" type="GenerationManager" />
+			<attribute name="NextPresentationId" idx="2" type="int" minValue="0" maxValue="32766" default="2001" />
+			<attribute name="TalentTreeEval" idx="3" type="TalentTreeEval" />
+		</schema>
+	</schemas>
+</FranTkData>

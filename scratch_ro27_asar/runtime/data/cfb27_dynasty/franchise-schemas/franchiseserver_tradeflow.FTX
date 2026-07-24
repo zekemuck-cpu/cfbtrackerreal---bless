@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_TradeFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_TradeFlow" numMembers="13" base="FranTkServer_Flow" assetId="6499110" isRecordPersistent="true" majorVersionCRC="-655014532" minorVersionCRC="-1190883227">
+			<attribute name="AcceptOfferResponse" idx="0" type="ResponseForm" />
+			<attribute name="AcceptTradeResponse" idx="1" type="UISelectForm" />
+			<attribute name="DeclineTradeResponse" idx="2" type="UISelectForm" />
+			<attribute name="Form" idx="3" type="UIForm" />
+			<attribute name="FormManager" idx="4" type="FranTkServer_FormManager" />
+			<attribute name="League" idx="5" type="League" />
+			<attribute name="RequestServer" idx="6" type="RequestServer" />
+			<attribute name="SeasonInfo" idx="7" type="SeasonInfo" />
+			<attribute name="StatManagerRef" idx="8" type="StatManager" />
+			<attribute name="TradeEvalRef" idx="9" type="TradeEval" />
+			<attribute name="TradeNegotiationManager" idx="10" type="TradeNegotiationManager" />
+			<attribute name="TutorialManager" idx="11" type="TutorialManager" />
+			<attribute name="UserRegistry" idx="12" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

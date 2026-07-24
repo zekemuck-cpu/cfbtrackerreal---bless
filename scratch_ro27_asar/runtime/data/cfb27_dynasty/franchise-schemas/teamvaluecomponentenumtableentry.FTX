@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\TeamValueComponentEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamValueComponentEnumTableEntry" numMembers="4" base="EnumTableEntry" assetId="6571255" isRecordPersistent="true" majorVersionCRC="-1204102934" minorVersionCRC="471881314">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="TeamValueComponent" default="TeamValueComponent:TeamSuccess" />
+		</schema>
+	</schemas>
+</FranTkData>

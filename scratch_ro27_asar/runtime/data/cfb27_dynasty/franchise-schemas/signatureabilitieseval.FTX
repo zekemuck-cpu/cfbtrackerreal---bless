@@ -1,0 +1,44 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbilitiesEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignatureAbilitiesEval" numMembers="37" base="Module" assetId="6495139" isRecordPersistent="true" majorVersionCRC="1283615920" minorVersionCRC="-787112800">
+			<attribute name="ActivationDisabledDescription" idx="0" type="string" maxLen="31" default="Limited to Superstar abilities" />
+			<attribute name="AssignSignatureAbilities" idx="1" type="SignatureAbilitiesEval_AssignSignatureAbilities" guid="6495139-1921202" final="true" />
+			<attribute name="BuildUserSlotAbilityRequest" idx="2" type="SignatureAbilitiesEval_BuildUserSlotAbilityRequest" guid="6495139-1921238" final="true" default="UserSlotAbilityRequest request = CreateUserSlotAbilityRequest();&#xD;&#xA;&#xD;&#xA;if(request != null)&#xD;&#xA;{&#xD;&#xA;   // If it's a player, player.IsUserControlled is true, for Coach or Owner, it's false, so we can use player.IsUserControlled as InResponseRequired value here&#xD;&#xA;   request.IsResponseRequired = player.IsUserControlled;&#xD;&#xA;   request.Player = player;&#xD;&#xA;   request.TeamIndex = teamIndex;&#xD;&#xA;   request.SlotUnlocked = isSlotUnlocked;&#xD;&#xA;   request.RequestData = player;&#xD;&#xA;   request.IsPersistent = false;&#xD;&#xA;   request.Priority = 1;&#xD;&#xA;&#xD;&#xA;   // Create the response forms.&#xD;&#xA;   request.ResponseForms = new ResponseForm[3];&#xD;&#xA;   request.ResponseForms.Append( UserSlotAbilityRequest_UserSlotAbilityResponse );&#xD;&#xA;&#xD;&#xA;   // Set the default response forms.&#xD;&#xA;   request.DelegateResponse = UserSlotAbilityRequest_DelegateResponse;&#xD;&#xA;   request.DefaultResponse = UserSlotAbilityRequest_DelegateResponse;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;" />
+			<attribute name="CreateUserSlotAbilityRequest" idx="3" type="UserSlotAbilityRequest()" guid="6495139-1921244" final="true" />
+			<attribute name="DeactivationDisabledDescription" idx="4" type="string" maxLen="13" default="Unstoppable!" />
+			<attribute name="Franchise" idx="5" type="Franchise" />
+			<attribute name="HandleAdvancedFeaturesSettingChanged" idx="6" type="SignatureAbilitiesEval_HandleAdvancedFeaturesSettingChanged" guid="6495139-1921272" />
+			<attribute name="HandleDevelopmentTraitUpdatedEvent" idx="7" type="SignatureAbilitiesEval_HandleDevelopmentTraitUpdatedEvent" guid="6495139-1921252" />
+			<attribute name="HandleDraftStart" idx="8" type="SignatureAbilitiesEval_HandleDraftStart" guid="6495139-1921256" final="true" />
+			<attribute name="HandleTalentsUpdated" idx="9" type="SignatureAbilitiesEval_HandleTalentsUpdated" guid="6495139-1921275" final="true" />
+			<attribute name="HandleTrade" idx="10" type="SignatureAbilitiesEval_HandleTrade" guid="6495139-1921264" final="true" />
+			<attribute name="HandleUpdatePlayerGameStats" idx="11" type="SignatureAbilitiesEval_HandleUpdatePlayerGameStats" guid="6495139-1921260" final="true" />
+			<attribute name="HandleUpgradeMentalAbility" idx="12" type="SignatureAbilitiesEval_HandleUpgradeMentalAbility" guid="6495139-2230035" />
+			<attribute name="HandleUserSlotAbilityUnlock" idx="13" type="SignatureAbilitiesEval_HandleUserSlotAbilityUnlock" guid="6495139-1921225" final="true" />
+			<attribute name="IsPlayerDevTraitHidden" idx="14" type="SignatureAbilitiesEval_IsPlayerDevTraitHidden" guid="6495139-1921220" final="true" />
+			<attribute name="IssueUnlockNotificationRequest" idx="15" type="SignatureAbilitiesEval_IssueUnlockNotificationRequest" guid="6495139-2252082" final="true" default="UnlockNotificationRequest request = new UnlockNotificationRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.RequestData = PositionSignatureAbility;&#xD;&#xA;request.AbilitiesRank = AbilityRank;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;// Issue the request&#xD;&#xA;request.Issue(UserEntity);" />
+			<attribute name="IssueUserSlotAbilityRequest" idx="16" type="SignatureAbilitiesEval_IssueUserSlotAbilityRequest" guid="6495139-1921232" final="true" default="if (!LeagueSetting.IsSuperstar)&#xD;&#xA;{&#xD;&#xA;  UserSlotAbilityRequest request = BuildUserSlotAbilityRequest(player, teamIndex, isSlotUnlocked);&#xD;&#xA;  if(player.IsUserControlled)&#xD;&#xA;  {&#xD;&#xA;      request.Issue(player);&#xD;&#xA;  }&#xD;&#xA;  else&#xD;&#xA;  {&#xD;&#xA;      Team team = TeamManager.FindTeamByTeamIndex(teamIndex);&#xD;&#xA;      TeamRequestManager.Issue(team, request);&#xD;&#xA;  }&#xD;&#xA;}" />
+			<attribute name="LeagueSetting" idx="17" type="LeagueSetting" />
+			<attribute name="MentalAbilityGroupEnumTable" idx="18" type="EnumTable" />
+			<attribute name="MentalAbilityToSignatureList" idx="19" type="record" />
+			<attribute name="NarrativePlayerMetersEval" idx="20" type="NarrativePlayerMetersEval" />
+			<attribute name="PlayersGrantedSignatures" idx="21" type="GrantedSignatureAbility[]" />
+			<attribute name="PlayerTypeToAbilitiesTable" idx="22" type="PlayerTypeRecordTable" />
+			<attribute name="Random" idx="23" type="Random" />
+			<attribute name="RefreshPlayerSignatureAbilities" idx="24" type="SignatureAbilitiesEval_RefreshPlayerSignatureAbilities" guid="6495139-1921215" final="true" />
+			<attribute name="RemoveSignatureAbilities" idx="25" type="SignatureAbilitiesEval_RemoveSignatureAbilities" guid="6495139-1921206" final="true" />
+			<attribute name="RequestServer" idx="26" type="RequestServer" />
+			<attribute name="RookieStatTrackers" idx="27" type="RookieStatTracker[]" />
+			<attribute name="SignatureAbilitiesTuning" idx="28" type="SignatureAbilitiesTuning" />
+			<attribute name="SignatureManager" idx="29" type="SignatureManager" />
+			<attribute name="TeamManager" idx="30" type="TeamManager" />
+			<attribute name="TeamRequestManager" idx="31" type="TeamRequestManager" />
+			<attribute name="UnlockPlayerAbility" idx="32" type="SignatureAbilitiesEval_UnlockPlayerAbility" guid="6495139-1921210" final="true" />
+			<attribute name="UserRegistry" idx="33" type="UserRegistry" />
+			<attribute name="UserSlotAbilityRequest_DelegateResponse" idx="34" type="UISelectForm" />
+			<attribute name="UserSlotAbilityRequest_UserSlotAbilityResponse" idx="35" type="UIFlowForm" />
+			<attribute name="UserSlotAbilityUnlockEvent" idx="36" type="UserSlotAbilityUnlockEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

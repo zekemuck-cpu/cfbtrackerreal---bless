@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_HandleDraftClassGenerated.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_HandleDraftClassGenerated" numMembers="2" base="none()" ownerAssetId="6499176" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1405383108" minorVersionCRC="1363173762">
+			<attribute name="EventRecord" idx="0" type="DraftClass_DraftClassGenerated" />
+		</schema>
+	</schemas>
+</FranTkData>

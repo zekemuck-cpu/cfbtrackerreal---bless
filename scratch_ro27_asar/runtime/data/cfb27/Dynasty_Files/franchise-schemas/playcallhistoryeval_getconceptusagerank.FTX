@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlaycallHistoryEval_GetConceptUsageRank.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlaycallHistoryEval_GetConceptUsageRank" numMembers="5" base="int()" ownerAssetId="6495009" isRecordPersistent="true" isExpr="true" majorVersionCRC="551345888" minorVersionCRC="-89596730">
+			<attribute name="playcallHistory" idx="0" type="PlaycallHistory" />
+			<attribute name="offensivePlayConcept" idx="1" type="OffensivePlayConcepts" default="OffensivePlayConcepts:Invalid" />
+			<attribute name="defensivePlayConcept" idx="2" type="DefensivePlayConcepts" default="DefensivePlayConcepts:Invalid" />
+			<attribute name="aiGroup" idx="3" type="PlaycallHistoryStoredAiGroup" default="PlaycallHistoryStoredAiGroup:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

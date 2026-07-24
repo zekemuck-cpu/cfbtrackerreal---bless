@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TimelineScreenAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TimelineScreenAction" numMembers="2" assetId="6499227" isRecordPersistent="true" majorVersionCRC="-1590257412" minorVersionCRC="291163959">
+			<attribute name="TimelineScreenAction" idx="0" type="TimelineScreenActions" default="TimelineScreenActions:LineUp" />
+			<attribute name="Title" idx="1" type="string" maxLen="1" />
+		</schema>
+	</schemas>
+</FranTkData>

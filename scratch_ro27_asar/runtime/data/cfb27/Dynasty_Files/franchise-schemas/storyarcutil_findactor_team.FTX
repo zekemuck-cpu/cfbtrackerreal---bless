@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_FindActor_Team.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_FindActor_Team" numMembers="3" base="Team()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="460090818" minorVersionCRC="581174149">
+			<attribute name="arcContext" idx="0" type="ArcContext" />
+			<attribute name="targetedActor" idx="1" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

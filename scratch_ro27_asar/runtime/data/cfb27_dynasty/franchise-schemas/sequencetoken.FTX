@@ -1,0 +1,41 @@
+<FranTkData fileName="Franchise-Schemas\SequenceToken.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SequenceToken" numMembers="34" assetId="6498683" isRecordPersistent="true" majorVersionCRC="1266505200" minorVersionCRC="730025882">
+			<attribute name="Invalid" idx="0" value="0" />
+			<attribute name="UserPersonalityRatings" idx="1" value="1" />
+			<attribute name="CoachInformation" idx="2" value="2" />
+			<attribute name="PlayerInformation" idx="3" value="3" />
+			<attribute name="PrologueInfo" idx="4" value="4" />
+			<attribute name="PlayerStatsPreviousGame" idx="5" value="5" />
+			<attribute name="TeamInformation" idx="6" value="6" />
+			<attribute name="GoalInformation" idx="7" value="7" />
+			<attribute name="PresentationInfo" idx="8" value="8" />
+			<attribute name="TeamStatsPreviousGame" idx="9" value="9" />
+			<attribute name="TeamStatsSeason" idx="10" value="10" />
+			<attribute name="TeamStatsCareer" idx="11" value="11" />
+			<attribute name="PlayerStatsSeason" idx="12" value="12" />
+			<attribute name="PlayerStatsCareer" idx="13" value="13" />
+			<attribute name="SeasonInfo" idx="14" value="14" />
+			<attribute name="FifthYearOption" idx="15" value="15" />
+			<attribute name="StadiumInformation" idx="16" value="16" />
+			<attribute name="GenericRenderData" idx="17" value="17" />
+			<attribute name="PlayerScoutingInformation" idx="18" value="18" />
+			<attribute name="DrillResult" idx="19" value="19" />
+			<attribute name="CrossArcData" idx="20" value="20" />
+			<attribute name="PlayerContractData" idx="21" value="21" />
+			<attribute name="PlayerInjuryData" idx="22" value="22" />
+			<attribute name="PositionGrades" idx="23" value="23" />
+			<attribute name="SideActivitiesOptionsData" idx="24" value="24" />
+			<attribute name="RewardInfoData" idx="25" value="25" />
+			<attribute name="BackgroundRandomTeamRenderData" idx="26" value="26" />
+			<attribute name="SideActivitiesInfo" idx="27" value="27" />
+			<attribute name="NarrativePlayerInformation" idx="28" value="28" />
+			<attribute name="HSRecruitingInformation" idx="29" value="29" />
+			<attribute name="PrevGameInformation" idx="30" value="30" />
+			<attribute name="MySchoolInformation" idx="31" value="31" />
+			<attribute name="NILOfferInformation" idx="32" value="32" />
+			<attribute name="LeavingScenarioInformation" idx="33" value="33" />
+		</enum>
+	</schemas>
+</FranTkData>

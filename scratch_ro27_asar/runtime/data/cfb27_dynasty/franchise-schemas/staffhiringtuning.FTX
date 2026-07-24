@@ -1,0 +1,131 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringTuning" numMembers="120" base="BaseTuning" defaultStoreCapacity="1" assetId="6494903" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-697655424" minorVersionCRC="300542197">
+			<attribute name="ACAwardsContractProgramPointsModifier" idx="0" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="BetterJobInterestModifier" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CandidateCutoffScore" idx="2" type="int" minValue="0" maxValue="140" default="140" />
+			<attribute name="CanHireStaff" idx="3" type="StaffHiringTuning_CanHireStaff" guid="6494903-1912841" final="true" default="bool canHireStaff = false;&#xD;&#xA;&#xD;&#xA;if(coach.SeasonStats != null &amp;&amp; coach.SeasonStats.Wins &gt; 10 &amp;&amp; coach.OffensiveScheme.Value == hiringTeam.DefaultOffensiveScheme &amp;&amp; coach.DefensiveScheme.Value == hiringTeam.DefaultDefensiveScheme)&#xD;&#xA;{&#xD;&#xA;  canHireStaff = true;&#xD;&#xA;}&#xD;&#xA;else if(numTalents &gt; 5)&#xD;&#xA;{&#xD;&#xA;  canHireStaff = true;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;canHireStaff;" />
+			<attribute name="CoachFiringStatusLevel" idx="4" type="JobSecurityStatus" default="JobSecurityStatus:HotSeat" />
+			<attribute name="CoachInterestThreshold" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachLeavingOddsSpline" idx="6" type="Spline" />
+			<attribute name="CoachLevelToContractProgramPointsSpline" idx="7" type="Spline" />
+			<attribute name="CoachPointRoundingIncrement" idx="8" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="CoachPrestigePointsSpline" idx="9" type="Spline" />
+			<attribute name="CoachPrestigeScoreGradeSpline" idx="10" type="Spline" />
+			<attribute name="CoachPrestigeStaticWeeks" idx="11" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="CoachPrestigeToContractProgramPointsSpline" idx="12" type="Spline" />
+			<attribute name="CoachStatRankFactorMax" idx="13" type="float" default="1" />
+			<attribute name="CoachStatRankFactorMin" idx="14" type="float" default="0.25" />
+			<attribute name="ContractLengthInterestMultiplier" idx="15" type="int" minValue="-50" maxValue="50" default="-10" />
+			<attribute name="ContractPoints_ConfChamp" idx="16" type="int" minValue="0" maxValue="100" default="40" />
+			<attribute name="ContractPoints_NatChamp" idx="17" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="ContractPoints_NewCoach" idx="18" type="int" minValue="0" maxValue="100" default="40" />
+			<attribute name="ContractPoints_NewContractBonus" idx="19" type="int" minValue="0" maxValue="100" default="40" />
+			<attribute name="ContractPoints_WinGame" idx="20" type="int" minValue="0" maxValue="100" default="20" />
+			<attribute name="ContractPoints_WinRankedGame" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ContractPointsToExpectationLevelSpline" idx="22" type="Spline" />
+			<attribute name="ContractProgramPointsNCWonModifier" idx="23" type="int" minValue="0" maxValue="200" default="10" />
+			<attribute name="Coord_FiredRangeMax" idx="24" type="int" minValue="0" maxValue="100" default="15" />
+			<attribute name="Coord_FiredRangeMin" idx="25" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="CoordinatorEarnedPoints_Multiplier" idx="26" type="float" default="0.65" />
+			<attribute name="CoordinatorExpectedPoints_Multiplier" idx="27" type="float" default="0.65" />
+			<attribute name="CoordinatorRoleModifier" idx="28" type="float" default="0.7" />
+			<attribute name="CoordPrestigePenalty" idx="29" type="int" minValue="0" maxValue="100" default="30" />
+			<attribute name="CPUAutoExtendContractYearsRemainingThreshold" idx="30" type="int" minValue="0" maxValue="10" default="2" />
+			<attribute name="DC_HotseatThreshold" idx="31" type="int" minValue="0" maxValue="100" default="70" />
+			<attribute name="DC_LowThreshold" idx="32" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="DC_SafeThreshold" idx="33" type="int" minValue="0" maxValue="100" default="90" />
+			<attribute name="DCHiringRatingData" idx="34" type="StaffHiringRatingData" />
+			<attribute name="DemeanorChangePercentSpline" idx="35" type="Spline" />
+			<attribute name="ExtensionCoachPointBonusPercentage" idx="36" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FreeAgentCoachExperienceLevels" idx="37" type="int[]" />
+			<attribute name="FullMatchSchema" idx="38" type="int" minValue="0" maxValue="100" default="30" />
+			<attribute name="GamesPlayed_Divider" idx="39" type="int" minValue="0" maxValue="25" default="12" />
+			<attribute name="GetCoachRating" idx="40" type="StaffHiringTuning_GetCoachRating" guid="6494903-1912863" final="true" default="int rating = -1;&#xD;&#xA;&#xD;&#xA;if(desiredCoachPosition == CoachPosition.HeadCoach)&#xD;&#xA;{&#xD;&#xA;  rating = HCHiringRatingData.GetRating(coach, numTalents);&#xD;&#xA;}&#xD;&#xA;else if(desiredCoachPosition == CoachPosition.OffensiveCoordinator)&#xD;&#xA;{&#xD;&#xA;  rating = OCHiringRatingData.GetRating(coach, numTalents);&#xD;&#xA;}&#xD;&#xA;else if(desiredCoachPosition == CoachPosition.DefensiveCoordinator)&#xD;&#xA;{&#xD;&#xA;  rating = DCHiringRatingData.GetRating(coach, numTalents);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;rating;" />
+			<attribute name="GetTeamStats" idx="41" type="StaffHiringTuning_GetTeamStats" guid="6494903-1912853" final="true" default="// TODO @kwseo this function need to consider coach's prveious team at the 'year'&#xD;&#xA;&#xD;&#xA;int statIndex = currentYear - year;&#xD;&#xA;int population = team.TeamSeasonStats.Population();&#xD;&#xA;&#xD;&#xA;TeamStats teamStats = null;&#xD;&#xA;if(statIndex &gt;= 0 &amp;&amp; population &gt; statIndex)&#xD;&#xA;{&#xD;&#xA;  teamStats = team.TeamSeasonStats[statIndex];&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;teamStats;" />
+			<attribute name="HalfPipelinePoints" idx="42" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="HalfStarDiffIntMod" idx="43" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="HC_FiredRangeMax" idx="44" type="int" minValue="0" maxValue="100" default="15" />
+			<attribute name="HC_FiredRangeMin" idx="45" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="HC_HotseatThreshold" idx="46" type="int" minValue="0" maxValue="100" default="70" />
+			<attribute name="HC_LowThreshold" idx="47" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="HC_SafeThreshold" idx="48" type="int" minValue="0" maxValue="100" default="90" />
+			<attribute name="HCAwardsContractProgramPointsModifier" idx="49" type="int" minValue="0" maxValue="20" default="20" />
+			<attribute name="HCHiringRatingData" idx="50" type="StaffHiringRatingData" />
+			<attribute name="HCOnlyLevelThreshold" idx="51" type="int" minValue="0" maxValue="50" default="30" />
+			<attribute name="InPlayOffsContractProgramPointsModifier" idx="52" type="int" minValue="0" maxValue="200" default="10" />
+			<attribute name="InterestedThresholdForOffer" idx="53" type="int" minValue="0" maxValue="100" default="70" />
+			<attribute name="IsCandidateEligibleForPosition" idx="54" type="StaffHiringTuning_IsCandidateEligibleForPosition" guid="6494903-1912869" />
+			<attribute name="JobInterestCutOff" idx="55" type="int" minValue="0" maxValue="100" default="70" />
+			<attribute name="JobInterestNormalizer" idx="56" type="float" default="0.45" />
+			<attribute name="JobSecurityCoachPrestigeSpline" idx="57" type="Spline" />
+			<attribute name="JobSecurityToInterestPointsSpline" idx="58" type="Spline" />
+			<attribute name="LastYearPoints_Multiplier" idx="59" type="float" default="2" />
+			<attribute name="LeaveForNFLMax" idx="60" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="LeaveForNFLPrestigeOddsThreshold" idx="61" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="LeewayFactorAlmaMater" idx="62" type="float" default="0.9" />
+			<attribute name="LeewayFactorFirstYear" idx="63" type="float" default="0.6" />
+			<attribute name="LeewayFactorMilitary" idx="64" type="float" default="0.7" />
+			<attribute name="LeewayFactorSecondYear" idx="65" type="float" default="0.85" />
+			<attribute name="LongTermExtensionLength" idx="66" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="LongTermExtensionLevel" idx="67" type="JobSecurityStatus" default="JobSecurityStatus:Safe" />
+			<attribute name="MaxAlmaMaterPoints" idx="68" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="MaxBaseProgramContractBasePoints" idx="69" type="int" minValue="0" maxValue="1500" default="0" />
+			<attribute name="MaxCandidatePrestigePoints" idx="70" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="MaxCoachOfferAsPercentageOfExpected" idx="71" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="MaxCoachRating" idx="72" type="int" minValue="0" maxValue="200" default="150" />
+			<attribute name="MaxExpectedContractPoints" idx="73" type="int" minValue="0" maxValue="250" default="230" />
+			<attribute name="MaxJobCandidates" idx="74" type="int" minValue="0" maxValue="12" default="6" />
+			<attribute name="MaxJobSecurity" idx="75" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="MaxOffersPerCoach" idx="76" type="int" minValue="0" maxValue="10" default="4" />
+			<attribute name="MaxPipelinePoints" idx="77" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="MaxPrimArcheTypePoints" idx="78" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="MaxProgramPointsOffer" idx="79" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="MaxSecArcheTypePoints" idx="80" type="int" minValue="0" maxValue="100" default="15" />
+			<attribute name="MaxTertArcheTypePoints" idx="81" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="MinCoachOfferAsPercentageOfExpected" idx="82" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="MinCoachRating" idx="83" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinExpectedContractPoints" idx="84" type="int" minValue="0" maxValue="100" default="90" />
+			<attribute name="MinimumExtensionLength" idx="85" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="NationalChampionshipWinModifier" idx="86" type="int" minValue="0" maxValue="1000" default="200" />
+			<attribute name="OC_HotseatThreshold" idx="87" type="int" minValue="0" maxValue="100" default="70" />
+			<attribute name="OC_LowThreshold" idx="88" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="OC_SafeThreshold" idx="89" type="int" minValue="0" maxValue="100" default="90" />
+			<attribute name="OCHiringRatingData" idx="90" type="StaffHiringRatingData" />
+			<attribute name="PoachThresholdCoord" idx="91" type="int" minValue="0" maxValue="5" default="1" />
+			<attribute name="PoachThresholdHC" idx="92" type="int" minValue="0" maxValue="5" default="2" />
+			<attribute name="PrestigeCompareScoreSpline" idx="93" type="Spline" />
+			<attribute name="PrestigeCompareScoreSplineBuffer" idx="94" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="PrestigeInterestPointsSpline" idx="95" type="Spline" />
+			<attribute name="ProgramPointsContractLengthModifier" idx="96" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="ProgramPointsToCoachPointsSpline" idx="97" type="Spline" />
+			<attribute name="ProgramPointsToInterestPercentSpline" idx="98" type="Spline" />
+			<attribute name="ProgramTraditionPointsExpectedMapping" idx="99" type="MySchoolRankingRangesTable" />
+			<attribute name="RetireMax" idx="100" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="RolePrestigeDiffToProgramPointsPctSpline" idx="101" type="Spline" />
+			<attribute name="SchoolPrestigeToContractPointsSpline" idx="102" type="Spline" />
+			<attribute name="ScoutTier1Max" idx="103" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="ScoutTier2Max" idx="104" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="ScoutTier3Max" idx="105" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="ShortTermExtensionLength" idx="106" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="ShortTermExtensionLevel" idx="107" type="JobSecurityStatus" default="JobSecurityStatus:SafeForNow" />
+			<attribute name="ShouldFireStaff" idx="108" type="StaffHiringTuning_ShouldFireStaff" guid="6494903-1912847" final="true" default="//Expression determining whether each staff person should be fired. Runs after SeasonsWithTeam is updated.&#xD;&#xA;&#xD;&#xA;bool shouldFire = false;&#xD;&#xA;&#xD;&#xA;TeamStats teamStats0 = GetTeamStats(currentTeam, currentYear, currentYear);&#xD;&#xA;TeamStats teamStats1 = GetTeamStats(currentTeam, currentYear, currentYear - 1);&#xD;&#xA;TeamStats teamStats2 = GetTeamStats(currentTeam, currentYear, currentYear - 2);&#xD;&#xA;int teamWins0 = 0;&#xD;&#xA;int teamWins1 = 0;&#xD;&#xA;int teamWins2 = 0;&#xD;&#xA;int teamTotalOffYardsPerGame0 = 0;&#xD;&#xA;int teamTotalOffYardsPerGame1 = 0;&#xD;&#xA;int teamTotalOffYardsPerGame2 = 0;&#xD;&#xA;int teamTotalDefYardsPerGame0 = 0;&#xD;&#xA;int teamTotalDefYardsPerGame1 = 0;&#xD;&#xA;int teamTotalDefYardsPerGame2 = 0;&#xD;&#xA;int seasonsWithTeam = coach.SeasonsWithTeam;&#xD;&#xA;TeamContentionPhase contentionPhase = currentTeam.ContentionPhase;&#xD;&#xA;CoachPosition position = coach.Position;&#xD;&#xA;&#xD;&#xA;if(teamStats0 != null &amp;&amp; teamStats1 != null &amp;&amp; teamStats2 != null)&#xD;&#xA;{&#xD;&#xA;teamWins0 = teamStats0.WINS;&#xD;&#xA;teamWins1 = teamStats1.WINS;&#xD;&#xA;teamWins2 = teamStats2.WINS;&#xD;&#xA;&#xD;&#xA;//Get Totals first&#xD;&#xA;teamTotalOffYardsPerGame0 = teamStats0.OFFYARDS;&#xD;&#xA;teamTotalOffYardsPerGame1 = teamStats1.OFFYARDS;&#xD;&#xA;teamTotalOffYardsPerGame2 = teamStats2.OFFYARDS;&#xD;&#xA;teamTotalDefYardsPerGame0 = teamStats0.DEFPASSYARDS + teamStats0.DEFRUSHYARDS;&#xD;&#xA;teamTotalDefYardsPerGame1 = teamStats1.DEFPASSYARDS + teamStats1.DEFRUSHYARDS;&#xD;&#xA;teamTotalDefYardsPerGame2 = teamStats2.DEFPASSYARDS + teamStats2.DEFRUSHYARDS;&#xD;&#xA;&#xD;&#xA;//Average over number of games based on year. 2021 is the first year of 17 gamee seasons&#xD;&#xA;if(currentYear &lt;= 2021)&#xD;&#xA;{&#xD;&#xA;  teamTotalOffYardsPerGame0 = (teamTotalOffYardsPerGame0 * 100) / 17;&#xD;&#xA;  teamTotalOffYardsPerGame1 = (teamTotalOffYardsPerGame1 * 100) / 16;&#xD;&#xA;  teamTotalOffYardsPerGame2 = (teamTotalOffYardsPerGame2 * 100) / 16;&#xD;&#xA;  teamTotalDefYardsPerGame0 = (teamTotalDefYardsPerGame0 * 100) / 17;&#xD;&#xA;  teamTotalDefYardsPerGame1 = (teamTotalDefYardsPerGame1 * 100) / 16;&#xD;&#xA;  teamTotalDefYardsPerGame2 = (teamTotalDefYardsPerGame2 * 100) / 16;&#xD;&#xA;}&#xD;&#xA;else if (currentYear == 2022)&#xD;&#xA;{&#xD;&#xA;  teamTotalOffYardsPerGame0 = (teamTotalOffYardsPerGame0 * 100) / 17;&#xD;&#xA;  teamTotalOffYardsPerGame1 = (teamTotalOffYardsPerGame1 * 100) / 17;&#xD;&#xA;  teamTotalOffYardsPerGame2 = (teamTotalOffYardsPerGame2 * 100) / 16;&#xD;&#xA;  teamTotalDefYardsPerGame0 = (teamTotalDefYardsPerGame0 * 100) / 17;&#xD;&#xA;  teamTotalDefYardsPerGame1 = (teamTotalDefYardsPerGame1 * 100) / 17;&#xD;&#xA;  teamTotalDefYardsPerGame2 = (teamTotalDefYardsPerGame2 * 100) / 16;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  teamTotalOffYardsPerGame0 = (teamTotalOffYardsPerGame0 * 100) / 17;&#xD;&#xA;  teamTotalOffYardsPerGame1 = (teamTotalOffYardsPerGame1 * 100) / 17;&#xD;&#xA;  teamTotalOffYardsPerGame2 = (teamTotalOffYardsPerGame2 * 100) / 17;&#xD;&#xA;  teamTotalDefYardsPerGame0 = (teamTotalDefYardsPerGame0 * 100) / 17;&#xD;&#xA;  teamTotalDefYardsPerGame1 = (teamTotalDefYardsPerGame1 * 100) / 17;&#xD;&#xA;  teamTotalDefYardsPerGame2 = (teamTotalDefYardsPerGame2 * 100) / 17;  &#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if(teamWins0 == 0)&#xD;&#xA;{&#xD;&#xA;  shouldFire = true;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (contentionPhase == TeamContentionPhase.Losing)&#xD;&#xA;{&#xD;&#xA;  if(teamWins0 &lt; teamWins1 &amp;&amp; teamWins0 &lt; teamWins2 &amp;&amp; teamWins0 &lt; 5 &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;  else if(teamWins0 &lt; 7 &amp;&amp; teamWins1 &lt; 7 &amp;&amp; teamWins2 &lt; 7 &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;  else if(teamWins0  &lt; teamWins1 &amp;&amp; teamWins0 &lt; 5 &amp;&amp; seasonsWithTeam &gt;= 2)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;  if (position == CoachPosition.HeadCoach)&#xD;&#xA;  {&#xD;&#xA;    //TODO: Add any special logic for Head Coach Firing&#xD;&#xA;  }&#xD;&#xA;  else if(position == CoachPosition.OffensiveCoordinator)&#xD;&#xA;  {&#xD;&#xA;    if(teamStats0.PASSINTS &gt; teamStats0.PASSTDS)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;  else if(teamTotalOffYardsPerGame0 &lt; teamTotalOffYardsPerGame1 &amp;&amp; teamTotalOffYardsPerGame1 &lt; teamTotalOffYardsPerGame2 &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;    else if(teamStats0.PASSTDS + teamStats0.RUSHTDS &lt; teamStats1.PASSTDS + teamStats1.RUSHTDS &amp;&amp; teamStats1.PASSTDS + teamStats1.RUSHTDS &lt; teamStats2.PASSTDS + teamStats2.RUSHTDS &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;  }&#xD;&#xA;  else if(position == CoachPosition.DefensiveCoordinator)&#xD;&#xA;  {&#xD;&#xA;    if(teamTotalDefYardsPerGame0 &gt; teamTotalDefYardsPerGame1 &amp;&amp; teamTotalDefYardsPerGame1 &gt; teamTotalDefYardsPerGame2 &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;else if (contentionPhase == TeamContentionPhase.Playoff)&#xD;&#xA;{&#xD;&#xA;  if(teamWins0 &lt; teamWins1 &amp;&amp; teamWins0 &lt; teamWins2 &amp;&amp; teamWins0 &lt; 6 &amp;&amp; seasonsWithTeam &gt;= 2)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;  else if(teamWins0 &lt; 9 &amp;&amp; teamWins1 &lt; 9 &amp;&amp; teamWins2 &lt; 9 &amp;&amp; seasonsWithTeam &gt;= 2)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;  else if(teamWins0  &lt; teamWins1 &amp;&amp; teamStats0.WINS &lt; 6 &amp;&amp; seasonsWithTeam &gt;= 1)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;  if (position == CoachPosition.HeadCoach)&#xD;&#xA;  {&#xD;&#xA;    //TODO: Add any special logic for Head Coach Firing&#xD;&#xA;  }&#xD;&#xA;  else if(position == CoachPosition.OffensiveCoordinator)&#xD;&#xA;  {&#xD;&#xA;    if(teamStats0.PASSINTS &gt; teamStats0.PASSTDS)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;  else if(teamTotalOffYardsPerGame0 &lt; teamTotalOffYardsPerGame1 &amp;&amp; teamTotalOffYardsPerGame1 &lt; teamTotalOffYardsPerGame2 &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;  {&#xD;&#xA;    shouldFire = true;&#xD;&#xA;  }&#xD;&#xA;    else if(teamStats0.PASSTDS + teamStats0.RUSHTDS &lt; teamStats1.PASSTDS + teamStats1.RUSHTDS &amp;&amp; teamStats1.PASSTDS + teamStats1.RUSHTDS &lt; teamStats2.PASSTDS + teamStats2.RUSHTDS &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;  }&#xD;&#xA;  else if(position == CoachPosition.DefensiveCoordinator)&#xD;&#xA;  {&#xD;&#xA;    if(teamTotalDefYardsPerGame0 &gt; teamTotalDefYardsPerGame1 &amp;&amp; teamTotalDefYardsPerGame1 &gt; teamTotalDefYardsPerGame2 &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;else if (contentionPhase == TeamContentionPhase.Championship)&#xD;&#xA;{&#xD;&#xA;  if (position == CoachPosition.HeadCoach)&#xD;&#xA;  {&#xD;&#xA;    if(teamWins0 &lt; teamWins1 &amp;&amp; teamWins0 &lt; teamWins2 &amp;&amp; teamWins0 &lt; 8 &amp;&amp; seasonsWithTeam &gt;= 3)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;    else if(teamWins0  &lt; teamWins1 &amp;&amp; teamStats0.WINS &lt; 6 &amp;&amp; seasonsWithTeam &gt;= 2)&#xD;&#xA;    {&#xD;&#xA;      shouldFire = true;&#xD;&#xA;    }&#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;shouldFire;" />
+			<attribute name="SingleMatchSchema" idx="109" type="int" minValue="0" maxValue="100" default="30" />
+			<attribute name="StaffPointBonus" idx="110" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="TeamPrestigeCoachPrestigeSpline" idx="111" type="Spline" />
+			<attribute name="TeamPrestigeToInterestPointsSpline" idx="112" type="Spline" />
+			<attribute name="ThisYearPoints_Multiplier" idx="113" type="float" default="5" />
+			<attribute name="TwoYearsAgoPoints_Multiplier" idx="114" type="float" default="1" />
+			<attribute name="UserExpressedInterestScoreBonus" idx="115" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="UserPrestigeBonus" idx="116" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WorseJobInterestModifier" idx="117" type="int" minValue="-100" maxValue="100" default="50" />
+			<attribute name="YearsBackForRecentHistory" idx="118" type="int" minValue="0" maxValue="20" default="5" />
+			<attribute name="YearsRemainingSecurityMod" idx="119" type="int" minValue="0" maxValue="10" default="2" />
+		</schema>
+	</schemas>
+</FranTkData>

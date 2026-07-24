@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerContractManager_CreatePlayerContract.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerContractManager_CreatePlayerContract" numMembers="4" base="PlayerContract()" ownerAssetId="6378594" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1213992006" minorVersionCRC="-729083115">
+			<attribute name="salary" idx="0" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="bonus" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="length" idx="2" type="int" minValue="0" maxValue="7" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\Period.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Period" numMembers="5" assetId="6494948" isRecordPersistent="true" majorVersionCRC="1493292910" minorVersionCRC="-1937459733">
+			<attribute name="Week" idx="0" value="0" />
+			<attribute name="Season" idx="1" value="1" />
+			<attribute name="Career" idx="2" value="2" />
+			<attribute name="Count_" idx="3" value="3" />
+			<attribute name="Invalid_" idx="4" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,17 @@
+<FranTkData fileName="Football-Schemas\BTCompareIntBlackboardVarData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BTCompareBlackboardVarData.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BTCompareIntBlackboardVarData" numMembers="6" base="BTCompareBlackboardVarData" assetId="12433069" isRecordPersistent="true" majorVersionCRC="1221543440" minorVersionCRC="-1932056290">
+			<attribute name="Children" idx="0" type="TreeNode[]" />
+			<attribute name="Comparison" idx="1" type="NumericComparison" default="NumericComparison:GreaterThan" />
+			<attribute name="Run" idx="2" type="TreeNode_Run" guid="12433069-2618001" final="true" />
+			<attribute name="StaticValue" idx="3" type="int" minValue="-32767" maxValue="32766" default="0" />
+			<attribute name="ValueEnum" idx="4" type="TreeBlackboardMembers" default="TreeBlackboardMembers:INVALID" />
+			<attribute name="VariableEnum" idx="5" type="TreeBlackboardMembers" default="TreeBlackboardMembers:INVALID" />
+		</schema>
+	</schemas>
+</FranTkData>

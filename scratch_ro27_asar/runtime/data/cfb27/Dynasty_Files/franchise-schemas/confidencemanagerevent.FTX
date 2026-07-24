@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ConfidenceManagerEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ConfidenceManagerEvent" numMembers="2" assetId="6494997" isRecordPersistent="true" majorVersionCRC="1752162143" minorVersionCRC="197271561">
+			<attribute name="PreSeasonStart" idx="0" value="0" />
+			<attribute name="ConfidenceManagerEventCount" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

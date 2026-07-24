@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringEval_UpdateStaffPersonContractStatusReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringEval_UpdateStaffPersonContractStatusReaction" numMembers="4" base="Reaction" assetId="6708719" isRecordPersistent="true" majorVersionCRC="14330798" minorVersionCRC="636828233">
+			<attribute name="EventRecord" idx="0" type="UpdateStaffPersonContractStatusEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6708719-1895461" />
+			<attribute name="Module" idx="2" type="StaffHiringEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

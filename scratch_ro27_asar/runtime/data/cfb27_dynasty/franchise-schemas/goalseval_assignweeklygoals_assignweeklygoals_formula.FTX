@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\GoalsEval_AssignWeeklyGoals_AssignWeeklyGoals_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalsEval_AssignWeeklyGoals_AssignWeeklyGoals_Formula" numMembers="4" base="none()" ownerAssetId="6702182" isRecordPersistent="true" isExpr="true" majorVersionCRC="831077891" minorVersionCRC="2060812078">
+			<attribute name="Subject" idx="0" type="SeasonGame" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Env" idx="2" type="GoalsEval_AssignWeeklyGoals" />
+		</schema>
+	</schemas>
+</FranTkData>

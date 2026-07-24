@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\ContractYear.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ContractYear" numMembers="10" assetId="6663009" isRecordPersistent="true" majorVersionCRC="1568944111" minorVersionCRC="-1692435414">
+			<attribute name="Year1" idx="0" value="0" />
+			<attribute name="YearFirst_" idx="1" value="0" />
+			<attribute name="Year2" idx="2" value="1" />
+			<attribute name="Year3" idx="3" value="2" />
+			<attribute name="Year4" idx="4" value="3" />
+			<attribute name="Year5" idx="5" value="4" />
+			<attribute name="Year6" idx="6" value="5" />
+			<attribute name="Year7" idx="7" value="6" />
+			<attribute name="YearLast_" idx="8" value="6" />
+			<attribute name="YearInvalid_" idx="9" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

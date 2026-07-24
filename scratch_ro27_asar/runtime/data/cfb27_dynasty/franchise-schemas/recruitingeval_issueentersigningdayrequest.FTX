@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_IssueEnterSigningDayRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_IssueEnterSigningDayRequest" numMembers="2" base="int()" ownerAssetId="6812765" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1236302660" minorVersionCRC="-1606003414">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

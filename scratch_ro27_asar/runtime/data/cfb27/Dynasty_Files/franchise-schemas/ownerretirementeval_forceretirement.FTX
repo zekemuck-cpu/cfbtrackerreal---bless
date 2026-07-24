@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\OwnerRetirementEval_ForceRetirement.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OwnerRetirementEval_ForceRetirement" numMembers="3" base="none()" ownerAssetId="6498980" isRecordPersistent="true" isExpr="true" majorVersionCRC="-952314642" minorVersionCRC="1667162424">
+			<attribute name="owner" idx="0" type="Owner" />
+			<attribute name="team" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

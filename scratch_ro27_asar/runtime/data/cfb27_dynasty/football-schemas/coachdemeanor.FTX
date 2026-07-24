@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\CoachDemeanor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachDemeanor" numMembers="6" assetId="9830450" isRecordPersistent="true" majorVersionCRC="100331408" minorVersionCRC="-702093615">
+			<attribute name="Classic" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Calm" idx="2" value="1" />
+			<attribute name="Intense" idx="3" value="2" />
+			<attribute name="Max" idx="4" value="3" />
+			<attribute name="Invalid" idx="5" value="15" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\CoachGoalsEval_EvaluateCoachContractExpressionGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachGoalsEval_EvaluateCoachContractExpressionGoal" numMembers="4" base="none()" ownerAssetId="6495218" isRecordPersistent="true" isExpr="true" majorVersionCRC="114000749" minorVersionCRC="1731489337">
+			<attribute name="coachContractExpressionGoal" idx="0" type="CoachContractExpressionGoal" />
+			<attribute name="coach" idx="1" type="Coach" />
+			<attribute name="team" idx="2" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

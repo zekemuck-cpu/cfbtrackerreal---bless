@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\DraftEval_SelectOffensivePlayerToDraft.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftEval_SelectOffensivePlayerToDraft" numMembers="3" base="Player()" ownerAssetId="6708560" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1672101492" minorVersionCRC="-774069968">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="pick" idx="1" type="DraftPick" />
+		</schema>
+	</schemas>
+</FranTkData>

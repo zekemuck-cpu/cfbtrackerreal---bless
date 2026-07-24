@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\ContractChangePlayerGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\PlayerGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ContractChangePlayerGoal" numMembers="14" base="PlayerGoal" defaultStoreCapacity="1" assetId="6495429" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="52" majorVersionCRC="1282876492" minorVersionCRC="-744283334">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ApplyCharacterImpact" idx="1" type="ContractChangePlayerGoal_ApplyCharacterImpact" guid="6495429-1924178" />
+			<attribute name="Description" idx="2" type="string" maxLen="111" />
+			<attribute name="FromStats" idx="3" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="4" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="5" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="6" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="7" type="bool" default="True" />
+			<attribute name="LegacyScoreAward" idx="8" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="9" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="10" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="11" type="string" maxLen="31" />
+			<attribute name="PositionCategory" idx="12" type="PositionCategory" default="PositionCategory:All" />
+			<attribute name="Title" idx="13" type="string" maxLen="51" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\FinancesSubmitEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FinancesSubmitEvent" numMembers="5" base="Event" assetId="6378774" isRecordPersistent="true" majorVersionCRC="1951816042" minorVersionCRC="638113665">
+			<attribute name="Category" idx="0" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6378774-1895458" final="true" />
+			<attribute name="ItemIndex" idx="2" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Price" idx="3" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Send" idx="4" type="none()" guid="6378774-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

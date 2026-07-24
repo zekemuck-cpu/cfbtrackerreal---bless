@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\DraftResultsEndTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftResultsEndTransaction" numMembers="17" base="Transaction" assetId="9824452" isRecordPersistent="true" majorVersionCRC="540805564" minorVersionCRC="-1693611029">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="EndStage" idx="1" type="Stage" />
+			<attribute name="IsBlocking" idx="2" type="bool" default="True" />
+			<attribute name="IsDone" idx="3" type="bool()" guid="9824452-1895538" />
+			<attribute name="IsDynamic" idx="4" type="bool" default="False" />
+			<attribute name="PlayersLeavingEval" idx="5" type="PlayersLeavingEval" />
+			<attribute name="Process" idx="6" type="none()" guid="9824452-1895540" />
+			<attribute name="Sleep" idx="7" type="ITransaction_Sleep" guid="9824452-1895548" />
+			<attribute name="Start" idx="8" type="none()" guid="9824452-1895544" />
+			<attribute name="StartStage" idx="9" type="Stage" />
+			<attribute name="Team" idx="10" type="Team" />
+			<attribute name="TeamIndex" idx="11" type="int" minValue="0" maxValue="133" default="0" />
+			<attribute name="TeamsList" idx="12" type="Team[]" />
+			<attribute name="TimeScale" idx="13" type="float" default="0" />
+			<attribute name="TransitionPending" idx="14" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="15" type="Stage" />
+			<attribute name="UpdateStage" idx="16" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

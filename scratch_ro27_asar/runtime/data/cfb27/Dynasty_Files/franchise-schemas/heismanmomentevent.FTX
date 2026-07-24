@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\HeismanMomentEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HeismanMomentEvent" numMembers="5" base="Event" assetId="6842680" isRecordPersistent="true" majorVersionCRC="-1801388346" minorVersionCRC="1580586559">
+			<attribute name="AwardType" idx="0" type="AwardType" default="AwardType:First_" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6842680-1895458" final="true" />
+			<attribute name="Player" idx="2" type="Player" />
+			<attribute name="Send" idx="3" type="none()" guid="6842680-1895455" final="true" />
+			<attribute name="Team" idx="4" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

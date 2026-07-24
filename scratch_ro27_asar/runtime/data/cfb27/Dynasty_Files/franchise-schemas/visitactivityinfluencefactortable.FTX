@@ -1,0 +1,6 @@
+<FranTkData fileName="Franchise-Schemas\VisitActivityInfluenceFactorTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="VisitActivityInfluenceFactorTable" numMembers="0" defaultStoreCapacity="1" assetId="9196575" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="21178208" minorVersionCRC="76522251" />
+	</schemas>
+</FranTkData>

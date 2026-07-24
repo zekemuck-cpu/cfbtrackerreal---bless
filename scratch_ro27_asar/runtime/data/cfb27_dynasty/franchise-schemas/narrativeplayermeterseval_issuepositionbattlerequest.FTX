@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersEval_IssuePositionBattleRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersEval_IssuePositionBattleRequest" numMembers="8" base="none()" ownerAssetId="7692449" isRecordPersistent="true" isExpr="true" majorVersionCRC="-537767311" minorVersionCRC="1839368703">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+			<attribute name="team" idx="1" type="Team" />
+			<attribute name="isUpperBattle" idx="2" type="bool" default="False" />
+			<attribute name="position" idx="3" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="depth" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="minigameArrayRecord" idx="5" type="MiniGame[]" />
+			<attribute name="opponentPlayerRecord" idx="6" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

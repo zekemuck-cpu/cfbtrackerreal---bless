@@ -1,0 +1,66 @@
+<FranTkData fileName="Franchise-Schemas\PlayerWeeklyGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\PlayerGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerWeeklyGoal" numMembers="55" base="PlayerGoal" defaultStoreCapacity="6" assetId="6536970" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="393" majorVersionCRC="-1633995777" minorVersionCRC="607364783">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AgeSpline" idx="1" type="Spline" />
+			<attribute name="BaseCompletionValue" idx="2" type="int" minValue="-1" maxValue="20000" default="0" />
+			<attribute name="BaseConfidenceAward" idx="3" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="BaseExperienceAward" idx="4" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="BaseLegacyScore" idx="5" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="BasePartialCompletionValue" idx="6" type="int" minValue="-1" maxValue="20000" default="-1" />
+			<attribute name="BasePartialConfidenceAward" idx="7" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="BasePartialExperienceAward" idx="8" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="BasePartialLegacyScore" idx="9" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="BaseRating" idx="10" type="int" minValue="1" maxValue="100" default="1" />
+			<attribute name="CanShowProgressValues" idx="11" type="bool" default="True" />
+			<attribute name="CompValueSpline" idx="12" type="Spline" />
+			<attribute name="Description" idx="13" type="string" maxLen="111" />
+			<attribute name="DevelopmentSpline" idx="14" type="Spline" />
+			<attribute name="FromStats" idx="15" type="bool" default="False" />
+			<attribute name="GetCompletionValue" idx="16" type="PlayerWeeklyGoal_GetCompletionValue" guid="6536970-1935075" final="true" default="int value = BaseCompletionValue;&#xD;&#xA;if (value &lt; MinCompletionValue)&#xD;&#xA;{&#xD;&#xA;    value = MinCompletionValue;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (value &gt; MaxCompletionValue)&#xD;&#xA;{ &#xD;&#xA;    value = MaxCompletionValue;&#xD;&#xA;}&#xD;&#xA;value;" />
+			<attribute name="GetConfidenceAward" idx="17" type="PlayerWeeklyGoal_GetConfidenceAward" guid="6536970-1935096" final="true" default="int confidence = 0;&#xD;&#xA;&#xD;&#xA;if (isComplete)&#xD;&#xA;{&#xD;&#xA;    confidence = (confidence + BaseConfidenceAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (BasePartialConfidenceAward &gt; 0)&#xD;&#xA;{&#xD;&#xA;    confidence = (confidence + BasePartialConfidenceAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (player != null &amp;&amp; evalInfo != null)&#xD;&#xA;{&#xD;&#xA;    int ageMod = AgeSpline.CalculateY(player.Age);&#xD;&#xA;    PositionE position = player.Position;&#xD;&#xA;&#xD;&#xA;    confidence = (confidence * ageMod) / 100;&#xD;&#xA;&#xD;&#xA;    if (player.TraitDevelopment == TraitDevelopment.XFactor)&#xD;&#xA;    {&#xD;&#xA;        confidence = (confidence * 175) / 100;&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;    if (player.TraitDevelopment == TraitDevelopment.Superstar)&#xD;&#xA;    {&#xD;&#xA;        confidence = (confidence * 125) / 100;&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;   if (player.TraitDevelopment == TraitDevelopment.Normal)&#xD;&#xA;    {&#xD;&#xA;        confidence = (confidence * 75) / 100;&#xD;&#xA;    }&#xD;&#xA;   &#xD;&#xA;    if (evalInfo.IsPlayerStarter)&#xD;&#xA;    {&#xD;&#xA;        if (player.PLYR_DRAFTROUND == 1)&#xD;&#xA;        {&#xD;&#xA;            confidence = confidence;&#xD;&#xA;        }&#xD;&#xA;        &#xD;&#xA; if (player.InjuryRating &gt; 75)&#xD;&#xA;        {&#xD;&#xA;            confidence = (confidence * 115) / 100;&#xD;&#xA;        }&#xD;&#xA;    }&#xD;&#xA;    else if (PrimaryTeamStat != TeamStatType.Invalid)&#xD;&#xA;    {&#xD;&#xA;   if ((position &gt;= PositionE.FirstOffenseLine_ &amp;&amp; position &lt;= PositionE.LastOffenseLine_) || (position &gt;= PositionE.FirstDefenseLine_ &amp;&amp; position &lt;= PositionE.LastDefenseLine_))&#xD;&#xA;   {&#xD;&#xA;         confidence = 0;&#xD;&#xA;   }&#xD;&#xA; else&#xD;&#xA; {&#xD;&#xA;  confidence = MinConfidenceAward;&#xD;&#xA; }&#xD;&#xA;      }&#xD;&#xA;&#xD;&#xA; if (player.ConfidenceRating &gt; 85)&#xD;&#xA; {&#xD;&#xA; confidence = MinConfidenceAward;&#xD;&#xA; if (MaxConfidenceAward &lt; 0)&#xD;&#xA; {&#xD;&#xA;  confidence = MaxConfidenceAward;&#xD;&#xA; }&#xD;&#xA;  &#xD;&#xA; }&#xD;&#xA; else if (player.ConfidenceRating &lt; 30)&#xD;&#xA; {&#xD;&#xA; confidence = (confidence * 250) / 100;&#xD;&#xA; if (MaxConfidenceAward &lt; 0)&#xD;&#xA; {&#xD;&#xA;  confidence = MinConfidenceAward;&#xD;&#xA; }&#xD;&#xA; }&#xD;&#xA;   &#xD;&#xA;    if (player.IsUserControlled)&#xD;&#xA;    {&#xD;&#xA;        confidence = (confidence * 75) / 100;&#xD;&#xA;    }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (confidence &lt; MinConfidenceAward)&#xD;&#xA;{&#xD;&#xA;    confidence = MinConfidenceAward;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (confidence &gt; MaxConfidenceAward)&#xD;&#xA;{ &#xD;&#xA;    confidence = MaxConfidenceAward;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;confidence;" />
+			<attribute name="GetExperienceAward" idx="18" type="PlayerWeeklyGoal_GetExperienceAward" guid="6536970-1935066" final="true" default="//Returns ExperienceAward as Int&#xD;&#xA;int award = 0;&#xD;&#xA;&#xD;&#xA;if (isComplete)&#xD;&#xA;{&#xD;&#xA;    award = (award + BaseExperienceAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (BasePartialExperienceAward &gt; 0)&#xD;&#xA;{&#xD;&#xA;    award = (award + BasePartialExperienceAward);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;int ageMod = AgeSpline.CalculateY(player.Age);&#xD;&#xA;&#xD;&#xA;PositionE position = player.Position;&#xD;&#xA;&#xD;&#xA;int devTrait = 0;&#xD;&#xA;&#xD;&#xA;if (player.TraitDevelopment == TraitDevelopment.XFactor)&#xD;&#xA;{&#xD;&#xA;    devTrait = 3;&#xD;&#xA;}&#xD;&#xA;else if (player.TraitDevelopment == TraitDevelopment.Superstar)&#xD;&#xA;{&#xD;&#xA;    devTrait = 2;&#xD;&#xA;}&#xD;&#xA;else if (player.TraitDevelopment == TraitDevelopment.Normal)&#xD;&#xA;{&#xD;&#xA;    devTrait = 0;&#xD;&#xA;}&#xD;&#xA;else &#xD;&#xA;{&#xD;&#xA; devTrait = 1;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;int developmentMod = DevelopmentSpline.CalculateY(devTrait);&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;award = (award * ageMod) / 100;&#xD;&#xA;&#xD;&#xA;award = (award * developmentMod) / 100;&#xD;&#xA;&#xD;&#xA;// CoachTrait level impact is applied in C code.  Use PlayerGoalsEval.CoachTraitInfluenceSpline to tune it.&#xD;&#xA;&#xD;&#xA;if ((position &gt;= PositionE.FirstOffenseLine_ &amp;&amp; position &lt;= PositionE.LastOffenseLine_) || (position &gt;= PositionE.FirstDefenseLine_ &amp;&amp; position &lt;= PositionE.LastDefenseLine_))&#xD;&#xA;{&#xD;&#xA; if (evalInfo.IsPlayerStarter)&#xD;&#xA; {&#xD;&#xA;  award = award;&#xD;&#xA; }&#xD;&#xA; else&#xD;&#xA; {&#xD;&#xA;  award = (award * 0) / 100;&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (!evalInfo.IsPlayerStarter &amp;&amp; PrimaryTeamStat != TeamStatType.Invalid)&#xD;&#xA;{&#xD;&#xA; award = 0;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (player.IsUserControlled == true)&#xD;&#xA;{&#xD;&#xA;    award = (award * 0) / 100;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (award &lt; MinExperienceAward)&#xD;&#xA;{&#xD;&#xA;    award = MinExperienceAward;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if (award &gt; MaxExperienceAward)&#xD;&#xA;{ &#xD;&#xA;    award = MaxExperienceAward;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;award;" />
+			<attribute name="GetPartialCompletionValue" idx="19" type="PlayerWeeklyGoal_GetPartialCompletionValue" guid="6536970-1935119" final="true" default="int value = BasePartialCompletionValue;&#xD;&#xA;&#xD;&#xA;if(IsInvertedGoal)&#xD;&#xA;{&#xD;&#xA; if (value &lt; MinCompletionValue)&#xD;&#xA; { &#xD;&#xA;      value = MinCompletionValue;&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA; if (value &gt; MaxCompletionValue)&#xD;&#xA; { &#xD;&#xA;      value = MaxCompletionValue;&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;value;" />
+			<attribute name="GetProgress" idx="20" type="PlayerWeeklyGoal_GetProgress" guid="6536970-1935048" default="int progress = 0;&#xD;&#xA;progress;" />
+			<attribute name="GetRating" idx="21" type="PlayerWeeklyGoal_GetRating" guid="6536970-1935056" default="int rating = 0;&#xD;&#xA;rating;" />
+			<attribute name="GoalRegressionPoints" idx="22" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IconAssetId" idx="23" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="24" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="25" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="InvertedGoalDownsPlayedThreshold" idx="26" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="IsEvaluatedInGame" idx="27" type="bool" default="True" />
+			<attribute name="IsInvertedGoal" idx="28" type="bool" default="False" />
+			<attribute name="IsScenarioGoal" idx="29" type="bool" default="False" />
+			<attribute name="LegacyScoreAward" idx="30" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="31" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="32" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="33" type="string" maxLen="31" />
+			<attribute name="MarketplaceRepeatableReward" idx="34" type="int" minValue="0" maxValue="60000" default="0" />
+			<attribute name="MarketplaceRepeatableRewardType" idx="35" type="MarketplaceRewardType" default="MarketplaceRewardType:Invalid" />
+			<attribute name="MarketplaceReward" idx="36" type="MarketplaceReward" />
+			<attribute name="MaxCompletionValue" idx="37" type="int" minValue="0" maxValue="2000" default="500" />
+			<attribute name="MaxConfidenceAward" idx="38" type="int" minValue="-50" maxValue="50" default="10" />
+			<attribute name="MaxExperienceAward" idx="39" type="int" minValue="0" maxValue="5000" default="500" />
+			<attribute name="MinCompletionValue" idx="40" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="MinConfidenceAward" idx="41" type="int" minValue="-50" maxValue="50" default="0" />
+			<attribute name="MinExperienceAward" idx="42" type="int" minValue="0" maxValue="5000" default="0" />
+			<attribute name="NextWeeklyGoal" idx="43" type="PlayerWeeklyGoal" />
+			<attribute name="PartialMarketplaceRepeatableReward" idx="44" type="int" minValue="0" maxValue="60000" default="0" />
+			<attribute name="PercentageSpline" idx="45" type="Spline" />
+			<attribute name="PositionCategory" idx="46" type="PositionCategory" default="PositionCategory:All" />
+			<attribute name="PrimaryStat" idx="47" type="StatType" default="StatType:Invalid_" />
+			<attribute name="PrimaryTeamStat" idx="48" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="QuestlineIdentifier" idx="49" type="QuestlineIdentifier" default="QuestlineIdentifier:NullQuest" />
+			<attribute name="SecondaryStat" idx="50" type="StatType" default="StatType:Invalid_" />
+			<attribute name="SecondaryTeamStat" idx="51" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="Title" idx="52" type="string" maxLen="51" />
+			<attribute name="UseOpponentTeamStats" idx="53" type="bool" default="False" />
+			<attribute name="WeekTypeAssessment" idx="54" type="SeasonWeekType" default="SeasonWeekType:RegularSeason" />
+		</schema>
+	</schemas>
+</FranTkData>

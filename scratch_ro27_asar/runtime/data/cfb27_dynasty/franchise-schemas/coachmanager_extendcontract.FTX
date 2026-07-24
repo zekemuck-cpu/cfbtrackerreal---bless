@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CoachManager_ExtendContract.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachManager_ExtendContract" numMembers="3" base="none()" ownerAssetId="6495150" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1343966048" minorVersionCRC="1340818485">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="staffPerson" idx="1" type="StaffPerson" />
+		</schema>
+	</schemas>
+</FranTkData>

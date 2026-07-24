@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\TraceParams.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TraceParams" numMembers="6" assetId="6499369" isRecordPersistent="true" majorVersionCRC="564660259" minorVersionCRC="-1066239923">
+			<attribute name="NumberValue1" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NumberValue2" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NumberValue3" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StringValue1" idx="3" type="string" maxLen="501" />
+			<attribute name="StringValue2" idx="4" type="string" maxLen="501" />
+			<attribute name="StringValue3" idx="5" type="string" maxLen="501" />
+		</schema>
+	</schemas>
+</FranTkData>

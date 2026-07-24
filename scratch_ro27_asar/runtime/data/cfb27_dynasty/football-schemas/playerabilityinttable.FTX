@@ -1,0 +1,64 @@
+<FranTkData fileName="Football-Schemas\PlayerAbilityIntTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerAbilityIntTable" numMembers="57" assetId="11092466" isRecordPersistent="true" majorVersionCRC="-1229962868" minorVersionCRC="-251349117">
+			<attribute name="AccelerationRating" idx="0" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="AgilityRating" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="AwarenessRating" idx="2" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BCVisionRating" idx="3" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BlockSheddingRating" idx="4" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BreakSackRating" idx="5" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="BreakTackleRating" idx="6" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CarryingRating" idx="7" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CatchingRating" idx="8" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CatchInTrafficRating" idx="9" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ChangeOfDirectionRating" idx="10" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ConfidenceRating" idx="11" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="FinesseMovesRating" idx="12" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="HitPowerRating" idx="13" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ImpactBlockingRating" idx="14" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="InjuryRating" idx="15" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="JukeMoveRating" idx="16" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="JumpingRating" idx="17" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KickAccuracyRating" idx="18" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KickPowerRating" idx="19" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="KickReturnRating" idx="20" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="LeadBlockRating" idx="21" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="LongSnapRating" idx="22" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ManCoverageRating" idx="23" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PassBlockFinesseRating" idx="24" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PassBlockPowerRating" idx="25" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PassBlockRating" idx="26" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PlayActionRating" idx="27" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PlayRecognitionRating" idx="28" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PowerMovesRating" idx="29" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PressRating" idx="30" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="PursuitRating" idx="31" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ReleaseRating" idx="32" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RouteRunningDeepRating" idx="33" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RouteRunningMedRating" idx="34" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RouteRunningShortRating" idx="35" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RunBlockFinesseRating" idx="36" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RunBlockPowerRating" idx="37" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RunBlockRating" idx="38" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="RunningStyleRating" idx="39" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SpectacularCatchRating" idx="40" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SpeedRating" idx="41" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="SpinMoveRating" idx="42" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="StaminaRating" idx="43" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="StiffArmRating" idx="44" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="StrengthRating" idx="45" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TackleRating" idx="46" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowAccuracyDeepRating" idx="47" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowAccuracyMidRating" idx="48" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowAccuracyRating" idx="49" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowAccuracyShortRating" idx="50" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowOnTheRunRating" idx="51" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowPowerRating" idx="52" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ThrowUnderPressureRating" idx="53" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ToughnessRating" idx="54" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="TruckingRating" idx="55" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="ZoneCoverageRating" idx="56" type="int" minValue="0" maxValue="127" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

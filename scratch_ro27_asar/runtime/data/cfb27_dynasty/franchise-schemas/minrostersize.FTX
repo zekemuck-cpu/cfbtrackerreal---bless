@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\MinRosterSize.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MinRosterSize" numMembers="9" assetId="6378532" isRecordPersistent="true" majorVersionCRC="-1743671113" minorVersionCRC="-229312573">
+			<attribute name="MINIMUM_ROSTER_SIZE_OFF" idx="0" value="0" />
+			<attribute name="MINIMUM_ROSTER_SIZE_46" idx="1" value="1" />
+			<attribute name="MINIMUM_ROSTER_SIZE_47" idx="2" value="2" />
+			<attribute name="MINIMUM_ROSTER_SIZE_48" idx="3" value="3" />
+			<attribute name="MINIMUM_ROSTER_SIZE_49" idx="4" value="4" />
+			<attribute name="MINIMUM_ROSTER_SIZE_50" idx="5" value="5" />
+			<attribute name="MINIMUM_ROSTER_SIZE_51" idx="6" value="6" />
+			<attribute name="MINIMUM_ROSTER_SIZE_52" idx="7" value="7" />
+			<attribute name="MINIMUM_ROSTER_SIZE_53" idx="8" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

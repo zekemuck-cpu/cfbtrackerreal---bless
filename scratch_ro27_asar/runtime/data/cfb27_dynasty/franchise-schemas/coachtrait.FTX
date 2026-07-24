@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CoachTrait.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachTrait" numMembers="2" assetId="6321017" isRecordPersistent="true" majorVersionCRC="-1552362243" minorVersionCRC="-1025469306">
+			<attribute name="TraitExpertScout" idx="0" value="0" />
+			<attribute name="MAX_" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

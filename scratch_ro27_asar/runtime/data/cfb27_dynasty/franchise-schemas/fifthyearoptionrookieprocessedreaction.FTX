@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\FifthYearOptionRookieProcessedReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FifthYearOptionRookieProcessedReaction" numMembers="13" base="Reaction" assetId="6498895" isRecordPersistent="true" majorVersionCRC="1970756256" minorVersionCRC="-746398230">
+			<attribute name="EventRecord" idx="0" type="FifthYearOptionRookieProcessedEvent" />
+			<attribute name="Franchise" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6498895-1895461" />
+			<attribute name="HandlePerTeam" idx="3" type="FifthYearOptionRookieProcessedReaction_HandlePerTeam" guid="6498895-1927660" />
+			<attribute name="Priority" idx="4" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfo" idx="5" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="6" type="SeasonManager" />
+			<attribute name="StoryArcDataSource" idx="7" type="Team[]" />
+			<attribute name="StoryArcMetadata" idx="8" type="StoryArcMetadata" />
+			<attribute name="StoryArcTransaction" idx="9" type="TeamStoryArcTransaction" />
+			<attribute name="StoryArcUtil" idx="10" type="StoryArcUtil" />
+			<attribute name="StoryStartArc" idx="11" type="Story_StartArc" />
+			<attribute name="TemplateTransaction" idx="12" type="ScenarioTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

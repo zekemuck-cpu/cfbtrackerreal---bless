@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\PlayerCoachGoalsEval_AssignSeasonalGoals.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerCoachGoalsEval_AssignSeasonalGoals" numMembers="7" base="ModifierView" assetId="6499105" isRecordPersistent="true" majorVersionCRC="-1252326028" minorVersionCRC="1639472538">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="Formula" idx="1" type="PlayerCoachGoalsEval_AssignSeasonalGoals_Formula" guid="6499105-1931986" default="Team team = Subject;&#xD;&#xA;&#xD;&#xA;// Assign coach and player season goals.&#xD;&#xA;CoachGoalsEval.AssignSeasonalGoals(team);&#xD;&#xA;&#xD;&#xA;// If this team has a user character, send an event.&#xD;&#xA;if (team.UserCharacter != null)&#xD;&#xA;{&#xD;&#xA;    // If the user is a coach, set the coach goal.&#xD;&#xA;    if (team.UserCharacter == team.HeadCoach)&#xD;&#xA;    {&#xD;&#xA;        SeasonGoalUpdateEvent.CoachSeasonalGoal = team.HeadCoach.SeasonalGoal;&#xD;&#xA;    }&#xD;&#xA;    // Otherwise, set the player goal.&#xD;&#xA;    else&#xD;&#xA;    {&#xD;&#xA;        SeasonGoalUpdateEvent.CoachSeasonalGoal = null;&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;    // Send the update event.&#xD;&#xA;    SeasonGoalUpdateEvent.Send();&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;" />
+			<attribute name="PlayerGoalEval" idx="2" type="PlayerGoalsEval" />
+			<attribute name="SeasonGoalUpdateEvent" idx="3" type="SeasonGoalUpdateEvent" />
+			<attribute name="Source" idx="4" type="record" />
+			<attribute name="Subjects" idx="5" type="Team[]" />
+			<attribute name="Update" idx="6" type="none()" guid="6499105-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

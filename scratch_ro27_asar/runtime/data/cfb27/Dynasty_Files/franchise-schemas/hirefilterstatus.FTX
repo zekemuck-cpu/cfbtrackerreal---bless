@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\HireFilterStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="HireFilterStatus" numMembers="10" assetId="12133678" isRecordPersistent="true" majorVersionCRC="1795367705" minorVersionCRC="1926635079">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="IsSufficientlyInterest" idx="1" value="0" />
+			<attribute name="IsBoth" idx="2" value="1" />
+			<attribute name="IsAffordable" idx="3" value="2" />
+			<attribute name="IsOffered" idx="4" value="3" />
+			<attribute name="IsFreeAgent" idx="5" value="4" />
+			<attribute name="IsNone" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="5" />
+			<attribute name="Count" idx="8" value="6" />
+			<attribute name="Invalid_" idx="9" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

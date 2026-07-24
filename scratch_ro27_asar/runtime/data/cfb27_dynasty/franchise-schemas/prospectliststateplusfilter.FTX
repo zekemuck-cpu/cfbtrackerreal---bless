@@ -1,0 +1,72 @@
+<FranTkData fileName="Franchise-Schemas\ProspectListStatePlusFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ProspectListStatePlusFilter" numMembers="65" assetId="7741984" isRecordPersistent="true" majorVersionCRC="2137601090" minorVersionCRC="-1732591006">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="TopProspects" idx="1" value="0" />
+			<attribute name="Recommended" idx="2" value="1" />
+			<attribute name="MyPipelines" idx="3" value="2" />
+			<attribute name="Prospects5Star" idx="4" value="3" />
+			<attribute name="Prospects4Star" idx="5" value="4" />
+			<attribute name="Prospects3Star" idx="6" value="5" />
+			<attribute name="Prospects2Star" idx="7" value="6" />
+			<attribute name="Prospects1Star" idx="8" value="7" />
+			<attribute name="Alabama" idx="9" value="8" />
+			<attribute name="FirstState" idx="10" value="8" />
+			<attribute name="Alaska" idx="11" value="9" />
+			<attribute name="Arizona" idx="12" value="10" />
+			<attribute name="Arkansas" idx="13" value="11" />
+			<attribute name="California" idx="14" value="12" />
+			<attribute name="Colorado" idx="15" value="13" />
+			<attribute name="Connecticut" idx="16" value="14" />
+			<attribute name="Delaware" idx="17" value="15" />
+			<attribute name="Florida" idx="18" value="16" />
+			<attribute name="Georgia" idx="19" value="17" />
+			<attribute name="Hawaii" idx="20" value="18" />
+			<attribute name="Idaho" idx="21" value="19" />
+			<attribute name="Illinois" idx="22" value="20" />
+			<attribute name="Indiana" idx="23" value="21" />
+			<attribute name="Iowa" idx="24" value="22" />
+			<attribute name="Kansas" idx="25" value="23" />
+			<attribute name="Kentucky" idx="26" value="24" />
+			<attribute name="Louisiana" idx="27" value="25" />
+			<attribute name="Maine" idx="28" value="26" />
+			<attribute name="Maryland" idx="29" value="27" />
+			<attribute name="Massachusetts" idx="30" value="28" />
+			<attribute name="Michigan" idx="31" value="29" />
+			<attribute name="Minnesota" idx="32" value="30" />
+			<attribute name="Mississippi" idx="33" value="31" />
+			<attribute name="Missouri" idx="34" value="32" />
+			<attribute name="Montana" idx="35" value="33" />
+			<attribute name="Nebraska" idx="36" value="34" />
+			<attribute name="Nevada" idx="37" value="35" />
+			<attribute name="NewHampshire" idx="38" value="36" />
+			<attribute name="NewJersey" idx="39" value="37" />
+			<attribute name="NewMexico" idx="40" value="38" />
+			<attribute name="NewYork" idx="41" value="39" />
+			<attribute name="NorthCarolina" idx="42" value="40" />
+			<attribute name="NorthDakota" idx="43" value="41" />
+			<attribute name="Ohio" idx="44" value="42" />
+			<attribute name="Oklahoma" idx="45" value="43" />
+			<attribute name="Oregon" idx="46" value="44" />
+			<attribute name="Pennsylvania" idx="47" value="45" />
+			<attribute name="RhodeIsland" idx="48" value="46" />
+			<attribute name="SouthCarolina" idx="49" value="47" />
+			<attribute name="SouthDakota" idx="50" value="48" />
+			<attribute name="Tennessee" idx="51" value="49" />
+			<attribute name="Texas" idx="52" value="50" />
+			<attribute name="Utah" idx="53" value="51" />
+			<attribute name="Vermont" idx="54" value="52" />
+			<attribute name="Virginia" idx="55" value="53" />
+			<attribute name="Washington" idx="56" value="54" />
+			<attribute name="WestVirginia" idx="57" value="55" />
+			<attribute name="Wisconsin" idx="58" value="56" />
+			<attribute name="Wyoming" idx="59" value="57" />
+			<attribute name="Last_" idx="60" value="58" />
+			<attribute name="LastState_" idx="61" value="58" />
+			<attribute name="NonUS" idx="62" value="58" />
+			<attribute name="AnyState" idx="63" value="59" />
+			<attribute name="Count_" idx="64" value="60" />
+		</enum>
+	</schemas>
+</FranTkData>

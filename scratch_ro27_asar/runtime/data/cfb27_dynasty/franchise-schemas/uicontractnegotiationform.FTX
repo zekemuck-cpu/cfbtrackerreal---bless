@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\UIContractNegotiationForm.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIContractNegotiationForm" numMembers="9" base="UIForm" defaultStoreCapacity="1" assetId="6662507" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1187889392" minorVersionCRC="-950505230">
+			<attribute name="Bonus" idx="0" type="int" minValue="0" maxValue="80000000" default="0" />
+			<attribute name="Commands" idx="1" type="Command[]" />
+			<attribute name="Control" idx="2" type="UIControl" />
+			<attribute name="Description" idx="3" type="string" maxLen="256" />
+			<attribute name="IsSubmittable" idx="4" type="bool" default="False" />
+			<attribute name="Length" idx="5" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Name" idx="6" type="string" maxLen="33" />
+			<attribute name="Salary" idx="7" type="int" minValue="0" maxValue="160000000" default="0" />
+			<attribute name="Title" idx="8" type="string" maxLen="64" />
+		</schema>
+	</schemas>
+</FranTkData>

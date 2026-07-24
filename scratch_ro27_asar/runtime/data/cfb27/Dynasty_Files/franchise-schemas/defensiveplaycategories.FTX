@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\DefensivePlayCategories.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="DefensivePlayCategories" numMembers="9" assetId="6571157" isRecordPersistent="true" majorVersionCRC="-1092543029" minorVersionCRC="2090082481">
+			<attribute name="First" idx="0" value="0" />
+			<attribute name="Man" idx="1" value="0" />
+			<attribute name="Zone" idx="2" value="1" />
+			<attribute name="Blitz" idx="3" value="2" />
+			<attribute name="Goalline" idx="4" value="3" />
+			<attribute name="Special" idx="5" value="4" />
+			<attribute name="AssetDriven" idx="6" value="5" />
+			<attribute name="Last" idx="7" value="5" />
+			<attribute name="Count" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

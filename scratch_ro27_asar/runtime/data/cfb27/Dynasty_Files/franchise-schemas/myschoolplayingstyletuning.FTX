@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolPlayingStyleTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolPlayingStyleTuning" numMembers="2" base="BaseTuning" defaultStoreCapacity="1" assetId="6816534" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1620084684" minorVersionCRC="-1509777056">
+			<attribute name="PlayingStyleRankingRangeTable" idx="0" type="PlayerTypeRecordTable" />
+			<attribute name="StaticWeeks" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

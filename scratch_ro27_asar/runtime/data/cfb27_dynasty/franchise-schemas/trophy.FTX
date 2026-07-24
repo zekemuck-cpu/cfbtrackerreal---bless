@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\Trophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Trophy" numMembers="6" defaultStoreCapacity="165" assetId="8211479" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="4088" majorVersionCRC="102271172" minorVersionCRC="-2122364448">
+			<attribute name="ImageId" idx="0" type="int" minValue="0" maxValue="5050" default="0" />
+			<attribute name="LibraryId" idx="1" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Name" idx="2" type="string" maxLen="42" />
+			<attribute name="PresentationId" idx="3" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="TrophyId" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TrophyInitMeshName" idx="5" type="string" maxLen="36" />
+		</schema>
+	</schemas>
+</FranTkData>

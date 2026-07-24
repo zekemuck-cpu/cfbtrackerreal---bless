@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SeasonManager_EndStage.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonManager_EndStage" numMembers="2" base="none()" ownerAssetId="6494907" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2126810186" minorVersionCRC="-1745865318">
+			<attribute name="stage" idx="0" type="SeasonStage" default="SeasonStage:PreSeason" />
+		</schema>
+	</schemas>
+</FranTkData>

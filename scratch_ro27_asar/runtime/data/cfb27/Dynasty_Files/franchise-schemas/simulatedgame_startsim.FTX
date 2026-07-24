@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SimulatedGame_StartSim.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SimulatedGame_StartSim" numMembers="2" base="none()" ownerAssetId="6499012" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2020929148" minorVersionCRC="1838840414">
+			<attribute name="game" idx="0" type="SeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

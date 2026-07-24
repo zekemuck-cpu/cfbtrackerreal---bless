@@ -1,0 +1,21 @@
+<FranTkData fileName="Core-Schemas\FlowCommand.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Command.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FlowCommand" numMembers="10" base="Command" defaultStoreCapacity="142" assetId="6495409" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="10559" majorVersionCRC="-852615321" minorVersionCRC="198469448">
+			<attribute name="ConfirmationMessage" idx="0" type="string" maxLen="248" />
+			<attribute name="DisplayHint" idx="1" type="string" maxLen="65" />
+			<attribute name="DisplayName" idx="2" type="string" maxLen="33" />
+			<attribute name="Flow" idx="3" type="string" maxLen="33" />
+			<attribute name="Icon" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Input" idx="5" type="CommandInput" default="CommandInput:None" />
+			<attribute name="IsConfirmationRequired" idx="6" type="bool" default="False" />
+			<attribute name="Name" idx="7" type="string" maxLen="33" />
+			<attribute name="NavigationAction" idx="8" type="NavigationAction" default="NavigationAction:None" />
+			<attribute name="NavigationString" idx="9" type="string" maxLen="65" />
+		</schema>
+	</schemas>
+</FranTkData>

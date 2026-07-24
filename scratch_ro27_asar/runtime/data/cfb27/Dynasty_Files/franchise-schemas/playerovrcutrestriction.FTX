@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\PlayerOVRCutRestriction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayerOVRCutRestriction" numMembers="9" assetId="6378563" isRecordPersistent="true" majorVersionCRC="1521468929" minorVersionCRC="-2137460920">
+			<attribute name="PLAYER_CUT_RESTRICTION_OFF" idx="0" value="0" />
+			<attribute name="PLAYER_CUT_RESTRICTION_60" idx="1" value="1" />
+			<attribute name="PLAYER_CUT_RESTRICTION_70" idx="2" value="2" />
+			<attribute name="PLAYER_CUT_RESTRICTION_75" idx="3" value="3" />
+			<attribute name="PLAYER_CUT_RESTRICTION_80" idx="4" value="4" />
+			<attribute name="PLAYER_CUT_RESTRICTION_85" idx="5" value="5" />
+			<attribute name="PLAYER_CUT_RESTRICTION_90" idx="6" value="6" />
+			<attribute name="PLAYER_CUT_RESTRICTION_95" idx="7" value="7" />
+			<attribute name="PLAYER_CUT_RESTRICTION_99" idx="8" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

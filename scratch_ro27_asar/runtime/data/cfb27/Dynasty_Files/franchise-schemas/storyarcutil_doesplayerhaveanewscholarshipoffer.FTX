@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_DoesPlayerHaveANewScholarshipOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_DoesPlayerHaveANewScholarshipOffer" numMembers="2" base="none()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="1947346334" minorVersionCRC="1471837622">
+			<attribute name="player" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

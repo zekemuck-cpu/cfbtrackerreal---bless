@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\DraftInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftInfo" numMembers="17" assetId="6378035" isRecordPersistent="true" majorVersionCRC="-1022829198" minorVersionCRC="-154841095">
+			<attribute name="CurrentPick" idx="0" type="DraftPick" />
+			<attribute name="CurrentPickIndex" idx="1" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="CurrentRoundIndex" idx="2" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CurrentRoundPickIndex" idx="3" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CurrentStageIndex" idx="4" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="CurrentTeam" idx="5" type="Team" />
+			<attribute name="DisabledPickDrafts" idx="6" type="int" minValue="0" maxValue="5" default="0" />
+			<attribute name="DraftSimState" idx="7" type="DraftSimState" default="DraftSimState:Live" />
+			<attribute name="IsComplete" idx="8" type="bool" default="False" />
+			<attribute name="IsDisablePicks" idx="9" type="bool" default="False" />
+			<attribute name="IsDisableTrading" idx="10" type="bool" default="False" />
+			<attribute name="IsFantasyDraft" idx="11" type="bool" default="False" />
+			<attribute name="IsFantasyDraftComplete" idx="12" type="bool" default="False" />
+			<attribute name="IsInputDisabled" idx="13" type="bool" default="False" />
+			<attribute name="IsLive" idx="14" type="bool" default="False" />
+			<attribute name="IsPaused" idx="15" type="bool" default="False" />
+			<attribute name="IsStarted" idx="16" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

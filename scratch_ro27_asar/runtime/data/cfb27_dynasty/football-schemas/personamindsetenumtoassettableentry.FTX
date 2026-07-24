@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\PersonaMindsetEnumToAssetTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\EnumToAssetTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaMindsetEnumToAssetTableEntry" numMembers="2" base="EnumToAssetTableEntry" assetId="12355593" isRecordPersistent="true" majorVersionCRC="472354602" minorVersionCRC="-994929956">
+			<attribute name="Asset" idx="0" type="record" />
+			<attribute name="Value" idx="1" type="BTCareerPersonaMindset" default="BTCareerPersonaMindset:Content" />
+		</schema>
+	</schemas>
+</FranTkData>

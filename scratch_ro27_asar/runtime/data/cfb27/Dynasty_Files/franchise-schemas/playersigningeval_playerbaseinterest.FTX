@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_PlayerBaseInterest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_PlayerBaseInterest" numMembers="4" base="int()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2120628693" minorVersionCRC="-2088117768">
+			<attribute name="depth" idx="0" type="int" minValue="0" maxValue="15" default="0" />
+			<attribute name="player" idx="1" type="Player" />
+			<attribute name="team" idx="2" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

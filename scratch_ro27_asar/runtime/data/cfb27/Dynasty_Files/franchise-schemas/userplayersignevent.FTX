@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\UserPlayerSignEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserPlayerSignEvent" numMembers="3" base="Event" assetId="12641058" isRecordPersistent="true" majorVersionCRC="-1554224725" minorVersionCRC="1291046828">
+			<attribute name="Enqueue" idx="0" type="none()" guid="12641058-1895458" final="true" />
+			<attribute name="Player" idx="1" type="Player" />
+			<attribute name="Send" idx="2" type="none()" guid="12641058-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

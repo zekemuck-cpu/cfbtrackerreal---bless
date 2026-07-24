@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\BranchingStoryMadeBranchEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BranchingStoryMadeBranchEvent" numMembers="5" base="Event" assetId="6498844" isRecordPersistent="true" majorVersionCRC="1742354550" minorVersionCRC="624302584">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498844-1895458" final="true" />
+			<attribute name="PrimaryCharacter" idx="1" type="DraftPlayer" />
+			<attribute name="SecondaryCharacter" idx="2" type="DraftPlayer" />
+			<attribute name="Send" idx="3" type="none()" guid="6498844-1895455" final="true" />
+			<attribute name="StoryId" idx="4" type="int" minValue="0" maxValue="5000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

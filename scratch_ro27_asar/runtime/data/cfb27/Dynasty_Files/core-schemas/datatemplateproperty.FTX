@@ -1,0 +1,9 @@
+<FranTkData fileName="Core-Schemas\DataTemplateProperty.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DataTemplateProperty" numMembers="2" assetId="6210683" isRecordPersistent="true" majorVersionCRC="-440193289" minorVersionCRC="-1701023733">
+			<attribute name="Name" idx="0" type="string" maxLen="65" />
+			<attribute name="Path" idx="1" type="string" maxLen="65" />
+		</schema>
+	</schemas>
+</FranTkData>

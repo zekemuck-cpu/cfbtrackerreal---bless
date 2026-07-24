@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_CustomSchedulesFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_CustomSchedulesFlow" numMembers="7" base="FranTkServer_Flow" assetId="9032444" isRecordPersistent="true" majorVersionCRC="-299584797" minorVersionCRC="-957951520">
+			<attribute name="CustomSchedulesEval" idx="0" type="CustomSchedulesEval" />
+			<attribute name="Dynasty" idx="1" type="Franchise" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="SchemeEnumTable" idx="4" type="EnumTable" />
+			<attribute name="SeasonScheduleManager" idx="5" type="SeasonScheduleManager" />
+			<attribute name="UserRegistry" idx="6" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

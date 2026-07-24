@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UIHandednessSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\UIPlayStyleSelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIHandednessSelectItem" numMembers="2" base="UIPlayStyleSelectItem" defaultStoreCapacity="5" assetId="6662949" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="26" majorVersionCRC="720341520" minorVersionCRC="-1311595293">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="Handedness" default="Handedness:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

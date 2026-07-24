@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\StadiumSidelines.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StadiumSidelines" numMembers="8" assetId="6378445" isRecordPersistent="true" majorVersionCRC="-267829958" minorVersionCRC="641900350">
+			<attribute name="Default_" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="NoModification" idx="2" value="0" />
+			<attribute name="InvertSidelinesRotateField" idx="3" value="1" />
+			<attribute name="InvertSidelinesOnly" idx="4" value="2" />
+			<attribute name="RotateFieldOnly" idx="5" value="3" />
+			<attribute name="Max_" idx="6" value="4" />
+			<attribute name="Invalid_" idx="7" value="15" />
+		</enum>
+	</schemas>
+</FranTkData>

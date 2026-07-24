@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\VisitTunables.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="VisitTunables" numMembers="10" base="BaseTuning" defaultStoreCapacity="1" assetId="9196472" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1982510340" minorVersionCRC="-1667471656">
+			<attribute name="ActivityInfluenceTable" idx="0" type="VisitActivityInfluenceTable[]" />
+			<attribute name="ActivityInfoMap" idx="1" type="VisitActivityInfo[]" />
+			<attribute name="ActivityToGradeMap" idx="2" type="VisitActivityToMySchoolGradeEnumMapPair[]" />
+			<attribute name="CompetitiveVisitPenalty" idx="3" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="ComplimentaryVisitBonus" idx="4" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="GameStakesFactorTable" idx="5" type="GameFactorToStakesMapEntry[]" />
+			<attribute name="GameStakesInfluenceTable" idx="6" type="GameDayInfluenceStakes[]" />
+			<attribute name="GameWinMarginInfluenceTable" idx="7" type="GameWinMarginInfluenceEffect[]" />
+			<attribute name="PositionVisitTable" idx="8" type="PlayerAcquisitionPositionLookupTable" />
+			<attribute name="ProximityDiscountTable" idx="9" type="LetterGradeFloatValueTable" />
+		</schema>
+	</schemas>
+</FranTkData>

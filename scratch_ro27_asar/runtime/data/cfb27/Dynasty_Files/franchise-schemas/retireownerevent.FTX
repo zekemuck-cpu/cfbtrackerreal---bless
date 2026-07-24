@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\RetireOwnerEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RetireOwnerEvent" numMembers="4" base="Event" assetId="6498679" isRecordPersistent="true" majorVersionCRC="-1318640444" minorVersionCRC="2073021583">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498679-1895458" final="true" />
+			<attribute name="Owner" idx="1" type="Owner" />
+			<attribute name="Send" idx="2" type="none()" guid="6498679-1895455" final="true" />
+			<attribute name="Team" idx="3" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

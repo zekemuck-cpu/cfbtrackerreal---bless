@@ -1,0 +1,10 @@
+<FranTkData fileName="Core-Schemas\AdminLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="AdminLevel" numMembers="3" assetId="6210604" isRecordPersistent="true" majorVersionCRC="-1059052464" minorVersionCRC="273116395">
+			<attribute name="Owner" idx="0" value="0" />
+			<attribute name="Commissioner" idx="1" value="1" />
+			<attribute name="None" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

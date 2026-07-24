@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\AwardEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AwardEvent" numMembers="5" base="Event" assetId="6378182" isRecordPersistent="true" majorVersionCRC="-856389560" minorVersionCRC="1433832399">
+			<attribute name="Award" idx="0" type="Award" />
+			<attribute name="Enqueue" idx="1" type="none()" guid="6378182-1895458" final="true" />
+			<attribute name="Send" idx="2" type="none()" guid="6378182-1895455" final="true" />
+			<attribute name="Team" idx="3" type="Team" />
+			<attribute name="Trophy" idx="4" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

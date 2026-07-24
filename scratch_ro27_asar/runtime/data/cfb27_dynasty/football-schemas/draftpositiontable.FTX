@@ -1,0 +1,25 @@
+<FranTkData fileName="Football-Schemas\DraftPositionTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftPositionTable" numMembers="18" defaultStoreCapacity="1" assetId="12902703" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1464032170" minorVersionCRC="-303688372">
+			<attribute name="C" idx="0" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="CB" idx="1" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="DE" idx="2" type="int" minValue="0" maxValue="50" default="0" />
+			<attribute name="DT" idx="3" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="FB" idx="4" type="int" minValue="-255" maxValue="10" default="0" />
+			<attribute name="FS" idx="5" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="G" idx="6" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="HB" idx="7" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="K" idx="8" type="int" minValue="-255" maxValue="10" default="0" />
+			<attribute name="LS" idx="9" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="MLB" idx="10" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="OLB" idx="11" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="P" idx="12" type="int" minValue="-255" maxValue="10" default="0" />
+			<attribute name="QB" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SS" idx="14" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="T" idx="15" type="int" minValue="0" maxValue="50" default="0" />
+			<attribute name="TE" idx="16" type="int" minValue="0" maxValue="25" default="0" />
+			<attribute name="WR" idx="17" type="int" minValue="0" maxValue="25" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

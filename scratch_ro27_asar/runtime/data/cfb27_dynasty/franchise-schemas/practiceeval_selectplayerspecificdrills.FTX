@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_SelectPlayerSpecificDrills.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_SelectPlayerSpecificDrills" numMembers="2" base="none()" ownerAssetId="6708631" isRecordPersistent="true" isExpr="true" majorVersionCRC="2029242327" minorVersionCRC="-783776926">
+			<attribute name="Teams" idx="0" type="Team[]" />
+		</schema>
+	</schemas>
+</FranTkData>

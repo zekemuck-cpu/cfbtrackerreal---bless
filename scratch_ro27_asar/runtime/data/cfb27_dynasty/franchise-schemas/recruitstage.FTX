@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\RecruitStage.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RecruitStage" numMembers="11" assetId="6716443" isRecordPersistent="true" majorVersionCRC="-2093605241" minorVersionCRC="1479242320">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Top10" idx="1" value="0" />
+			<attribute name="Top5" idx="2" value="1" />
+			<attribute name="Top3" idx="3" value="2" />
+			<attribute name="Battle" idx="4" value="3" />
+			<attribute name="SoftCommitted" idx="5" value="4" />
+			<attribute name="HardCommitted" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="6" />
+			<attribute name="Signed" idx="8" value="6" />
+			<attribute name="Count_" idx="9" value="7" />
+			<attribute name="Invalid" idx="10" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

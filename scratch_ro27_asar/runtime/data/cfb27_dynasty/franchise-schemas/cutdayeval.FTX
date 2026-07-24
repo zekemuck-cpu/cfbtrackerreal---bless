@@ -1,0 +1,39 @@
+<FranTkData fileName="Franchise-Schemas\CutDayEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CutDayEval" numMembers="32" base="Module" assetId="6495351" isRecordPersistent="true" majorVersionCRC="-735092404" minorVersionCRC="-591733867">
+			<attribute name="BuildCutDayManualRequest" idx="0" type="CutDayEval_BuildCutDayManualRequest" guid="6495351-1922539" />
+			<attribute name="BuildCutDayRequest" idx="1" type="CutDayEval_BuildCutDayRequest" guid="6495351-1922479" />
+			<attribute name="CreateCutDayManualRequest" idx="2" type="CutDay_ManualCutListRequest()" guid="6495351-1922537" />
+			<attribute name="CreateCutDayRequest" idx="3" type="CutDay_CutListRequest()" guid="6495351-1922483" />
+			<attribute name="CutDayRequest_CutPlayerResponse" idx="4" type="UIFlowForm" />
+			<attribute name="CutDayRequest_DelegateResponse" idx="5" type="UISelectForm" />
+			<attribute name="CutDayTuning" idx="6" type="CutDayTuning" />
+			<attribute name="CutPlayerReasonsEnumTableRef" idx="7" type="EnumTable" />
+			<attribute name="DepthChartEval" idx="8" type="DepthChartEval" />
+			<attribute name="EncourageTeamsExcessToTransfer" idx="9" type="none()" guid="6495351-2083175" final="true" />
+			<attribute name="GenerateCutList" idx="10" type="CutDayEval_GenerateCutList" guid="6495351-1922468" final="true" />
+			<attribute name="GenerateRecommendedCutList" idx="11" type="CutDayEval_GenerateRecommendedCutList" guid="6495351-1922518" final="true" />
+			<attribute name="InitCutRosterRequest" idx="12" type="CutDayEval_InitCutRosterRequest" guid="6495351-1922473" final="true" default="// Construct the request form.&#xD;&#xA;&#xD;&#xA;// Return the request record.&#xD;&#xA;request;" />
+			<attribute name="IssueCutDayManualRequest" idx="13" type="CutDayEval_IssueCutDayManualRequest" guid="6495351-1922543" final="true" default="CutDay_ManualCutListRequest request = BuildCutDayManualRequest(Team);&#xD;&#xA;TeamRequestManager.Issue(Team, request);" />
+			<attribute name="IssueCutDayRequest" idx="14" type="CutDayEval_IssueCutDayRequest" guid="6495351-1922509" final="true" default="CutDay_CutListRequest request = BuildCutDayRequest(Team);&#xD;&#xA;request.Issue(Team.UserCharacter);" />
+			<attribute name="IssueEncourageTransfersRequestToTeams" idx="15" type="none()" guid="6495351-2083177" final="true" />
+			<attribute name="NumAdditionalPlayersToRecommend" idx="16" type="int" minValue="0" maxValue="75" default="2" />
+			<attribute name="PlayerGradeEval" idx="17" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="18" type="PlayerManager" />
+			<attribute name="ProcessCutDayManualRequest" idx="19" type="CutDayEval_ProcessCutDayManualRequest" guid="6495351-1922548" />
+			<attribute name="ProcessCutDayRequest" idx="20" type="CutDayEval_ProcessCutDayRequest" guid="6495351-1922486" />
+			<attribute name="Random" idx="21" type="Random" />
+			<attribute name="RequestServer" idx="22" type="RequestServer" />
+			<attribute name="RosterEval" idx="23" type="RosterEval" />
+			<attribute name="RosterInfo" idx="24" type="RosterInfo" />
+			<attribute name="StatManagerRef" idx="25" type="StatManager" />
+			<attribute name="TeamManagerRef" idx="26" type="TeamManager" />
+			<attribute name="TeamRequestManager" idx="27" type="TeamRequestManager" />
+			<attribute name="TrimRoster" idx="28" type="CutDayEval_TrimRoster" guid="6495351-1922495" final="true" />
+			<attribute name="TrimRosterTuningTable" idx="29" type="PositionRecordTable" />
+			<attribute name="UserRegistry" idx="30" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="31" type="none()" guid="6495351-1922534" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

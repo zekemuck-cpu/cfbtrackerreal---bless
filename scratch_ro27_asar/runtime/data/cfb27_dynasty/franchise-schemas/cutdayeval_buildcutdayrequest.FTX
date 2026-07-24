@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CutDayEval_BuildCutDayRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CutDayEval_BuildCutDayRequest" numMembers="2" base="CutDay_CutListRequest()" ownerAssetId="6495351" isRecordPersistent="true" isExpr="true" majorVersionCRC="1065780448" minorVersionCRC="695204267">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

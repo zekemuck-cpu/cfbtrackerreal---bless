@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\UserRequestIssuer_IssueManageStaffRequestForUser.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserRequestIssuer_IssueManageStaffRequestForUser" numMembers="2" base="none()" ownerAssetId="6495405" isRecordPersistent="true" isExpr="true" majorVersionCRC="-714040784" minorVersionCRC="1839523966">
+			<attribute name="User" idx="0" type="User" />
+		</schema>
+	</schemas>
+</FranTkData>

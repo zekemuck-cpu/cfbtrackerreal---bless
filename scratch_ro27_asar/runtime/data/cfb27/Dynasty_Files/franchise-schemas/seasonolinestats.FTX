@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\SeasonOLineStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SeasonStats.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonOLineStats" numMembers="10" base="SeasonStats" defaultStoreCapacity="3500" assetId="6320471" defaultStoreGroupId="64" isRecordPersistent="false" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-359538625" minorVersionCRC="-746765505">
+			<attribute name="DOWNSPLAYED" idx="0" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="GAMERATING" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESPLAYED" idx="2" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="GAMESSTARTED" idx="3" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="OLINEPANCAKES" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="OLINESACKSALLOWED" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="SEAS_YEAR" idx="6" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="STAT_KEEP" idx="7" type="bool" default="True" />
+			<attribute name="TeamPrefixName" idx="8" type="string" maxLen="8" />
+			<attribute name="YEARBYYEARTEAMINDEX" idx="9" type="int" minValue="0" maxValue="133" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

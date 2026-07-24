@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueEval_HandleSeason_EndWeek.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueEval_HandleSeason_EndWeek" numMembers="2" base="none()" ownerAssetId="6498983" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1736748303" minorVersionCRC="-283332340">
+			<attribute name="event" idx="0" type="Season_EndWeekEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

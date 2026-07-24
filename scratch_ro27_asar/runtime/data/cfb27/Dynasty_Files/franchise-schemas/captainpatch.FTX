@@ -1,0 +1,30 @@
+<FranTkData fileName="Franchise-Schemas\CaptainPatch.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CaptainPatch" numMembers="23" assetId="6494422" isRecordPersistent="true" majorVersionCRC="-2029850169" minorVersionCRC="-606390604">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="None" idx="1" value="0" />
+			<attribute name="OneYear" idx="2" value="1" />
+			<attribute name="TwoYear" idx="3" value="2" />
+			<attribute name="ThreeYear" idx="4" value="3" />
+			<attribute name="FourYear" idx="5" value="4" />
+			<attribute name="FiveYearGold" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="5" />
+			<attribute name="LastNormal_" idx="8" value="5" />
+			<attribute name="Reserved1" idx="9" value="6" />
+			<attribute name="ReservedFirst_" idx="10" value="6" />
+			<attribute name="Reserved2" idx="11" value="7" />
+			<attribute name="Reserved3" idx="12" value="8" />
+			<attribute name="Reserved4" idx="13" value="9" />
+			<attribute name="Reserved5" idx="14" value="10" />
+			<attribute name="Reserved6" idx="15" value="11" />
+			<attribute name="Reserved7" idx="16" value="12" />
+			<attribute name="Reserved8" idx="17" value="13" />
+			<attribute name="Reserved9" idx="18" value="14" />
+			<attribute name="Reserved10" idx="19" value="15" />
+			<attribute name="ReservedLast_" idx="20" value="15" />
+			<attribute name="Max_" idx="21" value="16" />
+			<attribute name="Invalid_" idx="22" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

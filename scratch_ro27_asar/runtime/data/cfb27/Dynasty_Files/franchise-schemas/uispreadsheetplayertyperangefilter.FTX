@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetPlayerTypeRangeFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntRangeFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetPlayerTypeRangeFilter" numMembers="4" base="UISpreadsheetIntRangeFilter" defaultStoreCapacity="1" assetId="12640802" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="4" majorVersionCRC="1531244408" minorVersionCRC="968856973">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="MaxValue" idx="2" type="PlayerType" default="PlayerType:First_" />
+			<attribute name="MinValue" idx="3" type="PlayerType" default="PlayerType:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

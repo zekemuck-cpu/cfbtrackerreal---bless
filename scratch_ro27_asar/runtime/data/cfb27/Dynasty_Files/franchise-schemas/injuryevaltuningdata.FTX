@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEvalTuningData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\FootballInjuryEvalTuningData.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEvalTuningData" numMembers="18" base="FootballInjuryEvalTuningData" defaultStoreCapacity="1" assetId="6498458" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="3" majorVersionCRC="857319722" minorVersionCRC="1348872931">
+			<attribute name="CalculateWearAndTearRecovered" idx="0" type="FootballInjuryEvalTuningData_CalculateWearAndTearRecovered" guid="6498458-2431080" final="true" default="RestedLastGameRecovery;" />
+			<attribute name="CareerHealthPoolGenerationSpline" idx="1" type="Spline" />
+			<attribute name="CareerWearAndTearMultiplier" idx="2" type="int" minValue="0" maxValue="10" default="10" />
+			<attribute name="EarlyReturnOvrDifference" idx="3" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="EnableEarlyReturnRequest" idx="4" type="bool" default="False" />
+			<attribute name="GetReInjuryChanceDescription" idx="5" type="FootballInjuryEvalTuningData_GetReInjuryChanceDescription" guid="6498458-2431086" final="true" default="string DescriptionText = ReInjuryChanceDescription_High;&#xD;&#xA;&#xD;&#xA;if(AttributeModifier &gt; 75)&#xD;&#xA;{&#xD;&#xA;  DescriptionText = ReInjuryChanceDescription_High;&#xD;&#xA;}&#xD;&#xA;else if(AttributeModifier &gt; 50 &amp;&amp; AttributeModifier &lt;= 75)&#xD;&#xA;{&#xD;&#xA;  DescriptionText = ReInjuryChanceDescription_Medium;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;  DescriptionText = ReInjuryChanceDescription_Low;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;DescriptionText;" />
+			<attribute name="InjuryReserveMinWeeks" idx="6" type="int" minValue="0" maxValue="15" default="1" />
+			<attribute name="InjuryRiskSpline" idx="7" type="Spline" />
+			<attribute name="LocalPlayerWearAndTearRecoveryPercentageSpline" idx="8" type="Spline" />
+			<attribute name="ReInjuryChanceDescription_High" idx="9" type="string" maxLen="1" />
+			<attribute name="ReInjuryChanceDescription_Low" idx="10" type="string" maxLen="1" />
+			<attribute name="ReInjuryChanceDescription_Medium" idx="11" type="string" maxLen="1" />
+			<attribute name="RestedLastGameRecovery" idx="12" type="float" default="0" />
+			<attribute name="SeasonHealthDecrementSimMultiplier" idx="13" type="int" minValue="0" maxValue="200" default="100" />
+			<attribute name="SeasonHealthDecrementSpline" idx="14" type="Spline" />
+			<attribute name="SeasonHealthWearAndTearRecoverySpline" idx="15" type="Spline" />
+			<attribute name="WearAndTearMaxBodyPartHealth" idx="16" type="float" default="1" />
+			<attribute name="WeeklyAdvanceWearAndTearRecoverySpline" idx="17" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

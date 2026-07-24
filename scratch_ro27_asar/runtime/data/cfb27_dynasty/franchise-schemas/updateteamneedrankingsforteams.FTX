@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamNeedRankingsForTeams.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamNeedRankingsForTeams" numMembers="5" base="ModifierView" assetId="6499363" isRecordPersistent="true" majorVersionCRC="-554047432" minorVersionCRC="732916905">
+			<attribute name="Formula" idx="0" type="UpdateTeamNeedRankingsForTeams_Formula" guid="6499363-1937762" default="TeamRoadmapEval.UpdateTeamNeedRankings(Subject);" />
+			<attribute name="Source" idx="1" type="record" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="TeamRoadmapEval" idx="3" type="TeamRoadmapEval" />
+			<attribute name="Update" idx="4" type="none()" guid="6499363-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiring_ValidateStaffView.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiring_ValidateStaffView" numMembers="7" base="ModifierView" assetId="6708722" isRecordPersistent="true" majorVersionCRC="8778590" minorVersionCRC="-1311083804">
+			<attribute name="CoachManagerRef" idx="0" type="CoachManager" />
+			<attribute name="Formula" idx="1" type="StaffHiring_ValidateStaffView_Formula" guid="6708722-1948959" default="StaffPersonContractOffer offerCoach = StaffHiringEvalRef.ValidateHeadCoach(Subject);&#xD;&#xA;if(offerCoach != null)&#xD;&#xA;{&#xD;&#xA;    TeamManagerRef.SignStaffPerson(offerCoach.Team, offerCoach, true);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// scout&#xD;&#xA;StaffPersonContractOffer offerScout = StaffHiringEvalRef.ValidateScout(Subject);&#xD;&#xA;if(offerScout != null)&#xD;&#xA;{&#xD;&#xA;    TeamManagerRef.SignStaffPerson(offerScout.Team, offerScout, true);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// trainer&#xD;&#xA;StaffPersonContractOffer offerTrainer = StaffHiringEvalRef.ValidateTrainer(Subject);&#xD;&#xA;if(offerTrainer != null)&#xD;&#xA;{&#xD;&#xA;    TeamManagerRef.SignStaffPerson(offerTrainer.Team, offerTrainer, true);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;Subject.StaffPersonBlacklist.EraseAll();" />
+			<attribute name="Source" idx="2" type="record" />
+			<attribute name="StaffHiringEvalRef" idx="3" type="StaffHiringEval" />
+			<attribute name="Subjects" idx="4" type="Team[]" />
+			<attribute name="TeamManagerRef" idx="5" type="TeamManager" />
+			<attribute name="Update" idx="6" type="none()" guid="6708722-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

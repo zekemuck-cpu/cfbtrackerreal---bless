@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\StadiumPartInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StadiumPartInfo" numMembers="7" defaultStoreCapacity="273" assetId="6378444" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="171361288" minorVersionCRC="653728272">
+			<attribute name="CostInfo" idx="0" type="StadiumPartCostInfo" />
+			<attribute name="DisplayName" idx="1" type="string" maxLen="1" />
+			<attribute name="Level" idx="2" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="Nickname" idx="3" type="string" maxLen="24" default="[Stadium Part Nickname]" />
+			<attribute name="Rating" idx="4" type="int" minValue="0" maxValue="99" default="0" />
+			<attribute name="Type" idx="5" type="StadiumPart" default="StadiumPart:Parking" />
+			<attribute name="Weight" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

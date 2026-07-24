@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TalentTreeEval_BeginWeekReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentTreeEval_BeginWeekReaction" numMembers="4" base="Reaction" assetId="9187454" isRecordPersistent="true" majorVersionCRC="1745872494" minorVersionCRC="-1892927128">
+			<attribute name="EventRecord" idx="0" type="Season_BeginWeekEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="9187454-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TalentTreeEval" idx="3" type="TalentTreeEval" />
+		</schema>
+	</schemas>
+</FranTkData>

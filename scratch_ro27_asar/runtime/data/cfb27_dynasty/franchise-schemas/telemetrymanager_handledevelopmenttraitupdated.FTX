@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_HandleDevelopmentTraitUpdated.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_HandleDevelopmentTraitUpdated" numMembers="2" base="none()" ownerAssetId="6499176" isRecordPersistent="true" isExpr="true" majorVersionCRC="605372124" minorVersionCRC="1014549868">
+			<attribute name="EventRecord" idx="0" type="DevelopmentTraitUpdatedEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolContextModuleType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MySchoolContextModuleType" numMembers="11" assetId="9161456" isRecordPersistent="true" majorVersionCRC="298170213" minorVersionCRC="848792889">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="TopSchoolsNoScore" idx="1" value="0" />
+			<attribute name="TopSchoolsIntScore" idx="2" value="1" />
+			<attribute name="TopConferences" idx="3" value="2" />
+			<attribute name="TopConferencesNoScore" idx="4" value="3" />
+			<attribute name="RecruitsOnBoard" idx="5" value="4" />
+			<attribute name="Last_" idx="6" value="5" />
+			<attribute name="RecruitsClosest" idx="7" value="5" />
+			<attribute name="TopSchoolsFloatScore" idx="8" value="6" />
+			<attribute name="Count_" idx="9" value="7" />
+			<attribute name="Invalid" idx="10" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

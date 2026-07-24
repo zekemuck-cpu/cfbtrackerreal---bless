@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\ProspectQuality.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ProspectQuality" numMembers="9" assetId="6802187" isRecordPersistent="true" majorVersionCRC="-1352402637" minorVersionCRC="-2141819974">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="ONE_STAR" idx="1" value="0" />
+			<attribute name="TWO_STAR" idx="2" value="1" />
+			<attribute name="THREE_STAR" idx="3" value="2" />
+			<attribute name="FOUR_STAR" idx="4" value="3" />
+			<attribute name="FIVE_STAR" idx="5" value="4" />
+			<attribute name="Last_" idx="6" value="4" />
+			<attribute name="Count_" idx="7" value="5" />
+			<attribute name="Invalid" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\RecruitStarLevelChangeSummaryEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TransactionWeekSummaryEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitStarLevelChangeSummaryEntry" numMembers="10" base="TransactionWeekSummaryEntry" defaultStoreCapacity="5" assetId="10605477" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1397500236" minorVersionCRC="1667465317">
+			<attribute name="NarrativePlayer" idx="0" type="NarrativePlayer" />
+			<attribute name="NewNationalRank" idx="1" type="int" minValue="0" maxValue="4095" default="4095" />
+			<attribute name="NewPositionRank" idx="2" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="NewStarLevel" idx="3" type="ProspectQuality" default="ProspectQuality:Invalid" />
+			<attribute name="NewStateRank" idx="4" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="OldNationalRank" idx="5" type="int" minValue="0" maxValue="4095" default="4095" />
+			<attribute name="OldPositionRank" idx="6" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="OldStarLevel" idx="7" type="ProspectQuality" default="ProspectQuality:Invalid" />
+			<attribute name="OldStateRank" idx="8" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="UserEntity" idx="9" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

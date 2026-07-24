@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\FreeAgentPracticeSquadStatusEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FreeAgentPracticeSquadStatusEnumTableEntry" numMembers="4" base="EnumTableEntry" assetId="6570297" isRecordPersistent="true" majorVersionCRC="-1398492931" minorVersionCRC="1000952103">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="FreeAgentPracticeSquadStatus" default="FreeAgentPracticeSquadStatus:PracticeSquadEligible" />
+		</schema>
+	</schemas>
+</FranTkData>

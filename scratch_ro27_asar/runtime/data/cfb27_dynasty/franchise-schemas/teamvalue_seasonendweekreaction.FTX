@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\TeamValue_SeasonEndWeekReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamValue_SeasonEndWeekReaction" numMembers="7" base="Reaction" assetId="6814735" isRecordPersistent="true" majorVersionCRC="-2062157562" minorVersionCRC="1975287702">
+			<attribute name="EventRecord" idx="0" type="TeamValueStartEvent" />
+			<attribute name="FranchiseRef" idx="1" type="Franchise" />
+			<attribute name="Handle" idx="2" type="bool()" guid="6814735-1895461" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonInfoRef" idx="4" type="SeasonInfo" />
+			<attribute name="TeamValueEvalRef" idx="5" type="TeamValueEval" />
+			<attribute name="TeamValueUpdateTransaction" idx="6" type="TeamValueUpdateTransaction" />
+		</schema>
+	</schemas>
+</FranTkData>

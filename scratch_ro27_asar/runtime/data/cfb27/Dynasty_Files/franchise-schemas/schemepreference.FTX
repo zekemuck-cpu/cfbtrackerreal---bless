@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\SchemePreference.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SchemePreference" numMembers="3" assetId="8624663" isRecordPersistent="true" majorVersionCRC="279849506" minorVersionCRC="-1336321099">
+			<attribute name="MustMatch" idx="0" value="0" />
+			<attribute name="CanMatch" idx="1" value="1" />
+			<attribute name="Any" idx="2" value="2" />
+		</enum>
+	</schemas>
+</FranTkData>

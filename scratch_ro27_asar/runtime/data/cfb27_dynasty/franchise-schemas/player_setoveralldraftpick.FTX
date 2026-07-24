@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\Player_SetOverallDraftPick.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Player_SetOverallDraftPick" numMembers="2" base="none()" ownerAssetId="6494552" isRecordPersistent="true" isExpr="true" majorVersionCRC="1056610688" minorVersionCRC="670527525">
+			<attribute name="OverallDraftPick" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

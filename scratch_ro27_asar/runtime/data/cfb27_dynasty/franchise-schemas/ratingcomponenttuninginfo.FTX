@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\RatingComponentTuningInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RatingComponentTuningInfo" numMembers="2" defaultStoreCapacity="37" assetId="6553573" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="332289769" minorVersionCRC="-829335887">
+			<attribute name="RankToRatingSpline" idx="0" type="Spline" />
+			<attribute name="Weight" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

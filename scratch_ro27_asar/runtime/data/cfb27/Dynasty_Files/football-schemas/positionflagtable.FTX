@@ -1,0 +1,32 @@
+<FranTkData fileName="Football-Schemas\PositionFlagTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionFlagTable" numMembers="25" defaultStoreCapacity="59" assetId="4306558" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="690" majorVersionCRC="-620394559" minorVersionCRC="526879903">
+			<attribute name="C" idx="0" type="bool" default="False" />
+			<attribute name="CB" idx="1" type="bool" default="False" />
+			<attribute name="Description" idx="2" type="string" maxLen="39" />
+			<attribute name="DT" idx="3" type="bool" default="False" />
+			<attribute name="FB" idx="4" type="bool" default="False" />
+			<attribute name="FS" idx="5" type="bool" default="False" />
+			<attribute name="HB" idx="6" type="bool" default="False" />
+			<attribute name="K" idx="7" type="bool" default="False" />
+			<attribute name="KR" idx="8" type="bool" default="False" />
+			<attribute name="LEDGE" idx="9" type="bool" default="False" />
+			<attribute name="LG" idx="10" type="bool" default="False" />
+			<attribute name="LS" idx="11" type="bool" default="False" />
+			<attribute name="LT" idx="12" type="bool" default="False" />
+			<attribute name="MIKE" idx="13" type="bool" default="False" />
+			<attribute name="P" idx="14" type="bool" default="False" />
+			<attribute name="PR" idx="15" type="bool" default="False" />
+			<attribute name="QB" idx="16" type="bool" default="False" />
+			<attribute name="REDGE" idx="17" type="bool" default="False" />
+			<attribute name="RG" idx="18" type="bool" default="False" />
+			<attribute name="RT" idx="19" type="bool" default="False" />
+			<attribute name="SAM" idx="20" type="bool" default="False" />
+			<attribute name="SS" idx="21" type="bool" default="False" />
+			<attribute name="TE" idx="22" type="bool" default="False" />
+			<attribute name="WILL" idx="23" type="bool" default="False" />
+			<attribute name="WR" idx="24" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

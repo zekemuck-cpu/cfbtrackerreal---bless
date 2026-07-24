@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\Goal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Goal" numMembers="8" assetId="6377525" isRecordPersistent="true" majorVersionCRC="1153483520" minorVersionCRC="-1772007282">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FromStats" idx="1" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="2" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconLibraryId" idx="3" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="LegacyScoreAward" idx="4" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="5" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="6" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="7" type="string" maxLen="31" />
+		</schema>
+	</schemas>
+</FranTkData>

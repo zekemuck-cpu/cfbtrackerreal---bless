@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\TrimRosterTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TrimRosterTransaction" numMembers="15" base="Transaction" assetId="5699546" isRecordPersistent="true" majorVersionCRC="-1324983557" minorVersionCRC="838825376">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="CutDayEval" idx="1" type="CutDayEval" />
+			<attribute name="IsBlocking" idx="2" type="bool" default="True" />
+			<attribute name="IsDone" idx="3" type="bool()" guid="5699546-1895538" />
+			<attribute name="IsDynamic" idx="4" type="bool" default="False" />
+			<attribute name="Process" idx="5" type="none()" guid="5699546-1895540" />
+			<attribute name="ProcessStage" idx="6" type="Stage" />
+			<attribute name="Sleep" idx="7" type="ITransaction_Sleep" guid="5699546-1895548" />
+			<attribute name="Start" idx="8" type="none()" guid="5699546-1895544" />
+			<attribute name="StartStage" idx="9" type="Stage" />
+			<attribute name="TeamIndex" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Teams" idx="11" type="Team[]" />
+			<attribute name="TimeScale" idx="12" type="float" default="0" />
+			<attribute name="TransitionPending" idx="13" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="14" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

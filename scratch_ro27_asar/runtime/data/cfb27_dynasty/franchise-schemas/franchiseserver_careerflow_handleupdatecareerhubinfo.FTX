@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleUpdateCareerHubInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleUpdateCareerHubInfo" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1040746078" minorVersionCRC="1144819296">
+			<attribute name="event" idx="0" type="UpdateCareerHubInfoEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

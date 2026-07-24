@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PreseasonWeekStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PreseasonWeekStartReaction" numMembers="5" base="Reaction" assetId="6498882" isRecordPersistent="true" majorVersionCRC="1389908316" minorVersionCRC="-51326896">
+			<attribute name="EventRecord" idx="0" type="PreseasonWeekStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6498882-1895461" />
+			<attribute name="PlayerProgressionEvalRef" idx="2" type="PlayerProgressionEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonManager" idx="4" type="SeasonManager" />
+		</schema>
+	</schemas>
+</FranTkData>

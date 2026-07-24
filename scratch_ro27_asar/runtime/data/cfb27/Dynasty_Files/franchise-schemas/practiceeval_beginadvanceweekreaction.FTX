@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_BeginAdvanceWeekReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_BeginAdvanceWeekReaction" numMembers="4" base="Reaction" assetId="6499022" isRecordPersistent="true" majorVersionCRC="-956163632" minorVersionCRC="1069567600">
+			<attribute name="EventRecord" idx="0" type="BeginAdvanceWeekEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499022-1895461" />
+			<attribute name="PracticeEval" idx="2" type="PracticeEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

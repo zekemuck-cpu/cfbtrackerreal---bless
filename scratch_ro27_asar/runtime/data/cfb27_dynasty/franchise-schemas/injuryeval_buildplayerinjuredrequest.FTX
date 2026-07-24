@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_BuildPlayerInjuredRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_BuildPlayerInjuredRequest" numMembers="3" base="Injury_PlayerInjuredRequest()" ownerAssetId="6498459" isRecordPersistent="true" isExpr="true" majorVersionCRC="959516930" minorVersionCRC="641173559">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="numPlayersInjured" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\CoachTalentTreeUpdateTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachTalentTreeUpdateTransaction" numMembers="16" base="Transaction" assetId="9508442" isRecordPersistent="true" majorVersionCRC="169164490" minorVersionCRC="125409386">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="IsBlocking" idx="1" type="bool" default="True" />
+			<attribute name="IsDone" idx="2" type="bool()" guid="9508442-1895538" />
+			<attribute name="IsDynamic" idx="3" type="bool" default="False" />
+			<attribute name="Process" idx="4" type="none()" guid="9508442-1895540" />
+			<attribute name="Sleep" idx="5" type="ITransaction_Sleep" guid="9508442-1895548" />
+			<attribute name="Start" idx="6" type="none()" guid="9508442-1895544" />
+			<attribute name="StartStage" idx="7" type="Stage" />
+			<attribute name="TalentTreeEval" idx="8" type="TalentTreeEval" />
+			<attribute name="Team" idx="9" type="Team" />
+			<attribute name="TeamIndex" idx="10" type="int" minValue="0" maxValue="133" default="0" />
+			<attribute name="TeamsList" idx="11" type="Team[]" />
+			<attribute name="TimeScale" idx="12" type="float" default="0" />
+			<attribute name="TransitionPending" idx="13" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="14" type="Stage" />
+			<attribute name="UpdateStage" idx="15" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

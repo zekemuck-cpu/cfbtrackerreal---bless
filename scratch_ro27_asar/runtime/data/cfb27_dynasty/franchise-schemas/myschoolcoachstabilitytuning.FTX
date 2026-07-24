@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolCoachStabilityTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolCoachStabilityTuning" numMembers="5" base="BaseTuning" defaultStoreCapacity="1" assetId="6816536" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="696603412" minorVersionCRC="-1160329755">
+			<attribute name="ContractYearsRemainingMod" idx="0" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="CoordSeasonsWithTeamSpline" idx="1" type="Spline" />
+			<attribute name="HCSeasonsWithTeamSpline" idx="2" type="Spline" />
+			<attribute name="JobSecurityPercentageMod" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PointsToGradeRange" idx="4" type="MySchoolRankingRangesTable" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,52 @@
+<FranTkData fileName="Franchise-Schemas\ScheduleStructure.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScheduleStructure" numMembers="41" base="BaseTuning" defaultStoreCapacity="1" assetId="6845454" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="591511824" minorVersionCRC="1054579754">
+			<attribute name="ByeWeekText" idx="0" type="string" maxLen="5" default="OPEN" />
+			<attribute name="CanEditAI" idx="1" type="bool" default="False" />
+			<attribute name="CanEditByeWeek" idx="2" type="bool" default="True" />
+			<attribute name="ChampionshipStadiumCityDefault" idx="3" type="string" maxLen="4" default="TBA" />
+			<attribute name="ChampionshipStadiumNameDefault" idx="4" type="string" maxLen="4" default="TBA" />
+			<attribute name="ChampionshipStadiumStateDefault" idx="5" type="string" maxLen="4" default="TBA" />
+			<attribute name="ConferenceGamesDefault" idx="6" type="int" minValue="0" maxValue="15" default="8" />
+			<attribute name="ConferenceGamesMax" idx="7" type="int" minValue="0" maxValue="15" default="9" />
+			<attribute name="ConferenceGamesMin" idx="8" type="int" minValue="0" maxValue="15" default="6" />
+			<attribute name="ConferenceSeedBestRanked" idx="9" type="Conference[]" />
+			<attribute name="ConferenceSeedsChampion" idx="10" type="Conference[]" />
+			<attribute name="ConferenceSeedsMinSize" idx="11" type="int" minValue="1" maxValue="20" default="8" />
+			<attribute name="MaxAllowedGames" idx="12" type="int" minValue="0" maxValue="20" default="12" />
+			<attribute name="MaxConferenceSize" idx="13" type="int" minValue="0" maxValue="20" default="20" />
+			<attribute name="MaxFCSGamesInAWeek" idx="14" type="int" minValue="23" maxValue="134" default="59" />
+			<attribute name="MaxNumDivisions" idx="15" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="MinAllowedGames" idx="16" type="int" minValue="0" maxValue="20" default="11" />
+			<attribute name="MinConferenceSize" idx="17" type="int" minValue="4" maxValue="10" default="4" />
+			<attribute name="MinDivisionSize" idx="18" type="int" minValue="3" maxValue="10" default="4" />
+			<attribute name="MinTeamsToForceChampionshipGame" idx="19" type="int" minValue="0" maxValue="20" default="11" />
+			<attribute name="NeutralStadiums" idx="20" type="Stadium[]" />
+			<attribute name="NumberOfUserVsUserGames" idx="21" type="int" minValue="0" maxValue="134" default="1" />
+			<attribute name="PlayoffSeedsCount" idx="22" type="int" minValue="1" maxValue="16" default="12" />
+			<attribute name="PlayoffWeekGrouping" idx="23" type="BowlGame[]" />
+			<attribute name="PreseasonGameCount" idx="24" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="PreseasonWeekCount" idx="25" type="int" minValue="0" maxValue="1" default="1" />
+			<attribute name="ProtectedOpponentsMax" idx="26" type="int" minValue="0" maxValue="3" default="2" />
+			<attribute name="RegularSeasonGameCount" idx="27" type="int" minValue="1" maxValue="16" default="12" />
+			<attribute name="RegularSeasonWeekCount" idx="28" type="int" minValue="16" maxValue="17" default="17" />
+			<attribute name="RegularSeasonWeekDefault" idx="29" type="int" minValue="0" maxValue="16" default="7" />
+			<attribute name="RegularSeasonWeekKickoff" idx="30" type="int" minValue="0" maxValue="16" default="1" />
+			<attribute name="RegularSeasonWeekLastFCS" idx="31" type="int" minValue="0" maxValue="16" default="5" />
+			<attribute name="RegularSeasonWeekOrderToSchedule" idx="32" type="int[]" />
+			<attribute name="ScheduleAnnuals" idx="33" type="ScheduleStructureYearExact[]" />
+			<attribute name="ScheduleKickoffEntries" idx="34" type="ScheduleKickoffEntry[]" />
+			<attribute name="ScheduleNeutralStadiumsArray" idx="35" type="ScheduleNeutralStadiums[]" />
+			<attribute name="ScheduleRotationTables" idx="36" type="ScheduleRotationTable[]" />
+			<attribute name="StoppingPointsHighSchool" idx="37" type="SeasonStoppingPoints" />
+			<attribute name="StoppingPointsRoadToGlory" idx="38" type="SeasonStoppingPoints" />
+			<attribute name="TeamSeedsTopRank" idx="39" type="Team[]" />
+			<attribute name="TeamSeedsTopRankValue" idx="40" type="int" minValue="1" maxValue="32" default="12" />
+		</schema>
+	</schemas>
+</FranTkData>

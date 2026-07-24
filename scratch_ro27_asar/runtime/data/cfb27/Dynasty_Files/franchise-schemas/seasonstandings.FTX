@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStandings.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStandings" numMembers="25" base="Module" assetId="6493979" isRecordPersistent="true" majorVersionCRC="-1619063296" minorVersionCRC="264494455">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="BowlBidInvitationEvent" idx="1" type="BowlBidInvitationEvent" />
+			<attribute name="DebugModule" idx="2" type="FranchiseDebugModule" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="IssueBigGameNotificationRequest" idx="4" type="SeasonStandings_IssueBigGameNotificationRequest" guid="6493979-2252019" final="true" default="BigGameNotificationRequest request = new BigGameNotificationRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.RequestData = seasonGame;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;// Issue the request&#xD;&#xA;request.Issue(userCharacter);" />
+			<attribute name="IssuePlayoffBracketRequest" idx="5" type="none()" guid="6493979-1909571" final="true" />
+			<attribute name="IssuePollsNotificationRequest" idx="6" type="SeasonStandings_IssuePollsNotificationRequest" guid="6493979-2252023" final="true" default="PollsNotificationRequest request = new PollsNotificationRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.MiniBanner;&#xD;&#xA;&#xD;&#xA;// Issue the request&#xD;&#xA;request.Issue(userCharacter);" />
+			<attribute name="NationalChampionshipStadiums" idx="7" type="Stadium[]" />
+			<attribute name="PlayoffBracketRequest" idx="8" type="PlayoffBracketRequest" />
+			<attribute name="PlayoffInfoArray" idx="9" type="PlayoffBowlsInfo[]" />
+			<attribute name="PlayoffsClinchedEvent" idx="10" type="PlayoffsClinchedEvent" />
+			<attribute name="PollsTuningRef" idx="11" type="PollsTuning" />
+			<attribute name="Random" idx="12" type="Random" />
+			<attribute name="SeasonManager" idx="13" type="SeasonManager" />
+			<attribute name="SeasonSchedule" idx="14" type="SeasonGame[]" />
+			<attribute name="SeasonScheduleManagerRef" idx="15" type="SeasonScheduleManager" />
+			<attribute name="SortTeamsWithTieBreakers" idx="16" type="SeasonStandings_SortTeamsWithTieBreakers" guid="6493979-1909545" final="true" />
+			<attribute name="StatManager" idx="17" type="StatManager" />
+			<attribute name="TeamEndOfSeasonEvent" idx="18" type="Season_EndOfTeamSeasonEvent" />
+			<attribute name="TeamUpdateGameStatsEvent" idx="19" type="Team_UpdateGameStatsEvent" />
+			<attribute name="UpdateGameOfTheWeek" idx="20" type="none()" guid="6493979-2091083" final="true" />
+			<attribute name="UpdatePlayoffMatchups" idx="21" type="SeasonStandings_UpdatePlayoffMatchups" guid="6493979-1909541" final="true" />
+			<attribute name="UpdatePollsRankings" idx="22" type="none()" guid="6493979-1981056" final="true" />
+			<attribute name="UpdateStandings" idx="23" type="none()" guid="6493979-1909538" final="true" />
+			<attribute name="WonConferenceChampionshipNoGameEvent" idx="24" type="WonConferenceChampionshipNoGameEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

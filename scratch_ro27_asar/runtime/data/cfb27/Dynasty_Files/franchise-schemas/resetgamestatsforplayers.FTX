@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\ResetGameStatsForPlayers.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ResetGameStatsForPlayers" numMembers="4" base="ModifierView" assetId="6814788" isRecordPersistent="true" majorVersionCRC="1652240020" minorVersionCRC="-835869221">
+			<attribute name="Formula" idx="0" type="ResetGameStatsForPlayers_Formula" guid="6814788-1983244" default="Player player = Subject;&#xD;&#xA;&#xD;&#xA;// If the player has game stats for this year, clear them.&#xD;&#xA;if (player.GameStats != null)&#xD;&#xA;{&#xD;&#xA;    player.GameStats.EraseAll();&#xD;&#xA;    player.GameStats = null;&#xD;&#xA;}" />
+			<attribute name="Source" idx="1" type="record" />
+			<attribute name="Subjects" idx="2" type="Player[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6814788-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

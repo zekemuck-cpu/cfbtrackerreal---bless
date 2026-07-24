@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\InjuryWeekStatusLookupTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryWeekStatusLookupTableEntry" numMembers="2" defaultStoreCapacity="5" assetId="10490609" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-905662502" minorVersionCRC="266178309">
+			<attribute name="InjuryStatus" idx="0" type="InjuryWeekStatus" default="InjuryWeekStatus:Probable" />
+			<attribute name="InjuryWeeks" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

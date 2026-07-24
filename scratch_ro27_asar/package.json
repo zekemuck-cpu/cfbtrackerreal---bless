@@ -1,0 +1,16 @@
+{
+  "name": "recruit-overhaul-27",
+  "version": "0.1.0-beta.1",
+  "private": true,
+  "description": "Electron recruiting overhaul table for CFB27 dynasty data.",
+  "main": "electron-main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "rebuild:data": "node --preserve-symlinks --preserve-symlinks-main build-recruiting-table.mjs",
+    "package:portable": "node --preserve-symlinks --preserve-symlinks-main tools/package-portable.mjs",
+    "check": "node --check electron-main.cjs && node --check electron-preload.cjs && node --check electron-renderer.js && node --check build-recruiting-table.mjs"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7"
+  }
+}

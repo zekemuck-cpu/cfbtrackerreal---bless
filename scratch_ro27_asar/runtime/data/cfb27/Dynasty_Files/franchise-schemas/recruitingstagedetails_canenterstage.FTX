@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingStageDetails_CanEnterStage.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingStageDetails_CanEnterStage" numMembers="3" base="bool()" ownerAssetId="6813054" isRecordPersistent="true" isExpr="true" majorVersionCRC="3252" minorVersionCRC="-1993652658">
+			<attribute name="recruit" idx="0" type="Recruit" />
+			<attribute name="recruitingTunables" idx="1" type="RecruitingTunables" />
+		</schema>
+	</schemas>
+</FranTkData>

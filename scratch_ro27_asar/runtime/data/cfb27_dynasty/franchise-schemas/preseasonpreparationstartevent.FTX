@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PreSeasonPreparationStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PreSeasonPreparationStartEvent" numMembers="2" base="Event" assetId="6498963" isRecordPersistent="true" majorVersionCRC="-418255167" minorVersionCRC="-2106711405">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498963-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6498963-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

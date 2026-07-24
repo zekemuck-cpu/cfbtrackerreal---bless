@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\PlayerAcquisitionEvaluation.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerAcquisitionEvaluation" numMembers="16" assetId="6494561" isRecordPersistent="true" majorVersionCRC="1504935496" minorVersionCRC="-2010443978">
+			<attribute name="AcquisitionType" idx="0" type="PlayerAcquisitionType" default="PlayerAcquisitionType:Signed" />
+			<attribute name="AddedValue" idx="1" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="BestSchemeOverallValue" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CoachTradeInfluenceValue" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="ContractValue" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="DevelopmentValue" idx="5" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="FreeAgentComparisonValue" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="ImportanceValue" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="IsPlayerHidden" idx="8" type="bool" default="False" />
+			<attribute name="IsPlayerSuperstar" idx="9" type="bool" default="False" />
+			<attribute name="IsPlayerXFactor" idx="10" type="bool" default="False" />
+			<attribute name="Player" idx="11" type="Player" />
+			<attribute name="Rank" idx="12" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="TeamSchemeOverallValue" idx="13" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TeamTradePhilosophyValue" idx="14" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Value" idx="15" type="int" minValue="0" maxValue="255" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

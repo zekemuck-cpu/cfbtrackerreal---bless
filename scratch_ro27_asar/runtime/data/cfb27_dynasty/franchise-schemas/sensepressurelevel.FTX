@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\SensePressureLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="SensePressureLevel" numMembers="8" assetId="6494384" isRecordPersistent="true" majorVersionCRC="-253951530" minorVersionCRC="-480833390">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Paranoid" idx="1" value="0" />
+			<attribute name="TriggerHappy" idx="2" value="1" />
+			<attribute name="Ideal" idx="3" value="2" />
+			<attribute name="Average" idx="4" value="3" />
+			<attribute name="Last_" idx="5" value="4" />
+			<attribute name="Oblivious" idx="6" value="4" />
+			<attribute name="Max_" idx="7" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

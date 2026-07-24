@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SeasonStandings_IssuePollsNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonStandings_IssuePollsNotificationRequest" numMembers="2" base="none()" ownerAssetId="6493979" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1471810058" minorVersionCRC="-256262114">
+			<attribute name="userCharacter" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

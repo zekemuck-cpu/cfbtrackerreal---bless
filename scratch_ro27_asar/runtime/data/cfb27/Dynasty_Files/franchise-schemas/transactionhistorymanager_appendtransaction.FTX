@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TransactionHistoryManager_AppendTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TransactionHistoryManager_AppendTransaction" numMembers="2" base="none()" ownerAssetId="6498928" isRecordPersistent="true" isExpr="true" majorVersionCRC="-604593958" minorVersionCRC="-401456661">
+			<attribute name="entry" idx="0" type="TransactionHistoryEntry" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\ScoutPhysicalLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ScoutPhysicalLevel" numMembers="9" assetId="6571084" isRecordPersistent="true" majorVersionCRC="261167453" minorVersionCRC="1290756137">
+			<attribute name="First" idx="0" value="0" />
+			<attribute name="Poor" idx="1" value="0" />
+			<attribute name="Marginal" idx="2" value="1" />
+			<attribute name="Decent" idx="3" value="2" />
+			<attribute name="Solid" idx="4" value="3" />
+			<attribute name="Good" idx="5" value="4" />
+			<attribute name="Great" idx="6" value="5" />
+			<attribute name="Elite" idx="7" value="6" />
+			<attribute name="Last" idx="8" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

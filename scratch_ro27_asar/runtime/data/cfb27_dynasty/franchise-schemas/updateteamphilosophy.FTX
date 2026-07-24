@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamPhilosophy" numMembers="4" base="ModifierView" assetId="6498959" isRecordPersistent="true" majorVersionCRC="1158035612" minorVersionCRC="-1521154674">
+			<attribute name="Formula" idx="0" type="UpdateTeamPhilosophy_Formula" guid="6498959-1931029" default="Team team = Subject;&#xD;&#xA;&#xD;&#xA;// Update the team philosophy on the team roadmap.&#xD;&#xA;if (team.Roadmap != null)&#xD;&#xA;{&#xD;&#xA;    team.Roadmap.TeamPhilosophy = team.Philosophy;&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="Source" idx="1" type="record" />
+			<attribute name="Subjects" idx="2" type="Team[]" />
+			<attribute name="Update" idx="3" type="none()" guid="6498959-1937751" />
+		</schema>
+	</schemas>
+</FranTkData>

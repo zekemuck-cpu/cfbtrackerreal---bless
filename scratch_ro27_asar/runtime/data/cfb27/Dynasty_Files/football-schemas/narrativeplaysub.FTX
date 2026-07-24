@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\NarrativePlaySub.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlaySub" numMembers="2" defaultStoreCapacity="28" assetId="12641101" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="324615168" minorVersionCRC="1925720969">
+			<attribute name="DepthIndex" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Position" idx="1" type="PositionE" default="PositionE:FirstKeyOffense_" />
+		</schema>
+	</schemas>
+</FranTkData>

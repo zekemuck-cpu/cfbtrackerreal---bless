@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StorySideActivityStartReaction_HandlePerTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StorySideActivityStartReaction_HandlePerTeam" numMembers="3" base="none()" ownerAssetId="6498894" isRecordPersistent="true" isExpr="true" majorVersionCRC="183746892" minorVersionCRC="1408346646">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="seasonGame" idx="1" type="SeasonGame" />
+		</schema>
+	</schemas>
+</FranTkData>

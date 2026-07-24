@@ -1,0 +1,10 @@
+<!--SCHEMAS-->
+<schemas>
+	<schema name="PlayerSeasonalGoal_GetProgressPercentage" numMembers="6" base="int()" ownerAssetId="6493964" isRecordPersistent="true" isExpr="true">
+		<attribute name="player" idx="0" type="Player" />
+		<attribute name="team" idx="1" type="Team" />
+		<attribute name="playerSeasonStats" idx="2" type="SeasonStats" />
+		<attribute name="teamSeasonStats" idx="3" type="TeamStats" />
+		<attribute name="evalInfo" idx="4" type="PlayerGoalEvalInfo" />
+	</schema>
+</schemas>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\OffensivePlayerStatSnapShot.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="OffensivePlayerStatSnapShot" numMembers="6" defaultStoreCapacity="5360" assetId="6321376" defaultStoreGroupId="64" isRecordPersistent="false" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-197487252" minorVersionCRC="1641868918">
+			<attribute name="Attempts" idx="0" type="int" minValue="0" maxValue="254" default="0" />
+			<attribute name="CompsRecs" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="IntsFums" idx="2" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="PlayerRef" idx="3" type="Player" />
+			<attribute name="Touchdowns" idx="4" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="Yards" idx="5" type="int" minValue="-2048" maxValue="2047" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

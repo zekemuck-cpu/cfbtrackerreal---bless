@@ -1,0 +1,14 @@
+<FranTkData fileName="Football-Schemas\GameResult.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="GameResult" numMembers="7" assetId="12674113" isRecordPersistent="true" majorVersionCRC="2042728132" minorVersionCRC="-2106583103">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Win" idx="1" value="0" />
+			<attribute name="Loss" idx="2" value="1" />
+			<attribute name="Last_" idx="3" value="2" />
+			<attribute name="Tie" idx="4" value="2" />
+			<attribute name="Count_" idx="5" value="3" />
+			<attribute name="Invalid_" idx="6" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

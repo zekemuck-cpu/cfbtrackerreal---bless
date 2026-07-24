@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\ModifyTeamPlayerAbilityAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ModifyTeamPlayerAbilityAction" numMembers="7" base="SequenceAction" assetId="6536989" isRecordPersistent="true" majorVersionCRC="948473344" minorVersionCRC="92362032">
+			<attribute name="Ability" idx="0" type="PlayerAbility" default="PlayerAbility:Invalid_" />
+			<attribute name="Actor" idx="1" type="ActorName" default="ActorName:None" />
+			<attribute name="Amount" idx="2" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="Default" idx="3" type="bool" default="False" />
+			<attribute name="Enabled" idx="4" type="bool" default="True" />
+			<attribute name="PositionCategory" idx="5" type="PositionCategory" default="PositionCategory:All" />
+			<attribute name="Target" idx="6" type="TargetedActorType" default="TargetedActorType:None" />
+		</schema>
+	</schemas>
+</FranTkData>

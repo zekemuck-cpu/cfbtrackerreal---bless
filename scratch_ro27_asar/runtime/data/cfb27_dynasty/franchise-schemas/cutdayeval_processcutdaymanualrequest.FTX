@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\CutDayEval_ProcessCutDayManualRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CutDayEval_ProcessCutDayManualRequest" numMembers="2" base="none()" ownerAssetId="6495351" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1454451812" minorVersionCRC="-2020681987">
+			<attribute name="request" idx="0" type="CutDay_ManualCutListRequest" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,71 @@
+<FranTkData fileName="Football-Schemas\BTCareerPersonaAcquiredDNA.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BTCareerPersonaAcquiredDNA" numMembers="64" assetId="12844409" isRecordPersistent="true" majorVersionCRC="676624219" minorVersionCRC="2035326598">
+			<attribute name="Invalid" idx="0" value="0" />
+			<attribute name="TeamFirst" idx="1" value="1" />
+			<attribute name="WinAtAllCosts" idx="2" value="2" />
+			<attribute name="Diva" idx="3" value="3" />
+			<attribute name="FamilyFocused" idx="4" value="4" />
+			<attribute name="Mentor" idx="5" value="5" />
+			<attribute name="StudentOfTheGame" idx="6" value="6" />
+			<attribute name="Accountable" idx="7" value="7" />
+			<attribute name="Aggressive" idx="8" value="8" />
+			<attribute name="Ambitious" idx="9" value="9" />
+			<attribute name="Approachable" idx="10" value="10" />
+			<attribute name="Assertive" idx="11" value="11" />
+			<attribute name="Calculated" idx="12" value="12" />
+			<attribute name="Cerebral" idx="13" value="13" />
+			<attribute name="Charismatic" idx="14" value="14" />
+			<attribute name="Collaborative" idx="15" value="15" />
+			<attribute name="OverlyCompetitive" idx="16" value="16" />
+			<attribute name="Composed" idx="17" value="17" />
+			<attribute name="Confident" idx="18" value="18" />
+			<attribute name="Conscientious" idx="19" value="19" />
+			<attribute name="Contractminded" idx="20" value="20" />
+			<attribute name="Curious" idx="21" value="21" />
+			<attribute name="Demanding" idx="22" value="22" />
+			<attribute name="Diplomatic" idx="23" value="23" />
+			<attribute name="Direct" idx="24" value="24" />
+			<attribute name="Disciplined" idx="25" value="25" />
+			<attribute name="Emotional" idx="26" value="26" />
+			<attribute name="Empathetic" idx="27" value="27" />
+			<attribute name="Expressive" idx="28" value="28" />
+			<attribute name="Flexible" idx="29" value="29" />
+			<attribute name="Focused" idx="30" value="30" />
+			<attribute name="Frugal" idx="31" value="31" />
+			<attribute name="Grounded" idx="32" value="32" />
+			<attribute name="Guarded" idx="33" value="33" />
+			<attribute name="Headstrong" idx="34" value="34" />
+			<attribute name="Independent" idx="35" value="35" />
+			<attribute name="Inquisitive" idx="36" value="36" />
+			<attribute name="Intense" idx="37" value="37" />
+			<attribute name="Leader" idx="38" value="38" />
+			<attribute name="Loyal" idx="39" value="39" />
+			<attribute name="Mindful" idx="40" value="40" />
+			<attribute name="Observant" idx="41" value="41" />
+			<attribute name="Opportunistic" idx="42" value="42" />
+			<attribute name="Outspoken" idx="43" value="43" />
+			<attribute name="Passionate" idx="44" value="44" />
+			<attribute name="Patient" idx="45" value="45" />
+			<attribute name="Pragmatic" idx="46" value="46" />
+			<attribute name="Principled" idx="47" value="47" />
+			<attribute name="Private" idx="48" value="48" />
+			<attribute name="Reliable" idx="49" value="49" />
+			<attribute name="Reserved" idx="50" value="50" />
+			<attribute name="Resilient" idx="51" value="51" />
+			<attribute name="Respectful" idx="52" value="52" />
+			<attribute name="Savvy" idx="53" value="53" />
+			<attribute name="Selfless" idx="54" value="54" />
+			<attribute name="Sensitive" idx="55" value="55" />
+			<attribute name="Serious" idx="56" value="56" />
+			<attribute name="Stoic" idx="57" value="57" />
+			<attribute name="Strategic" idx="58" value="58" />
+			<attribute name="Stubborn" idx="59" value="59" />
+			<attribute name="Transparent" idx="60" value="60" />
+			<attribute name="Uncompromising" idx="61" value="61" />
+			<attribute name="Unpredictable" idx="62" value="62" />
+			<attribute name="Wary" idx="63" value="63" />
+		</enum>
+	</schemas>
+</FranTkData>

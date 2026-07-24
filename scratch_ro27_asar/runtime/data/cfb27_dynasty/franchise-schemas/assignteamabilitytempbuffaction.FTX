@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\AssignTeamAbilityTempBuffAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\AssignAbilityTempBuffAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AssignTeamAbilityTempBuffAction" numMembers="10" base="AssignAbilityTempBuffAction" assetId="6536975" isRecordPersistent="true" majorVersionCRC="1754786103" minorVersionCRC="-843903207">
+			<attribute name="Ability" idx="0" type="PlayerAbility" default="PlayerAbility:None" />
+			<attribute name="Actor" idx="1" type="ActorName" default="ActorName:None" />
+			<attribute name="Amount" idx="2" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="Default" idx="3" type="bool" default="False" />
+			<attribute name="Enabled" idx="4" type="bool" default="True" />
+			<attribute name="OperationType" idx="5" type="TempBuffsOperationType" default="TempBuffsOperationType:Relative" />
+			<attribute name="PeriodTimeType" idx="6" type="DurationType" default="DurationType:Weeks" />
+			<attribute name="PositionCategory" idx="7" type="PositionCategory" default="PositionCategory:Invalid_" />
+			<attribute name="Target" idx="8" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="TimeValue" idx="9" type="int" minValue="0" maxValue="52" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\PrologueSetupInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PrologueSetupInfo" numMembers="10" defaultStoreCapacity="1" assetId="6494933" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-504375480" minorVersionCRC="2135692773">
+			<attribute name="AllowedAndBannedCollegeDataArray" idx="0" type="AllowedAndBannedForTeam[]" />
+			<attribute name="AllStarTeamId" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CelebrityTeamId" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CustomGameSetupInfoArray" idx="3" type="CustomGameSetupInfo[]" />
+			<attribute name="LBRosterId" idx="4" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="PlayerTemplateInfoArray" idx="5" type="ProloguePlayerTemplateInfo[]" />
+			<attribute name="QBRosterId" idx="6" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="RBRosterId" idx="7" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="RewardConfig" idx="8" type="MarketplaceRewardConfig" />
+			<attribute name="WRRosterId" idx="9" type="int" minValue="0" maxValue="32727" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

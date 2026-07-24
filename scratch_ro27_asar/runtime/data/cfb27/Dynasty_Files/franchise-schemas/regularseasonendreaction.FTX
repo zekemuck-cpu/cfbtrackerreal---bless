@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\RegularSeasonEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RegularSeasonEndReaction" numMembers="15" base="Reaction" defaultStoreCapacity="3" assetId="6499119" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-820742871" minorVersionCRC="1573706007">
+			<attribute name="AwardsEval" idx="0" type="AwardsEval" />
+			<attribute name="CoachRetirementEval" idx="1" type="CoachRetirementEval" />
+			<attribute name="EventRecord" idx="2" type="RegularSeasonEndEvent" />
+			<attribute name="FranchiseRef" idx="3" type="Franchise" />
+			<attribute name="FranchiseRules" idx="4" type="FranchiseRules" />
+			<attribute name="Handle" idx="5" type="bool()" guid="6499119-1895461" />
+			<attribute name="PlayerContractManager" idx="6" type="PlayerContractManager" />
+			<attribute name="PlayerGradeEval" idx="7" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="8" type="PlayerManager" />
+			<attribute name="PlayerProgressionEval" idx="9" type="PlayerProgressionEval" />
+			<attribute name="PlayerRetirementEval" idx="10" type="PlayersLeavingEval" />
+			<attribute name="Priority" idx="11" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SalaryMetrics" idx="12" type="SalaryMetrics" />
+			<attribute name="Season_EndOfCoachesSeasonViewRef" idx="13" type="Season_EndOfCoachesSeasonView" />
+			<attribute name="UpdateEndOfSeasonStats" idx="14" type="UpdateEndOfRegularSeasonStats" />
+		</schema>
+	</schemas>
+</FranTkData>

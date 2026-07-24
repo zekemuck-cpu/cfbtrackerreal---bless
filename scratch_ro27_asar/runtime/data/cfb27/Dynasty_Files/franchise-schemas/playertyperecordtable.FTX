@@ -1,0 +1,76 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTypeRecordTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTypeRecordTable" numMembers="69" defaultStoreCapacity="3" assetId="8091582" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2040415754" minorVersionCRC="567471442">
+			<attribute name="C_Agile" idx="0" type="record" />
+			<attribute name="C_PassProtector" idx="1" type="record" />
+			<attribute name="C_Power" idx="2" type="record" />
+			<attribute name="C_WellRounded" idx="3" type="record" />
+			<attribute name="CB_HybridCorner" idx="4" type="record" />
+			<attribute name="CB_MantoMan" idx="5" type="record" />
+			<attribute name="CB_Slot" idx="6" type="record" />
+			<attribute name="CB_Zone" idx="7" type="record" />
+			<attribute name="DE_PowerRusher" idx="8" type="record" />
+			<attribute name="DE_PurePower" idx="9" type="record" />
+			<attribute name="DE_RunStopper" idx="10" type="record" />
+			<attribute name="DE_SmallerSpeedRusher" idx="11" type="record" />
+			<attribute name="DT_NoseTackle" idx="12" type="record" />
+			<attribute name="DT_PowerRusher" idx="13" type="record" />
+			<attribute name="DT_PurePower" idx="14" type="record" />
+			<attribute name="DT_SpeedRusher" idx="15" type="record" />
+			<attribute name="FB_Blocking" idx="16" type="record" />
+			<attribute name="FB_Utility" idx="17" type="record" />
+			<attribute name="G_Agile" idx="18" type="record" />
+			<attribute name="G_PassProtector" idx="19" type="record" />
+			<attribute name="G_Power" idx="20" type="record" />
+			<attribute name="G_WellRounded" idx="21" type="record" />
+			<attribute name="GAD_Gadget" idx="22" type="record" />
+			<attribute name="HB_ElusiveBack" idx="23" type="record" />
+			<attribute name="HB_ElusivePower" idx="24" type="record" />
+			<attribute name="HB_ElusiveReceiving" idx="25" type="record" />
+			<attribute name="HB_PowerBack" idx="26" type="record" />
+			<attribute name="HB_PowerBlocking" idx="27" type="record" />
+			<attribute name="HB_PowerReceiving" idx="28" type="record" />
+			<attribute name="HB_ReceivingBack" idx="29" type="record" />
+			<attribute name="KP_Accurate" idx="30" type="record" />
+			<attribute name="KP_Power" idx="31" type="record" />
+			<attribute name="KR_Balanced" idx="32" type="record" />
+			<attribute name="Locked" idx="33" type="record" />
+			<attribute name="LS_Accurate" idx="34" type="record" />
+			<attribute name="LS_Power" idx="35" type="record" />
+			<attribute name="MLB_FieldGeneral" idx="36" type="record" />
+			<attribute name="MLB_PassCoverage" idx="37" type="record" />
+			<attribute name="MLB_RunStopper" idx="38" type="record" />
+			<attribute name="OLB_PassCoverage" idx="39" type="record" />
+			<attribute name="OLB_PowerRusher" idx="40" type="record" />
+			<attribute name="OLB_RunStopper" idx="41" type="record" />
+			<attribute name="OLB_SpeedRusher" idx="42" type="record" />
+			<attribute name="OT_Agile" idx="43" type="record" />
+			<attribute name="OT_PassProtector" idx="44" type="record" />
+			<attribute name="OT_Power" idx="45" type="record" />
+			<attribute name="OT_WellRounded" idx="46" type="record" />
+			<attribute name="PR_Balanced" idx="47" type="record" />
+			<attribute name="QB_FieldGeneral" idx="48" type="record" />
+			<attribute name="QB_Improviser" idx="49" type="record" />
+			<attribute name="QB_PureScrambler" idx="50" type="record" />
+			<attribute name="QB_Scrambler" idx="51" type="record" />
+			<attribute name="QB_StrongArm" idx="52" type="record" />
+			<attribute name="S_Hybrid" idx="53" type="record" />
+			<attribute name="S_RunSupport" idx="54" type="record" />
+			<attribute name="S_Zone" idx="55" type="record" />
+			<attribute name="TE_Blocking" idx="56" type="record" />
+			<attribute name="TE_PhysicalRouteRunner" idx="57" type="record" />
+			<attribute name="TE_Possession" idx="58" type="record" />
+			<attribute name="TE_PossessionBlocking" idx="59" type="record" />
+			<attribute name="TE_VerticalThreat" idx="60" type="record" />
+			<attribute name="WR_DeepThreat" idx="61" type="record" />
+			<attribute name="WR_GadgetReceiver" idx="62" type="record" />
+			<attribute name="WR_Physical" idx="63" type="record" />
+			<attribute name="WR_PhysicalBlocker" idx="64" type="record" />
+			<attribute name="WR_PhysicalRouteRunner" idx="65" type="record" />
+			<attribute name="WR_Playmaker" idx="66" type="record" />
+			<attribute name="WR_ShiftyRouteRunner" idx="67" type="record" />
+			<attribute name="WR_Slot" idx="68" type="record" />
+		</schema>
+	</schemas>
+</FranTkData>

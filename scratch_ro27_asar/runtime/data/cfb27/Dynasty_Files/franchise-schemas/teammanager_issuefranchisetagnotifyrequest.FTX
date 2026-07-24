@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_IssueFranchiseTagNotifyRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_IssueFranchiseTagNotifyRequest" numMembers="3" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="426088032" minorVersionCRC="-1184624160">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="player" idx="1" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

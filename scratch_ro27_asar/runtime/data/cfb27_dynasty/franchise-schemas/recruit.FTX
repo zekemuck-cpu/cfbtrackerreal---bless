@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\Recruit.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Recruit" numMembers="15" defaultStoreCapacity="7600" assetId="6716442" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="555449120" minorVersionCRC="1642121990">
+			<attribute name="AlternatePosition1" idx="0" type="DraftPositionE" default="DraftPositionE:Invalid_" />
+			<attribute name="AlternatePosition2" idx="1" type="DraftPositionE" default="DraftPositionE:Invalid_" />
+			<attribute name="Class" idx="2" type="RecruitingClass" default="RecruitingClass:Transfer_Junior" />
+			<attribute name="CommitScore" idx="3" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="NationalRank" idx="4" type="int" minValue="0" maxValue="4500" default="0" />
+			<attribute name="Player" idx="5" type="Player" />
+			<attribute name="PositionRank" idx="6" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="ProductionGrade" idx="7" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="QualityModifier" idx="8" type="GemBust" default="GemBust:NORMAL" />
+			<attribute name="RecruitStage" idx="9" type="RecruitStage" default="RecruitStage:Invalid" />
+			<attribute name="RecruitStageAdvance" idx="10" type="RecruitStageAdvance" default="RecruitStageAdvance:Invalid" />
+			<attribute name="StateRank" idx="11" type="int" minValue="0" maxValue="4000" default="0" />
+			<attribute name="SurnameAudioID" idx="12" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="TopSchoolsList" idx="13" type="ProspectTargetSchool[]" />
+			<attribute name="TotalScholarshipOffers" idx="14" type="int" minValue="0" maxValue="63" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,105 @@
+<FranTkData fileName="Franchise-Schemas\CareerOffensiveKPReturnStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CareerOffensiveStats.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerOffensiveKPReturnStats" numMembers="94" base="CareerOffensiveStats" defaultStoreCapacity="804" assetId="6320464" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-599859948" minorVersionCRC="1269715777">
+			<attribute name="4QCOMEBACKS" idx="0" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="AIRYARDS" idx="1" type="int" minValue="-200" maxValue="131071" default="0" />
+			<attribute name="BLITZ_COMPLETIONS" idx="2" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="BLITZ_INTERCEPTIONS" idx="3" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BLITZ_PLAYS" idx="4" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="BLITZ_TD" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BLITZ_YARDS" idx="6" type="int" minValue="-200" maxValue="131071" default="0" />
+			<attribute name="DEEPPASS_ATTEMPTS" idx="7" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEEPPASS_COMPLETIONS" idx="8" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="DEEPPASS_INTERCEPTIONS" idx="9" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEEPPASS_TD" idx="10" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="DEEPPASS_YARDS" idx="11" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="DOWNSPLAYED" idx="12" type="int" minValue="0" maxValue="32767" default="0" />
+			<attribute name="FIRSTDOWNS" idx="13" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="GAMERATING" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GAMESPLAYED" idx="15" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="GAMESSTARTED" idx="16" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="INSIDEPOCKETTHROW_ATTEMPTS" idx="17" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="INSIDEPOCKETTHROW_COMPLETIONS" idx="18" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="INSIDEPOCKETTHROW_INTERCEPTIONS" idx="19" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="INSIDEPOCKETTHROW_TD" idx="20" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="INSIDEPOCKETTHROW_YARDS" idx="21" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="INSIDERUN_CARRIES" idx="22" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="INSIDERUN_RUNLEFT" idx="23" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="INSIDERUN_RUNRIGHT" idx="24" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="INSIDERUN_TD" idx="25" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="INSIDERUN_YARDS" idx="26" type="int" minValue="-200" maxValue="65535" default="0" />
+			<attribute name="KRETATTEMPTS" idx="27" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="KRETLONGEST" idx="28" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="KRETTDS" idx="29" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="KRETYARDS" idx="30" type="int" minValue="-65536" maxValue="65535" default="0" />
+			<attribute name="LIGHTBOX" idx="31" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="LOADEDBOX" idx="32" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="MEDIUMPASS_ATTEMPTS" idx="33" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="MEDIUMPASS_COMPLETIONS" idx="34" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="MEDIUMPASS_INTERCEPTIONS" idx="35" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="MEDIUMPASS_TD" idx="36" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="MEDIUMPASS_YARDS" idx="37" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="OUTSIDEPOCKETTHROW_ATTEMPTS" idx="38" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="OUTSIDEPOCKETTHROW_COMPLETIONS" idx="39" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="OUTSIDEPOCKETTHROW_INTERCEPTIONS" idx="40" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="OUTSIDEPOCKETTHROW_TD" idx="41" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="OUTSIDEPOCKETTHROW_YARDS" idx="42" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="OUTSIDERUN_CARRIES" idx="43" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="OUTSIDERUN_RUNLEFT" idx="44" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="OUTSIDERUN_RUNRIGHT" idx="45" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="OUTSIDERUN_TD" idx="46" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="OUTSIDERUN_YARDS" idx="47" type="int" minValue="-200" maxValue="65535" default="0" />
+			<attribute name="PASSATTEMPTS" idx="48" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="PASSCOMPLETED" idx="49" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="PASSINTS" idx="50" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PASSLONGEST" idx="51" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="PASSSACKED" idx="52" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PASSTDS" idx="53" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PASSYARDS" idx="54" type="int" minValue="-131072" maxValue="131071" default="0" />
+			<attribute name="PRESSURES" idx="55" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="PRETATTEMPTS" idx="56" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="PRETLONGEST" idx="57" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="PRETTDS" idx="58" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="PRETYARDS" idx="59" type="int" minValue="-65536" maxValue="65535" default="0" />
+			<attribute name="QBSCRAMBLE_CARRIES" idx="60" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="QBSCRAMBLE_TD" idx="61" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="QBSCRAMBLE_YARDS" idx="62" type="int" minValue="-200" maxValue="16383" default="0" />
+			<attribute name="RECEIVECATCHES" idx="63" type="int" minValue="0" maxValue="4095" default="0" />
+			<attribute name="RECEIVEDROPS" idx="64" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RECEIVELONGEST" idx="65" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="RECEIVETDS" idx="66" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RECEIVEYARDS" idx="67" type="int" minValue="-65536" maxValue="65535" default="0" />
+			<attribute name="RECEIVEYARDSAFTER" idx="68" type="int" minValue="-16384" maxValue="16383" default="0" />
+			<attribute name="ROUTESRUN" idx="69" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="RUSH10YARDRUNS" idx="70" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="RUSH20YARDRUNS" idx="71" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="RUSHATTEMPTS" idx="72" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="RUSHBROKENTACKLES" idx="73" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="RUSHFUMBLES" idx="74" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="RUSHLONGEST" idx="75" type="int" minValue="-128" maxValue="127" default="0" />
+			<attribute name="RUSHSUCCESS" idx="76" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="RUSHTDS" idx="77" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RUSHYARDS" idx="78" type="int" minValue="-65536" maxValue="65535" default="0" />
+			<attribute name="RUSHYARDSAFTER1STHIT" idx="79" type="int" minValue="-16384" maxValue="16383" default="0" />
+			<attribute name="SEPARATION_NORMAL" idx="80" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="SEPARATION_OPEN" idx="81" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="SEPARATION_TIGHT" idx="82" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="SEPARATION_WIDEOPEN" idx="83" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="SHORTPASS_ATTEMPTS" idx="84" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="SHORTPASS_COMPLETIONS" idx="85" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="SHORTPASS_INTERCEPTIONS" idx="86" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="SHORTPASS_TD" idx="87" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="SHORTPASS_YARDS" idx="88" type="int" minValue="-100" maxValue="131071" default="0" />
+			<attribute name="STAT_KEEP" idx="89" type="bool" default="True" />
+			<attribute name="TARGETS" idx="90" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="THROWLOCATION_LEFT" idx="91" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="THROWLOCATION_MIDDLE" idx="92" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="THROWLOCATION_RIGHT" idx="93" type="int" minValue="0" maxValue="16383" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

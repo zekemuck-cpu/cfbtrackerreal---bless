@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamManager_TradeDraftPick.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamManager_TradeDraftPick" numMembers="4" base="none()" ownerAssetId="6498680" isRecordPersistent="true" isExpr="true" majorVersionCRC="-88888657" minorVersionCRC="-1784922829">
+			<attribute name="oldTeam" idx="0" type="Team" />
+			<attribute name="newTeam" idx="1" type="Team" />
+			<attribute name="pick" idx="2" type="DraftPick" />
+		</schema>
+	</schemas>
+</FranTkData>

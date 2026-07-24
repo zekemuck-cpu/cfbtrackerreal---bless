@@ -1,0 +1,43 @@
+<FranTkData fileName="Franchise-Schemas\HistoryConfiguration.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HistoryConfiguration" numMembers="36" defaultStoreCapacity="1" assetId="6494669" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-569774400" minorVersionCRC="-21482153">
+			<attribute name="DoesConfidenceEventStack" idx="0" type="bool" default="False" />
+			<attribute name="DoesPlayerAbilityProgressionStack" idx="1" type="bool" default="False" />
+			<attribute name="DoesPlayerAbilityRegressionStack" idx="2" type="bool" default="False" />
+			<attribute name="EntriesPerTeam" idx="3" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="HistoryTrackingEnabled" idx="4" type="bool" default="False" />
+			<attribute name="MaxEntries" idx="5" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="MaxUsersPerLeague" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PercentToPrune" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TrackActivity" idx="8" type="bool" default="False" />
+			<attribute name="TrackAgeRegression" idx="9" type="bool" default="False" />
+			<attribute name="TrackCoachSeasonGoal" idx="10" type="bool" default="False" />
+			<attribute name="TrackCoachStatMilestoneGoal" idx="11" type="bool" default="False" />
+			<attribute name="TrackCoachTraitProgression" idx="12" type="bool" default="False" />
+			<attribute name="TrackCoachWeeklyGoal" idx="13" type="bool" default="False" />
+			<attribute name="TrackConfidenceEvent" idx="14" type="bool" default="False" />
+			<attribute name="TrackCPUTeams" idx="15" type="bool" default="False" />
+			<attribute name="TrackFocusTraining" idx="16" type="bool" default="False" />
+			<attribute name="TrackFreeAgents" idx="17" type="bool" default="False" />
+			<attribute name="TrackInjuryRegression" idx="18" type="bool" default="False" />
+			<attribute name="TrackMissedSeasonGoal" idx="19" type="bool" default="False" />
+			<attribute name="TrackOnlyDuringOffseason" idx="20" type="bool" default="False" />
+			<attribute name="TrackPlayerAbilityProgression" idx="21" type="bool" default="False" />
+			<attribute name="TrackPlayerAbilityRegression" idx="22" type="bool" default="False" />
+			<attribute name="TrackPlayerAwardMilestoneGoal" idx="23" type="bool" default="False" />
+			<attribute name="TrackPlayerContractChangeGoal" idx="24" type="bool" default="False" />
+			<attribute name="TrackPlayerDepthChartMoveGoal" idx="25" type="bool" default="False" />
+			<attribute name="TrackPlayerDynamicGoal" idx="26" type="bool" default="False" />
+			<attribute name="TrackPlayerFantasyGoal" idx="27" type="bool" default="False" />
+			<attribute name="TrackPlayerFootballRecordMilestoneGoal" idx="28" type="bool" default="False" />
+			<attribute name="TrackPlayerSeasonGoal" idx="29" type="bool" default="False" />
+			<attribute name="TrackPlayerStatMilestoneGoal" idx="30" type="bool" default="False" />
+			<attribute name="TrackPlayerTraitProgression" idx="31" type="bool" default="False" />
+			<attribute name="TrackPlayerWeeklyGoal" idx="32" type="bool" default="False" />
+			<attribute name="TrackPlayerWeightGain" idx="33" type="bool" default="False" />
+			<attribute name="TrackPlayerWinLossStreakGoal" idx="34" type="bool" default="False" />
+			<attribute name="TrackUserTeams" idx="35" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

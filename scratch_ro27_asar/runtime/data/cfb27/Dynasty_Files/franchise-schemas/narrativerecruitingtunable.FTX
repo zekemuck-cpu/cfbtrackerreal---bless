@@ -1,0 +1,36 @@
+<FranTkData fileName="Franchise-Schemas\NarrativeRecruitingTunable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativeRecruitingTunable" numMembers="25" base="BaseTuning" defaultStoreCapacity="1" assetId="8527652" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="20217817" minorVersionCRC="358200202">
+			<attribute name="BestPlayerRatingDivisor_CB" idx="0" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="BestPlayerRatingDivisor_DE" idx="1" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="BestPlayerRatingDivisor_QB_Passer" idx="2" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="BestPlayerRatingDivisor_QB_Rushing" idx="3" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="BestPlayerRatingDivisor_RB" idx="4" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="BestPlayerRatingDivisor_S" idx="5" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="BestPlayerRatingDivisor_TE" idx="6" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="BestPlayerRatingDivisor_WR" idx="7" type="int" minValue="0" maxValue="500" default="0" />
+			<attribute name="CoachTrustPointOffers" idx="8" type="ScholarshipPointsForOffer[]" />
+			<attribute name="DraftProjectionSpline" idx="9" type="Spline" />
+			<attribute name="HighSchoolPlayingTimeModifier" idx="10" type="LetterGradeFloatValueTable" />
+			<attribute name="HighSchoolRecruitScoreTunable" idx="11" type="RecruitScoreTunable" />
+			<attribute name="HighSchoolTeamStarPercents" idx="12" type="int[]" />
+			<attribute name="MagnitudeHighThreshold" idx="13" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="MagnitudeMidThreshold" idx="14" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="OverallSchoolPrestigeSplines" idx="15" type="Spline[]" />
+			<attribute name="OverallSchoolYearSplines" idx="16" type="Spline[]" />
+			<attribute name="OVRSeasonIncreaseThreshold" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RecruitingMaxOffersToUser" idx="18" type="int" minValue="0" maxValue="200" default="20" />
+			<attribute name="SchemeFitAddition" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SchemeFitReduction" idx="20" type="int" minValue="-100" maxValue="0" default="0" />
+			<attribute name="StarLevelScholarshipPointOfferArray" idx="21" type="ScholarshipPointsForOffer[]" />
+			<attribute name="StarLevelTransferPointArray" idx="22" type="ScholarshipPointsForOffer[]" />
+			<attribute name="TransferPlayingTimeModifier" idx="23" type="LetterGradeFloatValueTable" />
+			<attribute name="TransferRecruitScoreTunable" idx="24" type="RecruitScoreTunable" />
+		</schema>
+	</schemas>
+</FranTkData>

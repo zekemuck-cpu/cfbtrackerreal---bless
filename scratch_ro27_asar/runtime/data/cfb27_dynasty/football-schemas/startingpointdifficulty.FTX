@@ -1,0 +1,12 @@
+<FranTkData fileName="Football-Schemas\StartingPointDifficulty.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="StartingPointDifficulty" numMembers="5" assetId="12534443" isRecordPersistent="true" majorVersionCRC="-1204361795" minorVersionCRC="-1768711135">
+			<attribute name="Invalid" idx="0" value="-1" />
+			<attribute name="Day1" idx="1" value="0" />
+			<attribute name="Day2" idx="2" value="1" />
+			<attribute name="Day3" idx="3" value="2" />
+			<attribute name="Count" idx="4" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

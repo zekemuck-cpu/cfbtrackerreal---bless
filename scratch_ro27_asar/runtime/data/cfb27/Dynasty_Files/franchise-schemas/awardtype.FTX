@@ -1,0 +1,62 @@
+<FranTkData fileName="Franchise-Schemas\AwardType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="AwardType" numMembers="55" assetId="6320486" isRecordPersistent="true" majorVersionCRC="-516567043" minorVersionCRC="-1048779273">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="FirstWeekly_" idx="1" value="0" />
+			<attribute name="Offensive_Player_of_Week" idx="2" value="0" />
+			<attribute name="Defensive_Player_of_Week" idx="3" value="1" />
+			<attribute name="Offensive_Player_of_Week_Conf" idx="4" value="2" />
+			<attribute name="Defensive_Player_of_Week_Conf" idx="5" value="3" />
+			<attribute name="LastWeekly_" idx="6" value="3" />
+			<attribute name="BEST_HC" idx="7" value="4" />
+			<attribute name="FirstAnnual_" idx="8" value="4" />
+			<attribute name="BEST_AC" idx="9" value="5" />
+			<attribute name="BEST_SR_QB" idx="10" value="6" />
+			<attribute name="BEST_DEF_1" idx="11" value="7" />
+			<attribute name="BEST_DE" idx="12" value="8" />
+			<attribute name="BEST_REC" idx="13" value="9" />
+			<attribute name="BEST_DEF_2" idx="14" value="10" />
+			<attribute name="BEST_QB" idx="15" value="11" />
+			<attribute name="BEST_RB" idx="16" value="12" />
+			<attribute name="BEST_TE" idx="17" value="13" />
+			<attribute name="BEST_DL" idx="18" value="14" />
+			<attribute name="BEST_KICK" idx="19" value="15" />
+			<attribute name="BEST_PLAYER" idx="20" value="16" />
+			<attribute name="BEST_IL" idx="21" value="17" />
+			<attribute name="BEST_DB" idx="22" value="18" />
+			<attribute name="BEST_PUNT" idx="23" value="19" />
+			<attribute name="BEST_C" idx="24" value="20" />
+			<attribute name="BEST_POTY" idx="25" value="21" />
+			<attribute name="BEST_SR" idx="26" value="22" />
+			<attribute name="HEISMAN" idx="27" value="23" />
+			<attribute name="BEST_LB" idx="28" value="24" />
+			<attribute name="BEST_FRESHMAN_POTY" idx="29" value="25" />
+			<attribute name="MOST_VERSATILE" idx="30" value="26" />
+			<attribute name="BEST_ACADEMIC" idx="31" value="27" />
+			<attribute name="ALL_AM_1ST" idx="32" value="28" />
+			<attribute name="FirstAllAmerican_" idx="33" value="28" />
+			<attribute name="ALL_AM_2ND" idx="34" value="29" />
+			<attribute name="ALL_AM_FR" idx="35" value="30" />
+			<attribute name="ALL_AM_1ST_CONF" idx="36" value="31" />
+			<attribute name="ALL_AM_2ND_CONF" idx="37" value="32" />
+			<attribute name="ALL_AM_FR_CONF" idx="38" value="33" />
+			<attribute name="ALL_AM_1ST_PRE" idx="39" value="34" />
+			<attribute name="ALL_AM_2ND_PRE" idx="40" value="35" />
+			<attribute name="ALL_AM_1ST_PRE_CONF" idx="41" value="36" />
+			<attribute name="ALL_AM_2ND_PRE_CONF" idx="42" value="37" />
+			<attribute name="LastAllAmerican_" idx="43" value="37" />
+			<attribute name="LastAnnual_" idx="44" value="37" />
+			<attribute name="FirstAllTime_" idx="45" value="38" />
+			<attribute name="LeagueLeader_Rush_Yards" idx="46" value="38" />
+			<attribute name="LeagueLeader_Receptions" idx="47" value="39" />
+			<attribute name="LeagueLeader_Tackles" idx="48" value="40" />
+			<attribute name="LeagueLeader_Sacks" idx="49" value="41" />
+			<attribute name="Last_" idx="50" value="42" />
+			<attribute name="LastAllTime_" idx="51" value="42" />
+			<attribute name="LeagueLeader_Interceptions" idx="52" value="42" />
+			<attribute name="Count" idx="53" value="43" />
+			<attribute name="INVALID" idx="54" value="65" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\NarrativeTransferRecruitScoreTunable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TransferRecruitScoreTunable.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativeTransferRecruitScoreTunable" numMembers="9" base="TransferRecruitScoreTunable" assetId="7746507" isRecordPersistent="true" majorVersionCRC="301143772" minorVersionCRC="-1019084843">
+			<attribute name="InHomeStateWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InPipelineWeight" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MotivationFitTable" idx="2" type="LetterGradeValueTable" />
+			<attribute name="MotivationFitWeight" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PositionWeightTable" idx="4" type="PositionCountTable" />
+			<attribute name="RankInterestWeights" idx="5" type="int[]" />
+			<attribute name="SchemeFitWeight" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StarLevelWeightSplineArray" idx="7" type="Spline[]" />
+			<attribute name="TeamNeedsBoost" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

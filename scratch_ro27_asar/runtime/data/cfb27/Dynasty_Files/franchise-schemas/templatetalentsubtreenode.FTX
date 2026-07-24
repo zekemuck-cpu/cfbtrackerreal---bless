@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TemplateTalentSubTreeNode.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TemplateTalentSubTreeNode" numMembers="5" assetId="6377540" isRecordPersistent="true" majorVersionCRC="-341238128" minorVersionCRC="-1691147384">
+			<attribute name="ChildNodeList" idx="0" type="TemplateTalentSubTreeNode[]" />
+			<attribute name="Column" idx="1" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="EvaluationTemplate" idx="2" type="TemplateTalentTreeNodeEvaluation" default="TemplateTalentTreeNodeEvaluation:AllParents" />
+			<attribute name="Level" idx="3" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="NodeIndex" idx="4" type="int" minValue="0" maxValue="44" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

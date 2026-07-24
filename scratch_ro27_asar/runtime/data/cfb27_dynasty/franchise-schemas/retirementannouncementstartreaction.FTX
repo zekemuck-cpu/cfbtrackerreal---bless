@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\RetirementAnnouncementStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RetirementAnnouncementStartReaction" numMembers="4" base="Reaction" assetId="6498953" isRecordPersistent="true" majorVersionCRC="1997195058" minorVersionCRC="-1981130336">
+			<attribute name="EventRecord" idx="0" type="RetirementAnnouncementStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6498953-1895461" />
+			<attribute name="PlayerRetirementEval" idx="2" type="PlayersLeavingEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

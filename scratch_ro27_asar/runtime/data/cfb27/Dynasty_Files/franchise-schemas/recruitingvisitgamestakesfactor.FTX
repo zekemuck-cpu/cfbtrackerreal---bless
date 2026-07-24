@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingVisitGameStakesFactor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="RecruitingVisitGameStakesFactor" numMembers="9" assetId="9196454" isRecordPersistent="true" majorVersionCRC="-1092118961" minorVersionCRC="665813549">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="SamePrestige" idx="1" value="0" />
+			<attribute name="LowerPrestige" idx="2" value="1" />
+			<attribute name="HigherPrestige" idx="3" value="2" />
+			<attribute name="Rival" idx="4" value="3" />
+			<attribute name="Last_" idx="5" value="4" />
+			<attribute name="NonFBS" idx="6" value="4" />
+			<attribute name="Count_" idx="7" value="5" />
+			<attribute name="Invalid" idx="8" value="8" />
+		</enum>
+	</schemas>
+</FranTkData>

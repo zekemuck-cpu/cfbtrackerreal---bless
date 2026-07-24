@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\TeamWinsLosses.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamWinsLosses" numMembers="22" assetId="6498660" isRecordPersistent="true" majorVersionCRC="533270401" minorVersionCRC="1030028356">
+			<attribute name="ConfLoss" idx="0" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="ConfWin" idx="1" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DivisionLoss" idx="2" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="DivisionWin" idx="3" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="HomeLoss" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeWin" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InDoorLoss" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InDoorWin" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="LongName" idx="8" type="string" maxLen="16" />
+			<attribute name="NonConfLoss" idx="9" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="NonConfWin" idx="10" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="OutDoorLoss" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OutDoorWin" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverTimeLoss" idx="13" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverTimeWin" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RoadLoss" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RoadWin" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SeasonWinLossStreak" idx="17" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="SeasonWinPct" idx="18" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TEAM_ORIGID" idx="19" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="TEAM_PREVSEASLOSSES" idx="20" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="TEAM_PREVSEASWINS" idx="21" type="int" minValue="0" maxValue="63" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

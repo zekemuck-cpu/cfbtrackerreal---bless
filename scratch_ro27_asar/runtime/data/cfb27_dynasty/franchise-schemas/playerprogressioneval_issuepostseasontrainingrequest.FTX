@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerProgressionEval_IssuePostSeasonTrainingRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerProgressionEval_IssuePostSeasonTrainingRequest" numMembers="2" base="none()" ownerAssetId="6498681" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1913214418" minorVersionCRC="-164028956">
+			<attribute name="UserCharacter" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

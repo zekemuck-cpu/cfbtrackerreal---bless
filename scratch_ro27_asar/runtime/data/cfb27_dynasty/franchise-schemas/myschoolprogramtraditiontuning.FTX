@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolProgramTraditionTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolProgramTraditionTuning" numMembers="10" base="BaseTuning" defaultStoreCapacity="1" assetId="6816538" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-484025929" minorVersionCRC="-1334404547">
+			<attribute name="ConferenceWinSpline" idx="0" type="Spline" />
+			<attribute name="GradeScoreRange" idx="1" type="MySchoolRankingRangesTable" />
+			<attribute name="HeismanWinSpline" idx="2" type="Spline" />
+			<attribute name="NationalLossMod" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NationalWinSpline" idx="4" type="Spline" />
+			<attribute name="NonNY6andCFPSBowlLossMod" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NonNY6andCFPSBowlWinMod" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NY6andCFPSBowlLossMod" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NY6andCFPSBowlWinMod" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SeasonWinMod" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

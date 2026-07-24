@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\UICoachStanceSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UICoachStanceSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="3" assetId="11335283" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="34" majorVersionCRC="-2009135524" minorVersionCRC="1459253854">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="CoachStance" default="CoachStance:Classic" />
+		</schema>
+	</schemas>
+</FranTkData>

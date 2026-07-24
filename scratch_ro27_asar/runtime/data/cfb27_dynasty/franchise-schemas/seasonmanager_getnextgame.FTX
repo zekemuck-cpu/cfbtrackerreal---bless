@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\SeasonManager_GetNextGame.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonManager_GetNextGame" numMembers="4" base="SeasonGame()" ownerAssetId="6494907" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1274314656" minorVersionCRC="1666108402">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="weekType" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="week" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

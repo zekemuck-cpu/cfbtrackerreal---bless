@@ -1,0 +1,39 @@
+<FranTkData fileName="Franchise-Schemas\SeasonManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SeasonManager" numMembers="32" base="Module" assetId="6494907" isRecordPersistent="true" majorVersionCRC="237945120" minorVersionCRC="-654485638">
+			<attribute name="BeginStage" idx="0" type="SeasonManager_BeginStage" guid="6494907-1912922" final="true" default="// Set the season info.&#xD;&#xA;SeasonInfo.CurrentStage = stage;&#xD;&#xA;SeasonInfo.CurrentWeekType = weekType;&#xD;&#xA;SeasonInfo.CurrentWeek = 0;&#xD;&#xA;&#xD;&#xA;// Send the event.&#xD;&#xA;BeginStageEvent.Year = SeasonInfo.CurrentYear;&#xD;&#xA;BeginStageEvent.Stage = SeasonInfo.CurrentStage;&#xD;&#xA;BeginStageEvent.Send();" />
+			<attribute name="BeginStageEvent" idx="1" type="Season_BeginStageEvent" />
+			<attribute name="BeginWeek" idx="2" type="none()" guid="6494907-1912931" final="true" default="// Look up the current week type.&#xD;&#xA;// SeasonInfo.CurrentWeekType = GetWeekType(SeasonInfo.CurrentStage, SeasonInfo.CurrentWeek);&#xD;&#xA;&#xD;&#xA;SeasonStandingsRef.UpdatePollsRankings();&#xD;&#xA;&#xD;&#xA;RosterInfo.MaxRosterSize = RosterInfo.EndOfWeekMaxRosterSize;&#xD;&#xA;&#xD;&#xA;// Send the event.&#xD;&#xA;BeginWeekEvent.Year = SeasonInfo.CurrentYear;&#xD;&#xA;BeginWeekEvent.Stage = SeasonInfo.CurrentStage;&#xD;&#xA;BeginWeekEvent.WeekType = SeasonInfo.CurrentWeekType;&#xD;&#xA;BeginWeekEvent.Week = SeasonInfo.CurrentWeek;&#xD;&#xA;BeginWeekEvent.Send();&#xD;&#xA;&#xD;&#xA;SeasonInfoEvent.Send();" />
+			<attribute name="BeginWeekEvent" idx="3" type="Season_BeginWeekEvent" />
+			<attribute name="BeginYear" idx="4" type="none()" guid="6494907-1912916" final="true" default="// Initialize the season info.&#xD;&#xA;SeasonInfo.CurrentStage = SeasonStage.PreSeason;&#xD;&#xA;SeasonInfo.CurrentWeekType = SeasonWeekType.PreSeason;&#xD;&#xA;SeasonInfo.CurrentWeek = 0;&#xD;&#xA;&#xD;&#xA;// Send the event.&#xD;&#xA;BeginYearEvent.Year = SeasonInfo.CurrentYear;&#xD;&#xA;BeginYearEvent.Send();&#xD;&#xA;" />
+			<attribute name="BeginYearEvent" idx="5" type="Season_BeginYearEvent" />
+			<attribute name="ByeWeekEvent" idx="6" type="ByeWeekEvent" />
+			<attribute name="CreateSchedules" idx="7" type="none()" guid="6494907-1912967" />
+			<attribute name="Dynasty" idx="8" type="Franchise" />
+			<attribute name="EndStage" idx="9" type="SeasonManager_EndStage" guid="6494907-1912927" final="true" default="// Send the event.&#xD;&#xA;EndStageEvent.Year = SeasonInfo.CurrentYear;&#xD;&#xA;EndStageEvent.Stage = SeasonInfo.CurrentStage;&#xD;&#xA;EndStageEvent.Send();" />
+			<attribute name="EndStageEvent" idx="10" type="Season_EndStageEvent" />
+			<attribute name="EndWeek" idx="11" type="none()" guid="6494907-1912934" final="true" default="// Send the event.&#xD;&#xA;EndWeekEvent.Year = SeasonInfo.CurrentYear;&#xD;&#xA;EndWeekEvent.Stage = SeasonInfo.CurrentStage;&#xD;&#xA;EndWeekEvent.WeekType = SeasonInfo.CurrentWeekType;&#xD;&#xA;EndWeekEvent.Week = SeasonInfo.CurrentWeek;&#xD;&#xA;EndWeekEvent.Send();&#xD;&#xA;&#xD;&#xA;// Increment the week.&#xD;&#xA;SeasonInfo.CurrentWeek = SeasonInfo.CurrentWeek + 1;" />
+			<attribute name="EndWeekEvent" idx="12" type="Season_EndWeekEvent" />
+			<attribute name="EndYear" idx="13" type="none()" guid="6494907-1912919" final="true" default="// Send the event.&#xD;&#xA;EndYearEvent.Year = SeasonInfo.CurrentYear;&#xD;&#xA;EndYearEvent.Send();&#xD;&#xA;&#xD;&#xA;// Increment the year.&#xD;&#xA;SeasonInfo.CurrentYear = SeasonInfo.CurrentYear + 1;&#xD;&#xA;SeasonInfo.CurrentSeasonYear = SeasonInfo.CurrentSeasonYear + 1;" />
+			<attribute name="EndYearEvent" idx="14" type="Season_EndYearEvent" />
+			<attribute name="GetCurrentCalendarYear" idx="15" type="int()" guid="6494907-1912955" final="true" default="int year = SeasonInfo.CurrentYear;&#xD;&#xA;year;" />
+			<attribute name="GetCurrentOpponent" idx="16" type="SeasonManager_GetCurrentOpponent" guid="6494907-1912951" final="true" />
+			<attribute name="GetNextGame" idx="17" type="SeasonManager_GetNextGame" guid="6494907-1912958" final="true" />
+			<attribute name="GetOpponent" idx="18" type="SeasonManager_GetOpponent" guid="6494907-1912945" final="true" />
+			<attribute name="GetRemainingWeeksInSeason" idx="19" type="int()" guid="6494907-2065031" />
+			<attribute name="GetSeasonGamesForWeek" idx="20" type="SeasonManager_GetSeasonGamesForWeek" guid="6494907-1912971" final="true" />
+			<attribute name="GetTotalYearLength" idx="21" type="int()" guid="6494907-1912969" />
+			<attribute name="IssueByeWeekRequest" idx="22" type="SeasonManager_IssueByeWeekRequest" guid="6494907-2079069" final="true" default="ByeWeekRequest request = new ByeWeekRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 1;&#xD;&#xA;&#xD;&#xA;// We intentionally don't add a response since the request isn't intended to take the user anywhere or perform an action.&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="RosterInfo" idx="23" type="RosterInfo" />
+			<attribute name="Scheduler" idx="24" type="Scheduler" />
+			<attribute name="SeasonInfo" idx="25" type="SeasonInfo" />
+			<attribute name="SeasonInfoEvent" idx="26" type="SeasonInfoUpdateEvent" />
+			<attribute name="SeasonSchedule" idx="27" type="SeasonGame[]" />
+			<attribute name="SeasonScheduleManager" idx="28" type="SeasonScheduleManager" />
+			<attribute name="SeasonStandingsRef" idx="29" type="SeasonStandings" />
+			<attribute name="SendByeWeekEvent" idx="30" type="SeasonManager_SendByeWeekEvent" guid="6494907-2445043" final="true" default="// Send the event&#xD;&#xA;ByeWeekEvent.Team = team;&#xD;&#xA;ByeWeekEvent.Send();" />
+			<attribute name="TeamSeasonStartEvent" idx="31" type="TeamSeasonStartEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

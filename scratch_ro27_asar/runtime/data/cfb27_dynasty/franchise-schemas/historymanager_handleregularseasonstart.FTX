@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\HistoryManager_HandleRegularSeasonStart.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HistoryManager_HandleRegularSeasonStart" numMembers="2" base="none()" ownerAssetId="6495141" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1065416325" minorVersionCRC="-817499950">
+			<attribute name="event" idx="0" type="RegularSeasonStartEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

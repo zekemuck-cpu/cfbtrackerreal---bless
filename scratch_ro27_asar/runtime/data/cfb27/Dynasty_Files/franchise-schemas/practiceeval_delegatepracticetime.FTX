@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_DelegatePracticeTime.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_DelegatePracticeTime" numMembers="4" base="none()" ownerAssetId="6708631" isRecordPersistent="true" isExpr="true" majorVersionCRC="607661987" minorVersionCRC="-263401212">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="UserEntity" idx="1" type="UserEntity" />
+			<attribute name="Minigame" idx="2" type="MiniGame" />
+		</schema>
+	</schemas>
+</FranTkData>

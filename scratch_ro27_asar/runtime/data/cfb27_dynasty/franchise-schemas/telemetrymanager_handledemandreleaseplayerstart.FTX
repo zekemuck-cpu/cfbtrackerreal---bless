@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_HandleDemandReleasePlayerStart.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_HandleDemandReleasePlayerStart" numMembers="2" base="none()" ownerAssetId="6499176" isRecordPersistent="true" isExpr="true" majorVersionCRC="1689475584" minorVersionCRC="802519120">
+			<attribute name="EventRecord" idx="0" type="DemandReleasePlayerStartEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

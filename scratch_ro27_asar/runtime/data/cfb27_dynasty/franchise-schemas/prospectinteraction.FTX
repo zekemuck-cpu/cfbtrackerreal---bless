@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\ProspectInteraction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ProspectInteraction" numMembers="10" defaultStoreCapacity="3700" assetId="6716568" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="586660818" minorVersionCRC="1581469336">
+			<attribute name="HasOfferedScholarship" idx="0" type="bool" default="False" />
+			<attribute name="IsDevTraitUnlocked" idx="1" type="bool" default="False" />
+			<attribute name="IsVisitScheduled" idx="2" type="bool" default="False" />
+			<attribute name="Recruit" idx="3" type="Recruit" />
+			<attribute name="Team" idx="4" type="Team" />
+			<attribute name="TimesScouted" idx="5" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="UnlockedIntelBitfield" idx="6" type="int" minValue="0" maxValue="16383" default="0" />
+			<attribute name="VisitActivityType" idx="7" type="VisitActivityType" default="VisitActivityType:Invalid" />
+			<attribute name="VisitWeekNumber" idx="8" type="int" minValue="0" maxValue="31" default="31" />
+			<attribute name="VisitWeekType" idx="9" type="SeasonWeekType" default="SeasonWeekType:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

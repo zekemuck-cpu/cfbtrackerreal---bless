@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TemplateTalentSubTree.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TemplateTalentSubTree" numMembers="4" defaultStoreCapacity="13" assetId="6377541" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-250704368" minorVersionCRC="-204951222">
+			<attribute name="MaxColumns" idx="0" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="MaxRows" idx="1" type="int" minValue="0" maxValue="32" default="0" />
+			<attribute name="TalentTreeShapeId" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TemplateNodeList" idx="3" type="TemplateTalentSubTreeNode[]" />
+		</schema>
+	</schemas>
+</FranTkData>

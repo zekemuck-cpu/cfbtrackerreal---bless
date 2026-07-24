@@ -1,0 +1,9 @@
+<FranTkData fileName="Football-Schemas\GenericHeadPortraitIdMapElement.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GenericHeadPortraitIdMapElement" numMembers="2" assetId="9549449" isRecordPersistent="true" majorVersionCRC="-1519737051" minorVersionCRC="1454834575">
+			<attribute name="GenericHeadAssetName" idx="0" type="string" maxLen="27" />
+			<attribute name="PortraitId" idx="1" type="int" minValue="0" maxValue="32767" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

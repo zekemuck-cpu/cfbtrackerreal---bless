@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleForcedUserTeamChange.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleForcedUserTeamChange" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2046195125" minorVersionCRC="569157908">
+			<attribute name="event" idx="0" type="ForcedUserTeamChangeEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

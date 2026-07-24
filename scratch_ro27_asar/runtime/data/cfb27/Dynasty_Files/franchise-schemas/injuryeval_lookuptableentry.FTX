@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\InjuryEval_LookupTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="InjuryEval_LookupTableEntry" numMembers="8" assetId="6494665" isRecordPersistent="true" majorVersionCRC="2015868236" minorVersionCRC="1826560759">
+			<attribute name="BodyPart" idx="0" type="InjuryBodyPart" default="InjuryBodyPart:Invalid_" />
+			<attribute name="CanBeFullPracticeInjury" idx="1" type="bool" default="False" />
+			<attribute name="CanBeLimitedPracticeInjury" idx="2" type="bool" default="False" />
+			<attribute name="InjuryType" idx="3" type="InjuryType" default="InjuryType:Invalid_" />
+			<attribute name="MaxWeeks" idx="4" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="MinWeeks" idx="5" type="int" minValue="0" maxValue="40" default="0" />
+			<attribute name="RegressionPoints" idx="6" type="int" minValue="0" maxValue="65000" default="500" />
+			<attribute name="Severity" idx="7" type="InjurySeverity" default="InjurySeverity:Invalid_" />
+		</schema>
+	</schemas>
+</FranTkData>

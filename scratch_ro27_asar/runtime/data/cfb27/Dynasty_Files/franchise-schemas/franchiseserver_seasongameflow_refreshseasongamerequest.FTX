@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_SeasonGameFlow_RefreshSeasonGameRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_SeasonGameFlow_RefreshSeasonGameRequest" numMembers="2" base="none()" ownerAssetId="6499130" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1098676808" minorVersionCRC="-1655637841">
+			<attribute name="seasonGame" idx="0" type="SeasonGameRequest" />
+		</schema>
+	</schemas>
+</FranTkData>

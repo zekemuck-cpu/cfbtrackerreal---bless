@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\CoachCarouselEndEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachCarouselEndEvent" numMembers="2" base="Event" assetId="6598624" isRecordPersistent="true" majorVersionCRC="-144262985" minorVersionCRC="-436431158">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598624-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598624-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

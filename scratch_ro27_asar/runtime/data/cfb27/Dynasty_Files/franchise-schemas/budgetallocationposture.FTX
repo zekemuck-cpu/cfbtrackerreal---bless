@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\BudgetAllocationPosture.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BudgetAllocationPosture" numMembers="15" assetId="13293978" isRecordPersistent="true" majorVersionCRC="-767318503" minorVersionCRC="938720681">
+			<attribute name="Balanced" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="ArmyOfPolos" idx="2" value="1" />
+			<attribute name="BuilderFundraiser" idx="3" value="2" />
+			<attribute name="CoordinatorFocused" idx="4" value="3" />
+			<attribute name="HSDevelopmental" idx="5" value="4" />
+			<attribute name="HSRecruitingFocus" idx="6" value="5" />
+			<attribute name="OverallTalentAcquisition" idx="7" value="6" />
+			<attribute name="PortalRecruitingFocus" idx="8" value="7" />
+			<attribute name="PortalRecruitingFundraiser" idx="9" value="8" />
+			<attribute name="SupportStaffFocused" idx="10" value="9" />
+			<attribute name="Last_" idx="11" value="10" />
+			<attribute name="WinNow" idx="12" value="10" />
+			<attribute name="Count_" idx="13" value="11" />
+			<attribute name="Invalid" idx="14" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

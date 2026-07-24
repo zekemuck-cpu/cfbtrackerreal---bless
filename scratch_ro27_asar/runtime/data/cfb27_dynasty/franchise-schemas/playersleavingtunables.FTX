@@ -1,0 +1,50 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingTunables.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingTunables" numMembers="39" base="BaseTuning" defaultStoreCapacity="1" assetId="6820638" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="14" majorVersionCRC="266155464" minorVersionCRC="351554979">
+			<attribute name="AllAmerican" idx="0" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="AllConference" idx="1" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="BaseCoachPersuasionChance" idx="2" type="LetterGradeValueTable" />
+			<attribute name="BasePersuasionAttemptsPerPlayer" idx="3" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="BaseTotalPersuasionAttempts" idx="4" type="LetterGradeValueTable" />
+			<attribute name="ChanceToLeaveLowExpectationCutoff" idx="5" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="ChanceToLeaveModPercentageSpline" idx="6" type="Spline" />
+			<attribute name="ChanceToLeaveModRawSpline" idx="7" type="Spline" />
+			<attribute name="ChanceToTransfer" idx="8" type="Spline" />
+			<attribute name="ChanceToTransferGradeDeltaModifier" idx="9" type="Spline" />
+			<attribute name="ChanceToTransferGradeDeltaModInputOffset" idx="10" type="int" minValue="0" maxValue="12" default="12" />
+			<attribute name="ChanceToTransferPrestigeModifier" idx="11" type="Spline[]" />
+			<attribute name="ConferenceChampion" idx="12" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="DealbreakerOdds" idx="13" type="Spline" />
+			<attribute name="DraftPosition" idx="14" type="int" minValue="0" maxValue="100" default="20" />
+			<attribute name="DraftResultsActionItemString" idx="15" type="string" maxLen="16" default="Draft Results" />
+			<attribute name="HeismanCandidate" idx="16" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="HeismanWinner" idx="17" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="Injured" idx="18" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="MaxEarlyNFLPlayers" idx="19" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="MaxTransferPerPosition" idx="20" type="PositionCountTable" />
+			<attribute name="MinDraftRoundForPersuasion" idx="21" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="MinimumDraftOVR" idx="22" type="int" minValue="0" maxValue="100" default="94" />
+			<attribute name="MinPersuasionChanceForDraftAttempt" idx="23" type="int" minValue="0" maxValue="100" default="30" />
+			<attribute name="MinPersuasionChanceForTransferAttempt" idx="24" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="MinQualityReplacementValues" idx="25" type="int" minValue="0" maxValue="100" default="85" />
+			<attribute name="MotivationWeight_FiveStars" idx="26" type="int[]" />
+			<attribute name="MotivationWeight_FourStars" idx="27" type="int[]" />
+			<attribute name="MotivationWeight_OneStars" idx="28" type="int[]" />
+			<attribute name="MotivationWeight_ThreeStars" idx="29" type="int[]" />
+			<attribute name="MotivationWeight_TwoStars" idx="30" type="int[]" />
+			<attribute name="NationalChampion" idx="31" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="PersuasionChance" idx="32" type="Spline" />
+			<attribute name="PlayingTimePositionDealbreakerTable" idx="33" type="PlayerPositionGroupLookupTable" />
+			<attribute name="ProDraftRounds" idx="34" type="PositionGroupMinMaxTable[]" />
+			<attribute name="ProjectedFirstDraftRound" idx="35" type="int" minValue="0" maxValue="100" default="90" />
+			<attribute name="ProjectedSecondDraftRound" idx="36" type="int" minValue="0" maxValue="100" default="30" />
+			<attribute name="TransferPersuasionOvrDif" idx="37" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="WonAnAward" idx="38" type="int" minValue="0" maxValue="100" default="3" />
+		</schema>
+	</schemas>
+</FranTkData>

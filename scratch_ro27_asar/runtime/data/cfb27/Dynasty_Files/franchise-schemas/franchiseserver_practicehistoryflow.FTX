@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_PracticeHistoryFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_PracticeHistoryFlow" numMembers="21" base="FranTkServer_Flow" assetId="6499330" isRecordPersistent="true" majorVersionCRC="-5248714" minorVersionCRC="-1976393402">
+			<attribute name="ConfidenceTutorialList" idx="0" type="TutorialInfo[]" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="GamePrepTutorialList" idx="4" type="TutorialInfo[]" />
+			<attribute name="HistoryManager" idx="5" type="HistoryManager" />
+			<attribute name="PlayerAbilityEnumTable" idx="6" type="EnumTable" />
+			<attribute name="PlayerRewardTypeEnumTable" idx="7" type="EnumTable" />
+			<attribute name="PlayerTraitDevelopmentEnumTable" idx="8" type="record" />
+			<attribute name="PlayerTraitDisplayTable" idx="9" type="PlayerTraitDisplayTable" />
+			<attribute name="PlayerTraitEnumTable" idx="10" type="EnumTable" />
+			<attribute name="PlayerTypeEnumTable" idx="11" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="12" type="EnumTable" />
+			<attribute name="PracticeEval" idx="13" type="PracticeEval" />
+			<attribute name="ProgressionTutorialList" idx="14" type="TutorialInfo[]" />
+			<attribute name="RequestServer" idx="15" type="RequestServer" />
+			<attribute name="RosterEval" idx="16" type="RosterEval" />
+			<attribute name="SeasonManager" idx="17" type="SeasonManager" />
+			<attribute name="SeasonScheduleManager" idx="18" type="SeasonScheduleManager" />
+			<attribute name="SignatureAbilitiesEval" idx="19" type="SignatureAbilitiesEval" />
+			<attribute name="UserRegistry" idx="20" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,166 @@
+<FranTkData fileName="Franchise-Schemas\CoachTalentEffects.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachTalentEffects" numMembers="159" defaultStoreCapacity="138" assetId="6495092" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1930105972" minorVersionCRC="-1036128972">
+			<attribute name="AdditionalFocusPlayers" idx="0" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="BoostTrainingXP_CB" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BoostTrainingXP_DE_DT" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BoostTrainingXP_FS_SS" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BoostTrainingXP_HB_FB" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BoostTrainingXP_OL" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BoostTrainingXP_OLB_MLB" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BoostTrainingXP_QB" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BoostTrainingXP_WR_TE" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Coach_XPBoost_GoalComplete" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachCarousel_IncreaseCoachPoints_NewContract" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Composure_ComposureBoost_StartGame" idx="11" type="int[]" />
+			<attribute name="Composure_HotStart_BigGame" idx="12" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Composure_StayHot_FourthQuarter" idx="13" type="int[]" />
+			<attribute name="Composure_StayHot_OnBreaks" idx="14" type="int[]" />
+			<attribute name="Contract_Extenstion_Fired" idx="15" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Contracts_BoostLength_Start" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Contracts_BoostSecurity_Start" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Contracts_Coordinators_AcceptMoreOften" idx="18" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="Contracts_Coordinators_BetterCandidates" idx="19" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="Contracts_Coordinators_LessPoached" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Contracts_ExpectationDecrease_Start" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Contracts_XPBoost_NewJob" idx="22" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="DecreaseInjury" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefCoordDiscount" idx="24" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Defense_CntrDefFatigueBoxDefOnCarry" idx="25" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_CntrDefFatigueDLOnCarry" idx="26" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_DLineWinChance" idx="27" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_GetBlocksQuicker" idx="28" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_HFABoost" idx="29" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_HFABoost2" idx="30" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_LongPassDef" idx="31" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_MedPassDef" idx="32" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_OffensiveDisengageLimit" idx="33" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_OLBlitzDef" idx="34" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_PenaltyProtect" idx="35" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_PenaltyProtect2" idx="36" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_QuickSnapProtection" idx="37" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_ReducedTeamFatigue" idx="38" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_RunDisguisedBoost" idx="39" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Defense_ShortPassDef" idx="40" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="DefensiveTalentRefund" idx="41" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_CB" idx="42" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_DE_DT" idx="43" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_FS_SS" idx="44" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_HB_FB" idx="45" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_OL" idx="46" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_OLB_MLB" idx="47" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_QB" idx="48" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="FA_Influence_WR_TE" idx="49" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GameResults_XPBoost_BigWin" idx="50" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="GameResults_XPBoost_Streak" idx="51" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GameResults_XPBoost_Win" idx="52" type="int" minValue="0" maxValue="4500" default="0" />
+			<attribute name="GameResults_XPBoostPlayer_Win" idx="53" type="int" minValue="0" maxValue="6000" default="0" />
+			<attribute name="GuaranteeTradePackage" idx="54" type="bool" default="False" />
+			<attribute name="HFA_BoostMomentum_HomeGames" idx="55" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HFA_BoostMomentum_RivalGames" idx="56" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HFA_CounterMomentum" idx="57" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HFA_CounterMomentum_RivalGames" idx="58" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IncDefCoordInfluence" idx="59" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IncOffCoordInfluence" idx="60" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OffCoordDiscount" idx="61" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Offense_DefFatigueBoxDefOnCarry" idx="62" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_DefFatigueDLOnCarry" idx="63" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_DefNotLookingBonus" idx="64" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_HFAProtect" idx="65" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_HFAProtect2" idx="66" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_HoldBlocksLonger" idx="67" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_ImprovedDisengage" idx="68" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_LongPassBoost" idx="69" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_MedPassBoost" idx="70" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_OLBlitzDetection" idx="71" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_PenaltyProtect" idx="72" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_PenaltyProtect2" idx="73" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_QuickSnapBonus" idx="74" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_ReducedTeamFatigue" idx="75" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_SeeDefCoverageInc" idx="76" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="Offense_ShortPassBoost" idx="77" type="int" minValue="0" maxValue="7" default="0" />
+			<attribute name="OffensiveTalentRefund" idx="78" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Pipeline_LevelBoost_AlmaMater" idx="79" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Pipeline_LevelBoost_Bottom5" idx="80" type="int" minValue="0" maxValue="150" default="0" />
+			<attribute name="Pipeline_LevelBoost_Top2" idx="81" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Pipeline_LevelBoost_Top5" idx="82" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayerPersonnelDiscount" idx="83" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersLeaving_AdditionalPersuadeAttempts" idx="84" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersLeaving_BoostPersuadeRate" idx="85" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersLeaving_FreePersuade" idx="86" type="bool" default="False" />
+			<attribute name="PlayersLeaving_IncreaseDraftStock" idx="87" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersLeaving_InterestBoost_Transfers" idx="88" type="int[]" />
+			<attribute name="PlayersLeaving_LeaveForProsChance1st" idx="89" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersLeaving_LeaveForProsChance2nd" idx="90" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersLeaving_LeaveForProsChanceLate" idx="91" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersLeaving_LessTransferChance" idx="92" type="int[]" />
+			<attribute name="PlayersLeaving_SecondPersuade" idx="93" type="bool" default="False" />
+			<attribute name="PlayersLeaving_ThresholdDecrease_Dealbreakers" idx="94" type="int[]" />
+			<attribute name="PlayersLeaving_XPBoost_PlayerDrafted" idx="95" type="int" minValue="0" maxValue="20000" default="0" />
+			<attribute name="PlayersLeaving_XPBoostPlayer_Draft" idx="96" type="int[]" />
+			<attribute name="Practice_IncreaseHotChance" idx="97" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Practice_IncreaseXPEarned" idx="98" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ProgramPoints_DecreaseRiskOfTransfer" idx="99" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ProgramPoints_IncreasePointsFromGrades" idx="100" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ProgramPoints_IncreaseRewardContract" idx="101" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ProgramPoints_RecruitingNILIncreaseInfluence" idx="102" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Records_XPBoost_RecordHolders" idx="103" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Recruiting_Action_InfluenceBoost" idx="104" type="int[]" />
+			<attribute name="Recruiting_Action_InfluenceBoost_Pipeline" idx="105" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Recruiting_AlmaMater_InfluenceBoost" idx="106" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Recruiting_BonusHours" idx="107" type="int[]" />
+			<attribute name="Recruiting_BoostChance_DevTraitUnlock" idx="108" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Recruiting_BoostCommitChanceOn1st" idx="109" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Recruiting_InfluenceBoost_Pipeline" idx="110" type="int[]" />
+			<attribute name="Recruiting_InfluenceBoost_PipelineStart" idx="111" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Recruiting_InfluenceBoost_PlayerLevelUp" idx="112" type="int[]" />
+			<attribute name="Recruiting_InfluenceBoost_Start" idx="113" type="int[]" />
+			<attribute name="Recruiting_PointsBoost_Accelerate" idx="114" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="Recruiting_PointsBoost_CompVisit" idx="115" type="int[]" />
+			<attribute name="Recruiting_PointsBoost_SchoolGrade" idx="116" type="int[]" />
+			<attribute name="Recruiting_PointsBoost_Visit" idx="117" type="int[]" />
+			<attribute name="Recruiting_SchoolGradeBoost_IdealPitch" idx="118" type="int[]" />
+			<attribute name="Recruiting_ScoutingBoost_Start" idx="119" type="int[]" />
+			<attribute name="Recruiting_SeeAtRiskPlayers_OtherTeams" idx="120" type="bool" default="False" />
+			<attribute name="Recruiting_SwayBoost" idx="121" type="int[]" />
+			<attribute name="Recruiting_UnlockTrait_Visit" idx="122" type="int[]" />
+			<attribute name="Recruiting_Visits_Increase" idx="123" type="int" minValue="0" maxValue="4" default="0" />
+			<attribute name="Recruiting_XPBoost_SignedRecruits" idx="124" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="Recruiting_XPBoost_SignedRecruitsHighCaliber" idx="125" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="ReduceCostTradingUp" idx="126" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ReduceDevSnapCount" idx="127" type="Player" />
+			<attribute name="RefundTalentTree" idx="128" type="bool" default="False" />
+			<attribute name="ReSignDiscountOVR" idx="129" type="TalentDataReSignDiscountOVR" />
+			<attribute name="SchemeFitTraining" idx="130" type="bool" default="False" />
+			<attribute name="School_XPBoost_Prestige" idx="131" type="int" minValue="0" maxValue="150" default="0" />
+			<attribute name="SigningSchemeFitIncrease" idx="132" type="int" minValue="0" maxValue="150" default="0" />
+			<attribute name="SlowRegressionForPos" idx="133" type="TalentEffectsDataSlowRegressionForPosition" />
+			<attribute name="Talents_CoachPointDiscount_NewArcheType" idx="134" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Talents_CoachPointDiscount_SameTalents" idx="135" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TeamRelativeAbilities" idx="136" type="TalentDataTeamRelativeAbilities[]" />
+			<attribute name="TradeDiscountCpuDraft" idx="137" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TradeDiscountCpuPlayers" idx="138" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TradeDiscountOldPlayers" idx="139" type="TalentDataTradeDiscountOldPlayers" />
+			<attribute name="TradeValueIncDraftPicks" idx="140" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TradeValueIncUserPlayers" idx="141" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Training_ChanceBoost_DevTrait" idx="142" type="int" minValue="0" maxValue="20" default="0" />
+			<attribute name="Training_SkillCapBoost_BigGame" idx="143" type="int[]" />
+			<attribute name="Training_SkillCapBoost_LevelUp" idx="144" type="int[]" />
+			<attribute name="Training_SkillGroupIncrease_Seniors" idx="145" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Training_XPBoost_MaxProgression" idx="146" type="int" minValue="0" maxValue="1500" default="0" />
+			<attribute name="Training_XPBoost_PlayerLevelUp" idx="147" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Training_XPBoostPlayer_Offseason" idx="148" type="int[]" />
+			<attribute name="Training_XPBoostPlayer_OnField" idx="149" type="int[]" />
+			<attribute name="Training_XPBoostPlayer_Starters" idx="150" type="int[]" />
+			<attribute name="Training_XPBoostPlayer_UnderClassMen" idx="151" type="int[]" />
+			<attribute name="Training_XPPlayerBoost_General" idx="152" type="int[]" />
+			<attribute name="Training_XPPlayerBoost_WinStreak" idx="153" type="int[]" />
+			<attribute name="UnlockUninterestedPlayer" idx="154" type="Player" />
+			<attribute name="WearTear_RecoveryBoost" idx="155" type="int[]" />
+			<attribute name="XFactorDefenseEnabled" idx="156" type="bool" default="False" />
+			<attribute name="XFactorDevTraitBoost" idx="157" type="bool" default="False" />
+			<attribute name="XFactorOffenseEnabled" idx="158" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

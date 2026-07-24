@@ -1,0 +1,23 @@
+<FranTkData fileName="Franchise-Schemas\CollegeExperienceInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CollegeExperienceInfo" numMembers="16" assetId="6498719" isRecordPersistent="true" majorVersionCRC="-1195559347" minorVersionCRC="-2104698043">
+			<attribute name="ChampGameStats" idx="0" type="PrologueGameStats" />
+			<attribute name="CollegeBrand" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CollegeTeamPresentationId" idx="2" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CombinePerformance" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DidWinBossBattle" idx="4" type="bool" default="False" />
+			<attribute name="DidWinCollegeGame1" idx="5" type="bool" default="False" />
+			<attribute name="DidWinCollegeGame2" idx="6" type="bool" default="False" />
+			<attribute name="Drill1Performance" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="IsComplete" idx="8" type="bool" default="False" />
+			<attribute name="LBRosterId" idx="9" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="QBRosterId" idx="10" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="RBRosterId" idx="11" type="int" minValue="0" maxValue="32727" default="0" />
+			<attribute name="Screenshot1Filename" idx="12" type="string" maxLen="1" />
+			<attribute name="Screenshot2Filename" idx="13" type="string" maxLen="1" />
+			<attribute name="Screenshot3Filename" idx="14" type="string" maxLen="1" />
+			<attribute name="WRRosterId" idx="15" type="int" minValue="0" maxValue="32727" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

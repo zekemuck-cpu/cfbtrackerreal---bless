@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\PositionBasedCoachActor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceActor.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PositionBasedCoachActor" numMembers="4" base="SequenceActor" assetId="11909960" isRecordPersistent="true" majorVersionCRC="-317993450" minorVersionCRC="-192241376">
+			<attribute name="ActorName" idx="0" type="ActorName" default="ActorName:Player" />
+			<attribute name="PluginType" idx="1" type="NarrativeActorPluginType" default="NarrativeActorPluginType:NarrativeTargetedActor" />
+			<attribute name="Position" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TeamActor" idx="3" type="ActorName" default="ActorName:None" />
+		</schema>
+	</schemas>
+</FranTkData>

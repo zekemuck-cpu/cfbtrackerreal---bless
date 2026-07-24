@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\EvaluateContractOffers_SetPlayerInterest_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EvaluateContractOffers_SetPlayerInterest_Formula" numMembers="4" base="none()" ownerAssetId="6539665" isRecordPersistent="true" isExpr="true" majorVersionCRC="-2035801067" minorVersionCRC="1095495973">
+			<attribute name="Subject" idx="0" type="ContractOffer" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Env" idx="2" type="EvaluateContractOffers" />
+		</schema>
+	</schemas>
+</FranTkData>

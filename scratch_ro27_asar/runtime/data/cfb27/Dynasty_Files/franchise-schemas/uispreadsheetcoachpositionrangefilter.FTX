@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetCoachPositionRangeFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntRangeFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetCoachPositionRangeFilter" numMembers="4" base="UISpreadsheetIntRangeFilter" defaultStoreCapacity="2" assetId="8531454" defaultStoreGroupId="2" isRecordPersistent="false" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="20" majorVersionCRC="419091688" minorVersionCRC="130353970">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="MaxValue" idx="2" type="CoachPosition" default="CoachPosition:First_" />
+			<attribute name="MinValue" idx="3" type="CoachPosition" default="CoachPosition:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

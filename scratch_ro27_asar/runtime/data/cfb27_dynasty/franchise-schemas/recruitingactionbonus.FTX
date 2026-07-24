@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingActionBonus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingActionBonus" numMembers="3" defaultStoreCapacity="8960" assetId="8207449" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-818151616" minorVersionCRC="1323272031">
+			<attribute name="BonusType" idx="0" type="RecruitingBonusType" default="RecruitingBonusType:Invalid" />
+			<attribute name="BonusValue" idx="1" type="int" minValue="0" maxValue="200" default="0" />
+			<attribute name="BonusValueType" idx="2" type="RecruitingBonusValueType" default="RecruitingBonusValueType:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

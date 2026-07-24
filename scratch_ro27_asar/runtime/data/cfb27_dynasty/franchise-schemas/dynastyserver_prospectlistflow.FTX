@@ -1,0 +1,33 @@
+<FranTkData fileName="Franchise-Schemas\DynastyServer_ProspectListFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DynastyServer_ProspectListFlow" numMembers="22" base="FranTkServer_Flow" assetId="6767443" isRecordPersistent="true" majorVersionCRC="-1638270620" minorVersionCRC="1553382324">
+			<attribute name="BodyPartGroupsEnumTable" idx="0" type="EnumTable" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="3" type="Franchise" />
+			<attribute name="HandednessEnumTable" idx="4" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="5" type="EnumTable" />
+			<attribute name="LimitControlSelection" idx="6" type="UILimitControlSelection[]" />
+			<attribute name="MySchoolGradeEval" idx="7" type="MySchoolGradeEval" />
+			<attribute name="PlayerAbilityEnumTable" idx="8" type="EnumTable" />
+			<attribute name="PlayerAcquisitionPositionEnumTable" idx="9" type="EnumTable" />
+			<attribute name="PlayersLeavingEval" idx="10" type="PlayersLeavingEval" />
+			<attribute name="PlayerTypeEnumTable" idx="11" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="12" type="EnumTable" />
+			<attribute name="RecruitingClassEnumTable" idx="13" type="EnumTable" />
+			<attribute name="RecruitingEval" idx="14" type="RecruitingEval" />
+			<attribute name="RecruitingMotivationEnumTable" idx="15" type="EnumTable" />
+			<attribute name="SchoolYearEnumTable" idx="16" type="EnumTable" />
+			<attribute name="SearchControls" idx="17" type="UIControl[]" />
+			<attribute name="SeasonInfo" idx="18" type="SeasonInfo" />
+			<attribute name="StateNameEnumTable" idx="19" type="EnumTable" />
+			<attribute name="TeamManager" idx="20" type="TeamManager" />
+			<attribute name="UserRegistry" idx="21" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

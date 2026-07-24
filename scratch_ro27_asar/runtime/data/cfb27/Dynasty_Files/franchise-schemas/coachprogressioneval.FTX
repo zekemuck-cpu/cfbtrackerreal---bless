@@ -1,0 +1,29 @@
+<FranTkData fileName="Franchise-Schemas\CoachProgressionEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachProgressionEval" numMembers="22" base="Module" assetId="6498443" isRecordPersistent="true" majorVersionCRC="-608979828" minorVersionCRC="-1856340795">
+			<attribute name="AutoProgressCoach" idx="0" type="CoachProgressionEval_AutoProgressCoach" guid="6498443-1924541" final="true" />
+			<attribute name="AutoProgressTeam" idx="1" type="CoachProgressionEval_AutoProgressTeam" guid="6498443-1924537" final="true" />
+			<attribute name="BuyPackage" idx="2" type="CoachProgressionEval_BuyPackage" guid="6498443-1924546" final="true" />
+			<attribute name="CoachAutoProgressionEnabled" idx="3" type="bool" default="False" />
+			<attribute name="CoachLevelUpEvent" idx="4" type="CoachLevelUpEvent" />
+			<attribute name="CoachProgressionTuning" idx="5" type="CoachProgressionTuning" />
+			<attribute name="GetCoachPackages" idx="6" type="CoachPackageXP()" guid="6498443-1924556" final="true" />
+			<attribute name="HandleDraftedPlayer" idx="7" type="CoachProgressionEval_HandleDraftedPlayer" guid="6498443-2157108" final="true" />
+			<attribute name="HandleGameEnd" idx="8" type="CoachProgressionEval_HandleGameEnd" guid="6498443-2190039" final="true" />
+			<attribute name="HandlePlayerLevelUp" idx="9" type="CoachProgressionEval_HandlePlayerLevelUp" guid="6498443-2247054" final="true" />
+			<attribute name="HandleRecordBroken" idx="10" type="CoachProgressionEval_HandleRecordBroken" guid="6498443-2190045" final="true" />
+			<attribute name="HandleRecruitSigned" idx="11" type="CoachProgressionEval_HandleRecruitSigned" guid="6498443-2157121" final="true" />
+			<attribute name="HeadCoachTraitProgressionList" idx="12" type="CoachPackageXP[]" />
+			<attribute name="IssueUnlockNotificationRequest" idx="13" type="CoachProgressionEval_IssueUnlockNotificationRequest" guid="6498443-2233014" final="true" default="UnlockNotificationRequest request = new UnlockNotificationRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 4;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.RequestData = coachArcheType;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;// Issue the request&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="LeagueSettingRef" idx="14" type="LeagueSetting" />
+			<attribute name="ProgressionPointsGrindEvent" idx="15" type="ProgressionPointsGrindEvent" />
+			<attribute name="PurchasePackageUpdateEvent" idx="16" type="PurchasePackageUpdateEvent" />
+			<attribute name="RandomRef" idx="17" type="Random" />
+			<attribute name="SeasonInfoRef" idx="18" type="SeasonInfo" />
+			<attribute name="SelectCoachProgressionPackages" idx="19" type="CoachProgressionEval_SelectCoachProgressionPackages" guid="6498443-1924552" final="true" />
+			<attribute name="TeamManager" idx="20" type="TeamManager" />
+			<attribute name="ValidateExpressions" idx="21" type="none()" guid="6498443-1924564" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

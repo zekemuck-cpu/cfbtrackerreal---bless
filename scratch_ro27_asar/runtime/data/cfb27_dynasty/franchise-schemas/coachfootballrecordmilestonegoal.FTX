@@ -1,0 +1,39 @@
+<FranTkData fileName="Franchise-Schemas\CoachFootballRecordMilestoneGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\CoachStatMilestoneGoal.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachFootballRecordMilestoneGoal" numMembers="28" base="CoachStatMilestoneGoal" assetId="8532635" isRecordPersistent="true" majorVersionCRC="-1498831588" minorVersionCRC="1151805219">
+			<attribute name="AchievementWeight" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CoachExperienceAward" idx="1" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="CoachPrestigeScore" idx="2" type="int" minValue="-1000" maxValue="1000" default="0" />
+			<attribute name="CoachStat" idx="3" type="CoachStatType" default="CoachStatType:Wins" />
+			<attribute name="CompletionValue" idx="4" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="Description" idx="5" type="string" maxLen="81" />
+			<attribute name="DynastyPointAward" idx="6" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="EvaluateAtEndOfSeason" idx="7" type="bool" default="False" />
+			<attribute name="FromStats" idx="8" type="bool" default="False" />
+			<attribute name="IconAssetId" idx="9" type="int" minValue="0" maxValue="8191" default="0" />
+			<attribute name="IconId" idx="10" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="IconLibraryId" idx="11" type="LegacyScoreMomentIconLibraryId" default="LegacyScoreMomentIconLibraryId:INVALID" />
+			<attribute name="IsEvaluatedInGame" idx="12" type="bool" default="False" />
+			<attribute name="IsInverted" idx="13" type="bool" default="False" />
+			<attribute name="IsRepeatable" idx="14" type="bool" default="False" />
+			<attribute name="LegacyScoreAward" idx="15" type="int" minValue="-1024" maxValue="3000" default="0" />
+			<attribute name="LegacyScoreContext" idx="16" type="string" maxLen="51" />
+			<attribute name="LegacyScoreMomentId" idx="17" type="LegacyScoreMomentId" default="LegacyScoreMomentId:Memorable_Scenario0" />
+			<attribute name="LegacyScoreTitle" idx="18" type="string" maxLen="31" />
+			<attribute name="PlayerStat" idx="19" type="StatType" default="StatType:PassYards" />
+			<attribute name="RecordStatScope" idx="20" type="FootballRecordScope" default="FootballRecordScope:First_" />
+			<attribute name="RewardExperienceSpline" idx="21" type="Spline" />
+			<attribute name="SendEvent" idx="22" type="bool" default="False" />
+			<attribute name="StaffPointAward" idx="23" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="StatPeriod" idx="24" type="StatPeriod" default="StatPeriod:Season" />
+			<attribute name="TeamStat" idx="25" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="Title" idx="26" type="string" maxLen="61" />
+			<attribute name="UseStatRanking" idx="27" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

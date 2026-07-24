@@ -1,0 +1,55 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMetersEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NarrativePlayerMetersEval" numMembers="48" base="Module" assetId="7692449" isRecordPersistent="true" majorVersionCRC="-1500034989" minorVersionCRC="-2144204766">
+			<attribute name="BrandContractList" idx="0" type="BrandContract[]" />
+			<attribute name="DebugModule" idx="1" type="FranchiseDebugModule" />
+			<attribute name="DepthChartEval" idx="2" type="DepthChartEval" />
+			<attribute name="FatigueLevelInfoList" idx="3" type="FatigueLevelInfo[]" />
+			<attribute name="GetExperiencePoints" idx="4" type="NarrativePlayerMetersEval_GetExperiencePoints" guid="7692449-2154026" />
+			<attribute name="GetGPAExamResults" idx="5" type="int()" guid="7692449-2231022" />
+			<attribute name="GetNumAvailableContractSlots" idx="6" type="int()" guid="7692449-2248087" />
+			<attribute name="GetPositionBattleChallengeType" idx="7" type="int()" guid="7692449-2703018" final="true" />
+			<attribute name="GetPositionBattleStatus" idx="8" type="int()" guid="7692449-2380002" />
+			<attribute name="GetWeeksUntilNextGPAExam" idx="9" type="int()" guid="7692449-2231020" />
+			<attribute name="GPAProcessingDisabled" idx="10" type="bool" default="False" />
+			<attribute name="HandlePracticeComplete" idx="11" type="NarrativePlayerMetersEval_HandlePracticeComplete" guid="7692449-2061069" />
+			<attribute name="HandleUpdatePlayerContractStatus" idx="12" type="NarrativePlayerMetersEval_HandleUpdatePlayerContractStatus" guid="7692449-2249046" final="true" />
+			<attribute name="InjuryEval" idx="13" type="InjuryEval" />
+			<attribute name="IssueBrandContractNotificationRequest" idx="14" type="NarrativePlayerMetersEval_IssueBrandContractNotificationRequest" guid="7692449-2154137" final="true" default="MetersNotificationRequest request = new MetersNotificationRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;request.RequestStyle = RequestStyle.Notification;&#xD;&#xA;&#xD;&#xA;request.RequestData = brandContract;&#xD;&#xA;request.AssociatedMeter = NarrativePlayerMeterType.Brand;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;request.Issue(UserEntity);" />
+			<attribute name="IssueCoachTrustNotificationRequest" idx="15" type="NarrativePlayerMetersEval_IssueCoachTrustNotificationRequest" guid="7692449-2437132" final="true" default="MetersNotificationRequest request = new MetersNotificationRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;request.RequestStyle = RequestStyle.Notification;&#xD;&#xA;&#xD;&#xA;request.CoachTrustRewardType = CoachTrustRewardType;&#xD;&#xA;request.AssociatedMeter = NarrativePlayerMeterType.CoachTrust;&#xD;&#xA;request.UseFireworks = UseFireworks;&#xD;&#xA;request.RequestData = UserEntity;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;request.Issue(UserEntity);" />
+			<attribute name="IssueManagerMetersRequest" idx="16" type="NarrativePlayerMetersEval_IssueManagerMetersRequest" guid="7692449-2079187" final="true" default="ManageMetersRequest request = new ManageMetersRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( ManageMetersResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);" />
+			<attribute name="IssueMentalsOnOffNotificationRequest" idx="17" type="NarrativePlayerMetersEval_IssueMentalsOnOffNotificationRequest" guid="7692449-2252061" final="true" default="MetersNotificationRequest request = new MetersNotificationRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;request.RequestStyle = RequestStyle.Notification;&#xD;&#xA;&#xD;&#xA;request.MentalsOnOff = MentalsOnOff;&#xD;&#xA;request.AssociatedMeter = AssociatedMeter;&#xD;&#xA;request.RequestData = MentalAbility;&#xD;&#xA;&#xD;&#xA;if (MentalsOnOff == MentalsStatus.On)&#xD;&#xA;{&#xD;&#xA;    request.UseFireworks = true;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    request.UseFireworks = false;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;request.Issue(UserEntity);" />
+			<attribute name="IssuePositionBattleRequest" idx="18" type="NarrativePlayerMetersEval_IssuePositionBattleRequest" guid="7692449-2253017" final="true" default="PositionBattleRequest request = new PositionBattleRequest;&#xD;&#xA;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.Priority = 10;&#xD;&#xA;request.RequestStyle = RequestStyle.Blocker;&#xD;&#xA;&#xD;&#xA;request.IsUpperBattle = isUpperBattle;&#xD;&#xA;request.Position = position;&#xD;&#xA;request.PositionDepth = depth;&#xD;&#xA;request.MinigameArray = minigameArrayRecord;&#xD;&#xA;request.OpponentPlayer = opponentPlayerRecord;&#xD;&#xA;&#xD;&#xA;SeasonGame practiceGame = PracticeEval.PracticeGame;&#xD;&#xA;practiceGame.SeasonYear = SeasonInfo.CurrentYear;&#xD;&#xA;practiceGame.SeasonWeekType = SeasonInfo.CurrentWeekType;&#xD;&#xA;practiceGame.SeasonGameNum = 0;&#xD;&#xA;practiceGame.GameStatus = GameStatus.Unplayed;&#xD;&#xA;// Make sure the team is the home team, this is used so the practice session receives relevant playbooks&#xD;&#xA;practiceGame.HomeTeam = team;&#xD;&#xA;practiceGame.AwayTeam = PracticeEval.PracticeTeam;&#xD;&#xA;request.RequestData = practiceGame;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( PositionBattleResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(userEntity);&#xD;&#xA;&#xD;&#xA;PositionBattleNotificationRequest notificationRequest = new PositionBattleNotificationRequest;&#xD;&#xA;notificationRequest.IsResponseRequired = false;&#xD;&#xA;notificationRequest.IsConnectionRequired = false;&#xD;&#xA;notificationRequest.IsBlocking = false;&#xD;&#xA;notificationRequest.IsPersistent = false;&#xD;&#xA;notificationRequest.Priority = 5;&#xD;&#xA;&#xD;&#xA;// RequestStyle set to BLOCKER otherwise it will not show before the PositionBattleRequest is shown.&#xD;&#xA;notificationRequest.RequestStyle = RequestStyle.Blocker;&#xD;&#xA;&#xD;&#xA;notificationRequest.Position = position;&#xD;&#xA;notificationRequest.PositionDepth = depth;&#xD;&#xA;notificationRequest.OpponentPlayer = opponentPlayerRecord;&#xD;&#xA;&#xD;&#xA;notificationRequest.Issue(userEntity);" />
+			<attribute name="IssueSuspensionNotificationRequest" idx="19" type="NarrativePlayerMetersEval_IssueSuspensionNotificationRequest" guid="7692449-2252057" final="true" default="MetersNotificationRequest request = new MetersNotificationRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;request.RequestStyle = RequestStyle.Notification;&#xD;&#xA;request.IsSuspension = true;&#xD;&#xA;&#xD;&#xA;request.UIDisplayStyle = UIDisplayStyle.FullScreen;&#xD;&#xA;&#xD;&#xA;request.Issue(UserEntity);" />
+			<attribute name="LeagueSetting" idx="20" type="LeagueSetting" />
+			<attribute name="ManageMetersResponse" idx="21" type="UIFlowForm" />
+			<attribute name="MetersTunable" idx="22" type="NarrativePlayerMetersTunable" />
+			<attribute name="MySchoolGradeEval" idx="23" type="MySchoolGradeEval" />
+			<attribute name="NarrativePlayer" idx="24" type="NarrativePlayer" />
+			<attribute name="OnOffSeasonStart" idx="25" type="none()" guid="7692449-2277021" />
+			<attribute name="OnPlayerTransfer" idx="26" type="none()" guid="7692449-2154034" />
+			<attribute name="OnPreseasonStart" idx="27" type="NarrativePlayerMetersEval_OnPreseasonStart" guid="7692449-2648095" final="true" />
+			<attribute name="OnSeasonEnd" idx="28" type="none()" guid="7692449-2151035" />
+			<attribute name="OnSeasonStart" idx="29" type="none()" guid="7692449-2080036" />
+			<attribute name="OnSeasonWeekStart" idx="30" type="none()" guid="7692449-2080038" />
+			<attribute name="PlayerGradeEval" idx="31" type="PlayerGradeEval" />
+			<attribute name="PlayerProgressionEval" idx="32" type="PlayerProgressionEval" />
+			<attribute name="PlayersLeavingEval" idx="33" type="PlayersLeavingEval" />
+			<attribute name="PlayerSuspensionEvent" idx="34" type="Player_SuspensionEvent" />
+			<attribute name="PositionBattleResponse" idx="35" type="UIFlowForm" />
+			<attribute name="PracticeEval" idx="36" type="PracticeEval" />
+			<attribute name="ProcessBrandContracts" idx="37" type="none()" guid="7692449-2154048" />
+			<attribute name="PrologueProgress" idx="38" type="PrologueProgress" />
+			<attribute name="Random" idx="39" type="Random" />
+			<attribute name="RequestServer" idx="40" type="RequestServer" />
+			<attribute name="SeasonManager" idx="41" type="SeasonManager" />
+			<attribute name="SeasonScheduleManager" idx="42" type="SeasonScheduleManager" />
+			<attribute name="SignatureAbilitiesEval" idx="43" type="SignatureAbilitiesEval" />
+			<attribute name="TeamManager" idx="44" type="TeamManager" />
+			<attribute name="TempBuffEval" idx="45" type="TempBuffEval" />
+			<attribute name="TransactionHistoryManager" idx="46" type="TransactionHistoryManager" />
+			<attribute name="UserRegistry" idx="47" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

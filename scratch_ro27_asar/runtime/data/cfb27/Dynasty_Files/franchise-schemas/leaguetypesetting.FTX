@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\LeagueTypeSetting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="LeagueTypeSetting" numMembers="15" assetId="6378463" isRecordPersistent="true" majorVersionCRC="-1196811483" minorVersionCRC="-612453523">
+			<attribute name="INVALID" idx="0" value="0" />
+			<attribute name="ALL" idx="1" value="1" />
+			<attribute name="COACHES_ONLY" idx="2" value="2" />
+			<attribute name="PLAYERS_ONLY" idx="3" value="3" />
+			<attribute name="OFFENSIVE_PLAYERS_ONLY" idx="4" value="4" />
+			<attribute name="DEFENSIVE_PLAYERS_ONLY" idx="5" value="5" />
+			<attribute name="QBS_ONLY" idx="6" value="6" />
+			<attribute name="HBS_ONLY" idx="7" value="7" />
+			<attribute name="WRS_ONLY" idx="8" value="8" />
+			<attribute name="TES_ONLY" idx="9" value="9" />
+			<attribute name="DLINE_ONLY" idx="10" value="10" />
+			<attribute name="LBS_ONLY" idx="11" value="11" />
+			<attribute name="DBS_ONLY" idx="12" value="12" />
+			<attribute name="OWNERS_ONLY" idx="13" value="13" />
+			<attribute name="COACHES_AND_OWNERS" idx="14" value="14" />
+		</enum>
+	</schemas>
+</FranTkData>

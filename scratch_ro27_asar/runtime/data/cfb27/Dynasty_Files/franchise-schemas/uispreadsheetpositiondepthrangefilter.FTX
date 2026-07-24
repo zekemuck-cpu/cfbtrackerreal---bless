@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetPositionDepthRangeFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntRangeFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetPositionDepthRangeFilter" numMembers="4" base="UISpreadsheetIntRangeFilter" assetId="6572408" isRecordPersistent="true" majorVersionCRC="-117565324" minorVersionCRC="-1175050290">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="MaxValue" idx="2" type="PositionDepth" default="PositionDepth:QB1" />
+			<attribute name="MinValue" idx="3" type="PositionDepth" default="PositionDepth:QB1" />
+		</schema>
+	</schemas>
+</FranTkData>

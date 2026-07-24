@@ -1,0 +1,32 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_TimelineViewFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_TimelineViewFlow" numMembers="21" base="FranTkServer_Flow" assetId="6499234" isRecordPersistent="true" majorVersionCRC="891759297" minorVersionCRC="1788603750">
+			<attribute name="CoachGoalsEval" idx="0" type="CoachGoalsEval" />
+			<attribute name="DepthChartEval" idx="1" type="DepthChartEval" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="FotFContinueWhenReadyTutorial" idx="4" type="TutorialInfo" />
+			<attribute name="FotFFullSeasonExperienceTutorial" idx="5" type="TutorialInfo" />
+			<attribute name="FotFPlayerCardTutorial" idx="6" type="TutorialInfo" />
+			<attribute name="HandleCareerMoment" idx="7" type="FranchiseServer_TimelineViewFlow_HandleCareerMoment" guid="6499234-1936631" final="true" />
+			<attribute name="LeagueSetting" idx="8" type="LeagueSetting" />
+			<attribute name="PlayerGoalsEval" idx="9" type="PlayerGoalsEval" />
+			<attribute name="RequestServer" idx="10" type="RequestServer" />
+			<attribute name="RewardEval" idx="11" type="RewardEval" />
+			<attribute name="RtCContinueWhenReadyTutorial" idx="12" type="TutorialInfo" />
+			<attribute name="RtCFullSeasonExperienceTutorial" idx="13" type="TutorialInfo" />
+			<attribute name="RtCReviewYourLineupTutorial" idx="14" type="TutorialInfo" />
+			<attribute name="SeasonManager" idx="15" type="SeasonManager" />
+			<attribute name="SignatureAbilitiesEval" idx="16" type="SignatureAbilitiesEval" />
+			<attribute name="SwitchFranchiseStyleEvent" idx="17" type="SwitchFranchiseStyleEvent" />
+			<attribute name="TeamManager" idx="18" type="TeamManager" />
+			<attribute name="TimelineStates" idx="19" type="TimelineStates" />
+			<attribute name="UserRegistry" idx="20" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_IsValidNamedActor.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_IsValidNamedActor" numMembers="3" base="bool()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1335544422" minorVersionCRC="1058211779">
+			<attribute name="StoryArcContextRecord" idx="0" type="ArcContext" />
+			<attribute name="ActorName" idx="1" type="ActorName" default="ActorName:None" />
+		</schema>
+	</schemas>
+</FranTkData>

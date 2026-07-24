@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StorySideActivity_GetRating.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StorySideActivity_GetRating" numMembers="5" base="int()" ownerAssetId="6495158" isRecordPersistent="true" isExpr="true" majorVersionCRC="-350242901" minorVersionCRC="1856490633">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="opposingTeam" idx="1" type="Team" />
+			<attribute name="seasonInfo" idx="2" type="SeasonInfo" />
+			<attribute name="practiceEval" idx="3" type="PracticeEval" />
+		</schema>
+	</schemas>
+</FranTkData>

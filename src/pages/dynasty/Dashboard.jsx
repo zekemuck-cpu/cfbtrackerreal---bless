@@ -26,6 +26,7 @@ import TeamRatingsModal from '../../components/TeamRatingsModal'
 // GameEntryModal and GameDetailModal removed - now using game pages instead
 import ConferenceChampionshipModal from '../../components/ConferenceChampionshipModal'
 import CoachingStaffModal from '../../components/CoachingStaffModal'
+import CFB27SyncModal from '../../components/CFB27SyncModal'
 import SupportStaffModal from '../../components/SupportStaffModal'
 import UpdateDevTraitsModal from '../../components/UpdateDevTraitsModal'
 import { isHiddenDev } from '../../components/archetypeWeights'
@@ -485,6 +486,7 @@ export default function Dashboard() {
   const [showRosterModal, setShowRosterModal] = useState(false)
   const [showTeamRatingsModal, setShowTeamRatingsModal] = useState(false)
   const [showCoachingStaffModal, setShowCoachingStaffModal] = useState(false)
+  const [showCfb27SyncModal, setShowCfb27SyncModal] = useState(false)
   // showGameModal and showGameDetailModal removed - now using game pages instead
   const [showCCModal, setShowCCModal] = useState(false)
   const [showBowlWeek1Modal, setShowBowlWeek1Modal] = useState(false)
@@ -3349,6 +3351,21 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* CFB27 save sync — only for dynasties actually created from a CFB27
+          save (gameEdition check mirrors CFB27SyncModal's own gate), and
+          never for a read-only viewer of someone else's dynasty. */}
+      {currentDynasty?.gameEdition === 'cfb27' && !isViewOnly && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowCfb27SyncModal(true)}
+            className="px-3 py-1.5 text-xs font-semibold rounded-md border border-surface-4 bg-surface-2 text-txt-primary hover:bg-surface-3 transition-colors"
+          >
+            Sync from Save
+          </button>
         </div>
       )}
 
@@ -8333,6 +8350,11 @@ export default function Dashboard() {
         onSave={handleCoachingStaffSave}
         teamColors={teamColors}
         currentStaff={teamCoachingStaff}
+      />
+
+      <CFB27SyncModal
+        isOpen={showCfb27SyncModal}
+        onClose={() => setShowCfb27SyncModal(false)}
       />
 
       <SupportStaffModal

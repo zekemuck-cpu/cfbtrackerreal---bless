@@ -1,0 +1,24 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTransactionHistoryEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\TransactionHistoryEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTransactionHistoryEntry" numMembers="13" base="TransactionHistoryEntry" assetId="6498826" isRecordPersistent="true" majorVersionCRC="835182136" minorVersionCRC="441672115">
+			<attribute name="ContractBonus" idx="0" type="int" minValue="0" maxValue="28000" default="0" />
+			<attribute name="ContractLength" idx="1" type="int" minValue="0" maxValue="8" default="0" />
+			<attribute name="ContractSalary" idx="2" type="int" minValue="0" maxValue="28000" default="0" />
+			<attribute name="ContractStatus" idx="3" type="PlayerContractStatus" default="PlayerContractStatus:Drafted" />
+			<attribute name="ContractTotalSalary" idx="4" type="int" minValue="0" maxValue="42000" default="0" />
+			<attribute name="NewTeam" idx="5" type="Team" />
+			<attribute name="OldContractStatus" idx="6" type="PlayerContractStatus" default="PlayerContractStatus:Drafted" />
+			<attribute name="OldTeam" idx="7" type="Team" />
+			<attribute name="Player" idx="8" type="Player" />
+			<attribute name="SeasonStage" idx="9" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="SeasonWeek" idx="10" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="SeasonYear" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TransactionId" idx="12" type="int" minValue="0" maxValue="16777215" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

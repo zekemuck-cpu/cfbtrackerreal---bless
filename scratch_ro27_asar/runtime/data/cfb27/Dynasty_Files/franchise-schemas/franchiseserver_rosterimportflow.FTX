@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_RosterImportFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_RosterImportFlow" numMembers="14" base="FranTkServer_Flow" assetId="6499328" isRecordPersistent="true" majorVersionCRC="159995004" minorVersionCRC="-356681863">
+			<attribute name="DraftBoardEval" idx="0" type="DraftBoardEval" />
+			<attribute name="DraftManager" idx="1" type="DraftManager" />
+			<attribute name="Form" idx="2" type="UIForm" />
+			<attribute name="FormManager" idx="3" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="4" type="Franchise" />
+			<attribute name="GenerationManager" idx="5" type="GenerationManager" />
+			<attribute name="InjuryEval" idx="6" type="InjuryEval" />
+			<attribute name="PlayerGradeEval" idx="7" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="8" type="PlayerManager" />
+			<attribute name="PlayerProgressionEval" idx="9" type="PlayerProgressionEval" />
+			<attribute name="PlayersLeavingEval" idx="10" type="PlayersLeavingEval" />
+			<attribute name="RequestServer" idx="11" type="RequestServer" />
+			<attribute name="SignatureAbilitiesEval" idx="12" type="SignatureAbilitiesEval" />
+			<attribute name="UserRegistry" idx="13" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

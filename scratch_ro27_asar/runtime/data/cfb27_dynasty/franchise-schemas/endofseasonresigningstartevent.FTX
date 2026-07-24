@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\EndofSeasonReSigningStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="EndofSeasonReSigningStartEvent" numMembers="2" base="Event" assetId="6598567" isRecordPersistent="true" majorVersionCRC="553816857" minorVersionCRC="-1453732145">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6598567-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6598567-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

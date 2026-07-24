@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\Server_PlayerSeasonStatFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Server_PlayerSeasonStatFlow" numMembers="5" base="FranTkServer_Flow" assetId="6499030" isRecordPersistent="true" majorVersionCRC="570853232" minorVersionCRC="1835865052">
+			<attribute name="DefaultTeam" idx="0" type="Team" />
+			<attribute name="Form" idx="1" type="UIForm" />
+			<attribute name="FormManager" idx="2" type="FranTkServer_FormManager" />
+			<attribute name="SeasonInfo" idx="3" type="SeasonInfo" />
+			<attribute name="UserRegistry" idx="4" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

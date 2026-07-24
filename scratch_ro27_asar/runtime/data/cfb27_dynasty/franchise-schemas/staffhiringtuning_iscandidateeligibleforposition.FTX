@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\StaffHiringTuning_IsCandidateEligibleForPosition.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StaffHiringTuning_IsCandidateEligibleForPosition" numMembers="5" base="bool()" ownerAssetId="6494903" isRecordPersistent="true" isExpr="true" majorVersionCRC="-742546942" minorVersionCRC="-466426572">
+			<attribute name="coach" idx="0" type="Coach" />
+			<attribute name="hiringPosition" idx="1" type="CoachPosition" default="CoachPosition:First_" />
+			<attribute name="currentWeekType" idx="2" type="SeasonWeekType" default="SeasonWeekType:PreSeason" />
+			<attribute name="currentOffseasonStage" idx="3" type="OffseasonStageType" default="OffseasonStageType:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

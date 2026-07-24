@@ -1,0 +1,34 @@
+<FranTkData fileName="Football" databaseName="CollegeFB27_Gen5.CFB27_CTRE" dataMajorVersion="0" dataMinorVersion="0" dataRevisionVersion="1" isSchema="False">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football\BodyPartImpactAbilityWeightEntry.ftx" />
+		<IncludeFile fileName="Football\BudgetAllocationTypeEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\College.ftx" />
+		<IncludeFile fileName="Football\EnumTable.ftx" />
+		<IncludeFile fileName="Football\FootballPlayerTrait.ftx" />
+		<IncludeFile fileName="Football\FootballPlayerTraitEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\HealthWeekStatusEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\InjuryRiskEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\InjuryWeekStatusLookupTableEntry.ftx" />
+		<IncludeFile fileName="Football\MentalAbilityGroupEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\NarrativePlaySub.ftx" />
+		<IncludeFile fileName="Football\NarrativePlaySubConfig.ftx" />
+		<IncludeFile fileName="Football\PlayerAbilityEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\PlayerBodyPartGroupsEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\PlayerTypeFlagTable.ftx" />
+		<IncludeFile fileName="Football\PositionCategoryTable.ftx" />
+		<IncludeFile fileName="Football\PositionEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\PositionFlagTable.ftx" />
+		<IncludeFile fileName="Football\PositionGroupEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\Spline.ftx" />
+		<IncludeFile fileName="Football\StartingPointDifficultyEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\TeamUpgradeEffectTypeEnumTableEntry.ftx" />
+		<IncludeFile fileName="Football\WearAndTearTuning.ftx" />
+		<IncludeFile fileName="Football\BodyPartImpactAbilityWeightEntry[].ftx" />
+		<IncludeFile fileName="Football\BodyPartImpactAbilityWeightEntry[][].ftx" />
+		<IncludeFile fileName="Football\EnumTableEntry[].ftx" />
+		<IncludeFile fileName="Football\int[].ftx" />
+		<IncludeFile fileName="Football\NarrativePlaySub[].ftx" />
+		<IncludeFile fileName="Football\NarrativePlaySub[][].ftx" />
+	</Includes>
+</FranTkData>

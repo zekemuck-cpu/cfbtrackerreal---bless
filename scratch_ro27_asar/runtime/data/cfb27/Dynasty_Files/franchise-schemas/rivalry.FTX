@@ -1,0 +1,25 @@
+<FranTkData fileName="Franchise-Schemas\Rivalry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Rivalry" numMembers="18" defaultStoreCapacity="290" assetId="6809444" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-745905082" minorVersionCRC="-429144077">
+			<attribute name="AssetName" idx="0" type="string" maxLen="46" />
+			<attribute name="FirstMeetingTeam1Score" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="FirstMeetingTeam2Score" idx="2" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="FirstYearPlayed" idx="3" type="int" minValue="1869" maxValue="4095" default="1890" />
+			<attribute name="LogoId" idx="4" type="int" minValue="0" maxValue="511" default="0" />
+			<attribute name="Name" idx="5" type="string" maxLen="65" />
+			<attribute name="PresentationId" idx="6" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="RivalryTrackerId" idx="7" type="int" minValue="0" maxValue="11000" default="0" />
+			<attribute name="SecondaryName" idx="8" type="string" maxLen="65" />
+			<attribute name="StreakLength" idx="9" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="StreakTeam" idx="10" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="Team1" idx="11" type="Team" />
+			<attribute name="Team1LastScore" idx="12" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Team1Wins" idx="13" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Team2" idx="14" type="Team" />
+			<attribute name="Team2LastScore" idx="15" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Team2Wins" idx="16" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Trophy" idx="17" type="Trophy" />
+		</schema>
+	</schemas>
+</FranTkData>

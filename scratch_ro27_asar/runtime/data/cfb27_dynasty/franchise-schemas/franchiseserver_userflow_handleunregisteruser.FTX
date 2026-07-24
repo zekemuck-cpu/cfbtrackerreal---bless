@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_UserFlow_HandleUnregisterUser.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_UserFlow_HandleUnregisterUser" numMembers="2" base="none()" ownerAssetId="6499295" isRecordPersistent="true" isExpr="true" majorVersionCRC="1094657528" minorVersionCRC="885336471">
+			<attribute name="EventRecord" idx="0" type="UnregisterUserEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

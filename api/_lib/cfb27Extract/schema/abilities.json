@@ -1,0 +1,4887 @@
+{
+  "game": "College Football 26 (CFB27)",
+  "sources": {
+    "tier_descriptions": "https://collegefootball.gg/abilities/ (scraped per-ability pages)",
+    "archetype_unlock_thresholds": "CFB26_Ability_Tier_Thresholds (1).csv (NCAA CFB 26 Abilities workbook)"
+  },
+  "scraped_date": "2026-06-16",
+  "total_abilities": 81,
+  "counts": {
+    "physical": 67,
+    "mental": 14
+  },
+  "attribute_legend": {
+    "ACC": "Acceleration",
+    "AWR": "Awareness",
+    "BSH": "Block Shedding",
+    "BSK": "Break Sack",
+    "BTK": "Break Tackle",
+    "CAR": "Carrying",
+    "CIT": "Catch in Traffic",
+    "COD": "Change of Direction",
+    "CTH": "Catching",
+    "DAC": "Deep Throw Accuracy",
+    "DRR": "Deep Route Running",
+    "FMV": "Finesse Moves",
+    "IBL": "Impact Blocking",
+    "JKM": "Juke Move",
+    "KAC": "Kick Accuracy",
+    "KPW": "Kick Power",
+    "MAC": "Medium Throw Accuracy",
+    "MCV": "Man Coverage",
+    "MRR": "Medium Route Running",
+    "PAC": "Play Action",
+    "PBK": "Pass Block",
+    "PBP": "Pass Block Power",
+    "PMV": "Power Moves",
+    "POW": "Hit Power",
+    "PRC": "Play Recognition",
+    "PRS": "Press",
+    "PUR": "Pursuit",
+    "RBF": "Run Block Finesse",
+    "RBK": "Run Block",
+    "RBP": "Run Block Power",
+    "RLS": "Release",
+    "RUN": "Throw on the Run",
+    "SAC": "Short Throw Accuracy",
+    "SFA": "Stiff Arm",
+    "SPC": "Spectacular Catch",
+    "SPD": "Speed",
+    "SPM": "Spin Move",
+    "STA": "Stamina",
+    "STR": "Strength",
+    "TAK": "Tackle",
+    "TGH": "Toughness",
+    "THP": "Throw Power",
+    "TRK": "Trucking",
+    "TUP": "Throw Under Pressure",
+    "ZCV": "Zone Coverage"
+  },
+  "notes": {
+    "categories": "Mental abilities can be equipped by ANY player/archetype (archetypes=\"ALL\"). Physical abilities are gated to specific position archetypes.",
+    "tier_numbers": "Under each archetype requirement, bronze/silver/gold/platinum are the MINIMUM rating in that attribute needed to unlock that tier. 'min_to_unlock' = the bronze value (floor to get the ability at all). Example: Jammer needs >=82 Press for Bronze.",
+    "dual_attribute": "Some abilities have a 'primary' and a 'secondary' requirement (e.g. Off Platform = Throw Power + Short Throw Accuracy). You must meet ALL listed requirements for that tier.",
+    "positions": "POS and archetype are taken verbatim from the source workbook. Note archetype names can repeat across positions with different abilities (e.g. Gritty Possession on WR vs TE; Power Rush on EDGE vs DT).",
+    "sidekick": "Sidekick (a back/FB pass-block ability) has no row in this source, which contains no FB position, so its archetypes=[]. (The earlier rough table placed it under a 'North/South Blocker' FB archetype.)",
+    "xp_cost": "The source workbook also lists an XP/skill-point cost per tier; it is omitted here. Ask if you want it added."
+  },
+  "physical_abilities_without_archetype_data": [
+    "Sidekick"
+  ],
+  "abilities": [
+    {
+      "name": "Best Friend",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/best-friend/",
+      "tiers": {
+        "bronze": "Slight composure gain for the QB when making a 1st down catch on 3rd or 4th down.",
+        "silver": "Moderate composure gain for the QB when making a 1st down catch on 3rd or 4th down.",
+        "gold": "Significant composure gain for the QB when making a 1st down catch on 3rd or 4th down.",
+        "platinum": "Ultimate composure gain for the QB when making a 1st down catch on 3rd or 4th down."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Clear Headed",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/clear-headed/",
+      "tiers": {
+        "bronze": "Slight protection from composure loss.",
+        "silver": "Moderate protection from composure loss.",
+        "gold": "Significant protection from composure loss.",
+        "platinum": "Ultimate protection from composure loss."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Clutch Kicker",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/clutch-kicker/",
+      "tiers": {
+        "bronze": "Slightly easier accuracy timing on field goals with 2 or less minutes remaining.",
+        "silver": "Moderately easier accuracy timing on field goals with 2 or less minutes remaining.",
+        "gold": "Significantly easier accuracy timing on field goals with 2 or less minutes remaining.",
+        "platinum": "Ultimate accuracy timing and immune to icing on field goals with 2 or less minutes remaining."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Defensive Rally",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/defensive-rally/",
+      "tiers": {
+        "bronze": "Sacks slightly increase composure of other defensive linemen.",
+        "silver": "Sacks moderately increase composure of other defensive linemen.",
+        "gold": "Sacks significantly increase composure of other defensive linemen.",
+        "platinum": "Ultimate composure gain for other defensive linemen on sacks."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Fan Favorite",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/fan-favorite/",
+      "tiers": {
+        "bronze": "Slightly increased composure gains at home.",
+        "silver": "Moderately increased composure gains at home.",
+        "gold": "Significantly increased composure gains at home.",
+        "platinum": "Ultimate increase to composure gains at home."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Field General",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/field-general/",
+      "tiers": {
+        "bronze": "When on schedule, moderate ability to see post snap blitzers.",
+        "silver": "When on schedule, moderate ability to see pre snap blitzers who are close to the line of scrimmage.",
+        "gold": "When on schedule, moderate ability to see pre snap blitzers and coverage shell.",
+        "platinum": "When on schedule, ultimate ability to see pre snap blitzers, coverage shell, and slight ability to see disguised coverages."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Headstrong",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/headstrong/",
+      "tiers": {
+        "bronze": "Resists hot routes being incorrect and slight composure protection from stadium pulse.",
+        "silver": "Resists hot routes being incorrect or failing and moderate composure protection from stadium pulse.",
+        "gold": "Resists hot routes being incorrect or failing and significant composure protection from stadium pulse.",
+        "platinum": "Resists any pre-play adjustment failing and ultimate composure protection from stadium pulse."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Hot Head",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/hot-head/",
+      "tiers": {
+        "bronze": "Slightly increased volatility for composure gain and loss.",
+        "silver": "Moderately increased volatility for composure gain and loss.",
+        "gold": "Significantly increased volatility for composure gain and loss.",
+        "platinum": "Ultimate increased volatility for composure gain and loss."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Legion",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/legion/",
+      "tiers": {
+        "bronze": "Slight composure gain for other defensive backs when intercepting or deflecting a pass.",
+        "silver": "Moderate composure gain for other defensive backs when intercepting or deflecting a pass.",
+        "gold": "Significant composure gain for other defensive backs when intercepting or deflecting a pass.",
+        "platinum": "Ultimate composure gain for other defensive backs when intercepting or deflecting a pass."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Offensive Rally",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/offensive-rally/",
+      "tiers": {
+        "bronze": "Slight composure gain for other offensive linemen when performing a pancake.",
+        "silver": "Moderate composure gain for other offensive linemen when performing a pancake.",
+        "gold": "Significant composure gain for other offensive linemen when performing a pancake.",
+        "platinum": "Ultimate composure gain for other offensive linemen when performing a pancake."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Road Dog",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/road-dog/",
+      "tiers": {
+        "bronze": "Slightly increased composure gains on the road.",
+        "silver": "Moderately increased composure gains on the road.",
+        "gold": "Significantly increased composure gains on the road.",
+        "platinum": "Ultimate increase to composure gains on the road."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Team Player",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/team-player/",
+      "tiers": {
+        "bronze": "Slight protection from negative rating impacts for playing out of position.",
+        "silver": "Moderate protection from negative rating impacts for playing out of position.",
+        "gold": "Significant protection from negative rating impacts for playing out of position.",
+        "platinum": "Ultimate protection from negative rating impacts for playing out of position."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "The Natural",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/the-natural/",
+      "tiers": {
+        "bronze": "Slightly improved ability to resist weather impacts.",
+        "silver": "Moderately improved ability to resist weather impacts.",
+        "gold": "Significantly improved ability to resist weather impacts.",
+        "platinum": "Ultimate ability to resist weather impacts."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "Winning Time",
+      "category": "Mental",
+      "url": "https://collegefootball.gg/abilities/winning-time/",
+      "tiers": {
+        "bronze": "Slightly increased composure with 2 minutes to go when the score difference is 3 or less.",
+        "silver": "Moderately increased composure with 2 minutes to go when the score difference is 4 or less.",
+        "gold": "Significantly increased composure with 2 minutes to go when the score difference is 7 or less.",
+        "platinum": "Ultimate composure with 2 minutes to go when the score difference is 10 or less."
+      },
+      "archetypes": "ALL"
+    },
+    {
+      "name": "360",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/360/",
+      "tiers": {
+        "bronze": "Slightly improved ability to fake out defenders with spin moves.",
+        "silver": "Moderately improved ability to fake out defenders with spin moves.",
+        "gold": "Significantly improved ability to fake out defenders with spin moves and increased responsiveness.",
+        "platinum": "Ultimate spin moves for responsiveness and faking out defenders."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Backfield Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPM",
+              "attribute_full": "Spin Move",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 86,
+              "gold": 87,
+              "platinum": 89
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "East/West Playmaker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPM",
+              "attribute_full": "Spin Move",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 89
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Elusive Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPM",
+              "attribute_full": "Spin Move",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 89
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "50/50",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/50-50/",
+      "tiers": {
+        "bronze": "With positional advantage, slightly improved 1v1 jump balls 30+ yards downfield or in the end zone.",
+        "silver": "With positional advantage, moderately improved 1v1 jump balls 30+ yards downfield or in the end zone.",
+        "gold": "With positional advantage, significantly improved 1v1 jump balls 20+ yards downfield or in the end zone.",
+        "platinum": "With positional advantage, ultimate ability to win 1v1 jump balls 15+ yards downfield or in the end zone."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Contested Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 91,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 91,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Vertical Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Aftershock",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/aftershock/",
+      "tiers": {
+        "bronze": "Slightly increased wear and tear effects to opposing players on tackles.",
+        "silver": "Moderately increased wear and tear effects to opposing players on tackles.",
+        "gold": "Significantly increased wear and tear effects to opposing players on tackles. .",
+        "platinum": "Ultimate wear and tear effects to opposing players on tackles. ."
+      },
+      "archetypes": [
+        {
+          "position": "LB",
+          "archetype": "Thumper",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Box Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Hybrid",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Arm Bar",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/arm-bar/",
+      "tiers": {
+        "bronze": "Slightly improved ability to break tackles when using stiff arms.",
+        "silver": "Moderately improved ability to break tackles when using stiff arms.",
+        "gold": "Significantly improved ability to break tackles when using stiff arms.",
+        "platinum": "Ultimate ability to break tackles when using stiff arms."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "East/West Playmaker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SFA",
+              "attribute_full": "Stiff Arm",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 86,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "Elusive Bruiser",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SFA",
+              "attribute_full": "Stiff Arm",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 86,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "North/South Receiver",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SFA",
+              "attribute_full": "Stiff Arm",
+              "min_to_unlock": 81,
+              "bronze": 81,
+              "silver": 85,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Balanced",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/balanced/",
+      "tiers": {
+        "bronze": "Slightly improved ability to break strip attempts.",
+        "silver": "Moderately improved ability to break hit stick and strip attempts.",
+        "gold": "Significantly improved ability to break hit stick and strip attempts.",
+        "platinum": "Ultimate ability to break hit stick and strip attempts."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Contact Seeker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "North/South Receiver",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Contested Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 82,
+              "gold": 86,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Pure Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 84,
+              "gold": 87,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Vertical Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 84,
+              "gold": 87,
+              "platinum": 90
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ball Security",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/ball-security/",
+      "tiers": {
+        "bronze": "Slightly improved ball security anywhere on the field.",
+        "silver": "Moderately improved ball security anywhere on the field.",
+        "gold": "Significantly improved ball security anywhere on the field.",
+        "platinum": "Ultimate ball security anywhere on the field."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Contact Seeker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CAR",
+              "attribute_full": "Carrying",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 91,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ballhawk",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/ballhawk/",
+      "tiers": {
+        "bronze": "Slightly improved ability to break after a pass has been released.",
+        "silver": "Moderately improved ability to break after a pass has been released.",
+        "gold": "Significantly improved ability to break after a pass has been released.",
+        "platinum": "Ultimate ability to break after a pass has been released."
+      },
+      "archetypes": [
+        {
+          "position": "CB",
+          "archetype": "Bump and Run",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "AWR",
+              "attribute_full": "Awareness",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Field",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "AWR",
+              "attribute_full": "Awareness",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Zone",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "AWR",
+              "attribute_full": "Awareness",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Cover Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "AWR",
+              "attribute_full": "Awareness",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Battering Ram",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/battering-ram/",
+      "tiers": {
+        "bronze": "As the ball carrier, slightly increased wear and tear effects to defenders on tackles.",
+        "silver": "Moderately increased wear and tear effects to opposing players on tackles.",
+        "gold": "As the ball carrier, moderately increased wear and tear effects to defenders on tackles.",
+        "platinum": "Heisman caliber moments of finishing runs, making defenders pay with increased wear and tear damage."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Contact Seeker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 91,
+              "gold": 92,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "AWR",
+              "attribute_full": "Awareness",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 90,
+              "platinum": 91
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 91,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Blanket Coverage",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/blanket-coverage/",
+      "tiers": {
+        "bronze": "Slightly improved cut reaction in man coverage.",
+        "silver": "Moderately improved cut reaction in man coverage.",
+        "gold": "Significantly improved cut reaction in man coverage.",
+        "platinum": "Ultimate cut reaction in man coverage. ."
+      },
+      "archetypes": [
+        {
+          "position": "CB",
+          "archetype": "Boundary",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Bump and Run",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Field",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 92
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Blow Up",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/blow-up/",
+      "tiers": {
+        "bronze": "Slightly improved ability to beat impact block attempts.",
+        "silver": "Moderately improved ability to beat impact block attempts.",
+        "gold": "Significantly improved ability to beat impact block attempts.",
+        "platinum": "Ultimate improved ability to beat impact block attempts."
+      },
+      "archetypes": [
+        {
+          "position": "LB",
+          "archetype": "Signal Caller",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 82,
+              "gold": 85,
+              "platinum": 88
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Thumper",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 82,
+              "gold": 85,
+              "platinum": 88
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Box Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PUR",
+              "attribute_full": "Pursuit",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 85,
+              "gold": 86,
+              "platinum": 89
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Hybrid",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PUR",
+              "attribute_full": "Pursuit",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 85,
+              "gold": 86,
+              "platinum": 89
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bouncer",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/bouncer/",
+      "tiers": {
+        "bronze": "Slightly fatigue opposing route runners when performing a chuck in zone coverage.",
+        "silver": "Moderately fatigue opposing route runners when performing a chuck in zone coverage. .",
+        "gold": "Significantly fatigue opposing route runners when performing a chuck in zone coverage.",
+        "platinum": "Ultimate fatigue to opposing route runners when performing a chuck in zone coverage."
+      },
+      "archetypes": [
+        {
+          "position": "LB",
+          "archetype": "Lurker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ZCV",
+              "attribute_full": "Zone Coverage",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 84,
+              "gold": 86,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Zone",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ZCV",
+              "attribute_full": "Zone Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 90,
+              "gold": 94,
+              "platinum": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chip Shot",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/chip-shot/",
+      "tiers": {
+        "bronze": "Slightly easier accuracy timing on short field goals.",
+        "silver": "Moderately easier accuracy timing on short field goals.",
+        "gold": "Significantly easier accuracy timing on short field goals.",
+        "platinum": "Ultimate accuracy timing on short field goals."
+      },
+      "archetypes": [
+        {
+          "position": "K/P",
+          "archetype": "Accurate",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "KPW",
+              "attribute_full": "Kick Power",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Coffin Corner",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/coffin-corner/",
+      "tiers": {
+        "bronze": "Slightly easier accuracy timing when punting from midfield or closer.",
+        "silver": "Moderately easier accuracy timing when punting from midfield or closer.",
+        "gold": "Significantly easier accuracy timing when punting from midfield or closer.",
+        "platinum": "Ultimate accuracy timing when punting from midfield or closer."
+      },
+      "archetypes": [
+        {
+          "position": "K/P",
+          "archetype": "Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "KPW",
+              "attribute_full": "Kick Power",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cutter",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/cutter/",
+      "tiers": {
+        "bronze": "Slightly improved cut moves when route running.",
+        "silver": "Moderately improved cut moves when route running.",
+        "gold": "Significantly improved cut moves when route running.",
+        "platinum": "Ultimately improved cut moves when route running."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Elusive Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MRR",
+              "attribute_full": "Medium Route Running",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Gadget",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MRR",
+              "attribute_full": "Medium Route Running",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MRR",
+              "attribute_full": "Medium Route Running",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Route Artist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MRR",
+              "attribute_full": "Medium Route Running",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MRR",
+              "attribute_full": "Medium Route Running",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 84,
+              "gold": 85,
+              "platinum": 90
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Deep Range",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/deep-range/",
+      "tiers": {
+        "bronze": "Slightly easier accuracy timing on 50+ yard field goals.",
+        "silver": "Moderately easier accuracy timing on 50+ yard field goals. .",
+        "gold": "Significantly easier accuracy timing on 50+ yard field goals. .",
+        "platinum": "Ultimate accuracy timing on 50+ yard field goals. ."
+      },
+      "archetypes": [
+        {
+          "position": "K/P",
+          "archetype": "Accurate",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "KPW",
+              "attribute_full": "Kick Power",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 95
+            }
+          ]
+        },
+        {
+          "position": "K/P",
+          "archetype": "Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "KPW",
+              "attribute_full": "Kick Power",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dot",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/dot/",
+      "tiers": {
+        "bronze": "Slight accuracy boost when throwing to open receivers with feet set and a clean pocket.",
+        "silver": "Moderate accuracy boost when throwing to open receivers with feet set and a clean pocket.",
+        "gold": "Significant accuracy boost when throwing to open receivers with feet set and a clean pocket.",
+        "platinum": "Ultimate accuracy boost when throwing to open receivers with feet set and a clean pocket."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Dual Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "DAC",
+              "attribute_full": "Deep Throw Accuracy",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 87,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "QB",
+          "archetype": "Pocket Passer",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "DAC",
+              "attribute_full": "Deep Throw Accuracy",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 87,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Gadget",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "DAC",
+              "attribute_full": "Deep Throw Accuracy",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 87,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Double Dip",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/double-dip/",
+      "tiers": {
+        "bronze": "Slightly improved cut moves against single man coverage when running double move routes.",
+        "silver": "Moderately improved cut moves against single man coverage when running double move routes.",
+        "gold": "Significantly improved cut moves against single man coverage when running double move routes.",
+        "platinum": "Ultimate ability to win double move routes against single man coverage."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Elusive Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "DRR",
+              "attribute_full": "Deep Route Running",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Route Artist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "DRR",
+              "attribute_full": "Deep Route Running",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Speedster",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "DRR",
+              "attribute_full": "Deep Route Running",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 90
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Downhill",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/downhill/",
+      "tiers": {
+        "bronze": "Slightly more broken tackles after reaching max speed.",
+        "silver": "Moderately increased broken tackles after reaching max speed.",
+        "gold": "Significantly more broken tackles when reaching 90% of max speed.",
+        "platinum": "Ultimate ability to break tackles after reaching 80% of max speed."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Dual Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 82,
+              "gold": 84,
+              "platinum": 88
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "Contact Seeker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 87,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "Elusive Bruiser",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 87,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "North/South Receiver",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 87,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Contested Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 82,
+              "gold": 84,
+              "platinum": 88
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 82,
+              "gold": 84,
+              "platinum": 88
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 82,
+              "gold": 84,
+              "platinum": 88
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Duress",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/duress/",
+      "tiers": {
+        "bronze": "Slightly increased pressure effects on the QB when unblocked and in front.",
+        "silver": "Moderately increased pressure effects on the QB when unblocked and in front.",
+        "gold": "Significantly increased pressure effects on the QB when unblocked and in front.",
+        "platinum": "Ultimate pressure effects on the QB when unblocked and in front ."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Extender",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/extender/",
+      "tiers": {
+        "bronze": "Slightly improved ability to break sacks vs defensive backs.",
+        "silver": "Moderately improved ability to break sacks vs defensive backs. Slightly improved vs. all defenders.",
+        "gold": "Significantly improved ability to break sacks vs all defenders.",
+        "platinum": "Ultimate break sack ability."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Dual Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSK",
+              "attribute_full": "Break Sack",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 86,
+              "gold": 89,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Gadget",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSK",
+              "attribute_full": "Break Sack",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 86,
+              "gold": 89,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Grip Breaker",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/grip-breaker/",
+      "tiers": {
+        "bronze": "Slightly increased lateral sheds on run plays.",
+        "silver": "Moderately increased lateral sheds on run plays.",
+        "gold": "Significantly increased lateral sheds on run and pass plays.",
+        "platinum": "Ultimate ability to shed laterally on run and pass plays."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Edge Setter",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Gap Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 89,
+              "gold": 94,
+              "platinum": 99
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Thumper",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 90,
+              "gold": 93,
+              "platinum": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Ground N Pound",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/ground-n-pound/",
+      "tiers": {
+        "bronze": "Successful pancakes on run plays add slight fatigue to the engaged defender.",
+        "silver": "Successful pancakes on run plays add moderate fatigue to the engaged defender.",
+        "gold": "Successful pancakes on run plays add significant fatigue to the engaged defender.",
+        "platinum": "Successful pancakes on run plays add ultimate fatigue to the engaged defender."
+      },
+      "archetypes": [
+        {
+          "position": "OL",
+          "archetype": "Raw Strength",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBK",
+              "attribute_full": "Run Block",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 88,
+              "platinum": 91
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Hammer",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/hammer/",
+      "tiers": {
+        "bronze": "Slightly improved ability to land hit stick attempts (excluding weight mismatches).",
+        "silver": "Moderately improved ability to land hit stick attempts (excluding weight mismatches).",
+        "gold": "Significantly improved ability to land hit stick attempts.",
+        "platinum": "Ultimate hit stick ability, including performing them from a distance."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Signal Caller",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Thumper",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 89
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Box Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Hybrid",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Headfirst",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/headfirst/",
+      "tiers": {
+        "bronze": "Slight ability to break more tackles when using truck moves.",
+        "silver": "Moderate ability to break more tackles when using truck moves.",
+        "gold": "Significantly more broken tackles when using truck moves.",
+        "platinum": "Ultimate ability to break tackles when using truck moves and quicker broken tackles."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Elusive Bruiser",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TRK",
+              "attribute_full": "Trucking",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 88,
+              "gold": 92,
+              "platinum": 95
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "North/South Receiver",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TRK",
+              "attribute_full": "Trucking",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 86,
+              "gold": 89,
+              "platinum": 91
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Contested Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TRK",
+              "attribute_full": "Trucking",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 88,
+              "gold": 92,
+              "platinum": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "House Call",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/house-call/",
+      "tiers": {
+        "bronze": "Slightly improved ability to catch interception attempts.",
+        "silver": "Moderately improved ability to catch interception attempts.",
+        "gold": "Significantly improved ability to catch interception attempts.",
+        "platinum": "Ultimate ability to catch interception attempts and unlimited stamina on returns."
+      },
+      "archetypes": [
+        {
+          "position": "LB",
+          "archetype": "Lurker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CTH",
+              "attribute_full": "Catching",
+              "min_to_unlock": 71,
+              "bronze": 71,
+              "silver": 73,
+              "gold": 75,
+              "platinum": 78
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Bump and Run",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CTH",
+              "attribute_full": "Catching",
+              "min_to_unlock": 75,
+              "bronze": 75,
+              "silver": 78,
+              "gold": 81,
+              "platinum": 83
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Zone",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CTH",
+              "attribute_full": "Catching",
+              "min_to_unlock": 75,
+              "bronze": 75,
+              "silver": 78,
+              "gold": 81,
+              "platinum": 83
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Cover Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CTH",
+              "attribute_full": "Catching",
+              "min_to_unlock": 75,
+              "bronze": 75,
+              "silver": 78,
+              "gold": 81,
+              "platinum": 83
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inside Disruptor",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/inside-disruptor/",
+      "tiers": {
+        "bronze": "Slightly improved shedding against single blockers on inside runs.",
+        "silver": "Moderately improved shedding against single blockers on inside runs.",
+        "gold": "Significantly improved shedding against single blockers on inside runs.",
+        "platinum": "Ultimate shedding against inside runs including double teams."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Edge Setter",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 89,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 89,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Gap Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 93,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 89,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inside Shield",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/inside-shield/",
+      "tiers": {
+        "bronze": "Slightly improved double team blocks on inside runs when close to the line of scrimmage.",
+        "silver": "Moderately improved blocking on inside run plays when close to the line of scrimmage.",
+        "gold": "Significantly improved blocking on inside runs when close to the line of scrimmage.",
+        "platinum": "Ultimate blocking on inside run plays when close to the line of scrimmage."
+      },
+      "archetypes": [
+        {
+          "position": "OL",
+          "archetype": "Raw Strength",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBP",
+              "attribute_full": "Run Block Power",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Well Rounded",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBP",
+              "attribute_full": "Run Block Power",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Jammer",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/jammer/",
+      "tiers": {
+        "bronze": "Slightly increased ability to press receivers at the line of scrimmage.",
+        "silver": "Moderately increased ability to press receivers at the line of scrimmage. .",
+        "gold": "Significantly increased ability to press receivers at the line of scrimmage.",
+        "platinum": "Ultimate ability to press receivers at the line of scrimmage."
+      },
+      "archetypes": [
+        {
+          "position": "CB",
+          "archetype": "Boundary",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PRS",
+              "attribute_full": "Press",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 84,
+              "gold": 87,
+              "platinum": 91
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Bump and Run",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PRS",
+              "attribute_full": "Press",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 84,
+              "gold": 87,
+              "platinum": 91
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Knockout",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/knockout/",
+      "tiers": {
+        "bronze": "Slightly increased knockouts and less broken tackles on jumping catch attempts by the offense.",
+        "silver": "Moderately increased knockouts and less broken tackles on jumping catch attempts by the offense.",
+        "gold": "Significantly increased knockouts and less broken tackles on jumping catch attempts by the offense.",
+        "platinum": "Ultimate knockout ability and prevention of broken tackles on catch attempts by the offense."
+      },
+      "archetypes": [
+        {
+          "position": "LB",
+          "archetype": "Lurker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "POW",
+              "attribute_full": "Hit Power",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Bump and Run",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "ZCV",
+              "attribute_full": "Zone Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Field",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "ZCV",
+              "attribute_full": "Zone Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Zone",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "ZCV",
+              "attribute_full": "Zone Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Cover Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "ZCV",
+              "attribute_full": "Zone Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Hybrid",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MCV",
+              "attribute_full": "Man Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "ZCV",
+              "attribute_full": "Zone Coverage",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lay Out",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/lay-out/",
+      "tiers": {
+        "bronze": "Slightly improved ability to secure dive catches.",
+        "silver": "Moderately improved ability to secure dive catches.",
+        "gold": "Significantly increased ability to secure dive catches.",
+        "platinum": "Ultimate ability to secure diving catches."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Route Artist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Boundary",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 72,
+              "bronze": 72,
+              "silver": 74,
+              "gold": 77,
+              "platinum": 80
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Zone",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 72,
+              "bronze": 72,
+              "silver": 74,
+              "gold": 77,
+              "platinum": 80
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Cover Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPC",
+              "attribute_full": "Spectacular Catch",
+              "min_to_unlock": 72,
+              "bronze": 72,
+              "silver": 74,
+              "gold": 77,
+              "platinum": 80
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Magician",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/magician/",
+      "tiers": {
+        "bronze": "Slightly more agile in standard pocket movement.",
+        "silver": "Moderate agility boost when in standard pocket movement.",
+        "gold": "Significant agility boost in standard pocket movement.",
+        "platinum": "Ultimate ability to move around the pocket."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Pure Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SPD",
+              "attribute_full": "Speed",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 91,
+              "platinum": 92
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mega Leg",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/mega-leg/",
+      "tiers": {
+        "bronze": "Slight chance to avoid the penalty for overkicking on all kicks.",
+        "silver": "Moderate chance to avoid the penalty for overkicking on all kicks.",
+        "gold": "Significant chance to avoid the penalty for overkicking on all kicks.",
+        "platinum": "Ultimate chance to avoid the penalty for overkicking on all kicks."
+      },
+      "archetypes": [
+        {
+          "position": "K/P",
+          "archetype": "Accurate",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "KAC",
+              "attribute_full": "Kick Accuracy",
+              "min_to_unlock": 93,
+              "bronze": 93,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "K/P",
+          "archetype": "Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "KAC",
+              "attribute_full": "Kick Accuracy",
+              "min_to_unlock": 93,
+              "bronze": 93,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mobile Deadeye",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/mobile-deadeye/",
+      "tiers": {
+        "bronze": "When on the run outside the pocket, slight accuracy boost to WR's up to 15 yards downfield.",
+        "silver": "When on the run outside the pocket, moderate accuracy boost to WR's up to 20 yards downfield.",
+        "gold": "When on the run outside the pocket, significant accuracy boost to WR's up to 30 yards downfield.",
+        "platinum": "When on the run outside the pocket, ultimate accuracy boost to any receiver."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Backfield Creator",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RUN",
+              "attribute_full": "Throw on the Run",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 88,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Mobile Resistance",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/mobile-resistance/",
+      "tiers": {
+        "bronze": "Slightly improved ability to resist pressure on the run.",
+        "silver": "Moderately improved ability to resist pressure on the run.",
+        "gold": "Significantly improved ability to resist pressure on the run.",
+        "platinum": "Ultimate ability to resist pressure on the run."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Dual Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TUP",
+              "attribute_full": "Throw Under Pressure",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 83,
+              "gold": 84,
+              "platinum": 86
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Off Platform",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/off-platform/",
+      "tiers": {
+        "bronze": "Slight accuracy boost when throwing across body or backfoot for receivers up to 15 yards downfield.",
+        "silver": "Moderate accuracy boost when throwing across body or backfoot for receivers up to 20 yards downfield.",
+        "gold": "Significant accuracy boost when throwing across body or backfoot for receivers up to 30 yards downfield.",
+        "platinum": "Ultimate accuracy boost when throwing across body or backfoot for receivers up to 40 yards downfield."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Backfield Creator",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "THP",
+              "attribute_full": "Throw Power",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 92,
+              "gold": 94,
+              "platinum": 96
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "SAC",
+              "attribute_full": "Short Throw Accuracy",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 83,
+              "gold": 84,
+              "platinum": 86
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "On Time",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/on-time/",
+      "tiers": {
+        "bronze": "Slight accuracy boost when throwing before the receiver cuts on their route.",
+        "silver": "Moderate accuracy boost when throwing before the receiver cuts on their route.",
+        "gold": "Significant accuracy boost when throwing before the receiver cuts on their route.",
+        "platinum": "Ultimate accuracy boost when throwing before the receiver cuts on their route."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Backfield Creator",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SAC",
+              "attribute_full": "Short Throw Accuracy",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "QB",
+          "archetype": "Pocket Passer",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "SAC",
+              "attribute_full": "Short Throw Accuracy",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Option Disruptor",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/option-disruptor-2/",
+      "tiers": {
+        "bronze": "Slightly improved shedding against single blockers on option runs.",
+        "silver": "Moderately improved shedding against single blockers o option runs.",
+        "gold": "Significantly improved shedding against single blockers on option runs.",
+        "platinum": "Ultimate shedding against option runs including double teams."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Edge Setter",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PRC",
+              "attribute_full": "Play Recognition",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Gap Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PRC",
+              "attribute_full": "Play Recognition",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Option King",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/option-king/",
+      "tiers": {
+        "bronze": "Slight accuracy increase on quick pitches.",
+        "silver": "Moderate accuracy increase on quick pitches, speed increase on strong pitches.",
+        "gold": "Significant accuracy/speed increase on pitches, and Wear and Tear protection on option plays.",
+        "platinum": "Ultimate accuracy/speed increase on pitches, and Wear and Tear protection on option plays."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Dual Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 83,
+              "gold": 86,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "QB",
+          "archetype": "Pure Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BTK",
+              "attribute_full": "Break Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 83,
+              "gold": 86,
+              "platinum": 90
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Option Shield",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/option-shield/",
+      "tiers": {
+        "bronze": "Slightly improved blocking on option plays when close to the line of scrimmage.",
+        "silver": "Moderately improved blocking on option plays when close to the line of scrimmage.",
+        "gold": "Significantly improved blocking on option plays when close to the line of scrimmage.",
+        "platinum": "Ultimate option blocking ability when close to the line of scrimmage."
+      },
+      "archetypes": [
+        {
+          "position": "OL",
+          "archetype": "Agile",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Well Rounded",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Outside Disruptor",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/outside-disruptor-2/",
+      "tiers": {
+        "bronze": "Slightly improved shedding against single blockers on outside runs.",
+        "silver": "Moderately improved shedding against single blockers on outside runs.",
+        "gold": "Significantly improved shedding against single blockers on outside runs.",
+        "platinum": "Ultimate shedding against outside runs including double teams."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Edge Setter",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 93,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Gap Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "BSH",
+              "attribute_full": "Block Shedding",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 93,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Outside Shield",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/outside-shield/",
+      "tiers": {
+        "bronze": "Slightly improved double team blocks on outside runs when close to the line of scrimmage.",
+        "silver": "Moderately improved double team blocks on outside runs when close to the line of scrimmage.",
+        "gold": "Significantly improved blocks on outside runs when close to the line of scrimmage.",
+        "platinum": "Ultimate first level blocking on outside runs when close to the line of scrimmage."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 69,
+              "bronze": 69,
+              "silver": 70,
+              "gold": 72,
+              "platinum": 78
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 69,
+              "bronze": 69,
+              "silver": 70,
+              "gold": 72,
+              "platinum": 78
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Pure Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 69,
+              "bronze": 69,
+              "silver": 70,
+              "gold": 72,
+              "platinum": 78
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Pure Blocker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 69,
+              "bronze": 69,
+              "silver": 70,
+              "gold": 72,
+              "platinum": 78
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Agile",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Well Rounded",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RBF",
+              "attribute_full": "Run Block Finesse",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "PA Shield",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/pa-shield/",
+      "tiers": {
+        "bronze": "Slightly improved blocking on play action plays on 1st down or less than 3 yards to gain.",
+        "silver": "Moderately improved blocking on play action plays on 1st down or less than 3 yards to gain.",
+        "gold": "Significantly improved blocking on play action plays on 1st down or less than 3 yards to gain.",
+        "platinum": "Ultimate play action blocking on play action plays on 1st down or less than 3 yards to gain."
+      },
+      "archetypes": [
+        {
+          "position": "OL",
+          "archetype": "Pass Protector",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PBP",
+              "attribute_full": "Pass Block Power",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 91,
+              "platinum": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pocket Disruptor",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/pocket-disruptor/",
+      "tiers": {
+        "bronze": "Slightly improved pass rush on 3rd/4th down and 8+.",
+        "silver": "Moderately improved pass rush on 3rd/4th down and 8+.",
+        "gold": "Significantly improved pass rush on any down and distance, especially 3rd/4th down and 8+.",
+        "platinum": "Ultimate pass rush, especially on 3rd/4th down and 8+."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "FMV",
+              "attribute_full": "Finesse Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "PMV",
+              "attribute_full": "Power Moves",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pocket Shield",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/pocket-shield/",
+      "tiers": {
+        "bronze": "Slightly improved double team pass blocking if distance to first down is 10 or less.",
+        "silver": "Moderately improved double team pass blocking if distance to first down is 10 or less.",
+        "gold": "Significantly improved double team pass blocking if distance to first down is 10 or less.",
+        "platinum": "Ultimate pass blocking if distance to first down is 10 or less."
+      },
+      "archetypes": [
+        {
+          "position": "TE",
+          "archetype": "Pure Blocker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PBP",
+              "attribute_full": "Pass Block Power",
+              "min_to_unlock": 69,
+              "bronze": 69,
+              "silver": 71,
+              "gold": 73,
+              "platinum": 75
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Pass Protector",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PBP",
+              "attribute_full": "Pass Block Power",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 91,
+              "platinum": 95
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Well Rounded",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PBP",
+              "attribute_full": "Pass Block Power",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 91,
+              "platinum": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Press Pro",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/press-pro/",
+      "tiers": {
+        "bronze": "Slightly improved ability to beat press attempts from defenders.",
+        "silver": "Moderately improved ability to beat press attempts from defenders.",
+        "gold": "Significantly improved ability to beat press attempts from defenders.",
+        "platinum": "Ultimate ability to beat press attempts from defenders."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "RLS",
+              "attribute_full": "Release",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 86,
+              "gold": 88,
+              "platinum": 90
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pull Down",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/pull-down/",
+      "tiers": {
+        "bronze": "Slightly improved ball security when sacked while standing in the pocket.",
+        "silver": "Moderately improved ball security when sacked while standing in the pocket.",
+        "gold": "Significantly improved ball security when sacked while standing or throwing in the pocket.",
+        "platinum": "Ultimate ball security when sacked or throwing, including scrambling behind the LOS."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Backfield Creator",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CAR",
+              "attribute_full": "Carrying",
+              "min_to_unlock": 72,
+              "bronze": 72,
+              "silver": 75,
+              "gold": 79,
+              "platinum": 83
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Quick Drop",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/quick-drop/",
+      "tiers": {
+        "bronze": "Slightly improved movement on standard pass plays.",
+        "silver": "Moderately improved movement on standard pass plays.",
+        "gold": "Significantly improved movement on standard pass plays.",
+        "platinum": "Ultimate pass blocking movement on standard pass plays."
+      },
+      "archetypes": [
+        {
+          "position": "TE",
+          "archetype": "Pure Blocker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 89
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Agile",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 82,
+              "gold": 83,
+              "platinum": 84
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "SPD",
+              "attribute_full": "Speed",
+              "min_to_unlock": 68,
+              "bronze": 68,
+              "silver": 69,
+              "gold": 69,
+              "platinum": 70
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Pass Protector",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 82,
+              "gold": 83,
+              "platinum": 84
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "SPD",
+              "attribute_full": "Speed",
+              "min_to_unlock": 68,
+              "bronze": 68,
+              "silver": 69,
+              "gold": 69,
+              "platinum": 70
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Quick Jump",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/quick-jump/",
+      "tiers": {
+        "bronze": "Slightly quicker jump off the snap when pass rushing.",
+        "silver": "Moderately quicker jump off the snap when pass rushing.",
+        "gold": "Significantly quicker jump off the snap when pass rushing.",
+        "platinum": "Ultimate jump off the snap when pass rushing."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 91,
+              "gold": 93,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 91,
+              "gold": 93,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Boundary",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 95,
+              "platinum": 96
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Quick Step",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/quick-step/",
+      "tiers": {
+        "bronze": "Slightly improved movement as a pull blocker.",
+        "silver": "Moderately improved movement as a pull blocker.",
+        "gold": "Significantly improved movement as a pull blocker.",
+        "platinum": "Ultimate movement as a pull blocker."
+      },
+      "archetypes": [
+        {
+          "position": "OL",
+          "archetype": "Agile",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 79,
+              "bronze": 79,
+              "silver": 81,
+              "gold": 83,
+              "platinum": 84
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Recoup",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/recoup/",
+      "tiers": {
+        "bronze": "Slightly improved fatigue recovery when off the field.",
+        "silver": "Moderately improved fatigue recovery when off the field.",
+        "gold": "Significantly improved fatigue recovery off the field and stamina recovery during plays.",
+        "platinum": "Ultimate ability to resist fatigue accrual and recover stamina during plays."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Backfield Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "East/West Playmaker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Elusive Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Route Artist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Speedster",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Vertical Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STA",
+              "attribute_full": "Stamina",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Resistance",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/resistance/",
+      "tiers": {
+        "bronze": "When standing in the pocket, slight protection from medium pressure.",
+        "silver": "Standing in the pocket, moderate protection from medium pressure, slight protection from heavy pressure.",
+        "gold": "Standing in the pocket, significant protection from medium pressure, moderate protection from heavy pressure.",
+        "platinum": "When standing in the pocket, ultimate protection from pressure."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Pocket Passer",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TUP",
+              "attribute_full": "Throw Under Pressure",
+              "min_to_unlock": 81,
+              "bronze": 81,
+              "silver": 87,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Robber",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/robber/",
+      "tiers": {
+        "bronze": "Slightly improved movement in zone coverage.",
+        "silver": "Moderately improved movement in zone coverage.",
+        "gold": "Significantly improved movement in zone coverage.",
+        "platinum": "Ultimate movement in zone coverage."
+      },
+      "archetypes": [
+        {
+          "position": "LB",
+          "archetype": "Lurker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 91,
+              "bronze": 91,
+              "silver": 92,
+              "gold": 94,
+              "platinum": 95
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Field",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "COD",
+              "attribute_full": "Change of Direction",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Cover Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "COD",
+              "attribute_full": "Change of Direction",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Safety Valve",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/safety-valve/",
+      "tiers": {
+        "bronze": "Slightly improved ability to catch the ball when aligned in the backfield (excludes knockouts).",
+        "silver": "Moderately improved ability to catch the ball when aligned in the backfield (excludes knockouts).",
+        "gold": "Significantly improved cuts vs. man coverage and catching when aligned in the backfield (excludes knockouts).",
+        "platinum": "Ultimate ability to win vs. man coverage and secure catches when aligned in the backfield."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Backfield Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CTH",
+              "attribute_full": "Catching",
+              "min_to_unlock": 73,
+              "bronze": 73,
+              "silver": 76,
+              "gold": 80,
+              "platinum": 85
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "North/South Receiver",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CTH",
+              "attribute_full": "Catching",
+              "min_to_unlock": 73,
+              "bronze": 73,
+              "silver": 76,
+              "gold": 80,
+              "platinum": 85
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Screen Enforcer",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/screen-enforcer/",
+      "tiers": {
+        "bronze": "Slightly improved blocking on screen plays.",
+        "silver": "Moderately improved blocking on screen plays.",
+        "gold": "Significantly improved blocking on screen plays.",
+        "platinum": "Ultimate blocking on screen plays including ability to pancake defenders."
+      },
+      "archetypes": [
+        {
+          "position": "OL",
+          "archetype": "Agile",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "IBL",
+              "attribute_full": "Impact Blocking",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Second Level",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/second-level/",
+      "tiers": {
+        "bronze": "Slightly improved blocking after getting to the 2nd level of the defense.",
+        "silver": "Moderately improved blocking after getting to the 2nd level of the defense.",
+        "gold": "Significantly improved blocking after getting to the 2nd level of the defense.",
+        "platinum": "Ultimate blocking after getting to the 2nd level of the defense."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "IBL",
+              "attribute_full": "Impact Blocking",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 91
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Pure Blocker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "IBL",
+              "attribute_full": "Impact Blocking",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 91,
+              "gold": 93,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Raw Strength",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "IBL",
+              "attribute_full": "Impact Blocking",
+              "min_to_unlock": 89,
+              "bronze": 89,
+              "silver": 91,
+              "gold": 93,
+              "platinum": 94
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Shifty",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/shifty/",
+      "tiers": {
+        "bronze": "Slightly increased ability to maintain speed during cuts and turns when moving at high speeds.",
+        "silver": "Moderately increased ability to maintain speed during cuts and turns when moving at high speeds.",
+        "gold": "Significantly increased ability to maintain speed during cuts and turns.",
+        "platinum": "Ultimate ability to maintain speed during cuts and turns."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Pure Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "COD",
+              "attribute_full": "Change of Direction",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 89
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "SPD",
+              "attribute_full": "Speed",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 90,
+              "gold": 91,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "East/West Playmaker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "COD",
+              "attribute_full": "Change of Direction",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 88,
+              "gold": 89,
+              "platinum": 90
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "SPD",
+              "attribute_full": "Speed",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 95
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "Elusive Bruiser",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "COD",
+              "attribute_full": "Change of Direction",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 88,
+              "gold": 89,
+              "platinum": 90
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "SPD",
+              "attribute_full": "Speed",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 95
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Gadget",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "COD",
+              "attribute_full": "Change of Direction",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 91,
+              "gold": 93,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Speedster",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "COD",
+              "attribute_full": "Change of Direction",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            },
+            {
+              "requirement": "secondary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 91,
+              "gold": 93,
+              "platinum": 96
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Side Step",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/side-step/",
+      "tiers": {
+        "bronze": "Slightly improved ability to fake out defenders with juke moves.",
+        "silver": "Moderately improved ability to fake out defenders with juke moves.",
+        "gold": "Decently improved ability to fake out defenders with juke moves.",
+        "platinum": "Ultimate juke moves for responsiveness and faking out defenders."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Pure Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "JKM",
+              "attribute_full": "Juke Move",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 87,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "Backfield Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "JKM",
+              "attribute_full": "Juke Move",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "East/West Playmaker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "JKM",
+              "attribute_full": "Juke Move",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "Elusive Bruiser",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "JKM",
+              "attribute_full": "Juke Move",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Elusive Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "JKM",
+              "attribute_full": "Juke Move",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 87,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Gadget",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "JKM",
+              "attribute_full": "Juke Move",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 87,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Speedster",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "JKM",
+              "attribute_full": "Juke Move",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 87,
+              "gold": 91,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sidekick",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/sidekick/",
+      "tiers": {
+        "bronze": "Slightly improved cut blocks when in pass protection",
+        "silver": "Decently improved cut blocks when in pass protection",
+        "gold": "Significantly improved cut blocks when in pass protection",
+        "platinum": "Ultimate ability to cut block when in pass protection."
+      },
+      "archetypes": []
+    },
+    {
+      "name": "Sleight Of Hand",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/sleight-of-hand/",
+      "tiers": {
+        "bronze": "Slightly increased ability to fake defenders using play action on 1st down or less than 3 to gain.",
+        "silver": "Moderately increased ability to fake defenders using play action on 1st down or less than 3 to gain.",
+        "gold": "Significantly increased ability to fake defenders using play action on 1st down or less than 3 to gain.",
+        "platinum": "Ultimate ability to fake defenders using play action on 1st down or less than 3 to gain."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Backfield Creator",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PAC",
+              "attribute_full": "Play Action",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "QB",
+          "archetype": "Pocket Passer",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PAC",
+              "attribute_full": "Play Action",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 86,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Step Up",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/step-up/",
+      "tiers": {
+        "bronze": "Slightly improved accuracy when stepping up into the pocket and not under pressure.",
+        "silver": "Moderately improved accuracy when stepping up into the pocket and not under pressure.",
+        "gold": "Significantly improved accuracy when stepping up into the pocket and not under pressure.",
+        "platinum": "Ultimate accuracy when stepping up into the pocket and not under pressure."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Pocket Passer",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "MAC",
+              "attribute_full": "Medium Throw Accuracy",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 87,
+              "gold": 90,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Strong Grip",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/strong-grip/",
+      "tiers": {
+        "bronze": "Slight boost to lateral shed prevention on run plays.",
+        "silver": "Moderate boost to lateral shed prevention on run plays.",
+        "gold": "Significant boost to lateral shed prevention on run and pass plays.",
+        "platinum": "Ultimate prevention of lateral sheds on run and pass plays."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 89,
+              "gold": 93,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 85,
+              "gold": 87,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Pure Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 87,
+              "bronze": 87,
+              "silver": 91,
+              "gold": 95,
+              "platinum": 99
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Pure Blocker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Pass Protector",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Raw Strength",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Well Rounded",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 94,
+              "bronze": 94,
+              "silver": 95,
+              "gold": 96,
+              "platinum": 97
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Sure Hands",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/sure-hands/",
+      "tiers": {
+        "bronze": "Slightly improved ability to avoid drops (excludes dive and jumping catches).",
+        "silver": "Decently improved ability to avoid drops and knockouts (excludes dive and jumping catches).",
+        "gold": "Significantly improved ability to avoid drops and knockouts (excludes dive and jumping catches).",
+        "platinum": "Ultimate ability to avoid drops and knockouts (excludes dive and jumping catches)."
+      },
+      "archetypes": [
+        {
+          "position": "WR",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CIT",
+              "attribute_full": "Catch in Traffic",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CIT",
+              "attribute_full": "Catch in Traffic",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Route Artist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CIT",
+              "attribute_full": "Catch in Traffic",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CIT",
+              "attribute_full": "Catch in Traffic",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 84,
+              "gold": 88,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Physical Route Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CIT",
+              "attribute_full": "Catch in Traffic",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 84,
+              "gold": 88,
+              "platinum": 90
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Pure Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "CIT",
+              "attribute_full": "Catch in Traffic",
+              "min_to_unlock": 83,
+              "bronze": 83,
+              "silver": 84,
+              "gold": 88,
+              "platinum": 90
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Take Down",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/take-down/",
+      "tiers": {
+        "bronze": "Slightly increased ability to prevent broken sack attempts.",
+        "silver": "Moderately increased ability to prevent broken sack attempts.",
+        "gold": "Significantly increased ability to prevent broken sack attempts and force sack fumbles.",
+        "platinum": "Ultimate ability to prevent broken sack attempts and force sack fumbles."
+      },
+      "archetypes": [
+        {
+          "position": "EDGE",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 82,
+              "bronze": 82,
+              "silver": 87,
+              "gold": 91,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 89,
+              "gold": 91,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Speed Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 92
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Signal Caller",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "STR",
+              "attribute_full": "Strength",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 92
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Takeoff",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/takeoff/",
+      "tiers": {
+        "bronze": "Slightly quicker release off the line when not being pressed.",
+        "silver": "Moderately quicker release off the line when not being pressed.",
+        "gold": "Significantly quicker release off the line when not being pressed.",
+        "platinum": "Ultimate release off the line when not being pressed."
+      },
+      "archetypes": [
+        {
+          "position": "HB",
+          "archetype": "Backfield Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Speedster",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Vertical Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "ACC",
+              "attribute_full": "Acceleration",
+              "min_to_unlock": 95,
+              "bronze": 95,
+              "silver": 96,
+              "gold": 97,
+              "platinum": 98
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Wear Down",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/wear-down/",
+      "tiers": {
+        "bronze": "Successful pancake blocks on pass plays add slight fatigue to the engaged defender.",
+        "silver": "Successful pancake blocks on pass plays add moderate fatigue to the engaged defender.",
+        "gold": "Successful pancake blocks on pass plays add significant fatigue to the engaged defender.",
+        "platinum": "Successful pancake blocks on pass plays add ultimate fatigue to the engaged defender."
+      },
+      "archetypes": [
+        {
+          "position": "TE",
+          "archetype": "Pure Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PBK",
+              "attribute_full": "Pass Block",
+              "min_to_unlock": 84,
+              "bronze": 84,
+              "silver": 88,
+              "gold": 93,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Pass Protector",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "PBK",
+              "attribute_full": "Pass Block",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 88,
+              "gold": 93,
+              "platinum": 95
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Workhorse",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/workhorse/",
+      "tiers": {
+        "bronze": "Slight protection from Wear and Tear effects when colliding with other players.",
+        "silver": "Moderate protection from Wear and Tear effects when colliding with other players.",
+        "gold": "Significant protection from Wear and Tear effects when colliding with other players.",
+        "platinum": "Ultimate protection from Wear and Tear effects when colliding with other players."
+      },
+      "archetypes": [
+        {
+          "position": "QB",
+          "archetype": "Pure Runner",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "HB",
+          "archetype": "Contact Seeker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Contested Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "WR",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 92,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Gritty Possession",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "TE",
+          "archetype": "Vertical Threat",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "OL",
+          "archetype": "Raw Strength",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Edge Setter",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 92,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "EDGE",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 90,
+              "bronze": 90,
+              "silver": 92,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Gap Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 85,
+              "bronze": 85,
+              "silver": 89,
+              "gold": 93,
+              "platinum": 98
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Power Rush",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 86,
+              "bronze": 86,
+              "silver": 88,
+              "gold": 90,
+              "platinum": 94
+            }
+          ]
+        },
+        {
+          "position": "DT",
+          "archetype": "Pure Power",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 80,
+              "bronze": 80,
+              "silver": 85,
+              "gold": 90,
+              "platinum": 97
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Signal Caller",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Box Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TGH",
+              "attribute_full": "Toughness",
+              "min_to_unlock": 92,
+              "bronze": 92,
+              "silver": 93,
+              "gold": 94,
+              "platinum": 96
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Wrap Up",
+      "category": "Physical",
+      "url": "https://collegefootball.gg/abilities/wrap-up/",
+      "tiers": {
+        "bronze": "Slight protection from broken tackles on standard tackles.",
+        "silver": "Moderate protection from broken tackles and fake outs on standard tackles.",
+        "gold": "Significant protection from broken tackles and fake outs on standard tackles.",
+        "platinum": "Ultimate protection from broken tackles and fake outs on standard tackles."
+      },
+      "archetypes": [
+        {
+          "position": "LB",
+          "archetype": "Lurker",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Signal Caller",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "LB",
+          "archetype": "Thumper",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Boundary",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "CB",
+          "archetype": "Field",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Box Specialist",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        },
+        {
+          "position": "FS/SS",
+          "archetype": "Hybrid",
+          "requirements": [
+            {
+              "requirement": "primary",
+              "attribute": "TAK",
+              "attribute_full": "Tackle",
+              "min_to_unlock": 88,
+              "bronze": 88,
+              "silver": 90,
+              "gold": 92,
+              "platinum": 93
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

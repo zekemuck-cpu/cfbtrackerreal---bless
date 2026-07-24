@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TalentTreeEval_IssueUnlockNotificationRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentTreeEval_IssueUnlockNotificationRequest" numMembers="5" base="none()" ownerAssetId="6495415" isRecordPersistent="true" isExpr="true" majorVersionCRC="781307568" minorVersionCRC="-526704539">
+			<attribute name="staffPerson" idx="0" type="StaffPerson" />
+			<attribute name="team" idx="1" type="Team" />
+			<attribute name="talentSubtree" idx="2" type="TalentSubTree" />
+			<attribute name="talentNode" idx="3" type="TalentNode" />
+		</schema>
+	</schemas>
+</FranTkData>

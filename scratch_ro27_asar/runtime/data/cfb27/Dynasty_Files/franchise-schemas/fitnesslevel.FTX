@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\FitnessLevel.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="FitnessLevel" numMembers="8" assetId="10805542" isRecordPersistent="true" majorVersionCRC="-1784150682" minorVersionCRC="-755446483">
+			<attribute name="First" idx="0" value="0" />
+			<attribute name="Out_of_Shape" idx="1" value="0" />
+			<attribute name="Sluggish" idx="2" value="1" />
+			<attribute name="Fit" idx="3" value="2" />
+			<attribute name="Conditioned" idx="4" value="3" />
+			<attribute name="Peak" idx="5" value="4" />
+			<attribute name="Count" idx="6" value="5" />
+			<attribute name="Invalid" idx="7" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

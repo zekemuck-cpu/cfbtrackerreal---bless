@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TimelineStates.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TimelineStates" numMembers="2" assetId="6499230" isRecordPersistent="true" majorVersionCRC="1579482941" minorVersionCRC="-419190707">
+			<attribute name="CurrentState" idx="0" type="TimelineStateEnum" default="TimelineStateEnum:LegacyRewards" />
+			<attribute name="StateTypes" idx="1" type="TimelineStateType[]" />
+		</schema>
+	</schemas>
+</FranTkData>

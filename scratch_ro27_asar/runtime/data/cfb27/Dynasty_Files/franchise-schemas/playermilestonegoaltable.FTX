@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\PlayerMilestoneGoalTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerMilestoneGoalTable" numMembers="14" defaultStoreCapacity="1" assetId="6494672" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1863591784" minorVersionCRC="838048079">
+			<attribute name="CBMilestoneGoalsList" idx="0" type="PlayerGoal[]" />
+			<attribute name="DEMilestoneGoalsList" idx="1" type="PlayerGoal[]" />
+			<attribute name="DTMilestoneGoalsList" idx="2" type="PlayerGoal[]" />
+			<attribute name="FBMilestoneGoalsList" idx="3" type="PlayerGoal[]" />
+			<attribute name="HBMilestoneGoalsList" idx="4" type="PlayerGoal[]" />
+			<attribute name="KMilestoneGoalsList" idx="5" type="PlayerGoal[]" />
+			<attribute name="LBMilestoneGoalsList" idx="6" type="PlayerGoal[]" />
+			<attribute name="LSMilestoneGoalsList" idx="7" type="PlayerGoal[]" />
+			<attribute name="OLineMilestoneGoalsList" idx="8" type="PlayerGoal[]" />
+			<attribute name="PMilestoneGoalsList" idx="9" type="PlayerGoal[]" />
+			<attribute name="QBMilestoneGoalsList" idx="10" type="PlayerGoal[]" />
+			<attribute name="SMilestoneGoalsList" idx="11" type="PlayerGoal[]" />
+			<attribute name="TEMilestoneGoalsList" idx="12" type="PlayerGoal[]" />
+			<attribute name="WRMilestoneGoalsList" idx="13" type="PlayerGoal[]" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\FlaggedPositionEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FlaggedPositionEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="70" assetId="6553968" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="1270" majorVersionCRC="2142505170" minorVersionCRC="-529794522">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="FlaggedPosition" default="FlaggedPosition:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

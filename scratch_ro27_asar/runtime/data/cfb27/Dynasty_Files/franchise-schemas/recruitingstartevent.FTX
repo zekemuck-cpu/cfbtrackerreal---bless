@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingStartEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\RegularSeasonStartEvent.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingStartEvent" numMembers="2" base="RegularSeasonStartEvent" assetId="6499075" isRecordPersistent="true" majorVersionCRC="-437233512" minorVersionCRC="2097721948">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6499075-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6499075-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

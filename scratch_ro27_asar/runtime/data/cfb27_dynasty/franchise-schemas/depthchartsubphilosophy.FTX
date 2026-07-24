@@ -1,0 +1,42 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartSubPhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartSubPhilosophy" numMembers="35" defaultStoreCapacity="2" assetId="6378218" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1068999374" minorVersionCRC="-350827059">
+			<attribute name="3DRB" idx="0" type="DepthChartPositionSub[]" />
+			<attribute name="C" idx="1" type="DepthChartPositionSub[]" />
+			<attribute name="CB" idx="2" type="DepthChartPositionSub[]" />
+			<attribute name="DT" idx="3" type="DepthChartPositionSub[]" />
+			<attribute name="FB" idx="4" type="DepthChartPositionSub[]" />
+			<attribute name="FS" idx="5" type="DepthChartPositionSub[]" />
+			<attribute name="GAD" idx="6" type="DepthChartPositionSub[]" />
+			<attribute name="HB" idx="7" type="DepthChartPositionSub[]" />
+			<attribute name="K" idx="8" type="DepthChartPositionSub[]" />
+			<attribute name="KOS" idx="9" type="DepthChartPositionSub[]" />
+			<attribute name="KR" idx="10" type="DepthChartPositionSub[]" />
+			<attribute name="LE" idx="11" type="DepthChartPositionSub[]" />
+			<attribute name="LG" idx="12" type="DepthChartPositionSub[]" />
+			<attribute name="LOLB" idx="13" type="DepthChartPositionSub[]" />
+			<attribute name="LS" idx="14" type="DepthChartPositionSub[]" />
+			<attribute name="LT" idx="15" type="DepthChartPositionSub[]" />
+			<attribute name="MLB" idx="16" type="DepthChartPositionSub[]" />
+			<attribute name="NT" idx="17" type="DepthChartPositionSub[]" />
+			<attribute name="P" idx="18" type="DepthChartPositionSub[]" />
+			<attribute name="PR" idx="19" type="DepthChartPositionSub[]" />
+			<attribute name="PWHB" idx="20" type="DepthChartPositionSub[]" />
+			<attribute name="QB" idx="21" type="DepthChartPositionSub[]" />
+			<attribute name="RDT" idx="22" type="DepthChartPositionSub[]" />
+			<attribute name="RE" idx="23" type="DepthChartPositionSub[]" />
+			<attribute name="RG" idx="24" type="DepthChartPositionSub[]" />
+			<attribute name="RLE" idx="25" type="DepthChartPositionSub[]" />
+			<attribute name="ROLB" idx="26" type="DepthChartPositionSub[]" />
+			<attribute name="RRE" idx="27" type="DepthChartPositionSub[]" />
+			<attribute name="RT" idx="28" type="DepthChartPositionSub[]" />
+			<attribute name="SLCB" idx="29" type="DepthChartPositionSub[]" />
+			<attribute name="SLWR" idx="30" type="DepthChartPositionSub[]" />
+			<attribute name="SS" idx="31" type="DepthChartPositionSub[]" />
+			<attribute name="SUBLB" idx="32" type="DepthChartPositionSub[]" />
+			<attribute name="TE" idx="33" type="DepthChartPositionSub[]" />
+			<attribute name="WR" idx="34" type="DepthChartPositionSub[]" />
+		</schema>
+	</schemas>
+</FranTkData>

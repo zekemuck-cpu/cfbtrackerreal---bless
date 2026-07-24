@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\TriggerRandomizedRewardBundleAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TriggerRandomizedRewardBundleAction" numMembers="3" base="SequenceAction" assetId="6536921" isRecordPersistent="true" majorVersionCRC="-1796737388" minorVersionCRC="703436952">
+			<attribute name="Default" idx="0" type="bool" default="False" />
+			<attribute name="Enabled" idx="1" type="bool" default="True" />
+			<attribute name="RandomRewardBundle" idx="2" type="RandomRewardBundle" />
+		</schema>
+	</schemas>
+</FranTkData>

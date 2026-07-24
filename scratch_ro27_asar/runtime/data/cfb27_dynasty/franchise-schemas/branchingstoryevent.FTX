@@ -1,0 +1,41 @@
+<FranTkData fileName="Franchise-Schemas\BranchingStoryEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BranchingStoryEvent" numMembers="34" assetId="6498479" isRecordPersistent="true" majorVersionCRC="-762489870" minorVersionCRC="-1497106499">
+			<attribute name="PlayerLeftDraftEvent" idx="0" value="0" />
+			<attribute name="PlayerEnteredDraftEvent" idx="1" value="1" />
+			<attribute name="PreSeasonWeek1" idx="2" value="2" />
+			<attribute name="PreSeasonWeek2" idx="3" value="3" />
+			<attribute name="PreSeasonWeek3" idx="4" value="4" />
+			<attribute name="PreSeasonWeek4" idx="5" value="5" />
+			<attribute name="RegularSeasonWeek1" idx="6" value="6" />
+			<attribute name="RegularSeasonWeek2" idx="7" value="7" />
+			<attribute name="RegularSeasonWeek3" idx="8" value="8" />
+			<attribute name="RegularSeasonWeek4" idx="9" value="9" />
+			<attribute name="RegularSeasonWeek5" idx="10" value="10" />
+			<attribute name="RegularSeasonWeek6" idx="11" value="11" />
+			<attribute name="RegularSeasonWeek7" idx="12" value="12" />
+			<attribute name="RegularSeasonWeek8" idx="13" value="13" />
+			<attribute name="RegularSeasonWeek9" idx="14" value="14" />
+			<attribute name="RegularSeasonWeek10" idx="15" value="15" />
+			<attribute name="RegularSeasonWeek11" idx="16" value="16" />
+			<attribute name="RegularSeasonWeek12" idx="17" value="17" />
+			<attribute name="RegularSeasonWeek13" idx="18" value="18" />
+			<attribute name="RegularSeasonWeek14" idx="19" value="19" />
+			<attribute name="RegularSeasonWeek15" idx="20" value="20" />
+			<attribute name="RegularSeasonWeek16" idx="21" value="21" />
+			<attribute name="RegularSeasonWeek17" idx="22" value="22" />
+			<attribute name="SeniorBowl" idx="23" value="23" />
+			<attribute name="NFLCombine" idx="24" value="24" />
+			<attribute name="ProDays" idx="25" value="25" />
+			<attribute name="IndividualWorkouts" idx="26" value="26" />
+			<attribute name="RegularSeasonWeek18" idx="27" value="27" />
+			<attribute name="PostSeasonWeekWildcard" idx="28" value="28" />
+			<attribute name="PostSeasonWeekDivisional" idx="29" value="29" />
+			<attribute name="PostSeasonWeekConference" idx="30" value="30" />
+			<attribute name="PostSeasonWeekSuperbowl" idx="31" value="31" />
+			<attribute name="StaffMoves" idx="32" value="32" />
+			<attribute name="Invalid_" idx="33" value="33" />
+		</enum>
+	</schemas>
+</FranTkData>

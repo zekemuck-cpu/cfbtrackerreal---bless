@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartEval_BuildIssueAutoRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartEval_BuildIssueAutoRequest" numMembers="2" base="none()" ownerAssetId="6498463" isRecordPersistent="true" isExpr="true" majorVersionCRC="1516520659" minorVersionCRC="1501943037">
+			<attribute name="oldRequest" idx="0" type="ManageRedshirtsRequest" />
+		</schema>
+	</schemas>
+</FranTkData>

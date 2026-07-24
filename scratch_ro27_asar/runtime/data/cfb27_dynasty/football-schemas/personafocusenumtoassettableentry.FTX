@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\PersonaFocusEnumToAssetTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\EnumToAssetTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaFocusEnumToAssetTableEntry" numMembers="2" base="EnumToAssetTableEntry" assetId="12355592" isRecordPersistent="true" majorVersionCRC="19610034" minorVersionCRC="767682970">
+			<attribute name="Asset" idx="0" type="record" />
+			<attribute name="Value" idx="1" type="BTCareerPersonaFocus" default="BTCareerPersonaFocus:LoveOfTheGame" />
+		</schema>
+	</schemas>
+</FranTkData>

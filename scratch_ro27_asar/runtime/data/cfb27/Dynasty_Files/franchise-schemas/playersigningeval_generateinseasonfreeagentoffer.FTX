@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_GenerateInSeasonFreeAgentOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_GenerateInSeasonFreeAgentOffer" numMembers="5" base="ContractOffer()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="1050779187" minorVersionCRC="2015645815">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="availablePlayers" idx="1" type="Player[]" />
+			<attribute name="signingThreshold" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="extraCapRoomImpact" idx="3" type="int" minValue="0" maxValue="10000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

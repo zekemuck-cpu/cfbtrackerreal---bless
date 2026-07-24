@@ -1,0 +1,115 @@
+<FranTkData fileName="Franchise-Schemas\PollsTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PollsTuning" numMembers="104" base="BaseTuning" defaultStoreCapacity="1" assetId="6833457" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="3" majorVersionCRC="-442804035" minorVersionCRC="566524754">
+			<attribute name="AdditionalUndefeatedBonusForByeWeek" idx="0" type="float" default="1" />
+			<attribute name="AwayWinBonus" idx="1" type="float" default="0.3" />
+			<attribute name="BowlProjectionWeek" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BowlWinEligibility" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CalculateLastWeekBonus" idx="4" type="PollsTuning_CalculateLastWeekBonus" guid="6833457-1981065" />
+			<attribute name="CalculateLowBonus" idx="5" type="string" maxLen="1" />
+			<attribute name="CalculatePollScore" idx="6" type="string" maxLen="1" />
+			<attribute name="CalculateUndefeatedBonus" idx="7" type="string" maxLen="1" />
+			<attribute name="CFPChampionBonus" idx="8" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CFPPoll_Divider" idx="9" type="float" default="3" />
+			<attribute name="CFPPollUpdateWeek_Threshold" idx="10" type="int" minValue="0" maxValue="30" default="11" />
+			<attribute name="CFPRunnerUpBonus" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="CloseGameThreshold" idx="12" type="int" minValue="0" maxValue="60" default="0" />
+			<attribute name="CoachesBeatenBadlyPenaltyDivider" idx="13" type="float" default="24" />
+			<attribute name="CoachesLossPenaltyWeightBase" idx="14" type="float" default="1.17" />
+			<attribute name="CoachesLossPenaltyWeightOffset" idx="15" type="float" default="0.07" />
+			<attribute name="CoachesPollMaxPoints" idx="16" type="int" minValue="0" maxValue="16382" default="16382" />
+			<attribute name="CoachesPollVoterNum" idx="17" type="int" minValue="0" maxValue="100" default="61" />
+			<attribute name="CoachesUpsetWinBonusPointDiff_Divider" idx="18" type="int" minValue="0" maxValue="100" default="28" />
+			<attribute name="CoachesUpsetWinBonusPointsDifference_Max" idx="19" type="int" minValue="0" maxValue="100" default="55" />
+			<attribute name="ConferencePrestigeMultList" idx="20" type="int[]" />
+			<attribute name="ConferencePrestigueMax" idx="21" type="int" minValue="0" maxValue="20" default="12" />
+			<attribute name="CPUAverageCoachesWeight_Base" idx="22" type="int" minValue="0" maxValue="120" default="100" />
+			<attribute name="CPUAverageMediaWeight_Base" idx="23" type="int" minValue="0" maxValue="120" default="100" />
+			<attribute name="CPUAveragePlusTeamCount_Divider" idx="24" type="int" minValue="0" maxValue="150" default="150" />
+			<attribute name="CPUAverageScheduleWeight_Base" idx="25" type="int" minValue="0" maxValue="120" default="100" />
+			<attribute name="CPUAverageScore_Divider" idx="26" type="float" default="25" />
+			<attribute name="CPUAverageScoreWeight_Base" idx="27" type="int" minValue="0" maxValue="120" default="100" />
+			<attribute name="CPUAverageThreshold" idx="28" type="int" minValue="0" maxValue="150" default="100" />
+			<attribute name="CPUAvgCoachWeight" idx="29" type="float" default="0.85" />
+			<attribute name="CPUAvgMediaWeight" idx="30" type="float" default="0.85" />
+			<attribute name="CPUAvgScheduleWeight" idx="31" type="float" default="0.2" />
+			<attribute name="CPUAvgScoreWeight" idx="32" type="float" default="0.015" />
+			<attribute name="FCSTeamNumGames" idx="33" type="int" minValue="0" maxValue="12" default="11" />
+			<attribute name="FCSTeamWins" idx="34" type="int" minValue="0" maxValue="12" default="0" />
+			<attribute name="GameOfTheWeekBroadcastThresholds" idx="35" type="BroadcastGameOfTheWeekThreshold[]" />
+			<attribute name="GameScoreRivalryModifier" idx="36" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GetMaxLossPointsForCloseRankedLoss" idx="37" type="PollsTuning_GetMaxLossPointsForCloseRankedLoss" guid="6833457-2379013" final="true" default="int maxLossPoints = MaxLossPointsForCloseRankedLossSpline.CalculateY(maxTeamRank);&#xD;&#xA;maxLossPoints;" />
+			<attribute name="GetMaxLossPointsForRank" idx="38" type="PollsTuning_GetMaxLossPointsForRank" guid="6833457-2379003" final="true" default="int maxLossPoints = MaxLossPointsForRankSpline.CalculateY(teamRank);&#xD;&#xA;maxLossPoints;" />
+			<attribute name="GetMaxLossPointsSeasonPercentageMultiplier" idx="39" type="PollsTuning_GetMaxLossPointsSeasonPercentageMultiplier" guid="6833457-2379008" final="true" default="int percentage = MaxLossPointsSeasonPercentageMultiplierSpline.CalculateY(weekNumber);&#xD;&#xA;percentage;" />
+			<attribute name="GetMaxTop25TeamWinBonusTotal" idx="40" type="PollsTuning_GetMaxTop25TeamWinBonusTotal" guid="6833457-2350012" default="int maxWinBonus = MaxTop25TeamWinBonusTotalSpline.CalculateY(WeekNumber);&#xD;&#xA;maxWinBonus;" />
+			<attribute name="GetMaxUndefeatedBonus" idx="41" type="PollsTuning_GetMaxUndefeatedBonus" guid="6833457-2350017" default="int maxUndefeatedBonus = MaxUndefeatedBonusSpline.CalculateY(WeekNumber);&#xD;&#xA;maxUndefeatedBonus;" />
+			<attribute name="GetMaxUnrankedTeamWinBonusTotal" idx="42" type="PollsTuning_GetMaxUnrankedTeamWinBonusTotal" guid="6833457-2350032" final="true" default="int maxWinBonus = MaxUnrankedTeamWinBonusTotalSpline.CalculateY(TeamRank);&#xD;&#xA;maxWinBonus;" />
+			<attribute name="LowBonus_Divider" idx="43" type="float" default="8" />
+			<attribute name="LowBonusRankLimit" idx="44" type="int" minValue="0" maxValue="100" default="35" />
+			<attribute name="LowerRankedTeamLossPenalty_Divider" idx="45" type="float" default="9" />
+			<attribute name="MaxLossPointsForCloseRankedLossSpline" idx="46" type="Spline" />
+			<attribute name="MaxLossPointsForRankSpline" idx="47" type="Spline" />
+			<attribute name="MaxLossPointsSeasonPercentageMultiplierSpline" idx="48" type="Spline" />
+			<attribute name="MaxPenalizedLosses" idx="49" type="int" minValue="0" maxValue="12" default="5" />
+			<attribute name="MaxTop25TeamWinBonusTotalSpline" idx="50" type="Spline" />
+			<attribute name="MaxUndefeatedBonusSpline" idx="51" type="Spline" />
+			<attribute name="MaxUndefeatedLosses" idx="52" type="int" minValue="0" maxValue="100" default="2" />
+			<attribute name="MaxUnrankedTeamWinBonusTotalSpline" idx="53" type="Spline" />
+			<attribute name="MediaBeatenBadlyPenaltyDivider" idx="54" type="float" default="17" />
+			<attribute name="MediaLossPenaltyWeightBase" idx="55" type="float" default="1.22" />
+			<attribute name="MediaLossPenaltyWeightOffset" idx="56" type="float" default="0.05" />
+			<attribute name="MediaPollMaxPoints" idx="57" type="int" minValue="0" maxValue="16382" default="16382" />
+			<attribute name="MediaPollVoterNum" idx="58" type="int" minValue="0" maxValue="100" default="65" />
+			<attribute name="MediaUpsetWinBonusPointDiff_Divider" idx="59" type="int" minValue="0" maxValue="100" default="21" />
+			<attribute name="MediaUpsetWinBonusPointsDifference_Max" idx="60" type="int" minValue="0" maxValue="100" default="41" />
+			<attribute name="MinUndefeatedConfPrestige" idx="61" type="int" minValue="0" maxValue="100" default="9" />
+			<attribute name="NumTeamsReceivingVotingPoints_Max" idx="62" type="int" minValue="10" maxValue="40" default="35" />
+			<attribute name="NumTeamsReceivingVotingPoints_Min" idx="63" type="int" minValue="10" maxValue="40" default="30" />
+			<attribute name="OtherReceivingVotesRank_Max" idx="64" type="int" minValue="0" maxValue="50" default="35" />
+			<attribute name="OtherReceivingVotesRank_Min" idx="65" type="int" minValue="1" maxValue="26" default="26" />
+			<attribute name="PointsStorageMultiplier" idx="66" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="PollsRank_Threshold" idx="67" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="PreseasonCoachesPollCoachesWeight" idx="68" type="float" default="0.08" />
+			<attribute name="PreseasonCoachesPollConferenceWeight" idx="69" type="float" default="0.76" />
+			<attribute name="PreseasonCoachesPollMediaWeight" idx="70" type="float" default="0.08" />
+			<attribute name="PreseasonCoachesPollOverallWeight" idx="71" type="float" default="0.08" />
+			<attribute name="PreseasonMediaPollCoachesWeight" idx="72" type="float" default="0.15" />
+			<attribute name="PreseasonMediaPollConferenceWeight" idx="73" type="float" default="0.75" />
+			<attribute name="PreseasonMediaPollMediaWeight" idx="74" type="float" default="0.05" />
+			<attribute name="PreseasonMediaPollOverallWeight" idx="75" type="float" default="0.05" />
+			<attribute name="ScheduleStrength_Divider" idx="76" type="float" default="25" />
+			<attribute name="ScheduleStrengthOppOppWeight_Multiplier" idx="77" type="float" default="0.3333" />
+			<attribute name="ScheduleStrengthOppWeight_Multiplier" idx="78" type="float" default="0.6666" />
+			<attribute name="Top25WinBonus_HighBase" idx="79" type="float" default="16" />
+			<attribute name="Top25WinBonus_HighDivider" idx="80" type="float" default="3" />
+			<attribute name="Top25WinBonus_HighThreshold" idx="81" type="int" minValue="0" maxValue="100" default="10" />
+			<attribute name="Top25WinBonus_LowBase" idx="82" type="float" default="26" />
+			<attribute name="Top25WinBonus_LowDivider" idx="83" type="float" default="23" />
+			<attribute name="Top25WinBonus_LowThreshold" idx="84" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="ToughestPlaceStadiumRank_Base" idx="85" type="float" default="26" />
+			<attribute name="ToughestPlaceStadiumRank_Divider" idx="86" type="float" default="23" />
+			<attribute name="ToughestPlaceStadiumRank_Threshold" idx="87" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="UndefeatedBonusList" idx="88" type="int[]" />
+			<attribute name="UndefeatedBonusWeekStart" idx="89" type="int" minValue="0" maxValue="35" default="6" />
+			<attribute name="UpsetWinBonusPointsDifference_Min" idx="90" type="int" minValue="-100" maxValue="100" default="0" />
+			<attribute name="UpsetWinBonusWeek_Base" idx="91" type="float" default="0.75" />
+			<attribute name="UpsetWinBonusWeek_Divider" idx="92" type="float" default="8" />
+			<attribute name="UpsetWinBonusWeek_Offset" idx="93" type="float" default="1.75" />
+			<attribute name="VotingBrackets_Max" idx="94" type="int[]" />
+			<attribute name="VotingBrackets_Min" idx="95" type="int[]" />
+			<attribute name="VotingChallengerRank_Max" idx="96" type="int" minValue="0" maxValue="10" default="5" />
+			<attribute name="VotingDistributionRank_Max" idx="97" type="int" minValue="0" maxValue="15" default="9" />
+			<attribute name="VotingPointsNum_Base" idx="98" type="int" minValue="0" maxValue="500" default="325" />
+			<attribute name="WeekLossPenalty_Base" idx="99" type="float" default="18" />
+			<attribute name="WeekLossPenalty_Divider" idx="100" type="float" default="-5" />
+			<attribute name="WeekLossPenalty_Offset" idx="101" type="int" minValue="0" maxValue="10" default="1" />
+			<attribute name="WinBonusTotal_Min" idx="102" type="int" minValue="0" maxValue="1" default="0" />
+			<attribute name="WinBonusWinPercentage_Multiplier" idx="103" type="int" minValue="0" maxValue="10" default="2" />
+		</schema>
+	</schemas>
+</FranTkData>

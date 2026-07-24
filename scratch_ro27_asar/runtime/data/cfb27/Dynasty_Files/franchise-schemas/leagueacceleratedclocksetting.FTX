@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\LeagueAcceleratedClockSetting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="LeagueAcceleratedClockSetting" numMembers="13" assetId="6378490" isRecordPersistent="true" majorVersionCRC="-2141559640" minorVersionCRC="551829102">
+			<attribute name="ACCELERATEDCLOCK_OFF" idx="0" value="0" />
+			<attribute name="ACCELERATEDCLOCK_10_SEC" idx="1" value="1" />
+			<attribute name="ACCELERATEDCLOCK_11_SEC" idx="2" value="2" />
+			<attribute name="ACCELERATEDCLOCK_12_SEC" idx="3" value="3" />
+			<attribute name="ACCELERATEDCLOCK_13_SEC" idx="4" value="4" />
+			<attribute name="ACCELERATEDCLOCK_14_SEC" idx="5" value="5" />
+			<attribute name="ACCELERATEDCLOCK_15_SEC" idx="6" value="6" />
+			<attribute name="ACCELERATEDCLOCK_16_SEC" idx="7" value="7" />
+			<attribute name="ACCELERATEDCLOCK_17_SEC" idx="8" value="8" />
+			<attribute name="ACCELERATEDCLOCK_18_SEC" idx="9" value="9" />
+			<attribute name="ACCELERATEDCLOCK_19_SEC" idx="10" value="10" />
+			<attribute name="ACCELERATEDCLOCK_20_SEC" idx="11" value="11" />
+			<attribute name="ACCELERATEDCLOCK_25_SEC" idx="12" value="12" />
+		</enum>
+	</schemas>
+</FranTkData>

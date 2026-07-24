@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PollsOffseasonWeekStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PollsOffseasonWeekStartReaction" numMembers="4" base="Reaction" assetId="9950472" isRecordPersistent="true" majorVersionCRC="1138361201" minorVersionCRC="-1394037531">
+			<attribute name="EventRecord" idx="0" type="OffseasonWeekStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="9950472-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonStandingsRef" idx="3" type="SeasonStandings" />
+		</schema>
+	</schemas>
+</FranTkData>

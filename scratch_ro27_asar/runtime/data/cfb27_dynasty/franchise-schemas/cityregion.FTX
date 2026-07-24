@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\CityRegion.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CityRegion" numMembers="9" assetId="6320621" isRecordPersistent="true" majorVersionCRC="964896615" minorVersionCRC="618917822">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="South" idx="1" value="0" />
+			<attribute name="Southwest" idx="2" value="1" />
+			<attribute name="Southeast" idx="3" value="2" />
+			<attribute name="Northeast" idx="4" value="3" />
+			<attribute name="Northwest" idx="5" value="4" />
+			<attribute name="Midwest" idx="6" value="5" />
+			<attribute name="Max_" idx="7" value="6" />
+			<attribute name="Invalid_" idx="8" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

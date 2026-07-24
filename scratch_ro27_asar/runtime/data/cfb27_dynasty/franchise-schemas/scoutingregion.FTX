@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\ScoutingRegion.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ScoutingRegion" numMembers="10" assetId="6378752" isRecordPersistent="true" majorVersionCRC="713332029" minorVersionCRC="942487188">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="FirstNormal_" idx="1" value="0" />
+			<attribute name="NorthEast" idx="2" value="0" />
+			<attribute name="SouthEast" idx="3" value="1" />
+			<attribute name="Central" idx="4" value="2" />
+			<attribute name="LastNormal_" idx="5" value="3" />
+			<attribute name="West" idx="6" value="3" />
+			<attribute name="Last_" idx="7" value="4" />
+			<attribute name="National" idx="8" value="4" />
+			<attribute name="Invalid" idx="9" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

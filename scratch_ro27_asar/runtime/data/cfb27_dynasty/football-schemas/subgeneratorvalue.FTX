@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\SubGeneratorValue.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\PropertySetterBase.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SubGeneratorValue" numMembers="2" base="PropertySetterBase" assetId="6702138" isRecordPersistent="true" majorVersionCRC="-701752506" minorVersionCRC="-1225694047">
+			<attribute name="GeneratorName" idx="0" type="string" maxLen="16" />
+			<attribute name="PropertyName" idx="1" type="string" maxLen="32" />
+		</schema>
+	</schemas>
+</FranTkData>

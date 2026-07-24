@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\RecruitingEval_AdvanceWeekCompleteReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitingEval_AdvanceWeekCompleteReaction" numMembers="6" base="Reaction" assetId="9100796" isRecordPersistent="true" majorVersionCRC="-1706205310" minorVersionCRC="1746604251">
+			<attribute name="EventRecord" idx="0" type="AdvanceWeekCompleteEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="9100796-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="RecruitingEvalRef" idx="3" type="RecruitingEval" />
+			<attribute name="RecruitManagerRef" idx="4" type="RecruitManager" />
+			<attribute name="SeasonInfo" idx="5" type="SeasonInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

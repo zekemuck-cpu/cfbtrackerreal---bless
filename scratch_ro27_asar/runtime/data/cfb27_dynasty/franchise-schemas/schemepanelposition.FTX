@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\SchemePanelPosition.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SchemePanelPosition" numMembers="3" defaultStoreCapacity="77" assetId="12369504" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1076031202" minorVersionCRC="-843314412">
+			<attribute name="Depth" idx="0" type="int" minValue="0" maxValue="100" default="1" />
+			<attribute name="Position" idx="1" type="PositionE" default="PositionE:FirstKeyOffense_" />
+			<attribute name="SeatNumber" idx="2" type="int" minValue="1" maxValue="100" default="1" />
+		</schema>
+	</schemas>
+</FranTkData>

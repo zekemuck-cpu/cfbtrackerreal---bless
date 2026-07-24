@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\UISpreadsheetFreeAgentNegotiationStatusFilter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetIntFilter.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UISpreadsheetFreeAgentNegotiationStatusFilter" numMembers="3" base="UISpreadsheetIntFilter" assetId="6572369" isRecordPersistent="true" majorVersionCRC="987963406" minorVersionCRC="-105047868">
+			<attribute name="Columns" idx="0" type="UISpreadsheetColumnInfo[]" />
+			<attribute name="Label" idx="1" type="string" maxLen="34" />
+			<attribute name="Value" idx="2" type="FreeAgentNegotiationStatus" default="FreeAgentNegotiationStatus:FirstAvailable_" />
+		</schema>
+	</schemas>
+</FranTkData>

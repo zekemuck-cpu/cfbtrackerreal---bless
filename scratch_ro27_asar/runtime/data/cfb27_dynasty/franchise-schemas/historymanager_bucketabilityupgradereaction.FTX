@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\HistoryManager_BucketAbilityUpgradeReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HistoryManager_BucketAbilityUpgradeReaction" numMembers="4" base="Reaction" assetId="8091610" isRecordPersistent="true" majorVersionCRC="-1787076501" minorVersionCRC="-1424056348">
+			<attribute name="EventRecord" idx="0" type="BucketAbilityUpgradeEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="8091610-1895461" />
+			<attribute name="HistoryManager" idx="2" type="HistoryManager" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

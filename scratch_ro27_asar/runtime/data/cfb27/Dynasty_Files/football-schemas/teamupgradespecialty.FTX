@@ -1,0 +1,17 @@
+<FranTkData fileName="Football-Schemas\TeamUpgradeSpecialty.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TeamUpgradeSpecialty" numMembers="10" assetId="12133544" isRecordPersistent="true" majorVersionCRC="-1270087194" minorVersionCRC="-1340333339">
+			<attribute name="None" idx="0" value="0" />
+			<attribute name="Coach" idx="1" value="1" />
+			<attribute name="First_" idx="2" value="1" />
+			<attribute name="Recruit" idx="3" value="2" />
+			<attribute name="Player" idx="4" value="3" />
+			<attribute name="Fundraising" idx="5" value="4" />
+			<attribute name="Facilities" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="5" />
+			<attribute name="Max_" idx="8" value="6" />
+			<attribute name="Invalid_" idx="9" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

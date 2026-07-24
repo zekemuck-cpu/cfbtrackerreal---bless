@@ -1,0 +1,34 @@
+<FranTkData fileName="Franchise-Schemas\BaseScheme.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BaseScheme" numMembers="27" assetId="6320593" isRecordPersistent="true" majorVersionCRC="1477974376" minorVersionCRC="1661997130">
+			<attribute name="OFF_WEST_COAST_ZONE_RUN" idx="0" value="0" />
+			<attribute name="Offense_First_" idx="1" value="0" />
+			<attribute name="OFF_MULTIPLE_OFFENSE" idx="2" value="1" />
+			<attribute name="OFF_VEER_AND_SHOOT" idx="3" value="2" />
+			<attribute name="OFF_POWER_SPREAD" idx="4" value="3" />
+			<attribute name="OFF_SPREAD_OPTION" idx="5" value="4" />
+			<attribute name="OFF_PRO_STYLE" idx="6" value="5" />
+			<attribute name="OFF_SPREAD" idx="7" value="6" />
+			<attribute name="OFF_RUN_AND_SHOOT" idx="8" value="7" />
+			<attribute name="OFF_AIR_RAID" idx="9" value="8" />
+			<attribute name="OFF_PISTOL" idx="10" value="9" />
+			<attribute name="OFF_OPTION" idx="11" value="10" />
+			<attribute name="Offensive_Last_" idx="12" value="10" />
+			<attribute name="DEF_BASE4_3" idx="13" value="11" />
+			<attribute name="Defense_First_" idx="14" value="11" />
+			<attribute name="DEF_3_3_5" idx="15" value="12" />
+			<attribute name="DEF_BASE3_4" idx="16" value="13" />
+			<attribute name="DEF_4_2_5" idx="17" value="14" />
+			<attribute name="DEF_MULTIPLE_DEFENSE" idx="18" value="15" />
+			<attribute name="DEF_4_3_MULTIPLE" idx="19" value="16" />
+			<attribute name="DEF_3_4_MULTIPLE" idx="20" value="17" />
+			<attribute name="DEF_3_3_5_TITE" idx="21" value="18" />
+			<attribute name="DEF_3_2_6" idx="22" value="19" />
+			<attribute name="Count_" idx="23" value="20" />
+			<attribute name="DEF_UNUSED" idx="24" value="20" />
+			<attribute name="Defense_Last_" idx="25" value="20" />
+			<attribute name="Locked" idx="26" value="21" />
+		</enum>
+	</schemas>
+</FranTkData>

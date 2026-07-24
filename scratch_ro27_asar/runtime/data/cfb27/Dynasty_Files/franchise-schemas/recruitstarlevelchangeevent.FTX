@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\RecruitStarLevelChangeEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RecruitStarLevelChangeEvent" numMembers="11" base="Event" defaultStoreCapacity="5" assetId="10605478" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-993293762" minorVersionCRC="-387255428">
+			<attribute name="Enqueue" idx="0" type="none()" guid="10605478-1895458" final="true" />
+			<attribute name="NarrativePlayer" idx="1" type="NarrativePlayer" />
+			<attribute name="NewNationalRank" idx="2" type="int" minValue="0" maxValue="4095" default="4095" />
+			<attribute name="NewPositionRank" idx="3" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="NewStarLevel" idx="4" type="ProspectQuality" default="ProspectQuality:Invalid" />
+			<attribute name="NewStateRank" idx="5" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="OldNationalRank" idx="6" type="int" minValue="0" maxValue="4095" default="4095" />
+			<attribute name="OldPositionRank" idx="7" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="OldStarLevel" idx="8" type="ProspectQuality" default="ProspectQuality:Invalid" />
+			<attribute name="OldStateRank" idx="9" type="int" minValue="0" maxValue="1023" default="1023" />
+			<attribute name="Send" idx="10" type="none()" guid="10605478-1895455" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

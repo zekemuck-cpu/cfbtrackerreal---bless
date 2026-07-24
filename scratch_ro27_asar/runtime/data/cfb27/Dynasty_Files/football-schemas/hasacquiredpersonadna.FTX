@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\HasAcquiredPersonaDNA.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\TreeNode.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="HasAcquiredPersonaDNA" numMembers="4" base="TreeNode" assetId="12355470" isRecordPersistent="true" majorVersionCRC="-943162421" minorVersionCRC="-992085209">
+			<attribute name="AcquiredDNA" idx="0" type="BTCareerPersonaAcquiredDNA" default="BTCareerPersonaAcquiredDNA:Invalid" />
+			<attribute name="Children" idx="1" type="TreeNode[]" />
+			<attribute name="Player" idx="2" type="TreeBlackboardMembers" default="TreeBlackboardMembers:INVALID" />
+			<attribute name="Run" idx="3" type="TreeNode_Run" guid="12355470-2618001" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

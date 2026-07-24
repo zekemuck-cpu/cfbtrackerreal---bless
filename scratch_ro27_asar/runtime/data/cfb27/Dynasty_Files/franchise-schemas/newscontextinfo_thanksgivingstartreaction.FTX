@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NewsContextInfo_ThanksgivingStartReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsContextInfo_ThanksgivingStartReaction" numMembers="4" base="Reaction" assetId="6814638" isRecordPersistent="true" majorVersionCRC="-722453792" minorVersionCRC="-1374875911">
+			<attribute name="EventRecord" idx="0" type="ThanksgivingStartEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814638-1895461" />
+			<attribute name="NewsContextInfo" idx="2" type="PresentationContextData" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

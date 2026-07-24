@@ -1,0 +1,50 @@
+<FranTkData fileName="Franchise-Schemas\Draft_DraftPickRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Draft_DraftPickRequest" numMembers="39" base="UIRequestForm" defaultStoreCapacity="32" assetId="6378027" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="905725094" minorVersionCRC="152998372">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6378027-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="DelegateResponse" idx="8" type="ResponseForm" />
+			<attribute name="Description" idx="9" type="string" maxLen="32" default="Make your draft pick selection." />
+			<attribute name="Dismiss" idx="10" type="none()" guid="6378027-1895671" />
+			<attribute name="ExpirationDuration" idx="11" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="12" type="none()" guid="6378027-1902644" final="true" />
+			<attribute name="HasResolution" idx="13" type="bool()" guid="6378027-1895676" />
+			<attribute name="IsBlocking" idx="14" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="15" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="16" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="17" type="bool()" guid="6378027-1895678" />
+			<attribute name="IsResponseRequired" idx="18" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="19" type="bool" default="True" />
+			<attribute name="Issue" idx="20" type="Request_Issue" guid="6378027-1895668" />
+			<attribute name="IssueTime" idx="21" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverallPickIndex" idx="22" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="Priority" idx="23" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="24" type="none()" guid="6378027-1895686" final="true" />
+			<attribute name="RequestData" idx="25" type="record" />
+			<attribute name="RequestForm" idx="26" type="ResponseForm" />
+			<attribute name="RequestId" idx="27" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="28" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="31" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="32" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="33" type="bool" default="True" />
+			<attribute name="SelectedPlayer" idx="34" type="DraftPlayer" />
+			<attribute name="SelectPlayerResponse" idx="35" type="ResponseForm" />
+			<attribute name="TargetUser" idx="36" type="User" />
+			<attribute name="Title" idx="37" type="string" maxLen="11" default="Draft Pick" />
+			<attribute name="TypeName" idx="38" type="string" maxLen="16" default="Draft.DraftPick" />
+		</schema>
+	</schemas>
+</FranTkData>

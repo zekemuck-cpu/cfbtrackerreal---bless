@@ -1,0 +1,8 @@
+<!--SCHEMAS-->
+<schemas>
+	<schema name="PlayerSeasonalGoal_RateGoalForPlayer" numMembers="4" base="int()" ownerAssetId="6493964" isRecordPersistent="true" isExpr="true">
+		<attribute name="player" idx="0" type="Player" />
+		<attribute name="team" idx="1" type="Team" />
+		<attribute name="evalInfo" idx="2" type="PlayerGoalEvalInfo" />
+	</schema>
+</schemas>

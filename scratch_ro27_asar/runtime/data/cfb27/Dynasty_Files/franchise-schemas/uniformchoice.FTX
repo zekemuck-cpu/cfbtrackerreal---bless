@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\UniformChoice.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UniformChoice" numMembers="21" assetId="6377685" isRecordPersistent="true" majorVersionCRC="-1086411770" minorVersionCRC="13784445">
+			<attribute name="CityName" idx="0" type="string" maxLen="1" />
+			<attribute name="ImageId" idx="1" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Popularity" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StyleName" idx="3" type="string" maxLen="1" />
+			<attribute name="TEAM_BACKGROUNDCOLORB" idx="4" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORB2" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORG" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORG2" idx="7" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORR" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_BACKGROUNDCOLORR2" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="TEAM_HAS_SECONDARY_COLOR" idx="10" type="bool" default="False" />
+			<attribute name="TEAM_SHOE" idx="11" type="TeamShoe" default="TeamShoe:White" />
+			<attribute name="TweetMessage0" idx="12" type="string" maxLen="1" />
+			<attribute name="TweetMessage1" idx="13" type="string" maxLen="1" />
+			<attribute name="TweetMessage2" idx="14" type="string" maxLen="1" />
+			<attribute name="TweetName0" idx="15" type="string" maxLen="1" />
+			<attribute name="TweetName1" idx="16" type="string" maxLen="1" />
+			<attribute name="TweetName2" idx="17" type="string" maxLen="1" />
+			<attribute name="UniformPrefix" idx="18" type="string" maxLen="4" default="BAT" />
+			<attribute name="UniformVisualsAssetNameDark" idx="19" type="string" maxLen="46" />
+			<attribute name="UniformVisualsAssetNameLight" idx="20" type="string" maxLen="46" />
+		</schema>
+	</schemas>
+</FranTkData>

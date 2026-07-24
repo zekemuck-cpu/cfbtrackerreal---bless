@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\BranchingStoryCriteria.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="BranchingStoryCriteria" numMembers="21" assetId="6498848" isRecordPersistent="true" majorVersionCRC="442570990" minorVersionCRC="-495676843">
+			<attribute name="EventWeights" idx="0" type="Spline" />
+			<attribute name="HeadBranchNode" idx="1" type="BranchingStoryBranch" />
+			<attribute name="IsPlayerLeavingDraft" idx="2" type="bool" default="False" />
+			<attribute name="IsSecondaryPlayerOpposingPosition" idx="3" type="bool" default="False" />
+			<attribute name="MaxOccurrence" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MaxYearlyOccurrence" idx="5" type="int" minValue="1" maxValue="100" default="1" />
+			<attribute name="OpposingPositionTable" idx="6" type="PositionToPositionTable" />
+			<attribute name="PlayersMeetsCriteria" idx="7" type="BranchingStoryCriteria_PlayersMeetsCriteria" guid="6498848-1927349" default="5;" />
+			<attribute name="PositionStoryBreakdown" idx="8" type="PositionCountTable" />
+			<attribute name="PrimaryPlayerBeginRound" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrimaryPlayerEndRound" idx="10" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrimaryPlayerPick" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrimaryPlayerRequiredOverallRating" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PrimaryPlayerRequiredTraits" idx="13" type="PlayerTraitTable" />
+			<attribute name="RequiredOccurrence" idx="14" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RequiresSecondaryPlayer" idx="15" type="bool" default="False" />
+			<attribute name="SecondaryPlayerBeginRound" idx="16" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SecondaryPlayerEndRound" idx="17" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SecondaryPlayerPick" idx="18" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SecondaryPlayerRequiredOverallRating" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SecondaryPlayerRequiredTraits" idx="20" type="PlayerTraitTable" />
+		</schema>
+	</schemas>
+</FranTkData>

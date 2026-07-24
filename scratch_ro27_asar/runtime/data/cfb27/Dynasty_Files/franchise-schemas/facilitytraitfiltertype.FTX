@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\FacilityTraitFilterType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="FacilityTraitFilterType" numMembers="14" assetId="12345587" isRecordPersistent="true" majorVersionCRC="2052786868" minorVersionCRC="-1207995807">
+			<attribute name="All" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Affordable" idx="2" value="1" />
+			<attribute name="Decay_VeryHigh" idx="3" value="2" />
+			<attribute name="Decay_High" idx="4" value="3" />
+			<attribute name="Decay_Medium" idx="5" value="4" />
+			<attribute name="Decay_Low" idx="6" value="5" />
+			<attribute name="Impact_VeryHigh" idx="7" value="6" />
+			<attribute name="Impact_High" idx="8" value="7" />
+			<attribute name="Impact_Medium" idx="9" value="8" />
+			<attribute name="Impact_Low" idx="10" value="9" />
+			<attribute name="Last_" idx="11" value="9" />
+			<attribute name="Count_" idx="12" value="10" />
+			<attribute name="Invalid_" idx="13" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

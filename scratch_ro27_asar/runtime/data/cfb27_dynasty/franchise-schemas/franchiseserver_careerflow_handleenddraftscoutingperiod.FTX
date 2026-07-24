@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleEndDraftScoutingPeriod.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleEndDraftScoutingPeriod" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1223443635" minorVersionCRC="-1115925524">
+			<attribute name="event" idx="0" type="EndDraftScoutingPeriodEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

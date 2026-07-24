@@ -1,0 +1,35 @@
+<FranTkData fileName="Franchise-Schemas\CoachStatType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachStatType" numMembers="28" assetId="6321007" isRecordPersistent="true" majorVersionCRC="128928042" minorVersionCRC="1405372977">
+			<attribute name="Wins" idx="0" value="0" />
+			<attribute name="Losses" idx="1" value="1" />
+			<attribute name="NationalChampionshipWins" idx="2" value="2" />
+			<attribute name="NationalChampionshipLosses" idx="3" value="3" />
+			<attribute name="PlayoffWins" idx="4" value="4" />
+			<attribute name="PlayoffLosses" idx="5" value="5" />
+			<attribute name="ConferenceChampionshipWins" idx="6" value="6" />
+			<attribute name="ConferenceChampionshipLosses" idx="7" value="7" />
+			<attribute name="ConferenceChampionshipWinStreak" idx="8" value="8" />
+			<attribute name="RivalWinStreak" idx="9" value="9" />
+			<attribute name="FirstRoundDraftPicks" idx="10" value="10" />
+			<attribute name="DraftPicks" idx="11" value="11" />
+			<attribute name="Top5RecruitClasses" idx="12" value="12" />
+			<attribute name="PlayersMaxProgressed" idx="13" value="13" />
+			<attribute name="NumTop5RankYdsGainedAllowed" idx="14" value="14" />
+			<attribute name="NumPrestigeIncreases" idx="15" value="15" />
+			<attribute name="BowlWins" idx="16" value="16" />
+			<attribute name="BowlLosses" idx="17" value="17" />
+			<attribute name="RivalWins" idx="18" value="18" />
+			<attribute name="RivalLosses" idx="19" value="19" />
+			<attribute name="Top25Wins" idx="20" value="20" />
+			<attribute name="Top25Losses" idx="21" value="21" />
+			<attribute name="WinsAtCurrentSchool" idx="22" value="22" />
+			<attribute name="LossesAtCurrentSchool" idx="23" value="23" />
+			<attribute name="RecentYearNCWon" idx="24" value="24" />
+			<attribute name="TimesFired" idx="25" value="25" />
+			<attribute name="Count" idx="26" value="26" />
+			<attribute name="Invalid" idx="27" value="27" />
+		</enum>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\SetTargetSequenceAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\SequenceAction.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SetTargetSequenceAction" numMembers="3" base="SequenceAction" defaultStoreCapacity="373" assetId="6536977" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1546443072" minorVersionCRC="-577690441">
+			<attribute name="Default" idx="0" type="bool" default="False" />
+			<attribute name="Enabled" idx="1" type="bool" default="True" />
+			<attribute name="SequenceIndex" idx="2" type="int" minValue="-1" maxValue="127" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

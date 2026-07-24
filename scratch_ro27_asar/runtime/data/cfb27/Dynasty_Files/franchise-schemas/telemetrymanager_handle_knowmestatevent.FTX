@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_Handle_KnowMeStatEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_Handle_KnowMeStatEvent" numMembers="4" base="Reaction" assetId="11016831" isRecordPersistent="true" majorVersionCRC="-128648433" minorVersionCRC="-1565188081">
+			<attribute name="EventRecord" idx="0" type="KnowMeStatEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="11016831-1895461" />
+			<attribute name="ModuleRef" idx="2" type="TelemetryManager" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

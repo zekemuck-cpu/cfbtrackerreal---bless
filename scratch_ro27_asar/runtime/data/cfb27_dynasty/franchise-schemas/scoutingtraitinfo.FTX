@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\ScoutingTraitInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Franchise-Schemas\ScoutingPackage.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScoutingTraitInfo" numMembers="4" base="ScoutingPackage" defaultStoreCapacity="25" assetId="6378631" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-801050448" minorVersionCRC="-973654553">
+			<attribute name="Cost" idx="0" type="int" minValue="0" maxValue="15000" default="0" />
+			<attribute name="Notes" idx="1" type="StringArrayElement[]" />
+			<attribute name="PlayerTrait" idx="2" type="PlayerTrait" default="PlayerTrait:ThrowAway" />
+			<attribute name="Stages" idx="3" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

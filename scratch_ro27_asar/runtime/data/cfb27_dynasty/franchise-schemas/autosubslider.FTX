@@ -1,0 +1,88 @@
+<FranTkData fileName="Franchise-Schemas\AutoSubSlider.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AutoSubSlider" numMembers="81" defaultStoreCapacity="146" assetId="6377839" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="262342304" minorVersionCRC="1793491048">
+			<attribute name="CBAutoSubStrategy" idx="0" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="CBSubIn" idx="1" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="CBSubInDescription" idx="2" type="string" maxLen="73" default="Change the frequency of Cornerbacks being substituted in during the game" />
+			<attribute name="CBSubOut" idx="3" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="CBSubOutDescription" idx="4" type="string" maxLen="74" default="Change the frequency of Cornerbacks being substituted out during the game" />
+			<attribute name="CBSubStrategyCustomIn" idx="5" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="CBSubStrategyCustomOut" idx="6" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="CBSubStrategyOverride" idx="7" type="bool" default="False" />
+			<attribute name="DEAutoSubStrategy" idx="8" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="DefaultValue" idx="9" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="DESubIn" idx="10" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="DESubInDescription" idx="11" type="string" maxLen="84" default="Change the frequency of Defensive Edge Rushers being substituted in during the game" />
+			<attribute name="DESubOut" idx="12" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="DESubOutDescription" idx="13" type="string" maxLen="85" default="Change the frequency of Defensive Edge Rushers being substituted out during the game" />
+			<attribute name="DESubStrategyCustomIn" idx="14" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="DESubStrategyCustomOut" idx="15" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="DESubStrategyOverride" idx="16" type="bool" default="False" />
+			<attribute name="DTAutoSubStrategy" idx="17" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="DTSubIn" idx="18" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="DTSubInDescription" idx="19" type="string" maxLen="79" default="Change the frequency of Defensive Tackles being substituted in during the game" />
+			<attribute name="DTSubOut" idx="20" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="DTSubOutDescription" idx="21" type="string" maxLen="80" default="Change the frequency of Defensive Tackles being substituted out during the game" />
+			<attribute name="DTSubStrategyCustomIn" idx="22" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="DTSubStrategyCustomOut" idx="23" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="DTSubStrategyOverride" idx="24" type="bool" default="False" />
+			<attribute name="FBTEAutoSubStrategy" idx="25" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="FBTESubIn" idx="26" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="FBTESubInDescription" idx="27" type="string" maxLen="86" default="Change the frequency of Fullbacks and Tight Ends being substituted in during the game" />
+			<attribute name="FBTESubOut" idx="28" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="FBTESubOutDescription" idx="29" type="string" maxLen="87" default="Change the frequency of Fullbacks and Tight Ends being substituted out during the game" />
+			<attribute name="HBAutoSubStrategy" idx="30" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="HBSubIn" idx="31" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="HBSubInDescription" idx="32" type="string" maxLen="75" default="Change the frequency of Running Backs being substituted in during the game" />
+			<attribute name="HBSubOut" idx="33" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="HBSubOutDescription" idx="34" type="string" maxLen="76" default="Change the frequency of Running Backs being substituted out during the game" />
+			<attribute name="HBSubStrategyCustomIn" idx="35" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="HBSubStrategyCustomOut" idx="36" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="HBSubStrategyOverride" idx="37" type="bool" default="False" />
+			<attribute name="LBAutoSubStrategy" idx="38" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="LBSubIn" idx="39" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="LBSubInDescription" idx="40" type="string" maxLen="73" default="Change the frequency of Linebackers being substituted in during the game" />
+			<attribute name="LBSubOut" idx="41" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="LBSubOutDescription" idx="42" type="string" maxLen="74" default="Change the frequency of Linebackers being substituted out during the game" />
+			<attribute name="LBSubStrategyCustomIn" idx="43" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="LBSubStrategyCustomOut" idx="44" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="LBSubStrategyOverride" idx="45" type="bool" default="False" />
+			<attribute name="OLAutoSubStrategy" idx="46" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="OLSubIn" idx="47" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="OLSubInDescription" idx="48" type="string" maxLen="79" default="Change the frequency of Offensive Linemen being substituted in during the game" />
+			<attribute name="OLSubOut" idx="49" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="OLSubOutDescription" idx="50" type="string" maxLen="80" default="Change the frequency of Offensive Linemen being substituted out during the game" />
+			<attribute name="OLSubStrategyCustomIn" idx="51" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="OLSubStrategyCustomOut" idx="52" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="OLSubStrategyOverride" idx="53" type="bool" default="False" />
+			<attribute name="QBAutoSubStrategy" idx="54" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="QBSubIn" idx="55" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="QBSubInDescription" idx="56" type="string" maxLen="74" default="Change the frequency of Quarterbacks being substituted in during the game" />
+			<attribute name="QBSubOut" idx="57" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="QBSubOutDescription" idx="58" type="string" maxLen="75" default="Change the frequency of Quarterbacks being substituted out during the game" />
+			<attribute name="QBSubStrategyCustomIn" idx="59" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="QBSubStrategyCustomOut" idx="60" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="QBSubStrategyOverride" idx="61" type="bool" default="False" />
+			<attribute name="SAutoSubStrategy" idx="62" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="SSubIn" idx="63" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="SSubInDescription" idx="64" type="string" maxLen="70" default="Change the frequency of Safeties being substituted in during the game" />
+			<attribute name="SSubOut" idx="65" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="SSubOutDescription" idx="66" type="string" maxLen="71" default="Change the frequency of Safeties being substituted out during the game" />
+			<attribute name="SSubStrategyCustomIn" idx="67" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="SSubStrategyCustomOut" idx="68" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="SSubStrategyOverride" idx="69" type="bool" default="False" />
+			<attribute name="TESubStrategyCustomIn" idx="70" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="TESubStrategyCustomOut" idx="71" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="TESubStrategyOverride" idx="72" type="bool" default="False" />
+			<attribute name="WRAutoSubStrategy" idx="73" type="AutoSubstitutionStrategyEnum" default="AutoSubstitutionStrategyEnum:Normal" />
+			<attribute name="WRSubIn" idx="74" type="int" minValue="0" maxValue="100" default="50" />
+			<attribute name="WRSubInDescription" idx="75" type="string" maxLen="76" default="Change the frequency of Wide Receivers being substituted in during the game" />
+			<attribute name="WRSubOut" idx="76" type="int" minValue="0" maxValue="100" default="49" />
+			<attribute name="WRSubOutDescription" idx="77" type="string" maxLen="77" default="Change the frequency of Wide Receivers being substituted out during the game" />
+			<attribute name="WRSubStrategyCustomIn" idx="78" type="int" minValue="0" maxValue="100" default="80" />
+			<attribute name="WRSubStrategyCustomOut" idx="79" type="int" minValue="0" maxValue="100" default="60" />
+			<attribute name="WRSubStrategyOverride" idx="80" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

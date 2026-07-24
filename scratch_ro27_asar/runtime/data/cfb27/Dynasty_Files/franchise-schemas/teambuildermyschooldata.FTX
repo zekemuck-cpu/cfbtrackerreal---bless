@@ -1,0 +1,55 @@
+<FranTkData fileName="Franchise-Schemas\TeamBuilderMySchoolData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamBuilderMySchoolData" numMembers="48" defaultStoreCapacity="13" assetId="10844192" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1346409668" minorVersionCRC="1616722548">
+			<attribute name="AcademicPrestigeGrade" idx="0" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="AthleticFacilitiesGrade" idx="1" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="AthleticFacilitiesScore" idx="2" type="int" minValue="0" maxValue="2000" default="0" />
+			<attribute name="BowlsMade" idx="3" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="BowlsWon" idx="4" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="BrandExposureGamesOfTheWeekPlayed" idx="5" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureGamesOfTheWeekWon" idx="6" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureGrade" idx="7" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="BrandExposureNationalTVPlayed" idx="8" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureNationalTVWon" idx="9" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureStreamingPlayed" idx="10" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="BrandExposureStreamingTVWins" idx="11" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="CampusLifestyleGrade" idx="12" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="CampusLifeStyleScore" idx="13" type="int" minValue="0" maxValue="134" default="0" />
+			<attribute name="CFPsMade" idx="14" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="CFPsWon" idx="15" type="int" minValue="0" maxValue="128" default="0" />
+			<attribute name="ChampionshipContenderCurrentYearScore" idx="16" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="ChampionshipContenderGrade" idx="17" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ChampionshipContenderYearPlus1Score" idx="18" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="ChampionshipContenderYearPlus2Score" idx="19" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="ChampionshipContenderYearPlus3Score" idx="20" type="int" minValue="0" maxValue="140" default="0" />
+			<attribute name="ConfChampsMade" idx="21" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="ConfChampsWon" idx="22" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="CurrentHomeWinningStreak" idx="23" type="int" minValue="0" maxValue="420" default="0" />
+			<attribute name="HeismanWinners" idx="24" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="HomeLosses" idx="25" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="HomeWins" idx="26" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="LongestHomeWinningStreak" idx="27" type="int" minValue="0" maxValue="420" default="0" />
+			<attribute name="Losses" idx="28" type="int" minValue="0" maxValue="2047" default="0" />
+			<attribute name="NatChampsMade" idx="29" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="NatChampsWon" idx="30" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="ProgramTraditionGrade" idx="31" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeDB" idx="32" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeDL" idx="33" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeK" idx="34" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeLB" idx="35" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeOL" idx="36" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeP" idx="37" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeQB" idx="38" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeRB" idx="39" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeTE" idx="40" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="ProPotentialGradeWR" idx="41" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="StadiumAtmosphereGrade" idx="42" type="LetterGrade" default="LetterGrade:Aplus" />
+			<attribute name="TeamPrestige" idx="43" type="int" minValue="0" maxValue="10" default="0" />
+			<attribute name="TemplateTeamEnum" idx="44" type="TeamBuilderTemplateTeamType" default="TeamBuilderTemplateTeamType:Powerhouse" />
+			<attribute name="ToughestPlacesRank" idx="45" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="ToughestPlacesScore" idx="46" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="Wins" idx="47" type="int" minValue="0" maxValue="2047" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

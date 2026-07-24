@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\TeamRoadmapEval_BuildImproveTeamRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRoadmapEval_BuildImproveTeamRequest" numMembers="2" base="TeamNeeds_ImproveTeamRequest()" ownerAssetId="6494567" isRecordPersistent="true" isExpr="true" majorVersionCRC="-206472432" minorVersionCRC="532823197">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

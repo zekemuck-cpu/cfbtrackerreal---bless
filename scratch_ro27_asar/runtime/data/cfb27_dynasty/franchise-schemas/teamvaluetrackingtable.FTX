@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TeamValueTrackingTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamValueTrackingTable" numMembers="4" defaultStoreCapacity="2" assetId="6494940" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1603631311" minorVersionCRC="1130106487">
+			<attribute name="SeasonComponentTable" idx="0" type="record" />
+			<attribute name="SeasonOverallTable" idx="1" type="int[]" />
+			<attribute name="WeeklyComponentTable" idx="2" type="record" />
+			<attribute name="WeeklyOverallTable" idx="3" type="int[]" />
+		</schema>
+	</schemas>
+</FranTkData>

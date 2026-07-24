@@ -1,0 +1,22 @@
+<FranTkData fileName="Franchise-Schemas\StoryCharacter.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\Person.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryCharacter" numMembers="11" base="Person" defaultStoreCapacity="87" assetId="6498716" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="110165026" minorVersionCRC="-556141437">
+			<attribute name="Actor" idx="0" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="Age" idx="1" type="int" minValue="0" maxValue="127" default="0" />
+			<attribute name="FirstName" idx="2" type="string" maxLen="17" />
+			<attribute name="IsCreated" idx="3" type="bool" default="False" />
+			<attribute name="IsLegend" idx="4" type="bool" default="False" />
+			<attribute name="IsUserControlled" idx="5" type="bool" default="False" />
+			<attribute name="JobTitle" idx="6" type="string" maxLen="18" />
+			<attribute name="LastName" idx="7" type="string" maxLen="21" />
+			<attribute name="PresentationId" idx="8" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="PrevTeamIndex" idx="9" type="int" minValue="0" maxValue="255" default="255" />
+			<attribute name="TeamIndex" idx="10" type="int" minValue="0" maxValue="255" default="255" />
+		</schema>
+	</schemas>
+</FranTkData>

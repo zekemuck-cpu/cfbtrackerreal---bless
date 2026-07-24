@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayoffBracketRequest_BeginWeekReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayoffBracketRequest_BeginWeekReaction" numMembers="4" base="Reaction" assetId="6814715" isRecordPersistent="true" majorVersionCRC="-2106990548" minorVersionCRC="126833195">
+			<attribute name="EventRecord" idx="0" type="Season_BeginWeekEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814715-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="SeasonStandings" idx="3" type="SeasonStandings" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayersLeavingEval_IssueViewRetirementsRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayersLeavingEval_IssueViewRetirementsRequest" numMembers="3" base="int()" ownerAssetId="6498461" isRecordPersistent="true" isExpr="true" majorVersionCRC="-594551090" minorVersionCRC="-631653835">
+			<attribute name="userEntity" idx="0" type="UserEntity" />
+			<attribute name="Copyof_final0" idx="1" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

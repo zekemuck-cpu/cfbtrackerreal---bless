@@ -1,0 +1,6 @@
+<FranTkData fileName="Franchise-Schemas\GameWinMarginInfluenceEffectTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GameWinMarginInfluenceEffectTable" numMembers="0" defaultStoreCapacity="1" assetId="9196568" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1893880238" minorVersionCRC="-1838536202" />
+	</schemas>
+</FranTkData>

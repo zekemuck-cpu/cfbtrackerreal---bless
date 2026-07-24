@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\SequenceMetadata.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SequenceMetadata" numMembers="11" assetId="6498713" isRecordPersistent="true" majorVersionCRC="-2071991740" minorVersionCRC="-1249564897">
+			<attribute name="Description" idx="0" type="string" maxLen="1" />
+			<attribute name="FeaturedActor" idx="1" type="TargetedActorType" default="TargetedActorType:None" />
+			<attribute name="ForceCooldownIfDismiss" idx="2" type="bool" default="False" />
+			<attribute name="GUID" idx="3" type="string" maxLen="37" />
+			<attribute name="Initialize" idx="4" type="SequenceMetadata_Initialize" guid="6498713-1926263" default="0;" />
+			<attribute name="NextSequenceIndex" idx="5" type="int" minValue="-1" maxValue="127" default="-1" />
+			<attribute name="SequenceActions" idx="6" type="SequenceActionMapEntry[]" />
+			<attribute name="SequenceTokens" idx="7" type="SequenceTokenDescriptor[]" />
+			<attribute name="StoryRequestStyle" idx="8" type="StoryRequestStyle" default="StoryRequestStyle:StoryArcStartRequest" />
+			<attribute name="Title" idx="9" type="string" maxLen="35" />
+			<attribute name="WaitCondition" idx="10" type="SequenceMetadata_WaitCondition" guid="6498713-1926267" default="true;" />
+		</schema>
+	</schemas>
+</FranTkData>

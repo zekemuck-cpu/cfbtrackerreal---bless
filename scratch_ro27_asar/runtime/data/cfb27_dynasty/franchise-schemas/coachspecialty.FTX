@@ -1,0 +1,18 @@
+<FranTkData fileName="Franchise-Schemas\CoachSpecialty.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="CoachSpecialty" numMembers="11" assetId="6320933" isRecordPersistent="true" majorVersionCRC="721602920" minorVersionCRC="-2137548266">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Quarterbacks" idx="1" value="0" />
+			<attribute name="RunningBacks" idx="2" value="1" />
+			<attribute name="Receivers" idx="3" value="2" />
+			<attribute name="OffensiveLine" idx="4" value="3" />
+			<attribute name="DefensiveLine" idx="5" value="4" />
+			<attribute name="Linebackers" idx="6" value="5" />
+			<attribute name="Secondary" idx="7" value="6" />
+			<attribute name="SpecialTeams" idx="8" value="7" />
+			<attribute name="Max_" idx="9" value="8" />
+			<attribute name="Invalid_" idx="10" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

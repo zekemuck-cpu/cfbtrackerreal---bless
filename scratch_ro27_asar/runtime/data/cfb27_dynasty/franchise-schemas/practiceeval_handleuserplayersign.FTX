@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEval_HandleUserPlayerSign.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEval_HandleUserPlayerSign" numMembers="2" base="none()" ownerAssetId="6708631" isRecordPersistent="true" isExpr="true" majorVersionCRC="810124588" minorVersionCRC="-484624124">
+			<attribute name="EventRecord" idx="0" type="UserPlayerSignEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

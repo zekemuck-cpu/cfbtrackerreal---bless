@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\PlayerGoalsEval_EvaluateAwardsGoal.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerGoalsEval_EvaluateAwardsGoal" numMembers="3" base="none()" ownerAssetId="6498442" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1155782514" minorVersionCRC="96150686">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="playerAward" idx="1" type="PlayerAward" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\CoachRetirementEvalInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachRetirementEvalInfo" numMembers="12" assetId="6495093" isRecordPersistent="true" majorVersionCRC="-237648498" minorVersionCRC="1007267956">
+			<attribute name="AlwaysRetireAgeThreshold" idx="0" type="int" minValue="0" maxValue="100" default="100" />
+			<attribute name="CoachLeavingOddsSpline" idx="1" type="Spline" />
+			<attribute name="FreeAgentMod" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GetRetirementChance" idx="3" type="CoachRetirementEvalInfo_GetRetirementChance" guid="6495093-1913781" final="true" default="int retireChance = 0;&#xD;&#xA;&#xD;&#xA;// 85+ year old coaches will always retire&#xD;&#xA;if (coach.Age &gt;= AlwaysRetireAgeThreshold)&#xD;&#xA;{&#xD;&#xA; retireChance = 100;&#xD;&#xA;}&#xD;&#xA;// For 65+, based on the CoachLeavingOdds spline results&#xD;&#xA;else if (coach.Age &gt;= RetirementAgeThreshold)&#xD;&#xA;{&#xD;&#xA; if (CoachLeavingOddsSpline != null &amp;&amp; team != null)&#xD;&#xA; {&#xD;&#xA;  retireChance = CoachLeavingOddsSpline.CalculateY(team.TeamPrestige);&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;// If they are above the minimum retirement age(65) and a free agent apply free agent mod.&#xD;&#xA;if (coach.ContractStatus == StaffPersonContractStatus.FreeAgent &amp;&amp; coach.Age &gt;= RetirementAgeThreshold)&#xD;&#xA;{ &#xD;&#xA; retireChance = retireChance + FreeAgentMod;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;retireChance;" />
+			<attribute name="GetReturnChance" idx="4" type="CoachRetirementEvalInfo_GetReturnChance" guid="6495093-1913786" />
+			<attribute name="LegacyScoreRetireSpline" idx="5" type="Spline" />
+			<attribute name="LegacyScoreReturnModSpline" idx="6" type="Spline" />
+			<attribute name="RetirementAgeThreshold" idx="7" type="int" minValue="0" maxValue="100" default="65" />
+			<attribute name="RetirementModifier" idx="8" type="float" default="1.25" />
+			<attribute name="RetirementReturnEnable" idx="9" type="bool" default="False" />
+			<attribute name="SuperBowlSpline" idx="10" type="Spline" />
+			<attribute name="YearsCoachingModSpline" idx="11" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

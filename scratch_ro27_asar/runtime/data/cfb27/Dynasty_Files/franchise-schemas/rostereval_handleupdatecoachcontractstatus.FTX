@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\RosterEval_HandleUpdateCoachContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="RosterEval_HandleUpdateCoachContractStatus" numMembers="2" base="none()" ownerAssetId="6494681" isRecordPersistent="true" isExpr="true" majorVersionCRC="1778506483" minorVersionCRC="1807195793">
+			<attribute name="event" idx="0" type="Coach_UpdateCoachContractStatusEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

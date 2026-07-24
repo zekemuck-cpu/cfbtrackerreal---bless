@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\PositionGroupPracticePlan.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PositionGroupPracticePlan" numMembers="9" assetId="12178564" isRecordPersistent="true" majorVersionCRC="122259992" minorVersionCRC="-1958287219">
+			<attribute name="Current" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Default" idx="2" value="1" />
+			<attribute name="NoPractice" idx="3" value="2" />
+			<attribute name="LimitedPractice" idx="4" value="3" />
+			<attribute name="FullPractice" idx="5" value="4" />
+			<attribute name="Last_" idx="6" value="4" />
+			<attribute name="Count_" idx="7" value="5" />
+			<attribute name="Invalid_" idx="8" value="5" />
+		</enum>
+	</schemas>
+</FranTkData>

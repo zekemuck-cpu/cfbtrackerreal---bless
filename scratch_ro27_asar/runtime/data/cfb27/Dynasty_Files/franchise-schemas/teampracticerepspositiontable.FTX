@@ -1,0 +1,28 @@
+<FranTkData fileName="Franchise-Schemas\TeamPracticeRepsPositionTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamPracticeRepsPositionTable" numMembers="21" assetId="6495198" isRecordPersistent="true" majorVersionCRC="798519926" minorVersionCRC="609630489">
+			<attribute name="C" idx="0" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="CB" idx="1" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="DT" idx="2" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="FB" idx="3" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="FS" idx="4" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="HB" idx="5" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="K" idx="6" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="LE" idx="7" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="LG" idx="8" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="LOLB" idx="9" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="LT" idx="10" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="MLB" idx="11" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="P" idx="12" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="QB" idx="13" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="RE" idx="14" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="RG" idx="15" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="ROLB" idx="16" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="RT" idx="17" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="SS" idx="18" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="TE" idx="19" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+			<attribute name="WR" idx="20" type="PracticeRepsType" default="PracticeRepsType:Normal" />
+		</schema>
+	</schemas>
+</FranTkData>

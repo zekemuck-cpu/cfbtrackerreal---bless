@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TradeSettingChangedEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeSettingChangedEvent" numMembers="4" base="Event" assetId="6498938" isRecordPersistent="true" majorVersionCRC="896703892" minorVersionCRC="608491174">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6498938-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6498938-1895455" final="true" />
+			<attribute name="tradeDeadlineEnabled" idx="2" type="bool" default="False" />
+			<attribute name="tradeEnabled" idx="3" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

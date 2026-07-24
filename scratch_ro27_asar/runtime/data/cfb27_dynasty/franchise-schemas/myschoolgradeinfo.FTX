@@ -1,0 +1,20 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolGradeInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolGradeInfo" numMembers="13" defaultStoreCapacity="14" assetId="6816502" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="2596" majorVersionCRC="-1091959651" minorVersionCRC="-585236952">
+			<attribute name="ChangeFrequency" idx="0" type="MySchoolGradeChangeFrequency" default="MySchoolGradeChangeFrequency:Invalid" />
+			<attribute name="ContextModuleType" idx="1" type="MySchoolContextModuleType" default="MySchoolContextModuleType:TopSchoolsNoScore" />
+			<attribute name="GradeDescription" idx="2" type="string" maxLen="265" />
+			<attribute name="GradeIconId" idx="3" type="int" minValue="0" maxValue="1309" default="0" />
+			<attribute name="GradeType" idx="4" type="MySchoolGrade" default="MySchoolGrade:Invalid_" />
+			<attribute name="IsFilteredList" idx="5" type="bool" default="False" />
+			<attribute name="IsGradeImprovementShown" idx="6" type="bool" default="False" />
+			<attribute name="IsGradePerTeam" idx="7" type="bool" default="False" />
+			<attribute name="IsRankStored" idx="8" type="bool" default="False" />
+			<attribute name="SecondFilterType" idx="9" type="MySchoolFlowSecondFilterType" default="MySchoolFlowSecondFilterType:Invalid" />
+			<attribute name="ShowFootnote" idx="10" type="bool" default="False" />
+			<attribute name="SwappableLibraryType" idx="11" type="MySchoolGradeSwappableLibraryType" default="MySchoolGradeSwappableLibraryType:Standard" />
+			<attribute name="TableFormattingData" idx="12" type="MySchoolGradeFormattingInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

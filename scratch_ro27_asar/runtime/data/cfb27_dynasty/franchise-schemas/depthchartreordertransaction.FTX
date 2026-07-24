@@ -1,0 +1,26 @@
+<FranTkData fileName="Franchise-Schemas\DepthChartReorderTransaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DepthChartReorderTransaction" numMembers="19" base="Transaction" assetId="6498971" isRecordPersistent="true" majorVersionCRC="-1974425928" minorVersionCRC="1761325306">
+			<attribute name="CurrentStage" idx="0" type="Stage" />
+			<attribute name="DepthChartEval" idx="1" type="DepthChartEval" />
+			<attribute name="FreeAgents" idx="2" type="Player[]" />
+			<attribute name="IsBlocking" idx="3" type="bool" default="True" />
+			<attribute name="IsDone" idx="4" type="bool()" guid="6498971-1895538" />
+			<attribute name="IsDynamic" idx="5" type="bool" default="False" />
+			<attribute name="PlayerSigningEval" idx="6" type="PlayerSigningEval" />
+			<attribute name="Process" idx="7" type="none()" guid="6498971-1895540" />
+			<attribute name="SeasonInfo" idx="8" type="SeasonInfo" />
+			<attribute name="Sleep" idx="9" type="ITransaction_Sleep" guid="6498971-1895548" />
+			<attribute name="Start" idx="10" type="none()" guid="6498971-1895544" />
+			<attribute name="StartStage" idx="11" type="Stage" />
+			<attribute name="Team" idx="12" type="Team" />
+			<attribute name="TeamIndex" idx="13" type="int" minValue="0" maxValue="133" default="0" />
+			<attribute name="TeamsList" idx="14" type="Team[]" />
+			<attribute name="TimeScale" idx="15" type="float" default="0" />
+			<attribute name="TransitionPending" idx="16" type="bool" default="False" />
+			<attribute name="TransitionStage" idx="17" type="Stage" />
+			<attribute name="UpdateStage" idx="18" type="Stage" />
+		</schema>
+	</schemas>
+</FranTkData>

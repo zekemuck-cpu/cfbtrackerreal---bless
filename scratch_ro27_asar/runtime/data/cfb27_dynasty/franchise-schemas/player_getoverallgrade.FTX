@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\Player_GetOverallGrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Player_GetOverallGrade" numMembers="2" base="int()" ownerAssetId="6494552" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1848543628" minorVersionCRC="-1507918524">
+			<attribute name="playerType" idx="0" type="PlayerType" default="PlayerType:QB_First_" />
+		</schema>
+	</schemas>
+</FranTkData>

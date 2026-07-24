@@ -1,0 +1,94 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_SeasonGameFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_SeasonGameFlow" numMembers="83" base="FranTkServer_Flow" assetId="6499130" isRecordPersistent="true" majorVersionCRC="-1761328984" minorVersionCRC="656238904">
+			<attribute name="AddPresentationData" idx="0" type="bool" default="True" />
+			<attribute name="AlternateUniformUsedEvent" idx="1" type="AlternateUniformUsedEvent" />
+			<attribute name="AwardsEval" idx="2" type="AwardsEval" />
+			<attribute name="BeginTrainingEvent" idx="3" type="BeginTrainingEvent" />
+			<attribute name="BLTGoalUpdateInterval" idx="4" type="float" default="0.25" />
+			<attribute name="ChallengeGameRequestPlayGameResponse" idx="5" type="UIFlowForm" />
+			<attribute name="ChallengeScenarioEnumTable" idx="6" type="EnumTable" />
+			<attribute name="ChallengesEval" idx="7" type="ChallengesEval" />
+			<attribute name="CoachGoalsEval" idx="8" type="CoachGoalsEval" />
+			<attribute name="ConfidenceManager" idx="9" type="ConfidenceManager" />
+			<attribute name="CpuSkillSlider" idx="10" type="SkillSlider" />
+			<attribute name="CpuSpecialTeamSlider" idx="11" type="SpecialTeamSlider" />
+			<attribute name="CreateGameRequest" idx="12" type="FranchiseServer_SeasonGameFlow_CreateGameRequest" guid="6499130-1936094" final="true" default="SeasonGameRequest request = new SeasonGameRequest;&#xD;&#xA;&#xD;&#xA;// Set the request settings.&#xD;&#xA;request.Priority = 1;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;&#xD;&#xA;// Set the request data.&#xD;&#xA;request.RequestData = seasonGame;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[6];&#xD;&#xA;&#xD;&#xA;if(!seasonGame.IsPractice)&#xD;&#xA;{&#xD;&#xA;    //request.ResponseForms.Append(GameRequestPlayTheMomentResponse);&#xD;&#xA;&#xD;&#xA;    request.ResponseForms.Append(GameRequestPlayResponse);&#xD;&#xA;&#xD;&#xA;    //request.ResponseForms.Append(GameRequestOffenseOnlyResponse);&#xD;&#xA;&#xD;&#xA;    //request.ResponseForms.Append(GameRequestDefenseOnlyResponse);&#xD;&#xA;&#xD;&#xA;    if (IsDelegateResponseAvailable)&#xD;&#xA;    {&#xD;&#xA;        request.ResponseForms.Append(GameRequestSimResponse);&#xD;&#xA;    }&#xD;&#xA;&#xD;&#xA;    request.DeclineResponse = GameRequestSimResponse;&#xD;&#xA;    request.DefaultResponse = GameRequestSimResponse;&#xD;&#xA;}&#xD;&#xA;else&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append(PracticeRequestPlayResponse);&#xD;&#xA;    request.ResponseForms.Append(PracticeRequestDelegateResponse);&#xD;&#xA;    request.DeclineResponse = PracticeRequestDelegateResponse;&#xD;&#xA;    request.DefaultResponse = PracticeRequestDelegateResponse;&#xD;&#xA;    request.CanUpdateResponse = true;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request;" />
+			<attribute name="CutDayEval" idx="13" type="CutDayEval" />
+			<attribute name="DepthChartEval" idx="14" type="DepthChartEval" />
+			<attribute name="DifficultyEnumTable" idx="15" type="EnumTable" />
+			<attribute name="EndOfGameTickerBufferS" idx="16" type="int" minValue="0" maxValue="60" default="30" />
+			<attribute name="Epoch" idx="17" type="Scheduler.DateTime" />
+			<attribute name="Form" idx="18" type="UIForm" />
+			<attribute name="FormManager" idx="19" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="20" type="Franchise" />
+			<attribute name="GameOptionSlider" idx="21" type="GameOptionSlider" />
+			<attribute name="GameplayModifierEval" idx="22" type="GameplayModifierEval" />
+			<attribute name="GameRequestDefenseOnlyResponse" idx="23" type="UIFlowForm" />
+			<attribute name="GameRequestGoToTrainingResponse" idx="24" type="UIFlowForm" />
+			<attribute name="GameRequestOffenseOnlyResponse" idx="25" type="UIFlowForm" />
+			<attribute name="GameRequestPlayResponse" idx="26" type="ResponseForm" />
+			<attribute name="GameRequestPlayTheMomentResponse" idx="27" type="UIFlowForm" />
+			<attribute name="GameRequestSimResponse" idx="28" type="ResponseForm" />
+			<attribute name="GetCpuAltUniformChance" idx="29" type="FranchiseServer_SeasonGameFlow_GetCpuAltUniformChance" guid="6499130-1936146" final="true" default="int percentChance = 10;&#xD;&#xA;&#xD;&#xA;percentChance;" />
+			<attribute name="HourDiffForConcurrency" idx="30" type="int" minValue="0" maxValue="24" default="1" />
+			<attribute name="InGameGoalConfiguration" idx="31" type="InGameGoalConfiguration" />
+			<attribute name="InjuryEval" idx="32" type="InjuryEval" />
+			<attribute name="IsDelegateResponseAvailable" idx="33" type="bool" default="False" />
+			<attribute name="IsGameComplete" idx="34" type="FranchiseServer_SeasonGameFlow_IsGameComplete" guid="6499130-1936133" final="true" default="bool isComplete = false;&#xD;&#xA;&#xD;&#xA;if (seasonGame.GameStatus &gt;= GameStatus.FirstComplete_ &amp;&amp; seasonGame.GameStatus&lt;= GameStatus.LastComplete_ &amp;&amp; seasonGame.HasBeenPublished)&#xD;&#xA;{&#xD;&#xA;    isComplete = true;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;isComplete;" />
+			<attribute name="IsViewBoxScoreResponseAvailable" idx="35" type="bool" default="False" />
+			<attribute name="League" idx="36" type="League" />
+			<attribute name="LeagueSettings" idx="37" type="LeagueSetting" />
+			<attribute name="MaxOTToReportS" idx="38" type="int" minValue="0" maxValue="3600" default="300" />
+			<attribute name="MetersEval" idx="39" type="NarrativePlayerMetersEval" />
+			<attribute name="NarrativePositionToSubTable" idx="40" type="PositionRecordTable" />
+			<attribute name="NewsContextInfo" idx="41" type="PresentationContextData" />
+			<attribute name="OvrDiffForUpset" idx="42" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="PenaltySlider" idx="43" type="PenaltySlider" />
+			<attribute name="PlayableMomentsEval" idx="44" type="PlayableMomentsEval" />
+			<attribute name="PlaycallHistoryEvalRef" idx="45" type="PlaycallHistoryEval" />
+			<attribute name="PlayerAbilityEnumTable" idx="46" type="EnumTable" />
+			<attribute name="PlayerGoalsEval" idx="47" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEval" idx="48" type="PlayerGradeEval" />
+			<attribute name="PlayerSigningEval" idx="49" type="PlayerSigningEval" />
+			<attribute name="PlayerSkillSlider" idx="50" type="SkillSlider" />
+			<attribute name="PlayerSpecialTeamSlider" idx="51" type="SpecialTeamSlider" />
+			<attribute name="PlayerTraitEval" idx="52" type="PlayerTraitEval" />
+			<attribute name="PositionEnumTable" idx="53" type="EnumTable" />
+			<attribute name="PracticeEvalRef" idx="54" type="PracticeEval" />
+			<attribute name="PracticeRequestDelegateResponse" idx="55" type="ResponseForm" />
+			<attribute name="PracticeRequestPlayResponse" idx="56" type="ResponseForm" />
+			<attribute name="PracticeSituations" idx="57" type="GameSituation[]" />
+			<attribute name="PrologueProgress" idx="58" type="PrologueProgress" />
+			<attribute name="PrologueSetupInfo" idx="59" type="PrologueSetupInfo" />
+			<attribute name="Random" idx="60" type="Random" />
+			<attribute name="RecruitingEval" idx="61" type="RecruitingEval" />
+			<attribute name="RefreshSeasonGameRequest" idx="62" type="FranchiseServer_SeasonGameFlow_RefreshSeasonGameRequest" guid="6499130-1936158" final="true" default="if(IsViewBoxScoreResponseAvailable)&#xD;&#xA;{&#xD;&#xA;    seasonGame.ResponseForms = new ResponseForm[1];&#xD;&#xA;    seasonGame.ResponseForms.Append(ViewBoxScoreFlowResponse);&#xD;&#xA;&#xD;&#xA;    seasonGame.DefaultResponse = ViewBoxScoreFlowResponse;&#xD;&#xA;}&#xD;&#xA;seasonGame.Refresh();" />
+			<attribute name="RequestServer" idx="63" type="RequestServer" />
+			<attribute name="RosterEval" idx="64" type="record" />
+			<attribute name="SchemeEnumTable" idx="65" type="EnumTable" />
+			<attribute name="ScoreDifferentialEnumTable" idx="66" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="67" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="68" type="SeasonManager" />
+			<attribute name="SeasonStandings" idx="69" type="SeasonStandings" />
+			<attribute name="SignatureAbilitiesEval" idx="70" type="SignatureAbilitiesEval" />
+			<attribute name="StadiumEval" idx="71" type="StadiumEval" />
+			<attribute name="StaffHiringEval" idx="72" type="StaffHiringEval" />
+			<attribute name="StatManager" idx="73" type="StatManager" />
+			<attribute name="StringManager" idx="74" type="StringManager" />
+			<attribute name="TeamManager" idx="75" type="TeamManager" />
+			<attribute name="TempBuffEval" idx="76" type="TempBuffEval" />
+			<attribute name="TransactionHistoryManager" idx="77" type="TransactionHistoryManager" />
+			<attribute name="TutorialManager" idx="78" type="TutorialManager" />
+			<attribute name="UserRegistry" idx="79" type="UserRegistry" />
+			<attribute name="ValidateTeam" idx="80" type="FranchiseServer_SeasonGameFlow_ValidateTeam" guid="6499130-1936124" final="true" />
+			<attribute name="ViewBoxScoreFlowResponse" idx="81" type="ResponseForm" />
+			<attribute name="WeatherEval" idx="82" type="WeatherEval" />
+		</schema>
+	</schemas>
+</FranTkData>

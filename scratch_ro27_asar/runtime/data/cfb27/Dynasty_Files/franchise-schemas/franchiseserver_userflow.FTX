@@ -1,0 +1,66 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_UserFlow.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\FranTkServer_Flow.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_UserFlow" numMembers="55" base="FranTkServer_Flow" assetId="6499295" isRecordPersistent="true" majorVersionCRC="491191652" minorVersionCRC="270086365">
+			<attribute name="ADDemeanorEnumTable" idx="0" type="EnumTable" />
+			<attribute name="AdvanceTransactionLeagueStartEvent" idx="1" type="AdvanceTransactionLeagueStartEvent" />
+			<attribute name="BudgetAllocationTypeEnumTable" idx="2" type="EnumTable" />
+			<attribute name="CoachDetailsFlow" idx="3" type="FranchiseServer_CoachDetailsFlow" />
+			<attribute name="CoachGoalsEval" idx="4" type="CoachGoalsEval" />
+			<attribute name="CoachManager" idx="5" type="CoachManager" />
+			<attribute name="CoachRetirementEval" idx="6" type="CoachRetirementEval" />
+			<attribute name="CoachTalentArchetypeEnumTable" idx="7" type="EnumTable" />
+			<attribute name="ContractExpectationsEnumTable" idx="8" type="EnumTable" />
+			<attribute name="CreateCoachFlow" idx="9" type="FranchiseServer_CreateCoachFlow" />
+			<attribute name="CreatePlayerFlow" idx="10" type="FranchiseServer_CreatePlayerFlow" />
+			<attribute name="DepthChartEval" idx="11" type="DepthChartEval" />
+			<attribute name="ForceRetirementResponse" idx="12" type="UIFlowForm" />
+			<attribute name="Form" idx="13" type="UIForm" />
+			<attribute name="FormManager" idx="14" type="FranTkServer_FormManager" />
+			<attribute name="Franchise" idx="15" type="Franchise" />
+			<attribute name="HandleRegisterUser" idx="16" type="FranchiseServer_UserFlow_HandleRegisterUser" guid="6499295-1937188" final="true" />
+			<attribute name="HandleTransferAdminUser" idx="17" type="FranchiseServer_UserFlow_HandleTransferAdminUser" guid="6499295-1937196" final="true" />
+			<attribute name="HandleUnregisterUser" idx="18" type="FranchiseServer_UserFlow_HandleUnregisterUser" guid="6499295-1937192" final="true" />
+			<attribute name="JobDifficultyEnumTable" idx="19" type="EnumTable" />
+			<attribute name="LeagueSetting" idx="20" type="LeagueSetting" />
+			<attribute name="LeagueSetupEvent" idx="21" type="LeagueSetupEvent" />
+			<attribute name="LeagueStartingPointEnumTable" idx="22" type="EnumTable" />
+			<attribute name="LetterGradeEnumTable" idx="23" type="EnumTable" />
+			<attribute name="MySchoolGradeEnumTable" idx="24" type="EnumTable" />
+			<attribute name="OwnerRetirementEval" idx="25" type="OwnerRetirementEval" />
+			<attribute name="PipelineEnumTable" idx="26" type="EnumTable" />
+			<attribute name="PipelineInfluenceLevelEnumTable" idx="27" type="EnumTable" />
+			<attribute name="PlayerContractManager" idx="28" type="PlayerContractManager" />
+			<attribute name="PlayerGoalsEval" idx="29" type="PlayerGoalsEval" />
+			<attribute name="PlayerGradeEval" idx="30" type="PlayerGradeEval" />
+			<attribute name="PlayerManager" idx="31" type="PlayerManager" />
+			<attribute name="PlayersLeavingEval" idx="32" type="PlayersLeavingEval" />
+			<attribute name="PlayerTypeEnumTable" idx="33" type="EnumTable" />
+			<attribute name="PositionEnumTable" idx="34" type="EnumTable" />
+			<attribute name="PrologueFlow" idx="35" type="FranchiseServer_PrologueFlow" />
+			<attribute name="RecruitManager" idx="36" type="RecruitManager" />
+			<attribute name="RequestServer" idx="37" type="RequestServer" />
+			<attribute name="RosterEval" idx="38" type="RosterEval" />
+			<attribute name="SchemeEnumTable" idx="39" type="EnumTable" />
+			<attribute name="SeasonInfo" idx="40" type="SeasonInfo" />
+			<attribute name="SeasonManager" idx="41" type="SeasonManager" />
+			<attribute name="SignatureAbilitiesEval" idx="42" type="record" />
+			<attribute name="SortedTeamList" idx="43" type="Team[]" />
+			<attribute name="StaffHiringEval" idx="44" type="StaffHiringEval" />
+			<attribute name="StaffPositionEnumTable" idx="45" type="EnumTable" />
+			<attribute name="StateNameEnumTable" idx="46" type="EnumTable" />
+			<attribute name="TeamBuilderManager" idx="47" type="TeamBuilderManager" />
+			<attribute name="TeamManager" idx="48" type="TeamManager" />
+			<attribute name="TeamRevenueEval" idx="49" type="TeamRevenueEval" />
+			<attribute name="TeamRoadmapEval" idx="50" type="TeamRoadmapEval" />
+			<attribute name="UpdateUserTeam" idx="51" type="FranchiseServer_UserFlow_UpdateUserTeam" guid="6499295-1937174" final="true" />
+			<attribute name="UserBeginRegisterEvent" idx="52" type="UserBeginRegisterEvent" />
+			<attribute name="UserEndRegisterEvent" idx="53" type="UserEndRegisterEvent" />
+			<attribute name="UserRegistry" idx="54" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

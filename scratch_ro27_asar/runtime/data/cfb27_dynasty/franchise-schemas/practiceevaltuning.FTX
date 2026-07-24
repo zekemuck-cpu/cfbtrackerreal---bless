@@ -1,0 +1,35 @@
+<FranTkData fileName="Franchise-Schemas\PracticeEvalTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticeEvalTuning" numMembers="24" base="BaseTuning" defaultStoreCapacity="1" assetId="6495157" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="844" majorVersionCRC="1502759200" minorVersionCRC="1772096222">
+			<attribute name="AutoManageDefIntensityFatiguedPositionsThreshold" idx="0" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="AutoManageOffIntensityFatiguedPositionsThreshold" idx="1" type="int" minValue="0" maxValue="100" default="5" />
+			<attribute name="AutoManageRepsBackupsOnlyFatigueThreshold" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="AutoManageRepsSplitRepsFatigueThreshold" idx="3" type="int" minValue="0" maxValue="100" default="25" />
+			<attribute name="BacksReps_AwardXPSpline" idx="4" type="Spline" />
+			<attribute name="BacksReps_FatigueSpline" idx="5" type="Spline" />
+			<attribute name="BacksReps_InjurySpline" idx="6" type="Spline" />
+			<attribute name="DefensivePracticeIntensityDescription" idx="7" type="string" maxLen="268" />
+			<attribute name="GetAwayFatiguePenalty" idx="8" type="PracticeEvalTuning_GetAwayFatiguePenalty" guid="6495157-1921500" final="true" default="// Return GetDayRecoveryFatigue to account for one day&#xD;&#xA;GetDayRecoveryFatigue(WeekType, WeekNumber);" />
+			<attribute name="GetDayRecoveryFatigue" idx="9" type="PracticeEvalTuning_GetDayRecoveryFatigue" guid="6495157-1921495" final="true" default="int replenish = 5;&#xD;&#xA;&#xD;&#xA;if(WeekType == SeasonWeekType.PreSeason)&#xD;&#xA;{&#xD;&#xA;  if(WeekNumber &lt; 6)&#xD;&#xA;  {&#xD;&#xA;    replenish = 5;&#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if(WeekType == SeasonWeekType.RegularSeason)&#xD;&#xA;{&#xD;&#xA;  if(WeekNumber &lt; 6)&#xD;&#xA;  {&#xD;&#xA;    replenish = 5;&#xD;&#xA;  }&#xD;&#xA;  if(WeekNumber &gt; 5 &amp;&amp; WeekNumber &lt; 12)&#xD;&#xA;  {&#xD;&#xA;    replenish = 4;&#xD;&#xA;  }&#xD;&#xA;  if(WeekNumber &gt; 11)&#xD;&#xA;  {&#xD;&#xA;    replenish = 3;&#xD;&#xA;  }&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if(WeekType &gt;= SeasonWeekType.FirstPlayoff_  &amp;&amp; WeekType &lt;= SeasonWeekType.LastPlayoff_)&#xD;&#xA;  {&#xD;&#xA;     replenish = 3;&#xD;&#xA;  &#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;if(WeekType == SeasonWeekType.NationalChampionship)&#xD;&#xA;  {&#xD;&#xA;     replenish = 5;&#xD;&#xA;  &#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;replenish;&#xD;&#xA;" />
+			<attribute name="MinDesiredMiniGameBucketSize" idx="10" type="int" minValue="0" maxValue="100" default="3" />
+			<attribute name="OffensivePracticeIntensityDescription" idx="11" type="string" maxLen="268" />
+			<attribute name="PositionToMiniGameList" idx="12" type="PositionRecordTable" />
+			<attribute name="PracticeIntensitySplineFatigue" idx="13" type="Spline" />
+			<attribute name="PracticeIntensitySplineGameBoost" idx="14" type="Spline" />
+			<attribute name="PracticeIntensitySplineInjury" idx="15" type="Spline" />
+			<attribute name="PracticeIntensitySplineXP" idx="16" type="Spline" />
+			<attribute name="PracticePlanInfoList" idx="17" type="PracticePlanInfo[]" />
+			<attribute name="Reps_GameBoostSpline" idx="18" type="Spline" />
+			<attribute name="RepsDescription" idx="19" type="string" maxLen="308" />
+			<attribute name="StartingReps_AwardXPSpline" idx="20" type="Spline" />
+			<attribute name="StartingReps_FatigueSpline" idx="21" type="Spline" />
+			<attribute name="StartingReps_InjurySpline" idx="22" type="Spline" />
+			<attribute name="TeamFatigueOverallThreshold" idx="23" type="int" minValue="0" maxValue="100" default="50" />
+		</schema>
+	</schemas>
+</FranTkData>

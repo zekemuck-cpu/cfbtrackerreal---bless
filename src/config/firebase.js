@@ -1,9 +1,10 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "firebase/auth";
 import {
   initializeFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
+  connectFirestoreEmulator,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -61,6 +62,21 @@ export const db = initializeFirestore(app, {
   }),
   experimentalAutoDetectLongPolling: true,
 });
+
+// Local Firebase emulator opt-in — lets the REAL Admin SDK code (e.g.
+// api/cfb27-bulk-seed-players.js, run via scripts/dev-cfb27-server.cjs) be
+// tested against a real local Firestore/Auth implementation, with zero
+// dependency on production credentials. `import.meta.env.DEV` is a
+// build-time constant Vite hard-replaces to `false` in production builds —
+// this whole block is dead-code-eliminated from anything actually shipped,
+// so there is no way for a deployed app to connect to an emulator. The
+// second gate (an explicit opt-in env var) keeps NORMAL local dev — which
+// talks to the real cloud project — unaffected unless deliberately flipped.
+if (import.meta.env.DEV && import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true') {
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  console.warn('[firebase] Connected to LOCAL EMULATORS (Firestore :8080, Auth :9099) — not the real cloud project.')
+}
 
 // Firebase Storage — used for player card art, profile pictures, and
 // game/box-score photo uploads. Replaces the previous imgbb dependency,

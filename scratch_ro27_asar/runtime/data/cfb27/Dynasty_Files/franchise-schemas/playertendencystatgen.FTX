@@ -1,0 +1,17 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTendencyStatGen.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerTendencyStatGen" numMembers="10" defaultStoreCapacity="32" assetId="6379089" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1072511290" minorVersionCRC="-1290939137">
+			<attribute name="PlayerArchetypeSpline" idx="0" type="Spline" />
+			<attribute name="PlayerPosition" idx="1" type="PositionE" default="PositionE:Invalid_" />
+			<attribute name="PlayerStat" idx="2" type="StatType" default="StatType:Invalid_" />
+			<attribute name="PlayerTendencyStat" idx="3" type="TendencyStatType" default="TendencyStatType:Invalid" />
+			<attribute name="PlayerTendencyStatCategory" idx="4" type="PlayerTendencyStatCategory" default="PlayerTendencyStatCategory:Invalid" />
+			<attribute name="ShiftPercentage" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ShiftTendencyStat" idx="6" type="TendencyStatType" default="TendencyStatType:Invalid" />
+			<attribute name="TeamStat" idx="7" type="TeamStatType" default="TeamStatType:Invalid" />
+			<attribute name="TendencyPercentage" idx="8" type="int" minValue="0" maxValue="1023" default="0" />
+			<attribute name="UseOpposingTeamStat" idx="9" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

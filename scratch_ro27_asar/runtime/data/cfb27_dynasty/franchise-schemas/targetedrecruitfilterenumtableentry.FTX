@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\TargetedRecruitFilterEnumTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\EnumTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TargetedRecruitFilterEnumTableEntry" numMembers="4" base="EnumTableEntry" defaultStoreCapacity="30" assetId="6812838" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="621" majorVersionCRC="123305475" minorVersionCRC="-1154386612">
+			<attribute name="Description" idx="0" type="string" maxLen="193" />
+			<attribute name="LongName" idx="1" type="string" maxLen="34" />
+			<attribute name="ShortName" idx="2" type="string" maxLen="33" />
+			<attribute name="Value" idx="3" type="TargetedRecruitFilter" default="TargetedRecruitFilter:All" />
+		</schema>
+	</schemas>
+</FranTkData>

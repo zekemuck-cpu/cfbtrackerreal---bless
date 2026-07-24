@@ -1,0 +1,21 @@
+<FranTkData fileName="Franchise-Schemas\ChallengeInterest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ChallengeInterest" numMembers="14" assetId="10489455" isRecordPersistent="true" majorVersionCRC="-996875865" minorVersionCRC="819003635">
+			<attribute name="VeryHigh" idx="0" value="0" />
+			<attribute name="High" idx="1" value="1" />
+			<attribute name="Medium" idx="2" value="2" />
+			<attribute name="Some" idx="3" value="3" />
+			<attribute name="Little" idx="4" value="4" />
+			<attribute name="Low" idx="5" value="5" />
+			<attribute name="Unused1" idx="6" value="6" />
+			<attribute name="Unused2" idx="7" value="7" />
+			<attribute name="Unused3" idx="8" value="8" />
+			<attribute name="Unused4" idx="9" value="9" />
+			<attribute name="Unused5" idx="10" value="10" />
+			<attribute name="None" idx="11" value="11" />
+			<attribute name="TeamChallenge" idx="12" value="12" />
+			<attribute name="Invalid_" idx="13" value="13" />
+		</enum>
+	</schemas>
+</FranTkData>

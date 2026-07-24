@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ActorPositionConditionEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ActorPositionConditionEntry" numMembers="2" defaultStoreCapacity="58" assetId="11909769" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-453856021" minorVersionCRC="-590099489">
+			<attribute name="Position" idx="0" type="int" minValue="-1" maxValue="100" default="0" />
+			<attribute name="TargetActor" idx="1" type="ActorName" default="ActorName:Player" />
+		</schema>
+	</schemas>
+</FranTkData>

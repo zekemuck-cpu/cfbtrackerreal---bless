@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\WeeklyStoryTunable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="WeeklyStoryTunable" numMembers="3" assetId="6498852" isRecordPersistent="true" majorVersionCRC="284213875" minorVersionCRC="-308563334">
+			<attribute name="MaxStories" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MeanStories" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="MinStories" idx="2" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

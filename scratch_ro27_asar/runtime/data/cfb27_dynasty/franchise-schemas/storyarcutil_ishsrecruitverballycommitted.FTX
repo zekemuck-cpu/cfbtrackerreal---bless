@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\StoryArcUtil_IsHSRecruitVerballyCommitted.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="StoryArcUtil_IsHSRecruitVerballyCommitted" numMembers="2" base="bool()" ownerAssetId="6498729" isRecordPersistent="true" isExpr="true" majorVersionCRC="276975852" minorVersionCRC="-518106447">
+			<attribute name="arcContext" idx="0" type="ArcContext" />
+		</schema>
+	</schemas>
+</FranTkData>

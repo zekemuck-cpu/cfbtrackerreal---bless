@@ -1,0 +1,27 @@
+<FranTkData fileName="Franchise-Schemas\League.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\Enum.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="League" numMembers="16" base="Enum" defaultStoreCapacity="1" assetId="6493945" defaultStoreGroupId="65" isRecordPersistent="true" defaultStoreGroupName="ReferencedByStatic" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1119976111" minorVersionCRC="205222423">
+			<attribute name="Awards" idx="0" type="Awards" />
+			<attribute name="Cities" idx="1" type="City[]" />
+			<attribute name="Colleges" idx="2" type="College[]" />
+			<attribute name="Conferences" idx="3" type="Conference[]" />
+			<attribute name="DraftClassSeenByCommissioner" idx="4" type="bool" default="False" />
+			<attribute name="FreeAgents" idx="5" type="Player[]" />
+			<attribute name="HallOfFameCoaches" idx="6" type="Coach[]" />
+			<attribute name="HallOfFamePlayers" idx="7" type="Player[]" />
+			<attribute name="Name" idx="8" type="string" maxLen="21" />
+			<attribute name="PlayerCareerStatRecords" idx="9" type="PlayerStatRecords" />
+			<attribute name="PlayerGameStatRecords" idx="10" type="PlayerStatRecords" />
+			<attribute name="PlayerPositions" idx="11" type="PlayerPosition[]" />
+			<attribute name="PlayerSeasonStatRecords" idx="12" type="PlayerStatRecords" />
+			<attribute name="PresentationId" idx="13" type="int" minValue="0" maxValue="3" default="0" />
+			<attribute name="SortedTeams" idx="14" type="Team[]" />
+			<attribute name="Teams" idx="15" type="Team[]" />
+		</schema>
+	</schemas>
+</FranTkData>

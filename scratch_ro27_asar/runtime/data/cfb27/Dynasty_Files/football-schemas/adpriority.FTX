@@ -1,0 +1,17 @@
+<FranTkData fileName="Football-Schemas\ADPriority.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ADPriority" numMembers="10" assetId="13033447" isRecordPersistent="true" majorVersionCRC="-152280516" minorVersionCRC="-1382409064">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Rival" idx="1" value="0" />
+			<attribute name="Conference" idx="2" value="1" />
+			<attribute name="Recruiting" idx="3" value="2" />
+			<attribute name="Achievement" idx="4" value="3" />
+			<attribute name="Offense" idx="5" value="4" />
+			<attribute name="Defense" idx="6" value="5" />
+			<attribute name="Last_" idx="7" value="5" />
+			<attribute name="Count_" idx="8" value="6" />
+			<attribute name="Invalid_" idx="9" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

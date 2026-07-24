@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TelemetryManager_PreSeasonEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TelemetryManager_PreSeasonEndReaction" numMembers="4" base="Reaction" assetId="6499128" isRecordPersistent="true" majorVersionCRC="-47086672" minorVersionCRC="-809947028">
+			<attribute name="EventRecord" idx="0" type="PreseasonEndEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6499128-1895461" />
+			<attribute name="Priority" idx="2" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="TelemetryManager" idx="3" type="TelemetryManager" />
+		</schema>
+	</schemas>
+</FranTkData>

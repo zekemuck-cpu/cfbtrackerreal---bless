@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\AbilityUpgradeGenerationTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AbilityUpgradeGenerationTable" numMembers="5" assetId="8556903" isRecordPersistent="true" majorVersionCRC="-1756356028" minorVersionCRC="-27484734">
+			<attribute name="FiveStarAbilityGenerationInfo" idx="0" type="AbilityUpgradeGenerationInfo" />
+			<attribute name="FourStarAbilityGenerationInfo" idx="1" type="AbilityUpgradeGenerationInfo" />
+			<attribute name="OneStarAbilityGenerationInfo" idx="2" type="AbilityUpgradeGenerationInfo" />
+			<attribute name="ThreeStarAbilityGenerationInfo" idx="3" type="AbilityUpgradeGenerationInfo" />
+			<attribute name="TwoStarAbilityGenerationInfo" idx="4" type="AbilityUpgradeGenerationInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

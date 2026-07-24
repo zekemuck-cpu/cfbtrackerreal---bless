@@ -1,0 +1,13 @@
+<FranTkData fileName="Football-Schemas\PersonaTempDNAEnumToAssetTableEntry.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\EnumToAssetTableEntry.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PersonaTempDNAEnumToAssetTableEntry" numMembers="2" base="EnumToAssetTableEntry" assetId="12355595" isRecordPersistent="true" majorVersionCRC="-1209180899" minorVersionCRC="2009193485">
+			<attribute name="Asset" idx="0" type="record" />
+			<attribute name="Value" idx="1" type="BTCareerPersonaTemporaryDNA" default="BTCareerPersonaTemporaryDNA:Invalid" />
+		</schema>
+	</schemas>
+</FranTkData>

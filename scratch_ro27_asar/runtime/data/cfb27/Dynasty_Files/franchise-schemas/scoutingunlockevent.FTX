@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\ScoutingUnlockEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ScoutingUnlockEvent" numMembers="7" base="Event" assetId="6378658" isRecordPersistent="true" majorVersionCRC="384667856" minorVersionCRC="2039164058">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6378658-1895458" final="true" />
+			<attribute name="Player" idx="1" type="Player" />
+			<attribute name="PointsSpent" idx="2" type="int" minValue="0" maxValue="10000" default="0" />
+			<attribute name="Send" idx="3" type="none()" guid="6378658-1895455" final="true" />
+			<attribute name="Team" idx="4" type="Team" />
+			<attribute name="TopDraftPick" idx="5" type="DraftPick" />
+			<attribute name="UnlockedOverallGrade" idx="6" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

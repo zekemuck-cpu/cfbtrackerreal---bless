@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\PlayerIntangibleGradePhilosophy.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerIntangibleGradePhilosophy" numMembers="6" assetId="6378044" isRecordPersistent="true" majorVersionCRC="722849592" minorVersionCRC="-624265498">
+			<attribute name="DesiredHigh" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DesiredLow" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="GradeWeights" idx="2" type="PlayerIntangibleGradeWeights" />
+			<attribute name="MaxRating" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverallIntangibleWeight" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="OverallIntangibleWeightSpline" idx="5" type="Spline" />
+		</schema>
+	</schemas>
+</FranTkData>

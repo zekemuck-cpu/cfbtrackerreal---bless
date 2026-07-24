@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\PlayerSigningEval_SelectPlayerForFranchiseTag.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerSigningEval_SelectPlayerForFranchiseTag" numMembers="2" base="Player()" ownerAssetId="6708620" isRecordPersistent="true" isExpr="true" majorVersionCRC="2029595568" minorVersionCRC="749630622">
+			<attribute name="team" idx="0" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TradeEval_CreateTradeOffer.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TradeEval_CreateTradeOffer" numMembers="3" base="TeamTradePackage()" ownerAssetId="6495411" isRecordPersistent="true" isExpr="true" majorVersionCRC="481408934" minorVersionCRC="165544023">
+			<attribute name="packageA" idx="0" type="TeamTradePackage" />
+			<attribute name="teamB" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

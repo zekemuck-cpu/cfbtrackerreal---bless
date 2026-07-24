@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\AdvanceSeasonWeekTransaction_HandleTrade_Trade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="AdvanceSeasonWeekTransaction_HandleTrade_Trade" numMembers="2" base="none()" ownerAssetId="6499027" isRecordPersistent="true" isExpr="true" majorVersionCRC="319633049" minorVersionCRC="-64085598">
+			<attribute name="event" idx="0" type="Trade_TradeEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

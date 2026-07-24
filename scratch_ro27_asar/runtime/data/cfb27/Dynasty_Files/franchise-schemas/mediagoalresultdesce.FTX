@@ -1,0 +1,86 @@
+<FranTkData fileName="Franchise-Schemas\MediaGoalResultDescE.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="MediaGoalResultDescE" numMembers="79" assetId="6498549" isRecordPersistent="true" majorVersionCRC="865964900" minorVersionCRC="2041921194">
+			<attribute name="EmptyString" idx="0" value="0" />
+			<attribute name="AvgRushYards_Over_6PerGame" idx="1" value="1" />
+			<attribute name="AvgRushYards_Under_6PerGame" idx="2" value="2" />
+			<attribute name="ForMissingSuperBowl" idx="3" value="3" />
+			<attribute name="ForNotWinningSuperBowl" idx="4" value="4" />
+			<attribute name="ForPlayoffLoss" idx="5" value="5" />
+			<attribute name="ForPlayoffWin" idx="6" value="6" />
+			<attribute name="ForThrowing0INTs" idx="7" value="7" />
+			<attribute name="ForThrowningAnyINTs" idx="8" value="8" />
+			<attribute name="IfPlayoffsMade" idx="9" value="9" />
+			<attribute name="IfPlayoffsMissed" idx="10" value="10" />
+			<attribute name="LessThan2Rookies" idx="11" value="11" />
+			<attribute name="LessThan2SignedFreeAgents" idx="12" value="12" />
+			<attribute name="LessThan2TradedPlayers" idx="13" value="13" />
+			<attribute name="LoseGame" idx="14" value="14" />
+			<attribute name="MakePlayoffs" idx="15" value="15" />
+			<attribute name="MissPlayoffs" idx="16" value="16" />
+			<attribute name="NotStarted" idx="17" value="17" />
+			<attribute name="PassATTOverRushATT" idx="18" value="18" />
+			<attribute name="PassATTUnderRushATT" idx="19" value="19" />
+			<attribute name="PassCompPct75Plus_PerGame" idx="20" value="20" />
+			<attribute name="PerAWAYLoss" idx="21" value="21" />
+			<attribute name="PerAWAYWin" idx="22" value="22" />
+			<attribute name="PerGameAfterSigned" idx="23" value="23" />
+			<attribute name="PerGame_IfSigned" idx="24" value="24" />
+			<attribute name="PerGame_NotRebuilt" idx="25" value="25" />
+			<attribute name="PerGame_NotRelocated" idx="26" value="26" />
+			<attribute name="PerGame_NotSigned" idx="27" value="27" />
+			<attribute name="PerGame_NotUpgraded" idx="28" value="28" />
+			<attribute name="PerGame_Under_100RushYards" idx="29" value="29" />
+			<attribute name="PerGame_Under_75CompPct" idx="30" value="30" />
+			<attribute name="PerHOMELoss" idx="31" value="31" />
+			<attribute name="PerHOMEWin" idx="32" value="32" />
+			<attribute name="PerLosingSeason" idx="33" value="33" />
+			<attribute name="PerLoss" idx="34" value="34" />
+			<attribute name="PerLossInNewCity" idx="35" value="35" />
+			<attribute name="PerLossWithCurrentCoach" idx="36" value="36" />
+			<attribute name="PerLossWithCurrentRoster" idx="37" value="37" />
+			<attribute name="PerLossWithNewPlayers" idx="38" value="38" />
+			<attribute name="PerPlayoffWin" idx="39" value="39" />
+			<attribute name="PerStart" idx="40" value="40" />
+			<attribute name="PerSuperBowlWin" idx="41" value="41" />
+			<attribute name="PerWin" idx="42" value="42" />
+			<attribute name="PerWinInNewCity" idx="43" value="43" />
+			<attribute name="PerWinWithBackup" idx="44" value="44" />
+			<attribute name="PerWinWithCurrentCoach" idx="45" value="45" />
+			<attribute name="PerWinWithCurrentRoster" idx="46" value="46" />
+			<attribute name="PerWinWithMotivator" idx="47" value="47" />
+			<attribute name="PerWinWithNewCoach" idx="48" value="48" />
+			<attribute name="PerWinWithNewPlayers" idx="49" value="49" />
+			<attribute name="PerWinWithPlayer" idx="50" value="50" />
+			<attribute name="PerWinwithStarter" idx="51" value="51" />
+			<attribute name="PerWinWithStrategist" idx="52" value="52" />
+			<attribute name="PerWinWithTeamBuilder" idx="53" value="53" />
+			<attribute name="PerWinWithoutPlayer" idx="54" value="54" />
+			<attribute name="PerWinningSeason" idx="55" value="55" />
+			<attribute name="Play2PlusRookies" idx="56" value="56" />
+			<attribute name="Play2PlusSignedFreeAgents" idx="57" value="57" />
+			<attribute name="Play2PlusTradedPlayers" idx="58" value="58" />
+			<attribute name="PlayerConfidence" idx="59" value="59" />
+			<attribute name="PlayerConfWithoutPlayerName" idx="60" value="60" />
+			<attribute name="PlayerConfWithPlayerName" idx="61" value="61" />
+			<attribute name="RushATTOverPassATT" idx="62" value="62" />
+			<attribute name="RushATTUnderPassATT" idx="63" value="63" />
+			<attribute name="Rush100Plus_YardsPerGame" idx="64" value="64" />
+			<attribute name="Rush150Plus_YardsPerGame" idx="65" value="65" />
+			<attribute name="SuperBowlLoss" idx="66" value="66" />
+			<attribute name="SuperBowlWin" idx="67" value="67" />
+			<attribute name="TDs3Plus_And_Win" idx="68" value="68" />
+			<attribute name="WhenRebuilt" idx="69" value="69" />
+			<attribute name="WhenRelocated" idx="70" value="70" />
+			<attribute name="WhenUpgraded" idx="71" value="71" />
+			<attribute name="WinGame" idx="72" value="72" />
+			<attribute name="WinOrLose_Under_150RushYards" idx="73" value="73" />
+			<attribute name="WinOrLose_Under_3TDs" idx="74" value="74" />
+			<attribute name="WithALoss" idx="75" value="75" />
+			<attribute name="WithAWin" idx="76" value="76" />
+			<attribute name="WithPlayoffLoss" idx="77" value="77" />
+			<attribute name="WithSuperBowlAppearance" idx="78" value="78" />
+		</enum>
+	</schemas>
+</FranTkData>

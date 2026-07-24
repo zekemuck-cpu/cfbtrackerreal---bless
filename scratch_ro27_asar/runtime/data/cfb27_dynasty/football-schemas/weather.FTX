@@ -1,0 +1,33 @@
+<FranTkData fileName="Football-Schemas\Weather.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="Weather" numMembers="26" assetId="12671825" isRecordPersistent="true" majorVersionCRC="-1569478695" minorVersionCRC="-806923946">
+			<attribute name="Clear" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Overcast" idx="2" value="1" />
+			<attribute name="PartlyCloudy" idx="3" value="2" />
+			<attribute name="FirstBad_" idx="4" value="3" />
+			<attribute name="Windy" idx="5" value="3" />
+			<attribute name="FirstRain_" idx="6" value="4" />
+			<attribute name="LightRain" idx="7" value="4" />
+			<attribute name="Rain" idx="8" value="5" />
+			<attribute name="HeavyRain" idx="9" value="6" />
+			<attribute name="LastRain_" idx="10" value="6" />
+			<attribute name="FirstSnow_" idx="11" value="7" />
+			<attribute name="LightSnow" idx="12" value="7" />
+			<attribute name="Snow" idx="13" value="8" />
+			<attribute name="HeavySnow" idx="14" value="9" />
+			<attribute name="LastBad_" idx="15" value="9" />
+			<attribute name="LastNormal_" idx="16" value="9" />
+			<attribute name="LastSnow_" idx="17" value="9" />
+			<attribute name="DynamicRain" idx="18" value="10" />
+			<attribute name="FirstSpecial_" idx="19" value="10" />
+			<attribute name="DynamicSnow" idx="20" value="11" />
+			<attribute name="LastSpecial_" idx="21" value="12" />
+			<attribute name="Random" idx="22" value="12" />
+			<attribute name="Count" idx="23" value="13" />
+			<attribute name="Max_" idx="24" value="13" />
+			<attribute name="Invalid_" idx="25" value="14" />
+		</enum>
+	</schemas>
+</FranTkData>

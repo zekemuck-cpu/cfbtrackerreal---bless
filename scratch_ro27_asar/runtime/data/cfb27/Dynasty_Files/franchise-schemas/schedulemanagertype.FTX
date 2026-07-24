@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\ScheduleManagerType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="ScheduleManagerType" numMembers="2" assetId="6845537" isRecordPersistent="true" majorVersionCRC="-1826760872" minorVersionCRC="1712474056">
+			<attribute name="GeneratorType" idx="0" value="0" />
+			<attribute name="ProType" idx="1" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

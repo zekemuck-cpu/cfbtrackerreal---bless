@@ -1,0 +1,10 @@
+<FranTkData fileName="Football-Schemas\BtAssertType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="BtAssertType" numMembers="3" assetId="13295209" isRecordPersistent="true" majorVersionCRC="260804614" minorVersionCRC="-341478155">
+			<attribute name="ASSERTTYPE_INVALID" idx="0" value="-1" />
+			<attribute name="ASSERTTYPE_ASSERT" idx="1" value="0" />
+			<attribute name="ASSERTTYPE_CRASH" idx="2" value="1" />
+		</enum>
+	</schemas>
+</FranTkData>

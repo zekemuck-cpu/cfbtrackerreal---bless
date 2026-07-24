@@ -1,0 +1,44 @@
+<FranTkData fileName="Franchise-Schemas\Story.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\FootballStory.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Story" numMembers="33" base="FootballStory" defaultStoreCapacity="250" assetId="6495204" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="-1630829016" minorVersionCRC="-1761748425">
+			<attribute name="Category" idx="0" type="NewsCategory" default="NewsCategory:Invalid" />
+			<attribute name="Character1" idx="1" type="record" />
+			<attribute name="Character2" idx="2" type="record" />
+			<attribute name="Character3" idx="3" type="record" />
+			<attribute name="Character4" idx="4" type="record" />
+			<attribute name="CurrentStage" idx="5" type="SeasonStage" default="SeasonStage:PreSeason" />
+			<attribute name="CurrentWeek" idx="6" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="EventContext" idx="7" type="record" />
+			<attribute name="FullStory" idx="8" type="string" maxLen="2000" />
+			<attribute name="Header" idx="9" type="string" maxLen="81" />
+			<attribute name="HeaderHash" idx="10" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="HubPanelData1" idx="11" type="HUBPanelData" default="HUBPanelData:None_None" />
+			<attribute name="HubPanelData2" idx="12" type="HUBPanelData" default="HUBPanelData:None_None" />
+			<attribute name="HubPanelData3" idx="13" type="HUBPanelData" default="HUBPanelData:None_None" />
+			<attribute name="HubPanelData4" idx="14" type="HUBPanelData" default="HUBPanelData:None_None" />
+			<attribute name="HubPanelData5" idx="15" type="HUBPanelData" default="HUBPanelData:None_None" />
+			<attribute name="HubPanelType1" idx="16" type="HUBPanelType" default="HUBPanelType:None" />
+			<attribute name="HubPanelType2" idx="17" type="HUBPanelType" default="HUBPanelType:None" />
+			<attribute name="HubPanelType3" idx="18" type="HUBPanelType" default="HUBPanelType:None" />
+			<attribute name="HubPanelType4" idx="19" type="HUBPanelType" default="HUBPanelType:None" />
+			<attribute name="HubPanelType5" idx="20" type="HUBPanelType" default="HUBPanelType:None" />
+			<attribute name="Identity" idx="21" type="int" minValue="0" maxValue="65535" default="0" />
+			<attribute name="IsBreaking" idx="22" type="bool" default="False" />
+			<attribute name="IsInfoSentience" idx="23" type="bool" default="False" />
+			<attribute name="IsNew" idx="24" type="bool" default="True" />
+			<attribute name="IsTopStory" idx="25" type="bool" default="False" />
+			<attribute name="Priority" idx="26" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="SeasonWeek" idx="27" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="SeasonYear" idx="28" type="int" minValue="0" maxValue="63" default="0" />
+			<attribute name="ShowWeek" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Tag" idx="30" type="string" maxLen="181" />
+			<attribute name="TagHash" idx="31" type="int" minValue="-2147483648" maxValue="2147483647" default="0" />
+			<attribute name="Team" idx="32" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

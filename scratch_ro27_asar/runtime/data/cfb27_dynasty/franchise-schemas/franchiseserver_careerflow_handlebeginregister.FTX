@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\FranchiseServer_CareerFlow_HandleBeginRegister.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="FranchiseServer_CareerFlow_HandleBeginRegister" numMembers="2" base="none()" ownerAssetId="6708691" isRecordPersistent="true" isExpr="true" majorVersionCRC="2092846476" minorVersionCRC="1065712133">
+			<attribute name="event" idx="0" type="UserBeginRegisterEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

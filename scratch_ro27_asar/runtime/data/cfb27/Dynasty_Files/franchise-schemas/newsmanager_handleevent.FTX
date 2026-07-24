@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\NewsManager_HandleEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsManager_HandleEvent" numMembers="3" base="none()" ownerAssetId="6499038" isRecordPersistent="true" isExpr="true" majorVersionCRC="646708494" minorVersionCRC="-1658396045">
+			<attribute name="Event" idx="0" type="Event" />
+			<attribute name="Category" idx="1" type="MuseCategory" default="MuseCategory:EndGame" />
+		</schema>
+	</schemas>
+</FranTkData>

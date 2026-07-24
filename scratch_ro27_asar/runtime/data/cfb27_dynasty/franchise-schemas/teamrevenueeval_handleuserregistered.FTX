@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\TeamRevenueEval_HandleUserRegistered.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRevenueEval_HandleUserRegistered" numMembers="3" base="none()" ownerAssetId="6498983" isRecordPersistent="true" isExpr="true" majorVersionCRC="-159385570" minorVersionCRC="779961203">
+			<attribute name="user" idx="0" type="User" />
+			<attribute name="team" idx="1" type="Team" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\PlayerContractManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerContractManager" numMembers="5" base="Module" assetId="6378594" isRecordPersistent="true" majorVersionCRC="-163223112" minorVersionCRC="-441664483">
+			<attribute name="CreateDraftedRookieContract" idx="0" type="PlayerContractManager_CreateDraftedRookieContract" guid="6378594-1904535" final="true" default="null;&#xD;&#xA;" />
+			<attribute name="CreateFreeAgentContract" idx="1" type="PlayerContractManager_CreateFreeAgentContract" guid="6378594-1904542" final="true" />
+			<attribute name="CreatePlayerContract" idx="2" type="PlayerContractManager_CreatePlayerContract" guid="6378594-1904529" final="true" />
+			<attribute name="CreateUndraftedRookieContract" idx="3" type="PlayerContract()" guid="6378594-1904539" final="true" default="// create a new contract&#xD;&#xA;PlayerContract contract = new PlayerContract;&#xD;&#xA;&#xD;&#xA;// populate contract with leage min salary for first year player, no bonus ,length of one year&#xD;&#xA;contract.SalaryTable[0] = SalaryInfo.PlayerMinSalaryTable[0];&#xD;&#xA;contract.BonusTable[0] = 0;&#xD;&#xA;contract.Length = 1;&#xD;&#xA;&#xD;&#xA;contract;&#xD;&#xA;&#xD;&#xA;&#xD;&#xA;" />
+			<attribute name="SalaryInfo" idx="4" type="SalaryInfo" />
+		</schema>
+	</schemas>
+</FranTkData>

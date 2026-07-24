@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\MediaQuestionOnTeam_GetRatingUsingTeam.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MediaQuestionOnTeam_GetRatingUsingTeam" numMembers="5" base="int()" ownerAssetId="6549023" isRecordPersistent="true" isExpr="true" majorVersionCRC="1829702472" minorVersionCRC="-146742696">
+			<attribute name="team" idx="0" type="Team" />
+			<attribute name="statManager" idx="1" type="StatManager" />
+			<attribute name="gamesPlayed" idx="2" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="currentWeek" idx="3" type="int" minValue="0" maxValue="31" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

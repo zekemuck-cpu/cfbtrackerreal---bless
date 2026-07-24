@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DraftData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftData" numMembers="1" assetId="5699506" isRecordPersistent="true" majorVersionCRC="-1040471764" minorVersionCRC="-220509303">
+			<attribute name="Classes" idx="0" type="DraftClassData[]" />
+		</schema>
+	</schemas>
+</FranTkData>

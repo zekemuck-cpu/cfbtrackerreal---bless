@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\InjuryDuration.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="InjuryDuration" numMembers="1" assetId="6709347" isRecordPersistent="true" majorVersionCRC="1691939203" minorVersionCRC="-1689489258">
+			<attribute name="Returning" idx="0" value="63" />
+		</enum>
+	</schemas>
+</FranTkData>

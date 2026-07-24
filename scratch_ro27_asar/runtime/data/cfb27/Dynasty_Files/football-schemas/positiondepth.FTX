@@ -1,0 +1,39 @@
+<FranTkData fileName="Football-Schemas\PositionDepth.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PositionDepth" numMembers="32" assetId="6224" isRecordPersistent="true" majorVersionCRC="-953867569" minorVersionCRC="-1788820707">
+			<attribute name="QB1" idx="0" value="0" />
+			<attribute name="QB2" idx="1" value="1" />
+			<attribute name="HB1" idx="2" value="2" />
+			<attribute name="HB2" idx="3" value="3" />
+			<attribute name="FB1" idx="4" value="4" />
+			<attribute name="WR1" idx="5" value="5" />
+			<attribute name="WR2" idx="6" value="6" />
+			<attribute name="WR3" idx="7" value="7" />
+			<attribute name="TE1" idx="8" value="8" />
+			<attribute name="LT1" idx="9" value="9" />
+			<attribute name="LG1" idx="10" value="10" />
+			<attribute name="C1" idx="11" value="11" />
+			<attribute name="RG1" idx="12" value="12" />
+			<attribute name="RT1" idx="13" value="13" />
+			<attribute name="LE1" idx="14" value="14" />
+			<attribute name="RE1" idx="15" value="15" />
+			<attribute name="DT1" idx="16" value="16" />
+			<attribute name="DT2" idx="17" value="17" />
+			<attribute name="LOLB1" idx="18" value="18" />
+			<attribute name="MLB1" idx="19" value="19" />
+			<attribute name="MLB2" idx="20" value="20" />
+			<attribute name="ROLB1" idx="21" value="21" />
+			<attribute name="CB1" idx="22" value="22" />
+			<attribute name="CB2" idx="23" value="23" />
+			<attribute name="CB3" idx="24" value="24" />
+			<attribute name="FS1" idx="25" value="25" />
+			<attribute name="SS1" idx="26" value="26" />
+			<attribute name="K1" idx="27" value="27" />
+			<attribute name="P1" idx="28" value="28" />
+			<attribute name="LS1" idx="29" value="29" />
+			<attribute name="Max" idx="30" value="30" />
+			<attribute name="Invalid_" idx="31" value="63" />
+		</enum>
+	</schemas>
+</FranTkData>

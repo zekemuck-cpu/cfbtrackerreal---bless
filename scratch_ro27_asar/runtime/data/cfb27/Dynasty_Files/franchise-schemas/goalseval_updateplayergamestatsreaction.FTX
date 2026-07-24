@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\GoalsEval_UpdatePlayerGameStatsReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="GoalsEval_UpdatePlayerGameStatsReaction" numMembers="4" base="Reaction" assetId="6814621" isRecordPersistent="true" majorVersionCRC="693935197" minorVersionCRC="326367361">
+			<attribute name="EventRecord" idx="0" type="Player_UpdateGameStatsEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814621-1895461" />
+			<attribute name="PlayerGoalsEval" idx="2" type="PlayerGoalsEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,50 @@
+<FranTkData fileName="Franchise-Schemas\ReSign_EndOfSeasonRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ReSign_EndOfSeasonRequest" numMembers="39" base="UIRequestForm" assetId="6495335" isRecordPersistent="true" majorVersionCRC="1162791772" minorVersionCRC="-19421814">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="6495335-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="DefaultResponse" idx="7" type="ResponseForm" />
+			<attribute name="Description" idx="8" type="string" const="true" maxLen="43" default="Re-sign players or delegate to your staff." />
+			<attribute name="Dismiss" idx="9" type="none()" guid="6495335-1895671" />
+			<attribute name="ExpirationDuration" idx="10" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="11" type="none()" guid="6495335-1922373" final="true" default="PlayerSigningEvalRef.ProcessFranchiseTagRequest(this);&#xD;&#xA;&#xD;&#xA;if( team.HeadCoach != null )&#xD;&#xA;{&#xD;&#xA; if( !team.HeadCoach.IsUserControlled || &#xD;&#xA;   ( team.HeadCoach.IsUserControlled  &amp;&amp; ( (Response == DefaultResponse) || (Response == null) ) ) ) &#xD;&#xA; {&#xD;&#xA;  PlayerReSignNegotiation[] ReSignResults = PlayerSigningEvalRef.GetPlayerReSignListForTeam(team);&#xD;&#xA;  if(ReSignResults.Population() &gt;= 1)&#xD;&#xA;  {&#xD;&#xA;   ReSignNegotiationManager.IssuePlayerRequests(ReSignResults);&#xD;&#xA;  }&#xD;&#xA; }&#xD;&#xA;}&#xD;&#xA;" />
+			<attribute name="HasResolution" idx="12" type="bool()" guid="6495335-1895676" />
+			<attribute name="IsBlocking" idx="13" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="14" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="15" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="16" type="bool()" guid="6495335-1895678" />
+			<attribute name="IsResponseRequired" idx="17" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="18" type="bool" default="True" />
+			<attribute name="Issue" idx="19" type="Request_Issue" guid="6495335-1895668" />
+			<attribute name="IssueTime" idx="20" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayerSigningEvalRef" idx="21" type="PlayerSigningEval" />
+			<attribute name="Priority" idx="22" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="23" type="none()" guid="6495335-1895686" final="true" />
+			<attribute name="RequestData" idx="24" type="record" />
+			<attribute name="RequestForm" idx="25" type="ResponseForm" />
+			<attribute name="RequestId" idx="26" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="27" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="ReSignNegotiationManager" idx="28" type="ReSignNegotiationManager" />
+			<attribute name="Resolution" idx="29" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="30" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="31" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="32" type="ResponseForm[]" />
+			<attribute name="SeasonInfo" idx="33" type="SeasonInfo" />
+			<attribute name="SeenByUser" idx="34" type="bool" default="True" />
+			<attribute name="TargetUser" idx="35" type="User" />
+			<attribute name="team" idx="36" type="Team" />
+			<attribute name="Title" idx="37" type="string" const="true" maxLen="27" default="Players Ready To Negotiate" />
+			<attribute name="TypeName" idx="38" type="string" const="true" maxLen="14" default="ReSignPlayers" />
+		</schema>
+	</schemas>
+</FranTkData>

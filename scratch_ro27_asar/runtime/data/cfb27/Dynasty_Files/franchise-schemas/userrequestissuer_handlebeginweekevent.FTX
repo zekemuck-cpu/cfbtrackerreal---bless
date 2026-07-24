@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\UserRequestIssuer_HandleBeginWeekEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UserRequestIssuer_HandleBeginWeekEvent" numMembers="2" base="none()" ownerAssetId="6495405" isRecordPersistent="true" isExpr="true" majorVersionCRC="-140951071" minorVersionCRC="-996190354">
+			<attribute name="event" idx="0" type="Season_BeginWeekEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

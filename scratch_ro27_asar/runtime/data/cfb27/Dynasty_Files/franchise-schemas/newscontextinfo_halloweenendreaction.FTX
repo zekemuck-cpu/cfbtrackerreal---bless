@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\NewsContextInfo_HalloweenEndReaction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="NewsContextInfo_HalloweenEndReaction" numMembers="4" base="Reaction" assetId="6814633" isRecordPersistent="true" majorVersionCRC="1969815360" minorVersionCRC="1605124126">
+			<attribute name="EventRecord" idx="0" type="HalloweenEndEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="6814633-1895461" />
+			<attribute name="NewsContextInfo" idx="2" type="PresentationContextData" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

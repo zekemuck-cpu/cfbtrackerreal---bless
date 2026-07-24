@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassManager_IssueImportDraftClassRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassManager_IssueImportDraftClassRequest" numMembers="2" base="ImportDraftClassRequest()" ownerAssetId="6498915" isRecordPersistent="true" isExpr="true" majorVersionCRC="2133172980" minorVersionCRC="1686494029">
+			<attribute name="character" idx="0" type="UserEntity" />
+		</schema>
+	</schemas>
+</FranTkData>

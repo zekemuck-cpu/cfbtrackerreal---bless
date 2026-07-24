@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbilitiesEval_HandleTrade.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignatureAbilitiesEval_HandleTrade" numMembers="2" base="none()" ownerAssetId="6495139" isRecordPersistent="true" isExpr="true" majorVersionCRC="-230861796" minorVersionCRC="1678502850">
+			<attribute name="eventRecord" idx="0" type="Trade_TradeEvent" />
+		</schema>
+	</schemas>
+</FranTkData>

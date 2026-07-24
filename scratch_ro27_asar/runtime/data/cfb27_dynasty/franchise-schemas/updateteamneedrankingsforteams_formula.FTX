@@ -1,0 +1,9 @@
+<FranTkData fileName="Franchise-Schemas\UpdateTeamNeedRankingsForTeams_Formula.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UpdateTeamNeedRankingsForTeams_Formula" numMembers="3" base="none()" ownerAssetId="6499363" isRecordPersistent="true" isExpr="true" majorVersionCRC="-1552260289" minorVersionCRC="-964175859">
+			<attribute name="Subject" idx="0" type="Team" />
+			<attribute name="SubjectIndex" idx="1" type="int" minValue="0" maxValue="2147483647" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

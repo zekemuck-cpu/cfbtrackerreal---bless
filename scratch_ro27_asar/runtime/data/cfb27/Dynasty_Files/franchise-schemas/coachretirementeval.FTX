@@ -1,0 +1,41 @@
+<FranTkData fileName="Franchise-Schemas\CoachRetirementEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CoachRetirementEval" numMembers="34" base="Module" assetId="6495220" isRecordPersistent="true" majorVersionCRC="1272393619" minorVersionCRC="-368343534">
+			<attribute name="AdvanceCoachesReturnLists" idx="0" type="none()" guid="6495220-1922069" final="true" />
+			<attribute name="CoachesReturningAfterOneYear" idx="1" type="Coach[]" />
+			<attribute name="CoachesReturningAfterThreeYears" idx="2" type="Coach[]" />
+			<attribute name="CoachesReturningAfterTwoYears" idx="3" type="Coach[]" />
+			<attribute name="CoachesReturningThisYear" idx="4" type="Coach[]" />
+			<attribute name="CoachManager" idx="5" type="CoachManager" />
+			<attribute name="CoachRetirementEvalInfo" idx="6" type="CoachRetirementEvalInfo" />
+			<attribute name="CoachRetirementTuningRef" idx="7" type="CoachRetirementTuning" />
+			<attribute name="EnterTrophyRoomResponse" idx="8" type="UIFlowForm" />
+			<attribute name="EvaluateCoachForRetirement" idx="9" type="CoachRetirementEval_EvaluateCoachForRetirement" guid="6495220-1922116" final="true" />
+			<attribute name="ForceRetireAllUserCoaches" idx="10" type="none()" guid="6495220-1922099" />
+			<attribute name="ForceRetirement" idx="11" type="CoachRetirementEval_ForceRetirement" guid="6495220-1922084" final="true" />
+			<attribute name="ForceRetirementResponse" idx="12" type="UIFlowForm" />
+			<attribute name="Franchise" idx="13" type="Franchise" />
+			<attribute name="HandleForceRetirement" idx="14" type="CoachRetirementEval_HandleForceRetirement" guid="6495220-1922101" final="true" default="if(!coach.IsCreated)&#xD;&#xA;{&#xD;&#xA;Franchise.RetiredCoaches.FindAndErase(coach);&#xD;&#xA;CoachManager.UnRetireCoach(coach);&#xD;&#xA;}" />
+			<attribute name="HandleUpdateUserDefaultRequestAction" idx="15" type="CoachRetirementEval_HandleUpdateUserDefaultRequestAction" guid="6495220-1922107" final="true" />
+			<attribute name="IssueEnterTrophyRoomRequest" idx="16" type="CoachRetirementEval_IssueEnterTrophyRoomRequest" guid="6495220-2426055" final="true" default="EnterTrophyRoomRequest request = new EnterTrophyRoomRequest;&#xD;&#xA;request.IsResponseRequired = false;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.IsPersistent = true;&#xD;&#xA;request.Priority = 5;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( EnterTrophyRoomResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(coach);" />
+			<attribute name="IssueRetirementRequest" idx="17" type="CoachRetirementEval_IssueRetirementRequest" guid="6495220-1922089" final="true" default="Retirement_ForceRetirementRequest request = new Retirement_ForceRetirementRequest;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsBlocking = CoachManager.FranchiseRef.SeasonInfo.CurrentYear &gt;= CoachManager.FranchiseRef.SeasonInfo.MaxYears; &#xD;&#xA;request.RequestData = coach;&#xD;&#xA;request.IsPersistent = false;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[1];&#xD;&#xA;{&#xD;&#xA;    request.ResponseForms.Append( ForceRetirementResponse);&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request.Issue(coach); " />
+			<attribute name="LeagueSetting" idx="18" type="LeagueSetting" />
+			<attribute name="MotivatorHOF" idx="19" type="string" maxLen="321" />
+			<attribute name="MotivatorNoHOF" idx="20" type="string" maxLen="321" />
+			<attribute name="ProcessReturnLists" idx="21" type="none()" guid="6495220-1922073" final="true" />
+			<attribute name="Random" idx="22" type="Random" />
+			<attribute name="RequestServer" idx="23" type="RequestServer" />
+			<attribute name="RetireUserFreeAgents" idx="24" type="none()" guid="6495220-1922094" final="true" />
+			<attribute name="StaffBuilderHOF" idx="25" type="string" maxLen="321" />
+			<attribute name="StaffBuilderNoHOF" idx="26" type="string" maxLen="321" />
+			<attribute name="StrategistHOF" idx="27" type="string" maxLen="321" />
+			<attribute name="StrategistNoHOF" idx="28" type="string" maxLen="321" />
+			<attribute name="TeamBuilderHOF" idx="29" type="string" maxLen="321" />
+			<attribute name="TeamBuilderNoHOF" idx="30" type="string" maxLen="321" />
+			<attribute name="TeamManager" idx="31" type="TeamManager" />
+			<attribute name="UserRegistry" idx="32" type="UserRegistry" />
+			<attribute name="ValidateExpressions" idx="33" type="none()" guid="6495220-1922111" final="true" />
+		</schema>
+	</schemas>
+</FranTkData>

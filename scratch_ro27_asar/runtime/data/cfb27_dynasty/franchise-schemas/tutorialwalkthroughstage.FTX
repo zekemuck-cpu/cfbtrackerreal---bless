@@ -1,0 +1,12 @@
+<FranTkData fileName="Franchise-Schemas\TutorialWalkthroughStage.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TutorialWalkthroughStage" numMembers="5" assetId="6494579" isRecordPersistent="true" majorVersionCRC="2088494779" minorVersionCRC="667753816">
+			<attribute name="PlayGame" idx="0" value="0" />
+			<attribute name="AdvanceWeek" idx="1" value="1" />
+			<attribute name="GamePrep" idx="2" value="2" />
+			<attribute name="Disabled" idx="3" value="3" />
+			<attribute name="Invalid" idx="4" value="4" />
+		</enum>
+	</schemas>
+</FranTkData>

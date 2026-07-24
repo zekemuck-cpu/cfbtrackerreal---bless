@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\TeamRequestManager.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamRequestManager" numMembers="3" base="Module" assetId="6494578" isRecordPersistent="true" majorVersionCRC="-1466303620" minorVersionCRC="1074646458">
+			<attribute name="Issue" idx="0" type="TeamRequestManager_Issue" guid="6494578-1912190" final="true" default="if(request != null)&#xD;&#xA;{&#xD;&#xA;   // check if the user entity is a coach or an owner&#xD;&#xA;   if( ( team.UserCharacter != null ) &amp;&amp;( team.Owner == team.UserCharacter ) )&#xD;&#xA;   {&#xD;&#xA;       request.Issue(team.Owner);&#xD;&#xA;   }&#xD;&#xA;   else&#xD;&#xA;   {&#xD;&#xA;       request.Issue(team.HeadCoach);&#xD;&#xA;   }&#xD;&#xA;}" />
+			<attribute name="IssueToHeadCoach" idx="1" type="TeamRequestManager_IssueToHeadCoach" guid="6494578-1912195" final="true" default="if(request != null)&#xD;&#xA;{&#xD;&#xA;   request.Issue( team.HeadCoach );&#xD;&#xA;}" />
+			<attribute name="IssueToOwner" idx="2" type="TeamRequestManager_IssueToOwner" guid="6494578-1912200" final="true" default="if(request != null)&#xD;&#xA;{&#xD;&#xA;     request.Issue( team.Owner );&#xD;&#xA;}" />
+		</schema>
+	</schemas>
+</FranTkData>

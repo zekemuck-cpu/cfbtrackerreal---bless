@@ -1,0 +1,10 @@
+<FranTkData fileName="Franchise-Schemas\Season_EndYearEvent.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="Season_EndYearEvent" numMembers="3" base="Event" assetId="6493955" isRecordPersistent="true" majorVersionCRC="1610966928" minorVersionCRC="1481548902">
+			<attribute name="Enqueue" idx="0" type="none()" guid="6493955-1895458" final="true" />
+			<attribute name="Send" idx="1" type="none()" guid="6493955-1895455" final="true" />
+			<attribute name="Year" idx="2" type="int" minValue="0" maxValue="50" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,13 @@
+<FranTkData fileName="Franchise-Schemas\UIPlayerTypeSelectItem.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISelectItem.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIPlayerTypeSelectItem" numMembers="2" base="UISelectItem" defaultStoreCapacity="64" assetId="6812452" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="823" majorVersionCRC="258137176" minorVersionCRC="-760370912">
+			<attribute name="Label" idx="0" type="string" maxLen="33" />
+			<attribute name="Value" idx="1" type="PlayerType" default="PlayerType:First_" />
+		</schema>
+	</schemas>
+</FranTkData>

@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\PracticePlanInfo.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PracticePlanInfo" numMembers="9" defaultStoreCapacity="4" assetId="12178463" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="1736186152" minorVersionCRC="-2102135733">
+			<attribute name="DefaultBodyPartHealthMaximum" idx="0" type="int" minValue="-1" maxValue="10" default="0" />
+			<attribute name="DepletedSeasonHealthSeasonEndingInjuryChance" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="InjuryChanceSpline" idx="2" type="Spline" />
+			<attribute name="PracticePlan" idx="3" type="PracticePlan" default="PracticePlan:First_" />
+			<attribute name="StartColdChance" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="StartHotChance" idx="5" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="WearAndTearRecoveryAmountSpline" idx="6" type="Spline" />
+			<attribute name="XPMax" idx="7" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="XPMin" idx="8" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

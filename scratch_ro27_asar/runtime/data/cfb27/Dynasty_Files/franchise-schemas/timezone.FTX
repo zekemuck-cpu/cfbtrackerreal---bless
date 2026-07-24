@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\TimeZone.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TimeZone" numMembers="12" assetId="6377664" isRecordPersistent="true" majorVersionCRC="-1614489875" minorVersionCRC="-218838778">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="Pacific" idx="1" value="0" />
+			<attribute name="Mountain" idx="2" value="1" />
+			<attribute name="Central" idx="3" value="2" />
+			<attribute name="Eastern" idx="4" value="3" />
+			<attribute name="Atlantic" idx="5" value="4" />
+			<attribute name="GMT" idx="6" value="5" />
+			<attribute name="MiddleEuropean" idx="7" value="6" />
+			<attribute name="EasternEuropean" idx="8" value="7" />
+			<attribute name="AlaskaHawaii" idx="9" value="8" />
+			<attribute name="Max_" idx="10" value="9" />
+			<attribute name="Invalid_" idx="11" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>

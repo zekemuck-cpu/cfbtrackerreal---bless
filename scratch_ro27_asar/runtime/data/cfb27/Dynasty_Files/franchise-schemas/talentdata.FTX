@@ -1,0 +1,6 @@
+<FranTkData fileName="Franchise-Schemas\TalentData.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TalentData" numMembers="0" assetId="6377547" isRecordPersistent="true" majorVersionCRC="-1293248372" minorVersionCRC="-290483179" />
+	</schemas>
+</FranTkData>

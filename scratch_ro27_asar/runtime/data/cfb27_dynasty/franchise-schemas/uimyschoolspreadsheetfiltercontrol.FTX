@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\UIMySchoolSpreadsheetFilterControl.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UISpreadsheetFilterControl.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="UIMySchoolSpreadsheetFilterControl" numMembers="8" base="UISpreadsheetFilterControl" defaultStoreCapacity="1" assetId="9077452" defaultStoreGroupId="0" isRecordPersistent="true" defaultStoreGroupName="League" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" defaultStoreStringCapacity="2" majorVersionCRC="1138014110" minorVersionCRC="1058780995">
+			<attribute name="DataSource" idx="0" type="record" />
+			<attribute name="DisplayName" idx="1" type="string" maxLen="33" />
+			<attribute name="Filter" idx="2" type="UISpreadsheetFilter[]" />
+			<attribute name="IsEnabled" idx="3" type="bool" default="True" />
+			<attribute name="Name" idx="4" type="string" maxLen="33" />
+			<attribute name="UsePlayerType" idx="5" type="bool" default="False" />
+			<attribute name="UsePosition" idx="6" type="bool" default="False" />
+			<attribute name="UsePositionGroup" idx="7" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

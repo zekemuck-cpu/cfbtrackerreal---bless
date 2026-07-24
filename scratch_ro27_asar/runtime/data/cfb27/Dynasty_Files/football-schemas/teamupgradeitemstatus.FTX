@@ -1,0 +1,11 @@
+<FranTkData fileName="Football-Schemas\TeamUpgradeItemStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TeamUpgradeItemStatus" numMembers="4" defaultStoreCapacity="1380" assetId="12133561" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="748337420" minorVersionCRC="-1388807910">
+			<attribute name="CostSpent" idx="0" type="int" minValue="0" maxValue="1500" default="0" />
+			<attribute name="TeamUpgrade" idx="1" type="TeamUpgradeItem" />
+			<attribute name="WeekPurchased" idx="2" type="int" minValue="0" maxValue="31" default="0" />
+			<attribute name="YearPurchased" idx="3" type="int" minValue="0" maxValue="100" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

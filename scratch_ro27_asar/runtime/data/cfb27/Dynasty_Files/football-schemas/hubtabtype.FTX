@@ -1,0 +1,15 @@
+<FranTkData fileName="Football-Schemas\HUBTabType.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="HUBTabType" numMembers="8" assetId="7742449" isRecordPersistent="true" majorVersionCRC="-1003077262" minorVersionCRC="-536185859">
+			<attribute name="ESPN" idx="0" value="0" />
+			<attribute name="Coach" idx="1" value="1" />
+			<attribute name="Team" idx="2" value="2" />
+			<attribute name="StatRecords" idx="3" value="3" />
+			<attribute name="DynastyWire" idx="4" value="4" />
+			<attribute name="RTGCentral" idx="5" value="5" />
+			<attribute name="Player" idx="6" value="6" />
+			<attribute name="Invalid" idx="7" value="7" />
+		</enum>
+	</schemas>
+</FranTkData>

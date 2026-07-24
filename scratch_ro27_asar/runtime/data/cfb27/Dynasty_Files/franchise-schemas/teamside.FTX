@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\TeamSide.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="TeamSide" numMembers="12" assetId="6321000" isRecordPersistent="true" majorVersionCRC="-465847554" minorVersionCRC="681117047">
+			<attribute name="First_" idx="0" value="0" />
+			<attribute name="FirstNormal_" idx="1" value="0" />
+			<attribute name="Offense" idx="2" value="0" />
+			<attribute name="Defense" idx="3" value="1" />
+			<attribute name="LastNormal_" idx="4" value="2" />
+			<attribute name="SpecialTeam" idx="5" value="2" />
+			<attribute name="CountNormal_" idx="6" value="3" />
+			<attribute name="Last_" idx="7" value="3" />
+			<attribute name="Special" idx="8" value="3" />
+			<attribute name="Count" idx="9" value="4" />
+			<attribute name="Invalid" idx="10" value="5" />
+			<attribute name="WholeTeam" idx="11" value="6" />
+		</enum>
+	</schemas>
+</FranTkData>

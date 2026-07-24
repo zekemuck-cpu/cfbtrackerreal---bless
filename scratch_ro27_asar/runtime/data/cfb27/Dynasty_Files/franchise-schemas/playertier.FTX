@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\PlayerTier.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="PlayerTier" numMembers="4" assetId="6571042" isRecordPersistent="true" majorVersionCRC="666641210" minorVersionCRC="2051482033">
+			<attribute name="Poor" idx="0" value="0" />
+			<attribute name="Average" idx="1" value="1" />
+			<attribute name="Good" idx="2" value="2" />
+			<attribute name="Elite" idx="3" value="3" />
+		</enum>
+	</schemas>
+</FranTkData>

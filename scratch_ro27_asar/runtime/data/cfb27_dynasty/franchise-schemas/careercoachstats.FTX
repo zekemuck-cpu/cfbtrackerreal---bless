@@ -1,0 +1,33 @@
+<FranTkData fileName="Franchise-Schemas\CareerCoachStats.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="CareerCoachStats" numMembers="26" defaultStoreCapacity="464" assetId="8624461" defaultStoreGroupId="64" isRecordPersistent="true" defaultStoreGroupName="Franchise" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="2030308713" minorVersionCRC="391394890">
+			<attribute name="BowlLosses" idx="0" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="BowlWins" idx="1" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ConfChampLosses" idx="2" type="int" minValue="0" maxValue="50" default="0" />
+			<attribute name="ConfChampWins" idx="3" type="int" minValue="0" maxValue="50" default="0" />
+			<attribute name="ConfChampWinStreak" idx="4" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DraftPicks" idx="5" type="int" minValue="0" maxValue="256" default="0" />
+			<attribute name="FirstRoundDraftPicks" idx="6" type="int" minValue="0" maxValue="256" default="0" />
+			<attribute name="Losses" idx="7" type="int" minValue="0" maxValue="1024" default="0" />
+			<attribute name="LossesAtCurrentSchool" idx="8" type="int" minValue="0" maxValue="1024" default="0" />
+			<attribute name="NCLosses" idx="9" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NCWins" idx="10" type="int" minValue="-2" maxValue="30" default="0" />
+			<attribute name="NumPrestigeIncreases" idx="11" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="NumTop5RankYdsGainedAllowed" idx="12" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="PlayersMaxProgressed" idx="13" type="int" minValue="0" maxValue="256" default="0" />
+			<attribute name="PlayoffLosses" idx="14" type="int" minValue="0" maxValue="1024" default="0" />
+			<attribute name="PlayoffWins" idx="15" type="int" minValue="0" maxValue="1024" default="0" />
+			<attribute name="RecentYearNCWon" idx="16" type="int" minValue="-2" maxValue="30" default="-2" />
+			<attribute name="RivalLosses" idx="17" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="RivalWins" idx="18" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="RivalWinStreak" idx="19" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="TimesFired" idx="20" type="int" minValue="0" maxValue="30" default="0" />
+			<attribute name="Top25Losses" idx="21" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Top25Wins" idx="22" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Top5RecruitClasses" idx="23" type="int" minValue="0" maxValue="64" default="0" />
+			<attribute name="Wins" idx="24" type="int" minValue="0" maxValue="1024" default="0" />
+			<attribute name="WinsAtCurrentSchool" idx="25" type="int" minValue="0" maxValue="1024" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

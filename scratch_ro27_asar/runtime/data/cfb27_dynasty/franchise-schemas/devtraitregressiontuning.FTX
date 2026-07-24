@@ -1,0 +1,19 @@
+<FranTkData fileName="Franchise-Schemas\DevTraitRegressionTuning.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Football-Schemas\BaseTuning.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DevTraitRegressionTuning" numMembers="8" base="BaseTuning" defaultStoreCapacity="1" assetId="6498446" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="23753235" minorVersionCRC="-359502836">
+			<attribute name="GetDevTraitRegressionRating" idx="0" type="DevTraitRegressionTuning_GetDevTraitRegressionRating" guid="6498446-1924600" />
+			<attribute name="MinCountPerPositionStar" idx="1" type="PositionCountTable" />
+			<attribute name="MinCountPerPositionSuperstar" idx="2" type="PositionCountTable" />
+			<attribute name="MinCountPerPositionXFactor" idx="3" type="PositionCountTable" />
+			<attribute name="PercentileToRegressChanceStar" idx="4" type="Spline" />
+			<attribute name="PercentileToRegressChanceSuperstar" idx="5" type="Spline" />
+			<attribute name="PercentileToRegressChanceXFactor" idx="6" type="Spline" />
+			<attribute name="ShouldRegressDevTraitImmediately" idx="7" type="DevTraitRegressionTuning_ShouldRegressDevTraitImmediately" guid="6498446-1924596" />
+		</schema>
+	</schemas>
+</FranTkData>

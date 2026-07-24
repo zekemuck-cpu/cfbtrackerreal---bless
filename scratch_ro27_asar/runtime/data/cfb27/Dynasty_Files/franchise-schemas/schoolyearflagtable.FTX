@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\SchoolYearFlagTable.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SchoolYearFlagTable" numMembers="4" defaultStoreCapacity="6" assetId="12641062" defaultStoreGroupId="2" isRecordPersistent="true" defaultStoreGroupName="Tuning" defaultStoreOptimizationId="1" defaultStoreOptimizationName="Default_" majorVersionCRC="476245998" minorVersionCRC="-483342617">
+			<attribute name="Freshman" idx="0" type="bool" default="False" />
+			<attribute name="Junior" idx="1" type="bool" default="False" />
+			<attribute name="Senior" idx="2" type="bool" default="False" />
+			<attribute name="Sophomore" idx="3" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

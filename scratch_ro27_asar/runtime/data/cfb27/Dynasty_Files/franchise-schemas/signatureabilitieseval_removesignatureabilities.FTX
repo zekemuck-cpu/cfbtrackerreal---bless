@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\SignatureAbilitiesEval_RemoveSignatureAbilities.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="SignatureAbilitiesEval_RemoveSignatureAbilities" numMembers="2" base="none()" ownerAssetId="6495139" isRecordPersistent="true" isExpr="true" majorVersionCRC="1439349494" minorVersionCRC="-1841339284">
+			<attribute name="player" idx="0" type="Player" />
+		</schema>
+	</schemas>
+</FranTkData>

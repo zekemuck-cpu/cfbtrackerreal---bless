@@ -1,0 +1,55 @@
+<FranTkData fileName="Franchise-Schemas\UIInputControl.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="UIInputControl" numMembers="48" assetId="6494585" isRecordPersistent="true" majorVersionCRC="-304716700" minorVersionCRC="-1149497005">
+			<attribute name="MouseButton" idx="0" value="0" />
+			<attribute name="Home" idx="1" value="3" />
+			<attribute name="End" idx="2" value="4" />
+			<attribute name="Insert" idx="3" value="5" />
+			<attribute name="Delete" idx="4" value="6" />
+			<attribute name="Backspace" idx="5" value="8" />
+			<attribute name="Enter" idx="6" value="13" />
+			<attribute name="Keyboard_Left" idx="7" value="14" />
+			<attribute name="Keyboard_Up" idx="8" value="14" />
+			<attribute name="Keyboard_Down" idx="9" value="15" />
+			<attribute name="Keyboard_Right" idx="10" value="15" />
+			<attribute name="Page_Up" idx="11" value="16" />
+			<attribute name="Page_Down" idx="12" value="17" />
+			<attribute name="Tab" idx="13" value="18" />
+			<attribute name="Escape" idx="14" value="19" />
+			<attribute name="Left" idx="15" value="37" />
+			<attribute name="Up" idx="16" value="38" />
+			<attribute name="Right" idx="17" value="39" />
+			<attribute name="Down" idx="18" value="40" />
+			<attribute name="Mouse_Move" idx="19" value="200" />
+			<attribute name="Voice" idx="20" value="201" />
+			<attribute name="Handle" idx="21" value="202" />
+			<attribute name="Pointer" idx="22" value="203" />
+			<attribute name="Vertical_Angle_Left" idx="23" value="204" />
+			<attribute name="Vertical_Angle_Right" idx="24" value="205" />
+			<attribute name="Horizontal_Angle_Left" idx="25" value="206" />
+			<attribute name="Horizontal_Angle_Right" idx="26" value="207" />
+			<attribute name="Vertical_Swipe_Left" idx="27" value="208" />
+			<attribute name="Vertical_Swipe_Right" idx="28" value="209" />
+			<attribute name="Horizontal_Swipe_Left" idx="29" value="210" />
+			<attribute name="Horizontal_Swipe_Right" idx="30" value="211" />
+			<attribute name="Grab_Left" idx="31" value="212" />
+			<attribute name="Grab_Right" idx="32" value="213" />
+			<attribute name="Wave_Left" idx="33" value="214" />
+			<attribute name="Wave_Right" idx="34" value="215" />
+			<attribute name="Select" idx="35" value="301" />
+			<attribute name="Cross" idx="36" value="302" />
+			<attribute name="Start" idx="37" value="302" />
+			<attribute name="Square" idx="38" value="303" />
+			<attribute name="Circle" idx="39" value="304" />
+			<attribute name="Triangle" idx="40" value="305" />
+			<attribute name="L1" idx="41" value="306" />
+			<attribute name="R1" idx="42" value="307" />
+			<attribute name="L2" idx="43" value="308" />
+			<attribute name="R2" idx="44" value="309" />
+			<attribute name="L3" idx="45" value="310" />
+			<attribute name="R3" idx="46" value="311" />
+			<attribute name="Invalid" idx="47" value="1999" />
+		</enum>
+	</schemas>
+</FranTkData>

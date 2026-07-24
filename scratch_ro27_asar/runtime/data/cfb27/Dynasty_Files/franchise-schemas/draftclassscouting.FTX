@@ -1,0 +1,75 @@
+<FranTkData fileName="Franchise-Schemas\DraftClassScouting.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="DraftClassScouting" numMembers="68" base="Module" assetId="6708687" isRecordPersistent="true" majorVersionCRC="234447343" minorVersionCRC="-1508938862">
+			<attribute name="AssignScoutToRegion" idx="0" type="DraftClassScouting_AssignScoutToRegion" guid="6708687-1948430" final="true" />
+			<attribute name="AutoScoutPlayers" idx="1" type="DraftClassScouting_AutoScoutPlayers" guid="6708687-1948415" final="true" />
+			<attribute name="ClearScouting" idx="2" type="none()" guid="6708687-1948479" final="true" />
+			<attribute name="CollectionInfo" idx="3" type="ScoutingCollectionInfo" />
+			<attribute name="CreateTeamRequest" idx="4" type="DraftClassScouting_CreateTeamRequest" guid="6708687-1948380" final="true" default="Scouting_ScoutingPointsRequest request = new Scouting_ScoutingPointsRequest;&#xD;&#xA;&#xD;&#xA;request.Priority = 3;&#xD;&#xA;request.IsResponseRequired = true;&#xD;&#xA;request.IsConnectionRequired = false;&#xD;&#xA;request.IsPersistent = team.TeamSettingRef.IsScoutCollegePlayersEnabled;&#xD;&#xA;request.IsBlocking = false;&#xD;&#xA;request.ScoutingPeriod = ScoutingPeriod;&#xD;&#xA;request.RequestData = team;&#xD;&#xA;request.DefaultResponse = Scouting_DelegateResponse;&#xD;&#xA;request.DraftClassScouting = this;&#xD;&#xA;request.Team = team;&#xD;&#xA;&#xD;&#xA;// Create the response forms.&#xD;&#xA;request.ResponseForms = new ResponseForm[3];&#xD;&#xA;{&#xD;&#xA;  request.ResponseForms.Append( Scouting_ScoutPlayersResponse );&#xD;&#xA;  request.ResponseForms.Append( Scouting_ImportResponse );&#xD;&#xA;  request.ResponseForms.Append( Scouting_ImportSavedResponse );&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;request;" />
+			<attribute name="DraftManagerRef" idx="5" type="DraftManager" />
+			<attribute name="DraftPickStrengthSpline" idx="6" type="Spline" />
+			<attribute name="ExportScoutingLocksEnum" idx="7" type="ScoutingLocks" default="ScoutingLocks:INVALID" />
+			<attribute name="ExportScoutingLocksTypeEnum" idx="8" type="ScoutingLocksType" default="ScoutingLocksType:INVALID" />
+			<attribute name="Franchise" idx="9" type="Franchise" />
+			<attribute name="GetCollectionForDraftPlayer" idx="10" type="DraftClassScouting_GetCollectionForDraftPlayer" guid="6708687-1948402" final="true" default="ScoutingCollection collection = null;&#xD;&#xA;&#xD;&#xA;if (CollectionInfo != null)&#xD;&#xA;{&#xD;&#xA;if(level == 1)&#xD;&#xA;{&#xD;&#xA;collection = CollectionInfo.Level1Collection;&#xD;&#xA;}&#xD;&#xA;else if (level == 2)&#xD;&#xA;{&#xD;&#xA;collection = CollectionInfo.Level2Collection;&#xD;&#xA;}&#xD;&#xA;else if (level == 3)&#xD;&#xA;{&#xD;&#xA;collection = CollectionInfo.Level3Collection;&#xD;&#xA;}&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;collection;" />
+			<attribute name="GetTrueRankingEnum" idx="11" type="DraftClassScouting_GetTrueRankingEnum" guid="6708687-1948395" final="true" default="TrueTalentComparison comparison = TrueTalentComparison.GoodPick;&#xD;&#xA;&#xD;&#xA;int totalRank = ((RoundPicked) * 32) + NumberPicked;&#xD;&#xA;int trueRank = ((TrueTalentRound) * 32) + TrueTalentNumber;&#xD;&#xA;&#xD;&#xA;int rankDiff = totalRank - trueRank;&#xD;&#xA;&#xD;&#xA;if (RoundPicked &lt;= 3 &amp;&amp; rankDiff &lt;= -50)&#xD;&#xA;{&#xD;&#xA;    comparison = TrueTalentComparison.Reached;&#xD;&#xA;}&#xD;&#xA;else if (rankDiff &gt;= 50)&#xD;&#xA;{&#xD;&#xA;    comparison = TrueTalentComparison.ExcellentPick;&#xD;&#xA;}&#xD;&#xA;&#xD;&#xA;comparison;" />
+			<attribute name="HandleCoach_UpdateCoachContractStatus" idx="12" type="DraftClassScouting_HandleCoach_UpdateCoachContractStatus" guid="6708687-1948436" final="true" />
+			<attribute name="HandleDraftClassEdited" idx="13" type="DraftClassScouting_HandleDraftClassEdited" guid="6708687-1948482" final="true" />
+			<attribute name="HandleLoadDraftClass" idx="14" type="DraftClassScouting_HandleLoadDraftClass" guid="6708687-1948475" final="true" />
+			<attribute name="HandleMockDraftEnd" idx="15" type="DraftClassScouting_HandleMockDraftEnd" guid="6708687-1948455" final="true" />
+			<attribute name="HandleNFLCombineEnd" idx="16" type="none()" guid="6708687-1948466" final="true" />
+			<attribute name="HandleNFLProDayEnd" idx="17" type="none()" guid="6708687-1948486" final="true" />
+			<attribute name="HandleRegisterUser" idx="18" type="DraftClassScouting_HandleRegisterUser" guid="6708687-1948440" final="true" />
+			<attribute name="HandleSeason_BeginWeek" idx="19" type="DraftClassScouting_HandleSeason_BeginWeek" guid="6708687-1948445" final="true" />
+			<attribute name="HandleSeason_EndWeek" idx="20" type="DraftClassScouting_HandleSeason_EndWeek" guid="6708687-1948494" final="true" />
+			<attribute name="IndividualWorkoutsPPW" idx="21" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="IndividualWorkoutsPPWCoachBonus" idx="22" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="InitializePlayerUnlockState" idx="23" type="none()" guid="6708687-1948366" final="true" />
+			<attribute name="IssueCombineResultsRequest" idx="24" type="DraftClassScouting_IssueCombineResultsRequest" guid="6708687-1948469" final="true" />
+			<attribute name="IssueMockDraftRequest" idx="25" type="DraftClassScouting_IssueMockDraftRequest" guid="6708687-1948459" final="true" />
+			<attribute name="IssueProDayResultsRequest" idx="26" type="DraftClassScouting_IssueProDayResultsRequest" guid="6708687-1948489" final="true" />
+			<attribute name="LeagueSettings" idx="27" type="LeagueSetting" />
+			<attribute name="MaxTeamNeedsPickToScout" idx="28" type="int" minValue="0" maxValue="1000" default="0" />
+			<attribute name="MinScoutingPoints" idx="29" type="int" minValue="0" maxValue="175" default="0" />
+			<attribute name="NFLCombinePPW" idx="30" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="NFLCombinePPWCoachBonus" idx="31" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="PlayerGradeEval" idx="32" type="PlayerGradeEval" />
+			<attribute name="PositionalSplinesList" idx="33" type="PositionalAbilitySplines[]" />
+			<attribute name="PreInitializeScoutingData" idx="34" type="bool" default="False" />
+			<attribute name="ProcessAutoScoutPlayers" idx="35" type="DraftClassScouting_ProcessAutoScoutPlayers" guid="6708687-1948420" final="true" default="AutoScoutPlayers(Team);" />
+			<attribute name="ProDaysPPW" idx="36" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="ProDaysPPWCoachBonus" idx="37" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="RegularSeasonPPW" idx="38" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="RegularSeasonPPWCoachBonus" idx="39" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="RequestServer" idx="40" type="RequestServer" />
+			<attribute name="Scouting_CombineResultsResponse" idx="41" type="UIFlowForm" />
+			<attribute name="Scouting_DelegateResponse" idx="42" type="UISelectForm" />
+			<attribute name="Scouting_ImportResponse" idx="43" type="UIFlowForm" />
+			<attribute name="Scouting_ImportSavedResponse" idx="44" type="UIFlowForm" />
+			<attribute name="Scouting_MockDraftResponse" idx="45" type="UIFlowForm" />
+			<attribute name="Scouting_ProDayResultsResponse" idx="46" type="UIFlowForm" />
+			<attribute name="Scouting_ScoutPlayersResponse" idx="47" type="UIFlowForm" />
+			<attribute name="ScoutingCoreAttributesWeight" idx="48" type="PositionValueTable" />
+			<attribute name="ScoutingDecayPercent" idx="49" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ScoutingDiscountPercent" idx="50" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ScoutingGradeEnumTable" idx="51" type="EnumTable" />
+			<attribute name="ScoutingInfo" idx="52" type="ScoutingInfo" />
+			<attribute name="ScoutingLetterSpline" idx="53" type="Spline" />
+			<attribute name="ScoutingPeriodStartWeek" idx="54" type="int" minValue="0" maxValue="31" default="1" />
+			<attribute name="ScoutingStrengthLetterSpline" idx="55" type="Spline" />
+			<attribute name="ScoutingTunables" idx="56" type="ScoutingTunables" />
+			<attribute name="ScoutingUnlockEvent" idx="57" type="ScoutingUnlockEvent" />
+			<attribute name="ScoutingUnlockEventPercentage" idx="58" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ScoutingValuablePositions" idx="59" type="PlayerPosition[]" />
+			<attribute name="SeasonInfo" idx="60" type="SeasonInfo" />
+			<attribute name="SeniorBowlPPW" idx="61" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="SeniorBowlPPWCoachBonus" idx="62" type="int" minValue="0" maxValue="100000" default="0" />
+			<attribute name="TeamArray" idx="63" type="Team[]" />
+			<attribute name="TeamRequestManager" idx="64" type="TeamRequestManager" />
+			<attribute name="TopProspectsToScout" idx="65" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="UpdateCareerHubInfoEvent" idx="66" type="UpdateCareerHubInfoEvent" />
+			<attribute name="UserRegistry" idx="67" type="UserRegistry" />
+		</schema>
+	</schemas>
+</FranTkData>

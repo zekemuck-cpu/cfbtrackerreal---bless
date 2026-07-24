@@ -1,0 +1,51 @@
+<FranTkData fileName="Franchise-Schemas\ManageRedshirtsRequest.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--INCLUDES-->
+	<Includes>
+		<IncludeFile fileName="Core-Schemas\UIRequestForm.ftx" />
+	</Includes>
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="ManageRedshirtsRequest" numMembers="40" base="UIRequestForm" assetId="7736442" isRecordPersistent="true" majorVersionCRC="-1690855518" minorVersionCRC="1810406784">
+			<attribute name="CanSubmitResponse" idx="0" type="bool" default="True" />
+			<attribute name="CanUpdateResponse" idx="1" type="bool" default="False" />
+			<attribute name="ClearResponse" idx="2" type="none()" guid="7736442-1895689" final="true" />
+			<attribute name="Commands" idx="3" type="Command[]" />
+			<attribute name="CpuResponseDuration" idx="4" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMaxDuration" idx="5" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CpuResponseMinDuration" idx="6" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="CurrentStage" idx="7" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="DefaultResponse" idx="8" type="ResponseForm" />
+			<attribute name="DepthChartEval" idx="9" type="DepthChartEval" />
+			<attribute name="Description" idx="10" type="string" const="true" maxLen="1" />
+			<attribute name="Dismiss" idx="11" type="none()" guid="7736442-1895671" />
+			<attribute name="ExpirationDuration" idx="12" type="int" minValue="0" maxValue="16777215" default="0" />
+			<attribute name="HandleResponse" idx="13" type="none()" guid="7736442-2065007" final="true" default="DepthChartEval.ProcessManageRedshirtsRequest(this);" />
+			<attribute name="HasResolution" idx="14" type="bool()" guid="7736442-1895676" />
+			<attribute name="HUBPanel" idx="15" type="HUBPanel" />
+			<attribute name="IsBlocking" idx="16" type="bool" default="False" />
+			<attribute name="IsConnectionRequired" idx="17" type="bool" default="False" />
+			<attribute name="IsPersistent" idx="18" type="bool" default="False" />
+			<attribute name="IsResolutionPending" idx="19" type="bool()" guid="7736442-1895678" />
+			<attribute name="IsResponseRequired" idx="20" type="bool" default="False" />
+			<attribute name="IsSubmittable" idx="21" type="bool" default="True" />
+			<attribute name="Issue" idx="22" type="Request_Issue" guid="7736442-1895668" />
+			<attribute name="IssueTime" idx="23" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Priority" idx="24" type="int" minValue="0" maxValue="255" default="0" />
+			<attribute name="Refresh" idx="25" type="none()" guid="7736442-1895686" final="true" />
+			<attribute name="RemainingWeeks" idx="26" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="RequestData" idx="27" type="record" />
+			<attribute name="RequestForm" idx="28" type="ResponseForm" />
+			<attribute name="RequestId" idx="29" type="int" minValue="-100" maxValue="100" default="-1" />
+			<attribute name="RequestStyle" idx="30" type="RequestStyle" default="RequestStyle:Default" />
+			<attribute name="Resolution" idx="31" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="ResolveTime" idx="32" type="int" minValue="0" maxValue="100" default="0" />
+			<attribute name="Response" idx="33" type="ResponseForm" />
+			<attribute name="ResponseForms" idx="34" type="ResponseForm[]" />
+			<attribute name="SeenByUser" idx="35" type="bool" default="True" />
+			<attribute name="TargetUser" idx="36" type="User" />
+			<attribute name="Team" idx="37" type="Team" />
+			<attribute name="Title" idx="38" type="string" const="true" maxLen="17" default="Manage Redshirts" />
+			<attribute name="TypeName" idx="39" type="string" const="true" maxLen="16" />
+		</schema>
+	</schemas>
+</FranTkData>

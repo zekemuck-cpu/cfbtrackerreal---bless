@@ -1,0 +1,16 @@
+<FranTkData fileName="Franchise-Schemas\TempBuffEval.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TempBuffEval" numMembers="9" base="Module" assetId="6494905" isRecordPersistent="true" majorVersionCRC="216419140" minorVersionCRC="958799531">
+			<attribute name="Franchise" idx="0" type="Franchise" />
+			<attribute name="HandleAdvanceWeekEnd" idx="1" type="none()" guid="6494905-1912901" final="true" />
+			<attribute name="HandleGameEnd" idx="2" type="TempBuffEval_HandleGameEnd" guid="6494905-1912904" final="true" />
+			<attribute name="HandleSeasonBegin" idx="3" type="none()" guid="6494905-1912909" final="true" />
+			<attribute name="HandleUpdatePlayerContractStatusEvent" idx="4" type="TempBuffEval_HandleUpdatePlayerContractStatusEvent" guid="6494905-1912897" final="true" />
+			<attribute name="PlayerAbilitiesBuffsList" idx="5" type="PlayerTempBuffAbility[]" />
+			<attribute name="PositionCategoryTable" idx="6" type="PositionCategoryTable" />
+			<attribute name="TeamManager" idx="7" type="TeamManager" />
+			<attribute name="TeamRevenueEval" idx="8" type="TeamRevenueEval" />
+		</schema>
+	</schemas>
+</FranTkData>

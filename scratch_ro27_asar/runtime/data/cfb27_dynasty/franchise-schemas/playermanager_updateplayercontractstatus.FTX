@@ -1,0 +1,14 @@
+<FranTkData fileName="Franchise-Schemas\PlayerManager_UpdatePlayerContractStatus.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="PlayerManager_UpdatePlayerContractStatus" numMembers="8" base="none()" ownerAssetId="6498478" isRecordPersistent="true" isExpr="true" majorVersionCRC="1161652935" minorVersionCRC="286738204">
+			<attribute name="player" idx="0" type="Player" />
+			<attribute name="oldTeam" idx="1" type="Team" />
+			<attribute name="newTeam" idx="2" type="Team" />
+			<attribute name="oldContractStatus" idx="3" type="PlayerContractStatus" default="PlayerContractStatus:Drafted" />
+			<attribute name="newContractStatus" idx="4" type="PlayerContractStatus" default="PlayerContractStatus:Drafted" />
+			<attribute name="wasFranchiseTagged" idx="5" type="bool" default="False" />
+			<attribute name="isDeadWeightCut" idx="6" type="bool" default="False" />
+		</schema>
+	</schemas>
+</FranTkData>

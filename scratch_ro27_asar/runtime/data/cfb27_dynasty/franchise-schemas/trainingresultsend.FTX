@@ -1,0 +1,11 @@
+<FranTkData fileName="Franchise-Schemas\TrainingResultsEnd.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="TrainingResultsEnd" numMembers="4" base="Reaction" assetId="7739485" isRecordPersistent="true" majorVersionCRC="-1199330802" minorVersionCRC="1319506913">
+			<attribute name="EventRecord" idx="0" type="TrainingResultsEndEvent" />
+			<attribute name="Handle" idx="1" type="bool()" guid="7739485-1895461" />
+			<attribute name="PlayersLeavingEval" idx="2" type="PlayersLeavingEval" />
+			<attribute name="Priority" idx="3" type="int" minValue="0" maxValue="1000" default="0" />
+		</schema>
+	</schemas>
+</FranTkData>

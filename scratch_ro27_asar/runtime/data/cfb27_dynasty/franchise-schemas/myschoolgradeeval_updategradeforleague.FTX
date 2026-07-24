@@ -1,0 +1,8 @@
+<FranTkData fileName="Franchise-Schemas\MySchoolGradeEval_UpdateGradeForLeague.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<schema name="MySchoolGradeEval_UpdateGradeForLeague" numMembers="2" base="none()" ownerAssetId="6514526" isRecordPersistent="true" isExpr="true" majorVersionCRC="1516308188" minorVersionCRC="1459360030">
+			<attribute name="MySchoolGrade" idx="0" type="MySchoolGrade" default="MySchoolGrade:PlayingStyle" />
+		</schema>
+	</schemas>
+</FranTkData>

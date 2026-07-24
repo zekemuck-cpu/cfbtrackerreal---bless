@@ -1,0 +1,15 @@
+<FranTkData fileName="Franchise-Schemas\NarrativePlayerMeterAction.ftx" dataRevisionVersion="1" isSchema="True">
+	<!--SCHEMAS-->
+	<schemas>
+		<enum name="NarrativePlayerMeterAction" numMembers="8" assetId="7709443" isRecordPersistent="true" majorVersionCRC="-139225652" minorVersionCRC="-2031581408">
+			<attribute name="FilmStudy" idx="0" value="0" />
+			<attribute name="First_" idx="1" value="0" />
+			<attribute name="Train" idx="2" value="1" />
+			<attribute name="Recover" idx="3" value="2" />
+			<attribute name="Study" idx="4" value="3" />
+			<attribute name="Socialize" idx="5" value="4" />
+			<attribute name="Count_" idx="6" value="5" />
+			<attribute name="Invalid_" idx="7" value="255" />
+		</enum>
+	</schemas>
+</FranTkData>
