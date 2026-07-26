@@ -4,6 +4,7 @@ import { useDynasty, getPlayerClassForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import { getTeamLogo } from '../../data/teams'
 import RosterHistoryModal from '../../components/RosterHistoryModal'
 import { PageHero, Card, EmptyState, Input, Select, Badge, Button } from '../../components/ui'
 import { isOpenTarget } from '../../utils/recruitingTargets'
@@ -37,6 +38,7 @@ export default function Players() {
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const teamAccent = teamColors?.primary || '#374151'
+  const teamLogo = getTeamLogo(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
   const [positionFilter, setPositionFilter] = useState('All')
   const [sortBy, setSortBy] = useState('overall')
@@ -302,6 +304,12 @@ export default function Players() {
                               style={{ border: '1px solid var(--surface-4)' }}
                               onError={(e) => { e.currentTarget.style.display = 'none' }}
                             />
+                          ) : teamLogo ? (
+                            <span
+                              className="w-8 h-8 rounded-full bg-white p-1 flex-shrink-0 flex items-center justify-center"
+                            >
+                              <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+                            </span>
                           ) : (
                             <span
                               className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center"

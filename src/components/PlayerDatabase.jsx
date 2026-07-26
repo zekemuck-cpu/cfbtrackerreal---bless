@@ -15,6 +15,8 @@ import { useToast } from './ui/Toast';
 import RecruitingDatabaseImportModal from './RecruitingDatabaseImportModal';
 import RecruitingDatabaseBatchEditModal from './RecruitingDatabaseBatchEditModal';
 import { downloadRecruitingDatabaseJson, computeRecentRanks, reorderByRecentRank } from '../utils/recruitingDatabasePool';
+import { getContrastTextColor } from '../utils/colorUtils';
+import { Modal } from './ui';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
 // FIRST rendered line — whether that line ends up being the whole name (short
@@ -99,8 +101,8 @@ export function DevTraitPill({ devTrait }) {
   }
   return (
     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-      devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#22E065] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
-      devTrait === 'Star'   ? 'bg-surface-3 border border-[#9C7209] text-[#FFD100] shadow-[0_0_14px_rgba(156,114,9,0.8)]' :
+      devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#22E065]' :
+      devTrait === 'Star'   ? 'bg-surface-3 border border-[#9C7209] text-[#FFD100]' :
       devTrait === 'Impact' ? 'bg-surface-3 border border-[#7C8991] text-[#D6DEE2]' :
                                'bg-surface-3 border border-[#8C5524] text-[#CD7F32]'
     }`}>{devTrait.toUpperCase()}</span>
@@ -127,8 +129,8 @@ function devTraitTextCls(devTrait) {
 // name (e.g. a joined "Star/Elite" ceiling label, or no data at all) falls
 // through to the plain neutral outline, same reasoning as devTraitTextCls.
 function devTraitBoxCls(devTrait) {
-  return devTrait === 'Elite'  ? 'border-[#0E7A2A] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
-         devTrait === 'Star'   ? 'border-[#9C7209] shadow-[0_0_14px_rgba(156,114,9,0.8)]' :
+  return devTrait === 'Elite'  ? 'border-[#0E7A2A]' :
+         devTrait === 'Star'   ? 'border-[#9C7209]' :
          devTrait === 'Impact' ? 'border-[#7C8991]' :
          devTrait === 'Normal' ? 'border-[#8C5524]' :
                                   'border-surface-4';
@@ -524,12 +526,10 @@ function generateQuote(player) {
   return pool[h % pool.length];
 }
 
-// ── Grade Breakdown Modal ────────────────────────────────────────────────────
+// ── Grade Breakdown Report ───────────────────────────────────────────────────
 // The report itself, with no modal chrome (backdrop/close button) around it —
-// extracted so other pages (e.g. the Targets board) can embed the exact same
-// scouting report inline in a dropdown, not just as a full-screen modal.
-// GradeModal below is a thin wrapper that adds the modal chrome for its own
-// (Recruiting Database) use.
+// shared verbatim by both the Targets board and the Recruiting Database,
+// each embedding it inline in a per-row dropdown instead of a modal.
 export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, pool = null, wide = false }) {
   // A Recruiting Database entry always has attributes filled in, but a fresh
   // Targets recruit can genuinely have attributes: null (not scouted yet) —
@@ -842,31 +842,6 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
   );
 }
 
-function GradeModal({ player, allPlayers, weightsMap, pool, onClose }) {
-  return (
-    <div
-      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999] p-4"
-      style={{ margin: 0 }}
-      onClick={onClose}
-    >
-      <div
-        className="bg-surface-2 border border-surface-4 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto"
-        style={{ maxHeight: 'calc(100dvh - var(--app-header-height, 64px) * 2)' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <GradeReportContent player={player} allPlayers={allPlayers} weightsMap={weightsMap} pool={pool} />
-        <div className="px-5 pb-5">
-          <button
-            onClick={onClose}
-            className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 transition"
-          >
-            Close Report
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Edit Modal ───────────────────────────────────────────────────────────────
 const POSITIONS_LIST = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH','K','P'];
@@ -1197,12 +1172,14 @@ function EditModal({ player, pool, weightsMap, maxRank, onSave, onClose, onDelet
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, dynastyId = null, highlightPid = null }) {
+export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, dynastyId = null, highlightPid = null, actionsRef = null, onReady = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
+  const teamAccent = p;
+  const teamBgText = getContrastTextColor(teamAccent);
   const [filterPos, setFilterPos] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [openPid, setOpenPid] = useState(null);
   const rowRefs = useRef({});
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [editingDevFor, setEditingDevFor] = useState(null);
@@ -1291,6 +1268,18 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const [restoringJson, setRestoringJson] = useState(false);
   const [pendingJsonOverwrite, setPendingJsonOverwrite] = useState(null);
   const [confirmingJsonOverwrite, setConfirmingJsonOverwrite] = useState(false);
+
+  // The header toolbar (Add/Batch Edit/Export/Restore/Help) now renders in
+  // Recruiting.jsx's own hero — this ref bridges those buttons to this
+  // component's local modal state, same pattern as ScoutAnalysis's actionsRef.
+  if (actionsRef) {
+    actionsRef.current.openAdd = () => setShowImportModal(true);
+    actionsRef.current.openBatchEdit = () => setShowBatchEditModal(true);
+    actionsRef.current.exportJson = handleExportJson;
+    actionsRef.current.restoreJson = () => jsonFileInputRef.current?.click();
+    actionsRef.current.openHelp = () => setShowHelpPanel(true);
+  }
+  useEffect(() => { onReady?.({ restoringJson }); }, [restoringJson]);
 
   const handleJsonFileSelected = async (e) => {
     const file = e.target.files?.[0];
@@ -1673,9 +1662,6 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
 
   return (
     <div className="space-y-4">
-      {selectedPlayer && (
-        <GradeModal player={selectedPlayer} allPlayers={combinedPlayers} weightsMap={weightsMap} pool={pool} onClose={() => setSelectedPlayer(null)} />
-      )}
       {editingPlayer && (
         <EditModal
           player={editingPlayer}
@@ -1717,168 +1703,76 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           loading={confirmingJsonOverwrite}
         />
       )}
-      {/* Header strip */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-2 border border-surface-4">
-        <h2 className="text-base font-semibold text-txt-primary">Recruiting Database</h2>
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {currentDynasty && (
-            <button
-              onClick={() => setShowImportModal(true)}
-              title="Add recruits to the Recruiting Database — paste an AI reply or type/upload a TSV"
-              className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
-            >
-              Add
-            </button>
-          )}
-          {currentDynasty && onEdit && (
-            <button
-              onClick={() => setShowBatchEditModal(true)}
-              title="Edit or delete many existing recruits at once, all in one grid"
-              className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
-            >
-              Batch Edit
-            </button>
-          )}
-          {currentDynasty && (
-            <button
-              onClick={handleExportJson}
-              title="Download every recruit in the database as a JSON file — for backup, or rebuilding under a new account if this one is ever lost"
-              className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
-            >
-              Export JSON
-            </button>
-          )}
-          {currentDynasty && (
-            <>
-              <input
-                ref={jsonFileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleJsonFileSelected}
-                className="hidden"
-              />
-              <button
-                onClick={() => jsonFileInputRef.current?.click()}
-                disabled={restoringJson}
-                title="Load a previously exported JSON backup file — this COMPLETELY REPLACES your current database"
-                className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3 disabled:opacity-50"
-              >
-                {restoringJson ? 'Reading…' : 'Restore from JSON'}
-              </button>
-            </>
-          )}
-          {currentDynasty && (
-            <div className="relative">
-              <button
-                onClick={() => setShowHelpPanel(v => !v)}
-                title="What the Recruiting Database is and how its buttons work"
-                className="flex items-center gap-1.5 text-xs font-display font-bold uppercase text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3"
-              >
-                Help
-              </button>
-              {showHelpPanel && (
-                <div
-                  className="absolute right-0 top-full mt-2 w-96 p-4 rounded-xl bg-surface-2 border border-surface-4 shadow-2xl z-50 space-y-4"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <p className="text-xs font-display font-bold uppercase text-txt-primary">Help</p>
+      {/* The header toolbar (Add/Batch Edit/Export/Restore/Help) now renders
+          in Recruiting.jsx's own hero — see the actionsRef wiring above.
+          The hidden file input stays here since the ref-triggered click
+          needs the actual DOM node. */}
+      {currentDynasty && (
+        <input
+          ref={jsonFileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleJsonFileSelected}
+          className="hidden"
+        />
+      )}
 
-                  <div className="space-y-2 text-xs text-txt-secondary leading-relaxed">
-                    <p>
-                      A scouting reference for every recruit you've scouted in this dynasty —
-                      separate from the real Targets board.
-                    </p>
-                    <p>
-                      <strong className="text-txt-primary">Add</strong> opens the paste/import panel
-                      to add recruits (AI-fill supported) — no Google account needed.
-                    </p>
-                    <p>
-                      <strong className="text-txt-primary">Batch Edit</strong> opens every recruit
-                      currently shown in one big editable grid — fix many at once, all without
-                      opening each one individually. Deleting a real Target there just hides it
-                      from this view (your actual Target/roster record is untouched); deleting an
-                      imported-only prospect removes it for good.
-                    </p>
-                    <p>
-                      <strong className="text-txt-primary">Export JSON</strong> downloads a full backup
-                      file. <strong className="text-txt-primary">Restore from JSON</strong> loads one
-                      back in — this COMPLETELY REPLACES your current database with the file's
-                      contents, it does not merge.
-                    </p>
-                    <p className="text-[10px] text-txt-tertiary leading-relaxed pt-2 border-t border-surface-4">
-                      This database belongs to this dynasty only — it doesn't carry over to your
-                      other dynasties automatically. Use Export JSON / Restore from JSON to bring it
-                      into a new one.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {onGoToInput && (
-            <button onClick={onGoToInput} className="text-xs text-txt-secondary hover:text-txt-primary transition px-3 py-1.5 rounded-lg border border-surface-4 hover:bg-surface-3">
-              + New Report
-            </button>
-          )}
+      {/* Help — a real modal (portaled to document.body) instead of an
+          anchored dropdown, so it can never get clipped by this header's
+          own overflow-hidden (that clipping was the original bug). */}
+      <Modal isOpen={showHelpPanel} onClose={() => setShowHelpPanel(false)} title="Recruiting Database" size="sm">
+        <div className="space-y-2 text-xs text-txt-secondary leading-relaxed">
+          <p>
+            A scouting reference for every recruit you've scouted in this dynasty —
+            separate from the real Targets board.
+          </p>
+          <p>
+            <strong className="text-txt-primary">Add</strong> opens the paste/import panel
+            to add recruits (AI-fill supported) — no Google account needed.
+          </p>
+          <p>
+            <strong className="text-txt-primary">Batch Edit</strong> opens every recruit
+            currently shown in one big editable grid — fix many at once, all without
+            opening each one individually. Deleting a real Target there just hides it
+            from this view (your actual Target/roster record is untouched); deleting an
+            imported-only prospect removes it for good.
+          </p>
+          <p>
+            <strong className="text-txt-primary">Export JSON</strong> downloads a full backup
+            file. <strong className="text-txt-primary">Restore from JSON</strong> loads one
+            back in — this COMPLETELY REPLACES your current database with the file's
+            contents, it does not merge.
+          </p>
+          <p className="text-[10px] text-txt-tertiary leading-relaxed pt-2 border-t border-surface-4">
+            This database belongs to this dynasty only — it doesn't carry over to your
+            other dynasties automatically. Use Export JSON / Restore from JSON to bring it
+            into a new one.
+          </p>
         </div>
-      </div>
+      </Modal>
 
-      {/* Analyst identity + filters row */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch">
-
-        {/* Scout portrait card */}
-        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[100px] sm:flex-shrink-0">
-          {scoutImg ? (
-            <img src={scoutImg} alt="National Scout" className="absolute inset-0 w-full h-full object-cover object-top" />
-          ) : (
-            <div className="absolute inset-0 bg-surface-3" />
-          )}
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85) 90%, rgba(0,0,0,0.95) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 85%, #38bdf855 100%)' }} />
-          <p className="absolute top-2 right-2 text-[5px] font-black uppercase tracking-[0.12em] text-sky-400" style={{ textShadow: '0 1px 6px rgba(0,0,0,1)' }}>National Scout</p>
-          <div className="absolute bottom-0 left-0 right-0 p-2">
-            <div className="w-4 h-0.5 mb-1 rounded-full bg-sky-400" />
-            {(() => {
-              const parts = scoutName.trim().split(' ');
-              const last = parts.pop() || '';
-              const first = parts.join(' ');
-              return (
-                <>
-                  {first && <p className="leading-none text-[6px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)', textShadow: '0 1px 6px rgba(0,0,0,1)' }}>{first}</p>}
-                  <p className="text-white leading-none font-bold text-xs" style={{ textShadow: '0 2px 10px rgba(0,0,0,1)' }}>{last}</p>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-
-        {/* Right column: quip card + filters */}
-        <div className="flex-1 space-y-3 min-w-0">
-
-          {/* Search + position filters */}
-          <div className="rounded-xl p-3.5 space-y-2.5 bg-surface-2 border border-surface-4 sm:h-[100px]">
-            <input
-              type="text"
-              placeholder="Search prospect name or archetype..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg text-xs p-2.5 text-txt-primary placeholder-txt-tertiary bg-surface-3 border border-surface-4 focus:outline-none focus:border-surface-5 transition"
-            />
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[8px] font-semibold uppercase tracking-widest text-txt-tertiary flex-shrink-0">Pos:</span>
-              {positionsList.map(pos => (
-                <button
-                  key={pos}
-                  onClick={() => setFilterPos(pos)}
-                  className={`text-[9px] font-bold px-2 py-0.5 rounded transition uppercase tracking-wider ${filterPos === pos ? '' : 'text-txt-tertiary border border-surface-4 hover:bg-surface-3'}`}
-                  style={filterPos === pos ? { background: p, color: '#fff' } : undefined}
-                >
-                  {recruitingPosLabel(pos)}
-                </button>
-              ))}
-            </div>
-          </div>
-
+      {/* Search + position filters — full width now that the Staff page
+          (and its portrait slots) has been removed. */}
+      <div className="rounded-xl p-3.5 space-y-2.5 bg-surface-2 border border-surface-4">
+        <input
+          type="text"
+          placeholder="Search prospect name or archetype..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full rounded-lg text-xs p-2.5 text-txt-primary placeholder-txt-tertiary bg-surface-3 border border-surface-4 focus:outline-none focus:border-surface-5 transition"
+        />
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[8px] font-semibold uppercase tracking-widest text-txt-tertiary flex-shrink-0">Pos:</span>
+          {positionsList.map(pos => (
+            <button
+              key={pos}
+              onClick={() => setFilterPos(pos)}
+              className={`text-[9px] font-bold px-2 py-0.5 rounded transition uppercase tracking-wider ${filterPos === pos ? '' : 'text-txt-tertiary border border-surface-4 hover:bg-surface-3'}`}
+              style={filterPos === pos ? { background: p, color: '#fff' } : undefined}
+            >
+              {recruitingPosLabel(pos)}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1945,12 +1839,13 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                         ...Object.entries(plAttributes).filter(([k, v]) => !formOrder.includes(k) && v != null),
                       ]
                     : Object.entries(plAttributes).filter(([, v]) => v != null);
+                  const isOpen = openPid != null && String(openPid) === String(pl.pid);
                   return (
+                    <React.Fragment key={i}>
                     <tr
-                      key={i}
                       ref={el => { if (el) rowRefs.current[pl.pid] = el; }}
-                      onClick={() => setSelectedPlayer(pl)}
-                      className={`transition group cursor-pointer border-b border-surface-4 hover:bg-surface-3 ${String(pl.pid) === String(highlightPid) ? 'bg-surface-3' : ''}`}
+                      onClick={() => setOpenPid(cur => (String(cur) === String(pl.pid) ? null : pl.pid))}
+                      className={`transition group cursor-pointer border-b border-surface-4 hover:bg-surface-3 ${isOpen || String(pl.pid) === String(highlightPid) ? 'bg-surface-3' : ''}`}
                     >
                       <td className="px-2 py-3.5 text-center text-[10px] tabular-nums text-txt-tertiary overflow-hidden">{pl.recentRank ?? (pl.addedIndex != null ? pl.addedIndex + 1 : '—')}</td>
                       <td className="px-2 py-3.5 font-semibold text-txt-secondary group-hover:text-txt-primary transition overflow-hidden">
@@ -1986,8 +1881,8 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                             onClick={() => setEditingDevFor(pl)}
                             title="Click to update dev trait"
                             className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer hover:ring-1 hover:ring-emerald-600/60 transition ${
-                              pl.devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#22E065] shadow-[0_0_16px_rgba(14,122,42,0.85)]' :
-                              pl.devTrait === 'Star'   ? 'bg-surface-3 border border-[#9C7209] text-[#FFD100] shadow-[0_0_14px_rgba(156,114,9,0.8)]' :
+                              pl.devTrait === 'Elite'  ? 'bg-surface-3 border border-[#0E7A2A] text-[#22E065]' :
+                              pl.devTrait === 'Star'   ? 'bg-surface-3 border border-[#9C7209] text-[#FFD100]' :
                               pl.devTrait === 'Impact' ? 'bg-surface-3 border border-[#7C8991] text-[#D6DEE2]' :
                               pl.devTrait === 'Normal' ? 'bg-surface-3 border border-[#8C5524] text-[#CD7F32]' :
                                                          'bg-slate-950 border border-slate-700 text-slate-600 italic'
@@ -2046,6 +1941,14 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                         </div>
                       </td>
                     </tr>
+                    {isOpen && (
+                      <tr className="border-b border-surface-4 bg-surface-2">
+                        <td colSpan={11} className="p-4">
+                          <GradeReportContent player={pl} allPlayers={combinedPlayers} weightsMap={weightsMap} pool={pool} wide />
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                   );
                 })
               )}

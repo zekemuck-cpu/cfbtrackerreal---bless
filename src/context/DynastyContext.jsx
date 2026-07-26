@@ -106,7 +106,7 @@ import { syncPlayersToSubcollection } from '../utils/cfb27SyncPlayers'
 import { buildSyncPlan } from '../data/cfb27SaveSync'
 import { normalizeAwardName } from '../utils/playerHeal'
 import { getFirstRoundSlotId, getSlotIdFromBowlName, getCFPGameId, CFP_BRACKET_SLOTS, DEFAULT_BOWL_CONFIG, getBowlForSlot, CFP_BRACKET_FLOW, getBracketFlowConfig } from '../data/cfpConstants'
-import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid, canManageMembers, getMemberPhoto, setMemberPhotoValue } from '../data/leagueModel'
+import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapshotAllMembersForYear, getCoachNameForUid, canManageMembers } from '../data/leagueModel'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 import { shapeTargetForDatabase } from '../utils/recruitAttributes'
 import { normalizeEditionKey, DEFAULT_EDITION } from '../editions'
@@ -2791,29 +2791,50 @@ function convertBoxScoreToInternal(boxScoreStats, category) {
 }
 
 /**
- * Extract stats contribution from a box score
- * Returns an object mapping player names to their stats in INTERNAL format
+ * Extract stats contribution from a box score, indexed two ways:
+ *  - byComposite["<tid>::<normalized name>"]: stats from the specific team
+ *    side that had this name in this box score. Precise - safe even when
+ *    two unrelated real players share a full name (confirmed to happen -
+ *    e.g. two different "Keenan Jackson"s on different teams).
+ *  - byName["<normalized name>"]: the same stats merged across every side
+ *    that had this name in this box score (the old, name-only behavior).
+ *    Kept only as a fallback for callers that can't determine which team
+ *    a player belongs to.
+ * `game` supplies team1Tid/team2Tid/homeTeamTid so a tid can be derived
+ * even for the legacy `home`/`away` box score shape (the `byTid` shape
+ * already carries its own tid as the dict key).
  * @param {Object} boxScore - The game's box score object
- * @returns {Object} { "player name (lowercase)": { passing: {...}, rushing: {...}, ... } }
+ * @param {Object} [game] - The game this box score belongs to (for tid lookup)
+ * @returns {{byComposite: Object, byName: Object}}
  */
-function extractBoxScoreContribution(boxScore) {
-  if (!boxScore) return {}
+function extractBoxScoreContribution(boxScore, game) {
+  if (!boxScore) return { byComposite: {}, byName: {} }
 
-  const contribution = {}
+  const byComposite = {}
+  const byName = {}
 
   // Walk every team's stat block in either shape (byTid for canonical
   // games, home/away for legacy games waiting to be migrated on next
-  // write). Both produce the same per-player aggregation regardless.
+  // write), tagging each side with its tid.
   const sides = []
   if (boxScore.byTid && typeof boxScore.byTid === 'object') {
-    for (const side of Object.values(boxScore.byTid)) {
-      if (side) sides.push(side)
+    for (const [tid, side] of Object.entries(boxScore.byTid)) {
+      if (side) sides.push({ tid: Number(tid), side })
     }
   }
-  if (boxScore.home) sides.push(boxScore.home)
-  if (boxScore.away) sides.push(boxScore.away)
+  if (boxScore.home) {
+    const homeTid = game?.homeTeamTid ?? game?.team1Tid
+    sides.push({ tid: homeTid != null ? Number(homeTid) : null, side: boxScore.home })
+  }
+  if (boxScore.away) {
+    const homeTid = game?.homeTeamTid ?? game?.team1Tid
+    const awayTid = (game?.team1Tid != null && Number(game.team1Tid) !== Number(homeTid))
+      ? game.team1Tid
+      : game?.team2Tid
+    sides.push({ tid: awayTid != null ? Number(awayTid) : null, side: boxScore.away })
+  }
 
-  for (const sideBoxScore of sides) {
+  for (const { tid, side: sideBoxScore } of sides) {
     if (!sideBoxScore) continue
 
     // Process each stat category
@@ -2825,39 +2846,65 @@ function extractBoxScoreContribution(boxScore) {
         const playerName = normalizePlayerName(playerRow.playerName)
         if (!playerName) return
 
-        // Initialize player if not exists
-        if (!contribution[playerName]) {
-          contribution[playerName] = { _hadStats: true }
-        }
+        const compositeKey = tid != null ? `${tid}::${playerName}` : null
 
-        // Initialize category if not exists
-        if (!contribution[playerName][category]) {
-          contribution[playerName][category] = {}
+        if (!byName[playerName]) byName[playerName] = { _hadStats: true }
+        if (!byName[playerName][category]) byName[playerName][category] = {}
+        if (compositeKey) {
+          if (!byComposite[compositeKey]) byComposite[compositeKey] = { _hadStats: true }
+          if (!byComposite[compositeKey][category]) byComposite[compositeKey][category] = {}
         }
 
         // Extract all stat fields (in box score format)
         const allFields = [...(BOX_SCORE_STATS[category].sum || []), ...(BOX_SCORE_STATS[category].max || [])]
         allFields.forEach(field => {
           const value = parseFloat(playerRow[field]) || 0
-          contribution[playerName][category][field] = value
+          byName[playerName][category][field] = value
+          if (compositeKey) byComposite[compositeKey][category][field] = value
         })
       })
     })
   }
 
   // Convert all stats to internal format
-  Object.keys(contribution).forEach(playerName => {
-    Object.keys(BOX_SCORE_STATS).forEach(category => {
-      if (contribution[playerName][category]) {
-        contribution[playerName][category] = convertBoxScoreToInternal(
-          contribution[playerName][category],
-          category
-        )
-      }
+  const convertAll = (dict) => {
+    Object.keys(dict).forEach(key => {
+      Object.keys(BOX_SCORE_STATS).forEach(category => {
+        if (dict[key][category]) {
+          dict[key][category] = convertBoxScoreToInternal(dict[key][category], category)
+        }
+      })
     })
-  })
+  }
+  convertAll(byName)
+  convertAll(byComposite)
 
-  return contribution
+  return { byComposite, byName }
+}
+
+// A player's tracked team (tid) for a given season - the disambiguator used
+// whenever a normalized player name matches more than one real player.
+function playerTidForYear(player, year) {
+  const y = Number(year)
+  const t = player?.teamsByYear?.[y] ?? player?.teamsByYear?.[String(y)]
+  return t != null ? Number(t) : null
+}
+
+/**
+ * Resolves the stats blob that applies to a specific player out of a
+ * {byComposite, byName} index built by extractBoxScoreContribution. When
+ * the player's own team for that year is known, ONLY the exact (tid, name)
+ * match is trusted - deliberately not falling back to the name-only index,
+ * since that fallback is exactly what let one real player's box score
+ * stats bleed onto an unrelated same-named player on a different team.
+ * The name-only index is used only when the player's team-for-year can't
+ * be determined at all.
+ */
+function resolveIndexedStats(index, player, year) {
+  const name = normalizePlayerName(player.name)
+  const tid = playerTidForYear(player, year)
+  if (tid != null) return index.byComposite[`${tid}::${name}`] || null
+  return index.byName[name] || null
 }
 
 /**
@@ -2969,26 +3016,33 @@ function recomputeMaxFieldsFromGames(players, allGames, year) {
     Number(g.year) === yearNum && g.boxScore
   )
 
-  // Collect: playerName -> category -> maxField -> max value across games
-  const maxByPlayer = {}
-  gamesWithBox.forEach(game => {
-    const contribution = extractBoxScoreContribution(game.boxScore)
-    Object.entries(contribution).forEach(([normalizedName, catStats]) => {
-      if (!maxByPlayer[normalizedName]) maxByPlayer[normalizedName] = {}
-      Object.keys(BOX_SCORE_STATS).forEach(category => {
-        const stats = catStats[category]
-        if (!stats) return
-        const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
-        const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
-        if (maxFields.length === 0) return
-        if (!maxByPlayer[normalizedName][category]) maxByPlayer[normalizedName][category] = {}
-        maxFields.forEach(field => {
-          const v = stats[field] || 0
-          const cur = maxByPlayer[normalizedName][category][field] || 0
-          if (v > cur) maxByPlayer[normalizedName][category][field] = v
-        })
+  // Collect: playerName -> category -> maxField -> max value across games.
+  // Built in parallel per-(tid,name) and per-name-only - see
+  // resolveIndexedStats for why the tid-scoped index takes precedence
+  // whenever a player's team-for-year is known.
+  const maxByComposite = {}
+  const maxByName = {}
+  const accumulateMax = (dict, key, catStats) => {
+    if (!dict[key]) dict[key] = {}
+    Object.keys(BOX_SCORE_STATS).forEach(category => {
+      const stats = catStats[category]
+      if (!stats) return
+      const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
+      const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
+      if (maxFields.length === 0) return
+      if (!dict[key][category]) dict[key][category] = {}
+      maxFields.forEach(field => {
+        const v = stats[field] || 0
+        const cur = dict[key][category][field] || 0
+        if (v > cur) dict[key][category][field] = v
       })
     })
+  }
+
+  gamesWithBox.forEach(game => {
+    const { byComposite, byName } = extractBoxScoreContribution(game.boxScore, game)
+    Object.entries(byComposite).forEach(([key, catStats]) => accumulateMax(maxByComposite, key, catStats))
+    Object.entries(byName).forEach(([key, catStats]) => accumulateMax(maxByName, key, catStats))
   })
 
   // Pre-compute the (category, field) pairs we have to recompute, so we
@@ -3005,8 +3059,11 @@ function recomputeMaxFieldsFromGames(players, allGames, year) {
     const existingYearStats = existingStatsByYear[yearNum]
     if (!existingYearStats) return player // Player has no stats this year — nothing to do.
 
+    const tid = playerTidForYear(player, yearNum)
     const normalized = normalizePlayerName(player.name)
-    const playerMax = maxByPlayer[normalized] || {}
+    const playerMax = tid != null
+      ? (maxByComposite[`${tid}::${normalized}`] || {})
+      : (maxByName[normalized] || {})
 
     let modified = false
     const updatedYearStats = { ...existingYearStats }
@@ -3055,7 +3112,12 @@ function recomputeMaxFieldsFromGames(players, allGames, year) {
  * rush/reception/etc. would otherwise leave season totals inflated.
  */
 export function processBoxScoreSave(players, newBoxScore, oldContribution, year, allGames = null) {
-  const newContribution = extractBoxScoreContribution(newBoxScore)
+  // Name-only index only: this is a single manually-entered game for the
+  // user's own team, reviewed by the user before saving, so the tid-scoped
+  // collision fix (see extractBoxScoreContribution/resolveIndexedStats)
+  // isn't wired in here yet - keeps this delta-tracked path's persisted
+  // `statsContributed` shape unchanged.
+  const newContribution = extractBoxScoreContribution(newBoxScore).byName
   let updatedPlayers = applyBoxScoreDelta(players, newContribution, oldContribution, year)
 
   // Max-field correction only needed when editing (oldContribution present).
@@ -3084,77 +3146,80 @@ export function processBoxScoreSave(players, newBoxScore, oldContribution, year,
 export function recalculateStatsFromBoxScores(players, games, year, options = {}) {
   const { skipGamesPlayed = false } = options
   const yearNum = Number(year)
+  const categoryKeys = Object.keys(BOX_SCORE_STATS)
 
   // Get all games for this year that have box scores
-  // NOTE: Don't filter by team - we want stats from ALL games where players appeared
-  // This matches getPlayerBoxScoreTotals() behavior
   const gamesWithBoxScores = (games || []).filter(g =>
     Number(g.year) === yearNum && g.boxScore
   )
 
-  // Build aggregated stats for each player from all box scores
-  const aggregatedStats = {} // { normalizedPlayerName: { category: { field: value } } }
-  const gamesPlayedCount = {} // { normalizedPlayerName: count }
+  // Build aggregated stats in parallel per-(tid,name) and per-name-only.
+  // Whenever a player's own team for this year is known, only the tid-
+  // scoped index is trusted (see resolveIndexedStats) - this is what stops
+  // two unrelated real players who happen to share a full name (confirmed
+  // to occur - e.g. two different "Keenan Jackson"s on different teams)
+  // from bleeding one player's box score stats onto the other.
+  const aggregatedByComposite = {}
+  const gamesPlayedByComposite = {}
+  const aggregatedByName = {}
+  const gamesPlayedByName = {}
 
-  gamesWithBoxScores.forEach(game => {
-    const contribution = extractBoxScoreContribution(game.boxScore)
-
-    Object.keys(contribution).forEach(playerName => {
-      const playerStats = contribution[playerName]
-
-      // Track games played
-      if (playerStats._hadStats) {
-        gamesPlayedCount[playerName] = (gamesPlayedCount[playerName] || 0) + 1
-      }
-
-      // Initialize player if needed
-      if (!aggregatedStats[playerName]) {
-        aggregatedStats[playerName] = {}
-      }
-
-      // Aggregate each category
-      Object.keys(BOX_SCORE_STATS).forEach(category => {
-        if (!playerStats[category]) return
-
-        if (!aggregatedStats[playerName][category]) {
-          aggregatedStats[playerName][category] = {}
-        }
-
-        // Get max fields for this category
-        const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
-        const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
-
-        // Sum or max each field
-        Object.keys(playerStats[category]).forEach(field => {
-          const value = playerStats[category][field] || 0
-          const currentValue = aggregatedStats[playerName][category][field] || 0
-
-          if (maxFields.includes(field)) {
-            // For "long" fields, take the max
-            aggregatedStats[playerName][category][field] = Math.max(currentValue, value)
-          } else {
-            // For sum fields, add
-            aggregatedStats[playerName][category][field] = currentValue + value
-          }
-        })
+  const aggregateInto = (aggDict, countDict, key, playerStats) => {
+    if (playerStats._hadStats) {
+      countDict[key] = (countDict[key] || 0) + 1
+    }
+    if (!aggDict[key]) aggDict[key] = {}
+    categoryKeys.forEach(category => {
+      if (!playerStats[category]) return
+      if (!aggDict[key][category]) aggDict[key][category] = {}
+      const internalMapping = BOXSCORE_TO_INTERNAL_MAP[category] || {}
+      const maxFields = (BOX_SCORE_STATS[category].max || []).map(f => internalMapping[f] || f)
+      Object.keys(playerStats[category]).forEach(field => {
+        const value = playerStats[category][field] || 0
+        const currentValue = aggDict[key][category][field] || 0
+        aggDict[key][category][field] = maxFields.includes(field)
+          ? Math.max(currentValue, value)
+          : currentValue + value
       })
     })
+  }
+
+  gamesWithBoxScores.forEach(game => {
+    const { byComposite, byName } = extractBoxScoreContribution(game.boxScore, game)
+    Object.keys(byComposite).forEach(key => aggregateInto(aggregatedByComposite, gamesPlayedByComposite, key, byComposite[key]))
+    Object.keys(byName).forEach(key => aggregateInto(aggregatedByName, gamesPlayedByName, key, byName[key]))
   })
 
   // Apply aggregated stats to players
   return players.map(player => {
-    const playerNameNormalized = normalizePlayerName(player.name)
-    const playerAggregated = aggregatedStats[playerNameNormalized]
-
-    if (!playerAggregated) {
-      // Player has no box score stats for this year - preserve existing stats
-      // but clear box score derived stats if they existed
-      return player
-    }
+    const tid = playerTidForYear(player, yearNum)
+    const normalized = normalizePlayerName(player.name)
+    const key = tid != null ? `${tid}::${normalized}` : null
+    const playerAggregated = tid != null ? aggregatedByComposite[key] : aggregatedByName[normalized]
+    const boxScoreGamesPlayed = tid != null ? gamesPlayedByComposite[key] : gamesPlayedByName[normalized]
 
     const existingStatsByYear = player.statsByYear || {}
     const existingYearStats = existingStatsByYear[yearNum] || {}
-    const boxScoreGamesPlayed = gamesPlayedCount[playerNameNormalized]
+
+    if (!playerAggregated) {
+      // No box score this year credits this exact player (by team+name when
+      // known, else by name alone) - clear any stale box-score-derived
+      // categories so a stat line left behind by a previous name-collision
+      // (or a team change) doesn't linger forever. A player with nothing to
+      // clear is returned as-is to avoid needless object churn across the
+      // whole roster.
+      const hasStaleBoxScoreStats = categoryKeys.some(cat => existingYearStats[cat])
+      if (!hasStaleBoxScoreStats) return player
+
+      const clearedYearStats = { ...existingYearStats }
+      categoryKeys.forEach(cat => { delete clearedYearStats[cat] })
+      if (!skipGamesPlayed) clearedYearStats.gamesPlayed = 0
+
+      return {
+        ...player,
+        statsByYear: { ...existingStatsByYear, [yearNum]: clearedYearStats }
+      }
+    }
 
     // Start from existing year stats so non-box-score categories (manual entry,
     // sheet import) survive. Box-score categories from playerAggregated will
@@ -3207,8 +3272,11 @@ export function getPlayerBoxScoreTotals(playerName, games, year, userTeam) {
   const aggregatedStats = {}
 
   gamesWithBoxScores.forEach(game => {
-    const contribution = extractBoxScoreContribution(game.boxScore)
-    const playerStats = contribution[playerNameNormalized]
+    // Name-only index only: this takes a bare player name (no pid/team),
+    // so there's nothing to disambiguate a collision with - same tradeoff
+    // as processBoxScoreSave above.
+    const { byName } = extractBoxScoreContribution(game.boxScore, game)
+    const playerStats = byName[playerNameNormalized]
 
     if (!playerStats) return
 
@@ -5125,24 +5193,52 @@ export function migrateToUserTeamSystem(dynasty) {
  * Only `abbr` and `name` on FCS slots are normalized; user customizations
  * to colors/logos are preserved. tid remains the stable identifier.
  */
+// The 5 FCS placeholder tids' logos as originally shipped — all 5 turned
+// out to be stock mascot-patch clipart with no resemblance to the real
+// in-game logos (confirmed 2026-07-25 against user-provided screenshots of
+// the actual custom-schedule team-select screen). Any dynasty's teams[tid]
+// still holding one of these exact URLs gets it replaced with the real
+// logo below, regardless of when it was created — see REAL_FCS_LOGOS.
+const OLD_WRONG_FCS_LOGOS = {
+  137: 'https://i.imgur.com/eFyXxwT.png',
+  138: 'https://i.imgur.com/NOJOPG8.png',
+  139: 'https://i.imgur.com/uBvbn1s.png',
+  140: 'https://i.imgur.com/Y8A8u0g.png',
+  141: 'https://i.imgur.com/8qfTMIy.png',
+}
+const REAL_FCS_LOGOS = {
+  137: '/fcs-logos/fcs-east.png',
+  138: '/fcs-logos/fcs-midwest.png',
+  139: '/fcs-logos/fcs-northwest.png',
+  140: '/fcs-logos/fcs-west.png',
+  141: '/fcs-logos/fcs-southeast.png',
+}
+
+function correctFCSLogos(teams) {
+  if (!teams) return teams
+  let next = teams
+  for (const [tidStr, oldUrl] of Object.entries(OLD_WRONG_FCS_LOGOS)) {
+    const tid = Number(tidStr)
+    const slot = next[tid]
+    if (slot && (!slot.logo || slot.logo === oldUrl)) {
+      next = { ...next, [tid]: { ...slot, logo: REAL_FCS_LOGOS[tid] } }
+    }
+  }
+  return next
+}
+
 export function migrateFCSFiveTeams(dynasty) {
   if (!dynasty) return dynasty
 
   // The main one-shot migration is gated by _fcs5TeamsMigrated, but the
-  // FCSSE logo backfill runs unconditionally below (cheap, idempotent —
-  // only acts when the logo field is empty). This handles dynasties that
-  // already ran the gated migration before the logo was known.
-  const FCSSE_LOGO = 'https://i.imgur.com/8qfTMIy.png'
+  // logo correction runs unconditionally below (cheap, idempotent — only
+  // acts on slots still holding an empty or known-wrong logo URL). This
+  // handles dynasties that already ran the gated migration before the
+  // real logos were known.
   if (dynasty._fcs5TeamsMigrated) {
-    const slot = dynasty.teams?.[141]
-    if (slot && !slot.logo) {
-      return {
-        ...dynasty,
-        teams: {
-          ...dynasty.teams,
-          141: { ...slot, logo: FCSSE_LOGO },
-        },
-      }
+    const correctedTeams = correctFCSLogos(dynasty.teams)
+    if (correctedTeams !== dynasty.teams) {
+      return { ...dynasty, teams: correctedTeams }
     }
     return dynasty
   }
@@ -5179,26 +5275,23 @@ export function migrateFCSFiveTeams(dynasty) {
     }
   }
 
-  // Add FCSSE if missing, OR backfill its logo if a previous run of this
-  // migration created the slot with an empty logo string.
+  // Add FCSSE if missing.
   if (!teams[141]) {
     teams[141] = {
       tid: 141,
       abbr: 'FCSSE',
       name: 'FCS Southeast',
-      primaryColor: '#4A7C59',
-      secondaryColor: '#F0E68C',
-      logo: FCSSE_LOGO,
+      primaryColor: '#12213A',
+      secondaryColor: '#E8622C',
+      logo: REAL_FCS_LOGOS[141],
       isFCS: true,
       byYear: {},
     }
-  } else if (!teams[141].logo) {
-    teams[141] = { ...teams[141], logo: FCSSE_LOGO }
   }
 
   return {
     ...dynasty,
-    teams,
+    teams: correctFCSLogos(teams),
     _fcs5TeamsMigrated: true,
   }
 }
@@ -7483,13 +7576,6 @@ export function DynastyProvider({ children }) {
         ...(dynastyData.coachName?.trim() ? {
           memberLabels: { [user.uid]: dynastyData.coachName.trim() },
         } : {}),
-        // Save-assigned coach headshot (same unreliable-for-real-coaches
-        // caveat as teams[tid].byYear[year].coachingStaff.hcPictureUrl) —
-        // gives the Coach Career photo slot a starting value instead of
-        // "Add Photo", the user can still override it manually any time.
-        ...(dynastyData.cfb27CoachingStaff?.hcPictureUrl ? {
-          memberPhotos: { [user.uid]: dynastyData.cfb27CoachingStaff.hcPictureUrl },
-        } : {}),
       } : {}),
       preseasonSetup: {
         scheduleEntered: Boolean(dynastyData.cfb27Schedule?.length),
@@ -7841,9 +7927,50 @@ export function DynastyProvider({ children }) {
 
     const plan = buildSyncPlan(dynastyForPlan, parsed)
 
-    const scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, dynasty.currentYear)
-    let mergedGames = applyScheduleDiff(freshGames, scheduleDiff)
+    // An empty scheduleForUserTeam means the save just doesn't have this
+    // year's schedule generated yet (e.g. synced at Preseason Wk 0, before
+    // the game itself has assigned matchups) — NOT that the user's real
+    // games should be deleted. computeScheduleDiff has no way to tell the
+    // difference between "the save's schedule is genuinely empty this year"
+    // and "nothing to compare yet", and marks every existing game toRemove
+    // when newSchedule has zero entries (nothing in it to "still
+    // reference"). Skipping the diff/merge entirely when there's nothing to
+    // sync preserves whatever real games+denormalized schedule already
+    // exist, instead of wiping a full season down to "NO SCHEDULE" the
+    // moment a sync happens to catch the save mid-generation.
+    let mergedGames = freshGames
+    let scheduleDiff = { updatedSchedule: [] }
+    if (plan.scheduleForUserTeam?.length) {
+      scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, dynasty.currentYear)
+      mergedGames = applyScheduleDiff(freshGames, scheduleDiff)
+    }
     mergedGames = applyCfb27GameScores(mergedGames, plan.gameScoresForUserTeam, plan.boxScoresByWeek, Number(dynasty.currentYear))
+
+    // Denormalized schedule copy — getCurrentSchedule (and the Dashboard's
+    // own "Schedule" panel) reads teams[tid].byYear[year].schedule directly,
+    // NOT dynasty.games. CreateDynasty.jsx seeds this once at dynasty
+    // creation, but no ongoing sync step ever refreshed it afterward —
+    // scheduleDiff.updatedSchedule (already computed above, just for the
+    // games-array diff) was silently discarded every sync. Left permanently
+    // stale after the very first sync, and empty for any year whose
+    // byYear[year] entry gets cleared for any reason (e.g. Danger Zone's
+    // Reset CFB27 Sync Data), with no way to rebuild it short of recreating
+    // the dynasty — this keeps it current on every sync going forward.
+    if (dynasty.currentTid != null && scheduleDiff.updatedSchedule?.length) {
+      const teamsBase = plan.mergedTeams || dynasty.teams || {}
+      const tidKey = String(dynasty.currentTid)
+      const userTeam = teamsBase[tidKey]
+      if (userTeam) {
+        const yearData = userTeam.byYear?.[dynasty.currentYear] || {}
+        plan.mergedTeams = {
+          ...teamsBase,
+          [tidKey]: {
+            ...userTeam,
+            byYear: { ...userTeam.byYear, [dynasty.currentYear]: { ...yearData, schedule: scheduleDiff.updatedSchedule } },
+          },
+        }
+      }
+    }
 
     // Every OTHER team's games (whole-league) — plan.cpuGamesToWrite is
     // already minimal-diff (only games that actually changed since last
@@ -7852,6 +7979,17 @@ export function DynastyProvider({ children }) {
     if (plan.cpuGamesToWrite?.length) {
       const byId = new Map(mergedGames.map((g) => [g.id, g]))
       for (const cpuGame of plan.cpuGamesToWrite) byId.set(cpuGame.id, cpuGame)
+      mergedGames = [...byId.values()]
+    }
+
+    // Bowl + full CFP bracket results, every team including the user's own —
+    // plan.postseasonGamesToWrite is already minimal-diff/upsert-by-id
+    // (buildPostseasonGames matches an existing manually-entered bowl/CFP
+    // record where possible so it gets corrected by the real save data
+    // instead of duplicated).
+    if (plan.postseasonGamesToWrite?.length) {
+      const byId = new Map(mergedGames.map((g) => [g.id, g]))
+      for (const postseasonGame of plan.postseasonGamesToWrite) byId.set(postseasonGame.id, postseasonGame)
       mergedGames = [...byId.values()]
     }
 
@@ -7901,16 +8039,6 @@ export function DynastyProvider({ children }) {
       }
     }
 
-    // Save-assigned coach headshot for the user's own team (same source as
-    // teams[tid].byYear[year].coachingStaff.hcPictureUrl) — only fills the
-    // Coach Career photo slot when it's empty, never overwrites a photo the
-    // user chose themselves.
-    let memberPhotoUpdate = {}
-    const userHcPictureUrl = plan.mergedTeams?.[String(dynasty.currentTid)]?.byYear?.[dynasty.currentYear]?.coachingStaff?.hcPictureUrl
-    if (user?.uid && userHcPictureUrl && !getMemberPhoto(dynasty, user.uid)) {
-      memberPhotoUpdate = { memberPhotos: setMemberPhotoValue(dynasty, user.uid, userHcPictureUrl) }
-    }
-
     // Whole-league in-game depth chart order -> dynasty.teamFuture[tid].order
     // (SchemeBuilder.jsx's persisted STACK order within each position's
     // default slot column — save always wins, same as everything else this
@@ -7937,6 +8065,157 @@ export function DynastyProvider({ children }) {
       teamFutureUpdate = { teamFuture: nextTeamFuture }
     }
 
+    // Whole-league weekly Players of the Week / Heisman Watch — merged
+    // key-by-week, same "never wipe a week this sync didn't touch" rule as
+    // rankByWeek above, so a season's worth of syncs builds a full history.
+    let playersOfWeekUpdate = {}
+    if (plan.playersOfWeekUpdate && Object.keys(plan.playersOfWeekUpdate).length) {
+      const existingByYear = dynasty.playersOfWeekByYear || {}
+      const existingForYear = existingByYear[dynasty.currentYear] || {}
+      playersOfWeekUpdate = {
+        playersOfWeekByYear: {
+          ...existingByYear,
+          [dynasty.currentYear]: { ...existingForYear, ...plan.playersOfWeekUpdate },
+        },
+      }
+    }
+    let heismanWatchUpdate = {}
+    if (plan.heismanWatchUpdate && Object.keys(plan.heismanWatchUpdate).length) {
+      const existingByYear = dynasty.heismanWatchByYear || {}
+      const existingForYear = existingByYear[dynasty.currentYear] || {}
+      heismanWatchUpdate = {
+        heismanWatchByYear: {
+          ...existingByYear,
+          [dynasty.currentYear]: { ...existingForYear, ...plan.heismanWatchUpdate },
+        },
+      }
+    }
+
+    // Rivalries — auto-seed/gap-fill dynasty.rivalries[] with the user's own
+    // team's real rivals. plan.rivalriesToAdd/rivalriesToPatch already never
+    // touch trophyName/trophyDescription/trophyImageUrl/description (the
+    // user's own creative system) or an already-set name/formedYear.
+    let rivalriesUpdate = {}
+    if (plan.rivalriesToAdd?.length || plan.rivalriesToPatch?.length) {
+      const existingRivalries = dynasty.rivalries || []
+      const patchById = new Map((plan.rivalriesToPatch || []).map((r) => [r.id, r.patch]))
+      const patched = existingRivalries.map((r) => (patchById.has(r.id) ? { ...r, ...patchById.get(r.id) } : r))
+      rivalriesUpdate = { rivalries: [...patched, ...(plan.rivalriesToAdd || [])] }
+    }
+
+    // NFL Draft Results — mirrors handleDraftResultsSave's (Dashboard.jsx)
+    // exact write targets so the manual Google-Sheet flow and this sync
+    // stay fully interchangeable: draftResultsByTeamYear (both abbr and tid
+    // keys) and teams[tid].byYear[year].draftResults. The per-player
+    // draftYear/draftRound/movementByYear fields are already applied via
+    // the normal departurePatches path above (reconcilePlayers' patch).
+    let draftResultsUpdate = {}
+    if (plan.draftResultsUpdate && Object.keys(plan.draftResultsUpdate).length) {
+      const existingByTeamYear = dynasty.draftResultsByTeamYear || {}
+      const nextByTeamYear = { ...existingByTeamYear }
+      for (const [tid, results] of Object.entries(plan.draftResultsUpdate)) {
+        const teamAbbr = getAbbrFromTid(plan.mergedTeams || dynasty.teams, Number(tid))
+        nextByTeamYear[tid] = { ...(nextByTeamYear[tid] || {}), [dynasty.currentYear]: results }
+        if (teamAbbr) nextByTeamYear[teamAbbr] = { ...(nextByTeamYear[teamAbbr] || {}), [dynasty.currentYear]: results }
+      }
+      draftResultsUpdate = { draftResultsByTeamYear: nextByTeamYear }
+
+      // Also fold into teams[tid].byYear[year].draftResults — mirrors
+      // handleDraftResultsSave's dual write exactly.
+      const teamsBase = draftResultsUpdate.teams || plan.mergedTeams
+      const teamsWithDraftResults = { ...teamsBase }
+      for (const [tid, results] of Object.entries(plan.draftResultsUpdate)) {
+        const tidKey = String(tid)
+        const team = teamsWithDraftResults[tidKey]
+        if (!team) continue
+        const yearData = team.byYear?.[dynasty.currentYear] || {}
+        teamsWithDraftResults[tidKey] = {
+          ...team,
+          byYear: { ...team.byYear, [dynasty.currentYear]: { ...yearData, draftResults: results } },
+        }
+      }
+      plan.mergedTeams = teamsWithDraftResults
+    }
+
+    // Real CFP seed list + bowl-host config — mirrors CFPSeedsModal's exact
+    // save shape (cfpSeedsByYear/cfpSeedsByYearTid/cfpBowlConfigByYear) so
+    // this sync and manual entry stay fully interchangeable. plan.cfpSeeds
+    // Update is null until the bracket is actually locked in the save (see
+    // deriveCFPSeeds in cfb27SaveSync.js), in which case nothing here is
+    // touched and any existing manually-entered seeds stay exactly as they
+    // are — this only ever writes once it has real, verified data.
+    let cfpSeedsUpdate = {}
+    if (plan.cfpSeedsUpdate) {
+      const { seeds, bowlConfig } = plan.cfpSeedsUpdate
+      const year = dynasty.currentYear
+      const seedsWithTid = {}
+      for (const s of seeds) seedsWithTid[s.seed] = s.tid
+      cfpSeedsUpdate = {
+        cfpSeedsByYear: { ...(dynasty.cfpSeedsByYear || {}), [year]: seeds },
+        cfpSeedsByYearTid: { ...(dynasty.cfpSeedsByYearTid || {}), [year]: seedsWithTid },
+        ...(Object.keys(bowlConfig).length
+          ? { cfpBowlConfigByYear: { ...(dynasty.cfpBowlConfigByYear || {}), [year]: { ...(dynasty.cfpBowlConfigByYear?.[year] || {}), ...bowlConfig } } }
+          : {}),
+      }
+    }
+
+    // Season-end honors — National All-Americans, All-Conference teams, and
+    // named individual awards. plan.allAmericansUpdate/awardsUpdate are null
+    // (untouched) until the save actually has real honorees this year, so a
+    // mid-season sync never wipes what's already there. Awards merge KEY BY
+    // KEY (not a full-object overwrite) so a manually-entered award this
+    // sync has no verified data for (e.g. a coach award) is never clobbered.
+    let honorsUpdate = {}
+    if (plan.allAmericansUpdate) {
+      const year = dynasty.currentYear
+      const existingByYear = dynasty.allAmericansByYear || {}
+      const existingYearData = existingByYear[year] || {}
+      honorsUpdate.allAmericansByYear = {
+        ...existingByYear,
+        [year]: { ...existingYearData, ...plan.allAmericansUpdate },
+      }
+    }
+    if (plan.awardsUpdate) {
+      const year = dynasty.currentYear
+      const existingByYear = dynasty.awardsByYear || {}
+      const existingYearData = existingByYear[year] || {}
+      honorsUpdate.awardsByYear = {
+        ...existingByYear,
+        [year]: { ...existingYearData, ...plan.awardsUpdate },
+      }
+    }
+
+    // User job-change detection — plan.userJobChange is only set when
+    // Coach.IsUserControlled's real team/position in the save disagrees with
+    // what this dynasty has tracked (see cfb27SaveSync.js). Mirrors
+    // Dashboard.jsx's handleNewJobSave exact write shape (newJobData +
+    // setPendingUserTeam) so the rest of that existing job-change flow keeps
+    // working unchanged — the only difference is this sync answers the
+    // "did you take a new job" question instead of a manual Yes/No.
+    let userJobChangeUpdate = {}
+    if (plan.userJobChange) {
+      const { tid, position } = plan.userJobChange
+      const abbr = getAbbrFromTid(plan.mergedTeams || dynasty.teams, tid)
+      userJobChangeUpdate = {
+        newJobData: { takingNewJob: true, team: abbr, teamTid: tid, position },
+      }
+      plan.mergedTeams = setPendingUserTeam(plan.mergedTeams || dynasty.teams, tid, position)
+    } else if (plan.userJobChangeResolved) {
+      // The save's coach identity now correctly matches this dynasty's own
+      // tracked team again — clears a stale newJobData flag a PREVIOUS sync
+      // left behind (e.g. the wrong dynasty's save file got uploaded once by
+      // mistake), rather than leaving an incorrect "Taking a New Job" banner
+      // stuck forever even after a correct re-sync.
+      userJobChangeUpdate = { newJobData: null }
+      plan.mergedTeams = clearPendingUserTeam(plan.mergedTeams || dynasty.teams)
+    }
+
+    // Coach Carousel — plan.coachOffersUpdate is always the CURRENT live
+    // list from this sync (see cfb27SaveSync.js), so it's a full replace,
+    // never merged with what was there before: an offer that's since
+    // disappeared from the save should disappear from the dashboard too.
+    const coachOffersUpdate = { coachOffers: plan.coachOffersUpdate || [] }
+
     const useLocalStorage = dynasty.storageType !== 'cloud'
     const statsYear = Number(dynasty.currentYear)
 
@@ -7955,7 +8234,7 @@ export function DynastyProvider({ children }) {
       // on the games unread and every stats page stays empty.
       const mergedPlayers = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
 
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...memberPhotoUpdate, ...teamFutureUpdate })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...coachOffersUpdate })
     } else {
       // Same recompute as the local branch, but diffed against freshPlayers
       // (not written wholesale — a cloud dynasty can have thousands of
@@ -7999,7 +8278,7 @@ export function DynastyProvider({ children }) {
       if (createsWithStats.length || plan.toUpdatePatches.length || plan.departurePatches.length || statsPatches.length) {
         await syncPlayersToSubcollection(dynastyId, createsWithStats, [...plan.toUpdatePatches, ...plan.departurePatches, ...statsPatches])
       }
-      await updateDynasty(dynastyId, { teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...memberPhotoUpdate, ...teamFutureUpdate }, { skipPlayersSubcollection: true })
+      await updateDynasty(dynastyId, { teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...coachOffersUpdate }, { skipPlayersSubcollection: true })
     }
 
     return {
@@ -8555,6 +8834,22 @@ export function DynastyProvider({ children }) {
   // Shape: { [dynastyId]: { characters: {...}, feed: {...} } }
   const socialFetchedRef = useRef({}) // fetch-once-per-id guard
   const socialLoadedAtRef = useRef({}) // dynastyId -> socialUpdatedAt seen at last fetch
+  // Local (non-cloud) dynasties: remembers the RAW socialCharacters/
+  // socialFeedByYear references last written into socialByDynasty per id, so
+  // loadSocial can skip a redundant setState when neither has actually
+  // changed. Without this, loadSocial unconditionally called setSocialByDynasty
+  // on every invocation — harmless in isolation, but LeaguePreferences.jsx's
+  // effect depends on the loadSocial function reference itself (which is
+  // recreated every DynastyProvider render, not memoized), so: setState →
+  // re-render → new loadSocial reference → effect refires → loadSocial call →
+  // setState again → ... an infinite loop, confirmed via a real "Maximum
+  // update depth exceeded" freeze reported by the user. Any updateDynasty
+  // call that changes currentDynasty's reference (e.g. toggling an unrelated
+  // boolean like scoutStaffEnabled) could trigger this once the loop got
+  // started. This guard breaks the cycle at its root: once the raw source
+  // fields are unchanged, loadSocial returns the cached value without ever
+  // touching state again.
+  const localSocialSourceRef = useRef({})
 
   const getSocialFor = (dynastyId) => socialByDynasty[dynastyId] || { characters: {}, feed: {} }
   const setSocialFor = (dynastyId, patch) => {
@@ -8572,8 +8867,16 @@ export function DynastyProvider({ children }) {
     if (!dynasty) return { socialCharacters: {}, socialFeedByYear: {} }
 
     if (!socialIsCloud(dynasty, dynastyId)) {
-      const characters = dynasty.socialCharacters || {}
-      const feed = dynasty.socialFeedByYear || {}
+      const rawCharacters = dynasty.socialCharacters
+      const rawFeed = dynasty.socialFeedByYear
+      const last = localSocialSourceRef.current[dynastyId]
+      if (last && last.rawCharacters === rawCharacters && last.rawFeed === rawFeed) {
+        const cur = getSocialFor(dynastyId)
+        return { socialCharacters: cur.characters, socialFeedByYear: cur.feed }
+      }
+      localSocialSourceRef.current[dynastyId] = { rawCharacters, rawFeed }
+      const characters = rawCharacters || {}
+      const feed = rawFeed || {}
       setSocialByDynasty(prev => ({ ...prev, [dynastyId]: { characters, feed } }))
       return { socialCharacters: characters, socialFeedByYear: feed }
     }

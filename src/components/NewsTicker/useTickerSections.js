@@ -167,9 +167,16 @@ export function useTickerSections(dynasty) {
           items: [{ id: 'bye', label: 'BYE', labelColor: '#9ca3af', text: 'No game this week' }]
         })
       } else if (upcoming.opponent) {
-        // Check if game has already been played (has a linked game with scores)
+        // Check if game has already been played. A CFB27-synced but
+        // unplayed game already has team1Score/team2Score sitting at 0 as
+        // placeholders, so checking those fields for `!== undefined` always
+        // read "has a result" even for a genuinely unplayed game — that
+        // silently killed this whole section for exactly the situation
+        // it's meant for (a fresh dynasty's very first upcoming game).
+        // isGamePlayed() (used everywhere else in this file) checks the
+        // real isPlayed flag first, so it isn't fooled by a 0-0 placeholder.
         const linkedGame = upcoming.gameId ? (dynasty.games || []).find(g => g.id === upcoming.gameId) : null
-        const hasResult = linkedGame && (linkedGame.team1Score !== undefined || linkedGame.teamScore !== undefined)
+        const hasResult = linkedGame ? isGamePlayed(linkedGame) : false
 
         if (!hasResult) {
           // Get opponent abbreviation - prefer opponentTid, fall back to opponent string
@@ -1184,55 +1191,38 @@ export function useTickerSections(dynasty) {
       }
     })
 
-    // === 16. DYNASTY LEADERBOARDS ===
-    // Career leaderboards - one stat from each major category
+    // === 16. SEASON LEADERBOARDS ===
+    // Whole-league leaderboards, one stat from each major category — scoped
+    // to `displayYear` only (not summed across every year the dynasty has
+    // played), per explicit request: career totals aren't what most users
+    // want to see cycle through here, especially once a dynasty spans
+    // several seasons and old career numbers stop reflecting who's actually
+    // good RIGHT NOW.
     if (dynasty.players?.length > 0) {
       const rosterPlayers = dynasty.players.filter(p => !p.isHonorOnly)
 
-      // Aggregate career stats for each player
-      const careerStats = {}
+      const seasonStats = {}
       rosterPlayers.forEach(player => {
-        if (!player.statsByYear) return
+        const yearStats = player.statsByYear?.[displayYear] ?? player.statsByYear?.[String(displayYear)]
+        if (!yearStats) return
         const pid = player.pid
-
-        if (!careerStats[pid]) {
-          careerStats[pid] = {
-            pid,
-            name: player.name,
-            team: player.team,
-            passing: { yds: 0, td: 0 },
-            rushing: { yds: 0, td: 0 },
-            receiving: { yds: 0, td: 0 },
-            defense: { sacks: 0, int: 0, tkl: 0 },
-            kicking: { fgm: 0 }
-          }
+        seasonStats[pid] = {
+          pid,
+          name: player.name,
+          team: player.team,
+          passing: { yds: yearStats.passing?.yds || 0, td: yearStats.passing?.td || 0 },
+          rushing: { yds: yearStats.rushing?.yds || 0, td: yearStats.rushing?.td || 0 },
+          receiving: { yds: yearStats.receiving?.yds || 0, td: yearStats.receiving?.td || 0 },
+          defense: {
+            sacks: yearStats.defense?.sacks || 0,
+            int: yearStats.defense?.int || 0,
+            tkl: (yearStats.defense?.soloTkl || 0) + (yearStats.defense?.astTkl || 0),
+          },
+          kicking: { fgm: yearStats.kicking?.fgm || 0 },
         }
-
-        Object.values(player.statsByYear).forEach(yearStats => {
-          if (yearStats.passing) {
-            careerStats[pid].passing.yds += yearStats.passing.yds || 0
-            careerStats[pid].passing.td += yearStats.passing.td || 0
-          }
-          if (yearStats.rushing) {
-            careerStats[pid].rushing.yds += yearStats.rushing.yds || 0
-            careerStats[pid].rushing.td += yearStats.rushing.td || 0
-          }
-          if (yearStats.receiving) {
-            careerStats[pid].receiving.yds += yearStats.receiving.yds || 0
-            careerStats[pid].receiving.td += yearStats.receiving.td || 0
-          }
-          if (yearStats.defense) {
-            careerStats[pid].defense.sacks += yearStats.defense.sacks || 0
-            careerStats[pid].defense.int += yearStats.defense.int || 0
-            careerStats[pid].defense.tkl += (yearStats.defense.soloTkl || 0) + (yearStats.defense.astTkl || 0)
-          }
-          if (yearStats.kicking) {
-            careerStats[pid].kicking.fgm += yearStats.kicking.fgm || 0
-          }
-        })
       })
 
-      const allStats = Object.values(careerStats)
+      const allStats = Object.values(seasonStats)
 
       // Leaderboard definitions: [label, getter, minValue, unit]
       const leaderboards = [
@@ -1248,9 +1238,19 @@ export function useTickerSections(dynasty) {
         ['FG MADE', p => p.kicking.fgm, 1, '']
       ]
 
-      // Build all viable leaderboards, then pick ONE that rotates each render.
-      // Rotation seed uses currentWeek + currentYear so ticker content varies
-      // as the user advances through the dynasty.
+      // Build every viable leaderboard as its OWN section (not just one
+      // down-selected pick) — previously this only ever pushed a single
+      // category, chosen deterministically from currentYear + currentWeek,
+      // which stays constant for as long as the user stays on the same
+      // week. That made the ticker look stuck on whichever one category
+      // happened to be viable earliest (min thresholds below are
+      // deliberately uneven — FG MADE's bar of "made 1 kick" clears
+      // early in a dynasty long before PASS YDS's 500 does — so it was
+      // consistently the only entry, not a rotation problem). Pushing all
+      // of them lets the shared tier-3 rotation below cycle through
+      // whichever categories are ALREADY viable this week, and TIER
+      // GATING's dynamic tier3Cap gives them more room to actually show
+      // when there's little else in the ticker yet.
       const viableLeaderboards = leaderboards
         .map(([label, getter, minValue, unit]) => {
           const leaders = allStats
@@ -1261,13 +1261,10 @@ export function useTickerSections(dynasty) {
         })
         .filter(Boolean)
 
-      if (viableLeaderboards.length > 0) {
-        const rotationSeed = (Number(currentYear) || 0) + (Number(dynasty.currentWeek) || 0)
-        const chosen = viableLeaderboards[rotationSeed % viableLeaderboards.length]
-        const { label, getter, unit, leaders } = chosen
+      viableLeaderboards.forEach(({ label, getter, unit, leaders }) => {
         sections.push({
           type: 'leaderboard',
-          label: `CAREER ${label}`,
+          label: `${displayYear} ${label}`,
           headerLink: '/dynasty-records',
           items: leaders.map((p, i) => ({
             id: `lb${i}`,
@@ -1277,7 +1274,7 @@ export function useTickerSections(dynasty) {
             link: `/player/${p.pid}`
           }))
         })
-      }
+      })
     }
 
     // === 17. CAREER SUMMARY - Each season individually ===
@@ -1347,8 +1344,15 @@ export function useTickerSections(dynasty) {
     // Cap Tier 2 aggregates — more games present means fewer aggregates needed.
     const tier2Cap = tier1.length >= 4 ? 2 : tier1.length >= 2 ? 3 : tier2.length
 
-    // Always 1 Tier 3 slot — rotating — just enough flavor without dominating.
-    const tier3Cap = 1
+    // Tier 3 slot count scales with how much substantial content (Tier
+    // 1+2) already exists — early in a dynasty, before there are real
+    // games/season stats to show, Tier 3 (leaderboards, achievements,
+    // records, etc.) is effectively the whole ticker, so it gets more
+    // room; once real season content exists, it tapers back down to a
+    // single rotating slot so old bowls/career stats don't crowd out
+    // what's actually happening this season.
+    const substantialCount = tier1.length + tier2.length
+    const tier3Cap = substantialCount === 0 ? 5 : substantialCount <= 2 ? 3 : 1
 
     // Stable seed so the rotating picks don't flicker every render.
     const seed = (Number(currentYear) || 0) + (Number(dynasty.currentWeek) || 0)

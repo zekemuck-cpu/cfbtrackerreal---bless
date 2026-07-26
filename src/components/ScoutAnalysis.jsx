@@ -14,6 +14,8 @@ import { recruitingPosLabel } from '../utils/recruitAttributes';
 import { isPlayerOnRoster } from '../context/DynastyContext';
 import { buildRevealedPool } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap } from '../utils/devPrediction';
+import { getContrastTextColor } from '../utils/colorUtils';
+import { Modal } from './ui';
 
 // Drop target for a sub-position group in the Current Roster list — the whole
 // group section (header + its rows) accepts a dropped player tile.
@@ -216,7 +218,7 @@ function buildSubHub(subLabel, subPlayers, stats, recruitStrategy, extraTargets,
 }
 
 function getGrade(score) {
-  if (score == null) return { grade: '-', cls: 'text-slate-500 bg-surface-3 border-surface-4' };
+  if (score == null) return { grade: '-', cls: 'text-txt-tertiary bg-surface-3 border-surface-4' };
   if (score >= 95) return { grade: 'A+', cls: 'text-emerald-300 bg-emerald-950 border-emerald-600' };
   if (score >= 90) return { grade: 'A',  cls: 'text-emerald-300 bg-emerald-950 border-emerald-700' };
   if (score >= 86) return { grade: 'A-', cls: 'text-emerald-400 bg-surface-3 border-emerald-800' };
@@ -263,7 +265,7 @@ const URGENCY_UI = {
   high:   { label: 'Priority',   cls: 'bg-red-950 border border-red-700 text-red-400' },
   medium: { label: 'Needed',     cls: 'bg-amber-950 border border-amber-700 text-amber-400' },
   low:    { label: 'Deep',       cls: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
-  empty:  { label: 'Untracked',  cls: 'bg-slate-800 border border-slate-700 text-slate-400' },
+  empty:  { label: 'Untracked',  cls: 'bg-surface-3 border border-surface-4 text-txt-tertiary' },
 };
 
 // ── Recommendation engine ─────────────────────────────────────────────────────
@@ -385,10 +387,10 @@ function buildRec(pos, arch, matchingPlayers, weightsMap = null, pool = null) {
 // Critical/Depth-Needed colors match the Daily Brief's Position Status counts
 // exactly (#E3242B / #FFC72C) — same two verdicts, same meaning, one palette.
 const VERDICT_STYLES = {
-  critical:        { head: 'text-[#E3242B]',   badge: 'bg-surface-3 border border-[#7A1F1F] text-[#E3242B]' },
-  'depth-needed':  { head: 'text-[#FFC72C]',   badge: 'bg-surface-3 border border-[#8A6D1A] text-[#FFC72C]' },
+  critical:        { head: 'text-[color:var(--accent-error)]',   badge: 'bg-surface-3 border border-[color:var(--accent-error)] text-[color:var(--accent-error)]' },
+  'depth-needed':  { head: 'text-[color:var(--accent-warning)]',   badge: 'bg-surface-3 border border-[color:var(--accent-warning)] text-[color:var(--accent-warning)]' },
   extra:           { head: 'text-emerald-300', badge: 'bg-emerald-950 border border-emerald-700 text-emerald-400' },
-  'no-investment': { head: 'text-slate-400',   badge: 'bg-slate-800 border border-slate-600 text-slate-400' },
+  'no-investment': { head: 'text-txt-tertiary',   badge: 'bg-surface-3 border border-surface-5 text-txt-tertiary' },
 };
 
 // Small chevron used to mark a pill as a dropdown trigger.
@@ -1291,7 +1293,7 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export default function ScoutAnalysis({ players = [], removedRecruits = [], onToggleBoardRemoved = null, teamColors, teamLogo, dynasty, committedRecruits = [], onOutlookReady, jumpToPos = null, resetToOverviewKey = null, actionsRef = null }) {
+export default function ScoutAnalysis({ players = [], removedRecruits = [], onToggleBoardRemoved = null, teamColors, teamLogo, dynasty, committedRecruits = [], onOutlookReady, jumpToPos = null, resetToOverviewKey = null, actionsRef = null, onReady = null }) {
   const { getStaffData, saveStaffData } = createStaffAccessor(dynasty?.id ?? null);
   const navigate = useNavigate();
 
@@ -1334,6 +1336,8 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   );
 
   const p = teamColors?.primary || '#374151';
+  const teamAccent = p;
+  const teamBgText = getContrastTextColor(teamAccent);
   const onOutlookReadyRef = React.useRef(onOutlookReady);
   useEffect(() => { onOutlookReadyRef.current = onOutlookReady; });
   const [activePos, setActivePos]   = useState('QB');
@@ -1354,6 +1358,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   const [verdictOverrides, setVerdictOverrides]   = useState({}); // pos → 'critical'|'depth-needed'|'extra'|'no-investment' (manual pin; absent = auto)
   const [depthTagOverrides, setDepthTagOverrides] = useState({}); // pos → 'Bare'|'Thin'|'Solid'|'Deep'|'Loaded' (manual pin; absent = auto)
   const [showConfig, setShowConfig]             = useState(false);
+  const [showHelp, setShowHelp]                 = useState(false);
 
   // Revealed-devTrait HS recruit pool — nudges archetype grading once enough data exists.
   const revealedPool = useMemo(() => buildRevealedPool(players), [players]);
@@ -1460,6 +1465,14 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   // Hand the latest adjustExtraTargets up to ScoutStaff.jsx so Daily Brief can
   // call it too — see actionsRef comment at the call site in ScoutStaff.jsx.
   if (actionsRef) actionsRef.current.adjustExtraTargets = adjustExtraTargets;
+  // The header toolbar (title/Help/Configure) now renders in Recruiting.jsx's
+  // own hero — same actionsRef bridges those buttons to this component's
+  // local state, matching the pattern above.
+  if (actionsRef) {
+    actionsRef.current.toggleConfig = () => setShowConfig(c => !c);
+    actionsRef.current.openHelp = () => setShowHelp(true);
+  }
+  useEffect(() => { onReady?.({ showConfig }); }, [showConfig]);
 
   // Manual overrides — the coach can pin a position's verdict badge and/or
   // room depth tag by hand, overriding the computed value. A dropdown menu
@@ -1940,6 +1953,14 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
     return result;
   }, [players, rosterContext, rosterCapacity, posRecruitStrategy, posExtraTargets, calendarCtx, weightsMap, verdictOverrides, depthTagOverrides, revealedPool]);
 
+  // Critical/Depth Needed/Covered counts — lifted up here (rather than
+  // recomputed inline inside the Overview panel) so the attached header
+  // toolbar can show them regardless of which position tab is active.
+  const nonAthPositions = useMemo(() => POSITIONS.filter(p => p !== 'ATH'), []);
+  const criticals = useMemo(() => nonAthPositions.filter(p => allHubs[p]?.verdict?.key === 'critical'), [nonAthPositions, allHubs]);
+  const depthNeeded = useMemo(() => nonAthPositions.filter(p => allHubs[p]?.verdict?.key === 'depth-needed'), [nonAthPositions, allHubs]);
+  const coveredCount = nonAthPositions.length - criticals.length - depthNeeded.length;
+
   // Save compact summary whenever allHubs updates so Daily Brief can read it
   useEffect(() => {
     const summary = {};
@@ -2016,61 +2037,47 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   return (
     <div className="space-y-4">
 
-      {/* Portrait + Info row */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch">
-        {/* Analyst portrait card */}
-        <div className="relative rounded-xl overflow-hidden w-full h-32 sm:w-[110px] sm:h-[100px] sm:flex-shrink-0">
-          {analystImg
-            ? <img src={analystImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
-            : <div className="absolute inset-0 bg-surface-3" />
-          }
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85) 90%, rgba(0,0,0,0.95) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 85%, #34d39955 100%)' }} />
-          <p className="absolute top-2 right-2 text-[5px] font-semibold tracking-wider leading-snug pointer-events-none" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
-          <div className="absolute bottom-0 left-0 right-0 p-2.5 pointer-events-none">
-            <div className="w-6 h-0.5 mb-1 rounded-full" style={{ background: '#34d399' }} />
-            {(() => {
-              const parts = analystName.trim().split(/\s+/);
-              const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
-              const ln = parts[parts.length - 1];
-              return <>
-                {fn && <p className="text-[6px] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
-                <p className="text-xs font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
-              </>;
-            })()}
-          </div>
+      {/* The header toolbar (title/Help/Configure) now renders inside
+          Recruiting.jsx's own hero section — see the actionsRef wiring
+          above. The Help modal itself still lives here since Modal portals
+          to document.body regardless of where it's declared. */}
+      <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Program Outlook" size="sm">
+        <div className="space-y-3 text-xs text-txt-secondary leading-relaxed">
+          <p>
+            A full breakdown of roster needs by position — track departures, commits, and
+            recruiting targets, and see where the program needs the most attention this cycle.
+          </p>
+          <p>
+            <span className="font-bold text-txt-primary">Configure</span> opens per-position
+            settings: the Starter OVR Threshold (the minimum OVR to count a player as
+            starter-caliber) and Starters Needed Per Position (how many starters you want at
+            each spot). Both feed directly into the Critical Need / Depth Needed calculations.
+          </p>
+          <p>
+            <span className="font-bold text-txt-primary">1YR / 2YR / 3YR / Non-Starter</span> pills
+            on a roster row let you manually override that player's projected path to starting.
+            Click to cycle: 1yr → 2yr → 3yr → Non-Starter → clear (back to the auto-computed
+            projection).
+          </p>
+          <p>
+            <span className="font-bold text-txt-primary">Leaving</span> pills mark departure risk
+            for underclassmen. Click to cycle: Draft Risk → Transfer Risk → Cut → clear. Seniors
+            get a fixed "Leaving" tag instead, since they're leaving after this season regardless.
+          </p>
         </div>
+      </Modal>
 
-        {/* Info card */}
-        <div className="flex-1 rounded-xl p-3 flex items-start justify-between gap-3 bg-surface-2 border border-surface-4 sm:h-[100px]">
-          <div className="flex flex-col justify-center gap-1.5 h-full">
-            <p className="text-base font-semibold text-txt-primary">Program Outlook</p>
-            <p className="text-xs text-txt-tertiary leading-snug">A full breakdown of roster needs by position — track departures, commits, and recruiting targets, and see where the program needs the most attention this cycle.</p>
-          </div>
-          <div className="flex-shrink-0 flex items-center gap-2">
-            <button
-              onClick={() => setShowConfig(c => !c)}
-              className={`text-[10px] font-display font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition ${
-                showConfig
-                  ? 'bg-emerald-700 text-white border-emerald-600'
-                  : 'border-surface-4 text-txt-secondary hover:text-txt-primary hover:bg-surface-3'
-              }`}
-            >
-              Configure
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main panel */}
-      <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[560px] bg-surface-2 border border-surface-4">
+      {/* Main panel — position nav is now a horizontal tab strip docked across
+          the top instead of a cramped vertical rail, so every position gets
+          real room instead of being squeezed into a 112px-wide column. */}
+      <div className="card overflow-hidden flex flex-col min-h-[560px]">
 
         {/* Position nav */}
-        <div className="w-full md:w-28 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
+        <div className="bg-surface-3 border-b border-surface-4 px-2 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none shrink-0">
           <button
             onClick={() => { setIsOverview(true); setActiveArch(null); }}
-            style={isOverview ? { backgroundColor: p, color: '#fff' } : undefined}
-            className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
+            style={isOverview ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
+            className={`font-display text-xs font-bold uppercase tracking-wider px-3.5 py-2 rounded-lg transition shrink-0 text-center ${
               isOverview
                 ? ''
                 : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
@@ -2078,7 +2085,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
           >
             Overview
           </button>
-          <div className="w-full h-px bg-surface-4 shrink-0 md:block hidden" />
+          <div className="w-px h-6 bg-surface-4 shrink-0 mx-1" />
           {POSITIONS.map(pos => {
             const posCount = players.filter(pl => pl.position === pos).length;
             const hasT1    = players.some(pl => pl.position === pos && getTier(computeScore(pl, weightsMap, revealedPool)) === 0);
@@ -2092,8 +2099,8 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
               <button
                 key={pos}
                 onClick={() => handlePosChange(pos)}
-                style={!isOverview && activePos === pos ? { backgroundColor: p, color: '#fff' } : undefined}
-                className={`relative text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-center ${
+                style={!isOverview && activePos === pos ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
+                className={`relative font-display text-xs font-bold uppercase tracking-wider px-3.5 py-2 rounded-lg transition shrink-0 text-center ${
                   !isOverview && activePos === pos
                     ? ''
                     : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
@@ -2101,20 +2108,20 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
               >
                 {recruitingPosLabel(pos)}
                 {isCritical && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
+                  <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
                 )}
                 {!isCritical && isDepthNeeded && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-yellow-400" />
+                  <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-yellow-400" />
                 )}
                 {!isCritical && !isDepthNeeded && planTotal > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400" />
+                  <span className="absolute top-1 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* Right panel */}
+        {/* Content panel */}
         <div className="flex-1 flex flex-col min-w-0">
 
           {/* ── CONFIGURE PANEL ── */}
@@ -2137,7 +2144,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                         min="60" max="99"
                         value={starterOvr[pos] ?? 80}
                         onChange={e => handleOvrChange(pos, e.target.value)}
-                        className="w-12 bg-surface-4 border border-slate-700 text-[11px] font-bold text-txt-primary text-center rounded px-1 py-0.5 focus:outline-none focus:border-emerald-600"
+                        className="w-12 bg-surface-4 border border-surface-4 text-[11px] font-bold text-txt-primary text-center rounded px-1 py-0.5 focus:outline-none focus:border-emerald-600"
                       />
                       <span className="text-[8px] text-txt-tertiary">OVR</span>
                     </div>
@@ -2146,13 +2153,13 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 <div className="flex items-center gap-3 flex-wrap">
                   <button
                     onClick={() => bulkSetOvr(85)}
-                    className="text-[9px] font-bold px-2.5 py-1 rounded-md bg-surface-4 border border-slate-700 text-txt-secondary hover:text-txt-primary hover:border-slate-500 transition"
+                    className="text-[9px] font-bold px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition"
                   >
                     Set All 85
                   </button>
                   <button
                     onClick={() => bulkSetOvr(90)}
-                    className="text-[9px] font-bold px-2.5 py-1 rounded-md bg-surface-4 border border-slate-700 text-txt-secondary hover:text-txt-primary hover:border-slate-500 transition"
+                    className="text-[9px] font-bold px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary hover:text-txt-primary hover:border-surface-5 transition"
                   >
                     Set All 90
                   </button>
@@ -2184,9 +2191,9 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                     return (
                       <div key={pos} className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${isCustom ? 'bg-surface-3 border-surface-4' : 'bg-surface-2 border-surface-4'}`}>
                         <span className="text-[10px] font-black uppercase text-txt-secondary w-8 shrink-0">{recruitingPosLabel(pos)}</span>
-                        <button onClick={() => set(current - 1)} className="w-5 h-5 flex items-center justify-center rounded border border-slate-700 text-slate-400 text-xs font-black hover:border-slate-500 disabled:opacity-30 transition" disabled={current <= 1}>−</button>
+                        <button onClick={() => set(current - 1)} className="w-5 h-5 flex items-center justify-center rounded border border-surface-4 text-txt-tertiary text-xs font-black hover:border-surface-5 disabled:opacity-30 transition" disabled={current <= 1}>−</button>
                         <span className={`text-[11px] font-black w-4 text-center tabular-nums ${isCustom ? 'text-emerald-400' : 'text-txt-primary'}`}>{current}</span>
-                        <button onClick={() => set(current + 1)} className="w-5 h-5 flex items-center justify-center rounded border border-slate-700 text-slate-400 text-xs font-black hover:border-slate-500 disabled:opacity-30 transition" disabled={current >= 5}>+</button>
+                        <button onClick={() => set(current + 1)} className="w-5 h-5 flex items-center justify-center rounded border border-surface-4 text-txt-tertiary text-xs font-black hover:border-surface-5 disabled:opacity-30 transition" disabled={current >= 5}>+</button>
                       </div>
                     );
                   })}
@@ -2207,86 +2214,91 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
 
           {/* ── OVERVIEW PANEL ── */}
           {!showConfig && isOverview && (() => {
-            const positions = POSITIONS.filter(p => p !== 'ATH');
-            const criticals    = positions.filter(p => allHubs[p]?.verdict?.key === 'critical');
-            const depthNeeded  = positions.filter(p => allHubs[p]?.verdict?.key === 'depth-needed');
+            // criticals/depthNeeded/coveredCount now come from the outer
+            // component scope (see above allHubs) so the attached header
+            // toolbar can show the same counts regardless of active tab.
+            const positions = nonAthPositions;
             const totalPortalMax = positions.reduce((s, p) => s + (allHubs[p]?.recruitTarget?.portalMax ?? 0), 0);
             const totalHsMax     = positions.reduce((s, p) => s + (allHubs[p]?.recruitTarget?.hsMax ?? 0), 0);
             const totalMax = totalPortalMax + totalHsMax;
             const { available, returning, leaving } = rosterCapacity;
 
             return (
-              <div className="flex-1 flex overflow-hidden">
-              <div className="flex-1 overflow-y-auto divide-y divide-surface-4">
+              <div className="flex-1 overflow-y-auto">
 
-                {/* Class size summary strip */}
-                <div className="px-5 py-3 flex items-center justify-between gap-4 flex-wrap bg-surface-3">
-                  <div className="flex items-center gap-5 flex-wrap text-[11px] font-black uppercase tracking-wide">
-                    {criticals.length > 0 && <span className="text-[#E3242B]">{criticals.length} Critical</span>}
-                    {depthNeeded.length > 0 && <span className="text-[#FFC72C]">{depthNeeded.length} Depth Needed</span>}
-                    {criticals.length === 0 && depthNeeded.length === 0 && (
-                      <span className="text-emerald-400">All Positions Covered</span>
-                    )}
+                {/* Stat band — plain, whitespace-separated, no boxed strip */}
+                <div className="flex items-end gap-10 px-4 sm:px-5 pt-5 pb-4">
+                  <div>
+                    <p className="font-display text-3xl sm:text-4xl font-black leading-none" style={{ color: criticals.length > 0 ? 'var(--accent-error)' : 'var(--text-tertiary)' }}>{criticals.length}</p>
+                    <p className="label-xs mt-1" style={{ color: 'var(--accent-error)' }}>Critical</p>
+                  </div>
+                  <div>
+                    <p className="font-display text-3xl sm:text-4xl font-black leading-none" style={{ color: depthNeeded.length > 0 ? 'var(--accent-warning)' : 'var(--text-tertiary)' }}>{depthNeeded.length}</p>
+                    <p className="label-xs mt-1" style={{ color: 'var(--accent-warning)' }}>Depth Needed</p>
+                  </div>
+                  <div>
+                    <p className="font-display text-3xl sm:text-4xl font-black leading-none text-txt-primary">{coveredCount}</p>
+                    <p className="label-xs mt-1" style={{ color: 'var(--accent-success)' }}>Covered</p>
                   </div>
                 </div>
 
-                <div className="p-4 space-y-5">
+                <div className="px-4 sm:px-5 pb-5 space-y-6">
 
-                {/* Critical needs */}
+                {/* Critical needs — full-bleed colored bar rows, matching the
+                    Conference Standings row treatment (colored fill, no
+                    per-row border box) instead of a grid of bordered cards. */}
                 {criticals.length > 0 && (
-                  <div className="space-y-2">
-                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2.5 py-1 rounded-md ${VERDICT_STYLES.critical.badge}`}><WarningTriangle className="w-3 h-3" />Critical Need</span>
-                    {criticals.map(pos => {
-                      const h  = allHubs[pos];
-                      return (
-                        <button key={pos} onClick={() => handlePosChange(pos)}
-                          className="w-full text-left rounded-xl border border-surface-4 bg-surface-3 overflow-hidden hover:bg-surface-4 transition">
-                          <div className="px-4 py-2.5 border-b border-surface-4 flex items-center justify-between gap-3">
-                            <span className="text-[11px] font-black uppercase tracking-wide text-[#E3242B]">{recruitingPosLabel(pos)}</span>
-                            <div className="flex items-center gap-1.5">
-                              {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
-                              {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
+                  <div>
+                    <p className="label-sm mb-2" style={{ color: 'var(--accent-error)' }}>Critical Need</p>
+                    <div className="rounded-lg overflow-hidden divide-y divide-surface-1">
+                      {criticals.map(pos => {
+                        const h  = allHubs[pos];
+                        return (
+                          <button key={pos} onClick={() => handlePosChange(pos)}
+                            className="w-full flex items-center gap-4 px-4 py-3 text-left transition hover:brightness-110"
+                            style={{ background: 'color-mix(in srgb, var(--accent-error) 16%, var(--surface-2))' }}>
+                            <span className="font-display text-sm font-black uppercase tracking-wide w-16 shrink-0" style={{ color: 'var(--accent-error)' }}>{recruitingPosLabel(pos)}</span>
+                            <p className="flex-1 min-w-0 text-sm text-txt-secondary truncate">{h.headline}</p>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2 py-1 rounded-md bg-black/20 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
+                              {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2 py-1 rounded-md bg-black/20 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
                             </div>
-                          </div>
-                          <div className="px-4 py-2.5">
-                            <p className="text-[11px] text-slate-300 leading-relaxed">{h.headline}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-                {/* Depth Needed */}
+                {/* Depth Needed — same colored-bar treatment */}
                 {depthNeeded.length > 0 && (
-                  <div className="space-y-2">
-                    <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2.5 py-1 rounded-md ${VERDICT_STYLES['depth-needed'].badge}`}><WarningTriangle className="w-3 h-3" />Depth Needed · 2–3 Years</span>
-                    {depthNeeded.map(pos => {
-                      const h = allHubs[pos];
-                      return (
-                        <button key={pos} onClick={() => handlePosChange(pos)}
-                          className="w-full text-left rounded-xl border border-surface-4 bg-surface-3 overflow-hidden hover:bg-surface-4 transition">
-                          <div className="px-4 py-2.5 border-b border-surface-4 flex items-center justify-between gap-3">
-                            <span className="text-[11px] font-black uppercase tracking-wide text-[#FFC72C]">{recruitingPosLabel(pos)}</span>
-                            <div className="flex items-center gap-1.5">
-                              {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
-                              {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2.5 py-1 rounded-md bg-surface-4 border border-surface-4 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
+                  <div>
+                    <p className="label-sm mb-2" style={{ color: 'var(--accent-warning)' }}>Depth Needed · 2–3 Years</p>
+                    <div className="rounded-lg overflow-hidden divide-y divide-surface-1">
+                      {depthNeeded.map(pos => {
+                        const h = allHubs[pos];
+                        return (
+                          <button key={pos} onClick={() => handlePosChange(pos)}
+                            className="w-full flex items-center gap-4 px-4 py-3 text-left transition hover:brightness-110"
+                            style={{ background: 'color-mix(in srgb, var(--accent-warning) 16%, var(--surface-2))' }}>
+                            <span className="font-display text-sm font-black uppercase tracking-wide w-16 shrink-0" style={{ color: 'var(--accent-warning)' }}>{recruitingPosLabel(pos)}</span>
+                            <p className="flex-1 min-w-0 text-sm text-txt-secondary truncate">{h.headline}</p>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {(h.recruitTarget?.portalMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2 py-1 rounded-md bg-black/20 text-txt-secondary">{h.recruitTarget.portalMin} Portal</span>}
+                              {(h.recruitTarget?.hsMin ?? 0) > 0 && <span className="text-[10px] font-semibold uppercase px-2 py-1 rounded-md bg-black/20 text-txt-secondary">{h.recruitTarget.hsMin} HS</span>}
                             </div>
-                          </div>
-                          <div className="px-4 py-2.5">
-                            <p className="text-[11px] text-slate-300 leading-relaxed">{h.headline}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-
-                </div>
-              </div>
-
-              {/* Right: aggregate Recruiting Plan across every position that needs investment */}
+              {/* Recruiting Plan — full-width section below, replacing the old
+                  cramped w-72 sidebar so every position group gets real room.
+                  The Offense/Defense/Special Teams position+target breakdown
+                  grid itself only shows inside the expanded modal now — the
+                  inline view here just shows the totals + expand button. */}
               {(() => {
                 const needPositions = positions.filter(pos => (allHubs[pos]?.recruitTarget?.hsMin ?? 0) > 0 || (allHubs[pos]?.recruitTarget?.portalMin ?? 0) > 0);
                 const totalHs     = needPositions.reduce((s, pos) => s + (allHubs[pos]?.recruitTarget?.hsMin ?? 0), 0);
@@ -2319,7 +2331,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                     if (named) portalPills.push({ label: topName, pid: topPid });
                     for (let i = 0; i < (named ? planPortal - 1 : planPortal); i++) portalPills.push({ label: '1 Portal', pid: null });
                   }
-                  const posColor = h.verdict.key === 'critical' ? 'text-[#E3242B]' : h.verdict.key === 'depth-needed' ? 'text-[#FFC72C]' : 'text-txt-secondary';
+                  const posColor = h.verdict.key === 'critical' ? 'text-[color:var(--accent-error)]' : h.verdict.key === 'depth-needed' ? 'text-[color:var(--accent-warning)]' : 'text-txt-secondary';
                   return (
                     <div key={pos} className="space-y-1.5">
                       <p className={`text-[11px] font-black tracking-wide ${posColor}`}>{recruitingPosLabel(pos)}</p>
@@ -2329,18 +2341,12 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                   );
                 };
 
-                // One Offense/Defense/Special Teams column for the narrow sidebar list.
-                const renderGroupList = (label, posList) => posList.length ? (
-                  <div className="space-y-3">
-                    <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-600">{label}</p>
-                    {posList.map(pos => renderPosCard(pos))}
-                  </div>
-                ) : null;
-
-                // One Offense/Defense/Special Teams section for the wide expanded grid.
+                // One Offense/Defense/Special Teams section — used both for
+                // the inline full-width view and the expanded modal now that
+                // neither is squeezed into a narrow sidebar anymore.
                 const renderGroupGrid = (label, posList) => posList.length ? (
                   <div>
-                    <p className="text-xs font-display font-black uppercase tracking-[0.12em] text-slate-500 mb-3 pb-2 border-b border-surface-4">{label}</p>
+                    <p className="text-xs font-display font-black uppercase tracking-[0.12em] text-txt-tertiary mb-3 pb-2 border-b border-surface-4">{label}</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-5">
                       {posList.map(pos => renderPosCard(pos))}
                     </div>
@@ -2348,60 +2354,50 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 ) : null;
 
                 const totalsRow = (
-                  <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                  <div className="flex flex-wrap items-end gap-x-8 gap-y-2">
                     {totalHs > 0 && (
                       <div>
-                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5 whitespace-nowrap">HS Targets</p>
+                        <p className="font-display text-2xl font-black leading-none text-txt-primary">{totalHs}</p>
+                        <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">HS Targets</p>
                       </div>
                     )}
                     {totalPortal > 0 && (
                       <div>
-                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5 whitespace-nowrap">Portal</p>
+                        <p className="font-display text-2xl font-black leading-none text-txt-primary">{totalPortal}</p>
+                        <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Portal</p>
                       </div>
                     )}
                     <div>
-                      <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
-                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Total</p>
+                      <p className="font-display text-2xl font-black leading-none text-txt-tertiary">{totalHs + totalPortal}</p>
+                      <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Total</p>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-[20px] font-black leading-none ${(returning + (rosterCapacity.committed ?? 0) + totalHs + totalPortal) > 85 ? 'text-red-400' : 'text-slate-400'}`}>
-                        {returning + (rosterCapacity.committed ?? 0) + totalHs + totalPortal}<span className="text-[13px] text-slate-600">/85</span>
+                    <div>
+                      <p className={`font-display text-2xl font-black leading-none ${(returning + (rosterCapacity.committed ?? 0) + totalHs + totalPortal) > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}>
+                        {returning + (rosterCapacity.committed ?? 0) + totalHs + totalPortal}<span className="text-sm text-txt-muted">/85</span>
                       </p>
-                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Proj. Roster</p>
+                      <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Proj. Roster</p>
                     </div>
                   </div>
                 );
 
+                if (totalMax === 0) return null;
+
                 return (
                   <>
-                  <div className="w-72 shrink-0 border-l border-surface-4 overflow-y-auto p-3 space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Recruiting Plan</p>
-                      {totalMax > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setPlanExpanded(true)}
-                          title="Expand Recruiting Plan"
-                          className="p-1 -m-1 rounded text-txt-tertiary hover:text-txt-primary hover:bg-surface-4 transition"
-                        >
-                          <ExpandIcon className="w-3 h-3" />
-                        </button>
-                      )}
+                  <div className="pt-2 border-t border-surface-4">
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      <p className="label-sm text-txt-tertiary">Recruiting Plan</p>
+                      <button
+                        type="button"
+                        onClick={() => setPlanExpanded(true)}
+                        title="Expand Recruiting Plan"
+                        className="p-1 -m-1 rounded text-txt-tertiary hover:text-txt-primary hover:bg-surface-4 transition"
+                      >
+                        <ExpandIcon className="w-3 h-3" />
+                      </button>
                     </div>
-                    {totalMax === 0 ? (
-                      <p className="text-[10px] text-txt-tertiary">No investment needed</p>
-                    ) : (
-                      <>
-                      {totalsRow}
-                      <div className="space-y-4">
-                        {renderGroupList('Offense', offPositions)}
-                        {renderGroupList('Defense', defPositions)}
-                        {renderGroupList('Special Teams', stPositions)}
-                      </div>
-                      </>
-                    )}
+                    {/* Position-by-position breakdown only shows in the expanded modal now — see below. */}
+                    {totalsRow}
                   </div>
 
                   {planExpanded && (
@@ -2432,15 +2428,15 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                           </button>
                           <div className="flex flex-col items-center text-center gap-5">
                             {dynasty?.currentYear && (
-                              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">{dynasty.currentYear}</p>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-txt-muted">{dynasty.currentYear}</p>
                             )}
                             <p className="text-sm font-display font-bold uppercase text-txt-primary">Recruiting Plan</p>
                             <div className="flex flex-col items-center">
                               <div className="inline-grid grid-cols-2">
-                                <span className="text-[20px] font-black leading-none text-slate-400 text-right">{currentRoster}</span>
-                                <span className="text-[20px] font-black leading-none text-left"><span className="text-slate-600">/85</span></span>
+                                <span className="text-[20px] font-black leading-none text-txt-tertiary text-right">{currentRoster}</span>
+                                <span className="text-[20px] font-black leading-none text-left"><span className="text-txt-muted">/85</span></span>
                               </div>
-                              <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{dynasty?.currentYear ? `Current ${dynasty.currentYear + 1} Roster` : 'Current Roster'}</p>
+                              <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">{dynasty?.currentYear ? `Current ${dynasty.currentYear + 1} Roster` : 'Current Roster'}</p>
                             </div>
                             <div className="w-80 grid grid-cols-[1fr_auto_1fr] items-end">
                               <div className="text-center">
@@ -2460,19 +2456,20 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                                 )}
                               </div>
                               <div className="text-center">
-                                <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Total</p>
+                                <p className="text-[20px] font-black leading-none text-txt-tertiary">{totalHs + totalPortal}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">Total</p>
                               </div>
                             </div>
                             <div className="flex flex-col items-center">
                               <div className="inline-grid grid-cols-2">
-                                <span className={`text-[20px] font-black leading-none text-right ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}>{projRoster}</span>
-                                <span className={`text-[20px] font-black leading-none text-left ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}><span className="text-slate-600">/85</span></span>
+                                <span className={`text-[20px] font-black leading-none text-right ${projRoster > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}>{projRoster}</span>
+                                <span className={`text-[20px] font-black leading-none text-left ${projRoster > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}><span className="text-txt-muted">/85</span></span>
                               </div>
-                              <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{dynasty?.currentYear ? `Proj. ${dynasty.currentYear + 1} Roster` : 'Proj. Roster'}</p>
+                              <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">{dynasty?.currentYear ? `Proj. ${dynasty.currentYear + 1} Roster` : 'Proj. Roster'}</p>
                             </div>
                           </div>
                         </div>
+
                         <div className="space-y-6">
                           {renderGroupGrid('Offense', offPositions)}
                           {renderGroupGrid('Defense', defPositions)}
@@ -2485,6 +2482,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 );
               })()}
 
+              </div>
               </div>
             );
           })()}
@@ -2518,7 +2516,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                       <select
                         value={athPositions[pl.pid] || defaultPos}
                         onChange={e => setAthPosition(pl.pid, e.target.value)}
-                        className="bg-surface-4 border border-slate-700 text-[10px] font-bold text-txt-primary rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-600 cursor-pointer"
+                        className="bg-surface-4 border border-surface-4 text-[10px] font-bold text-txt-primary rounded px-1.5 py-0.5 focus:outline-none focus:border-emerald-600 cursor-pointer"
                       >
                         {NON_ATH.map(p => <option key={p} value={p}>{p}</option>)}
                       </select>
@@ -2542,19 +2540,19 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                     </div>
                     {rosterAth.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">On Roster</p>
+                        <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">On Roster</p>
                         {rosterAth.map(pl => renderRow(pl, 'Roster'))}
                       </div>
                     )}
                     {posPlayers.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">Board Targets</p>
+                        <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Board Targets</p>
                         {posPlayers.map(pl => renderRow(pl, null))}
                       </div>
                     )}
                     {posRemovedPlayers.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">Removed</p>
+                        <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Removed</p>
                         {posRemovedPlayers.map(pl => renderRow(pl, 'Removed'))}
                       </div>
                     )}
@@ -2569,11 +2567,10 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
 
 
           {/* ── HUB VIEW ── */}
-          <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-5 space-y-6 flex-1 overflow-y-auto">
 
               {/* ── Situation Card: verdict + roster + analyst read ── */}
               {(() => {
-                const boxBg = 'bg-surface-2 border-surface-4';
                 // Positions with independent sides (OT/OG/DE/OLB) get their own
                 // verdict/headline/targeting per sub-position instead of one
                 // blended read for the whole group — the coach can work LT and
@@ -2595,7 +2592,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                   const effPortal = saved?.portal !== undefined ? saved.portal : (hubLike.autoStrategy?.portal ?? false);
                   return (
                     <div key={key}>
-                      {label && <p className="text-[9px] font-display font-black uppercase tracking-wide text-txt-secondary mb-1">{label}</p>}
+                      {label && <p className="text-xs font-display font-black uppercase tracking-wide text-txt-secondary mb-1">{label}</p>}
                       <div className="flex gap-2 items-center flex-wrap">
                         {[
                           { type: 'hs',     label: 'HS Recruit',    activeClass: 'bg-surface-4 border-surface-5 text-txt-primary', autoClass: 'bg-surface-3 border-surface-4 text-txt-secondary' },
@@ -2608,8 +2605,8 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                             <button
                               key={type}
                               onClick={() => toggleRecruitStrategy(key, type)}
-                              className={`text-[9px] font-display font-black uppercase tracking-wide px-3 py-1.5 rounded border transition-all ${
-                                isActive ? (isAuto ? autoClass : activeClass) : 'bg-slate-900 border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-400'
+                              className={`text-xs font-display font-black uppercase tracking-wide px-3.5 py-2 rounded border transition-all ${
+                                isActive ? (isAuto ? autoClass : activeClass) : 'bg-surface-2 border-surface-4 text-txt-tertiary hover:border-surface-5 hover:text-txt-tertiary'
                               }`}
                             >
                               {btnLabel}
@@ -2618,14 +2615,14 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                         })}
                         {(() => {
                           const anyManual = saved?.hs !== undefined || saved?.portal !== undefined;
-                          if (anyManual) return <span className="text-[8px] text-slate-600">· click again to remove</span>;
-                          if (hubLike.autoStrategy?.portal || hubLike.autoStrategy?.hs) return <span className="text-[8px] text-slate-600">· recommended · click to confirm or deselect</span>;
+                          if (anyManual) return <span className="text-[10px] text-txt-muted">· click again to remove</span>;
+                          if (hubLike.autoStrategy?.portal || hubLike.autoStrategy?.hs) return <span className="text-[10px] text-txt-muted">· recommended · click to confirm or deselect</span>;
                           return null;
                         })()}
                       </div>
                       {(effHs || effPortal) && (
                         <div className="mt-2 space-y-1.5">
-                          <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">Adjust target count</p>
+                          <p className="text-[10px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Adjust target count</p>
                           {[
                             { type: 'hs',     label: 'HS Recruit',    show: effHs,     resolved: hubLike.recruitTarget.hsMin },
                             { type: 'portal', label: 'Portal Target', show: effPortal, resolved: hubLike.recruitTarget.portalMin },
@@ -2633,18 +2630,18 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                             const val = posExtraTargets[key]?.[type] ?? 0;
                             return (
                               <div key={type} className="flex items-center gap-2">
-                                <span className="text-[8px] font-display font-black uppercase tracking-wide w-20 text-txt-secondary">{rowLabel}</span>
+                                <span className="text-[10px] font-display font-black uppercase tracking-wide w-20 text-txt-secondary">{rowLabel}</span>
                                 <div className="flex items-center gap-1">
                                   <button
                                     onClick={() => adjustExtraTargets(key, type, -1, resolved)}
                                     disabled={resolved <= 0}
-                                    className="w-5 h-5 flex items-center justify-center rounded border border-slate-700 text-slate-400 text-xs font-black hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-surface-4 text-txt-tertiary text-sm font-black hover:border-surface-5 disabled:opacity-30 disabled:cursor-not-allowed transition"
                                   >−</button>
-                                  <span className="text-[10px] font-display font-black text-slate-300 w-4 text-center tabular-nums">{resolved}</span>
+                                  <span className="text-xs font-display font-black text-txt-secondary w-4 text-center tabular-nums">{resolved}</span>
                                   <button
                                     onClick={() => adjustExtraTargets(key, type, 1, resolved)}
                                     disabled={val >= 4}
-                                    className="w-5 h-5 flex items-center justify-center rounded border border-slate-700 text-slate-400 text-xs font-black hover:border-slate-500 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                                    className="w-6 h-6 flex items-center justify-center rounded border border-surface-4 text-txt-tertiary text-sm font-black hover:border-surface-5 disabled:opacity-30 disabled:cursor-not-allowed transition"
                                   >+</button>
                                 </div>
                               </div>
@@ -2676,7 +2673,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                     if (named) portalPills.push({ label: topName, pid: topPid });
                     for (let i = 0; i < (named ? planPortal - 1 : planPortal); i++) portalPills.push({ label: '1 Portal', pid: null });
                   }
-                  const posColor = hubLike.verdict.key === 'critical' ? 'text-[#E3242B]' : hubLike.verdict.key === 'depth-needed' ? 'text-[#FFC72C]' : 'text-slate-400';
+                  const posColor = hubLike.verdict.key === 'critical' ? 'text-[color:var(--accent-error)]' : hubLike.verdict.key === 'depth-needed' ? 'text-[color:var(--accent-warning)]' : 'text-txt-tertiary';
                   return (
                     <div key={key} className="space-y-1.5">
                       <div className="relative" ref={openVerdictMenu === key ? verdictMenuRef : null}>
@@ -2684,10 +2681,10 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                           type="button"
                           onClick={() => setOpenVerdictMenu(v => v === key ? null : key)}
                           title={hubLike.verdict.isManual ? 'Manually set — click to change' : 'Auto-computed — click to manually override (also resets HS/Portal targets to match)'}
-                          className={`flex items-center justify-center text-[10px] font-black uppercase px-2.5 py-1 rounded-md text-center w-full transition hover:brightness-125 ${hubLike.verdict.badge} ${hubLike.verdict.isManual ? 'ring-1 ring-sky-500' : ''}`}
+                          className={`flex items-center justify-center text-xs font-black uppercase px-3 py-1.5 rounded-md text-center w-full transition hover:brightness-125 ${hubLike.verdict.badge} ${hubLike.verdict.isManual ? 'ring-1 ring-sky-500' : ''}`}
                         >
                           {hubLike.verdict.label}{hubLike.verdict.isManual && <span className="text-sky-400 ml-1">•</span>}
-                          <ChevronDown className="w-2.5 h-2.5 ml-1" />
+                          <ChevronDown className="w-3 h-3 ml-1" />
                         </button>
                         {openVerdictMenu === key && (
                           <OverrideMenu
@@ -2699,11 +2696,11 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                         )}
                       </div>
                       <div className="space-y-1.5">
-                        <p className={`text-[11px] font-black tracking-wide ${posColor}`}>{label}</p>
+                        <p className={`text-sm font-black tracking-wide ${posColor}`}>{label}</p>
                         {hsPills.map((pillData, i) => renderTargetPill(pillData, `hs-${i}`, pillData.label === '1 HS', { key, type: 'hs', resolved: planHs }))}
                         {portalPills.map((pillData, i) => renderTargetPill(pillData, `p-${i}`, pillData.label === '1 Portal', { key, type: 'portal', resolved: planPortal }))}
                         {hsPills.length === 0 && portalPills.length === 0 && (
-                          <p className="text-[9px] text-slate-600 italic">No targets set</p>
+                          <p className="text-[11px] text-txt-muted italic">No targets set</p>
                         )}
                       </div>
                     </div>
@@ -2711,14 +2708,14 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 };
 
                 return (
-              <div className="rounded-xl border border-surface-4 bg-surface-2 p-4 flex gap-4">
+              <div className="card cfb-texture p-4 sm:p-5 flex flex-col sm:flex-row gap-5">
 
                 {/* ── Left: all existing content ── */}
                 <div className="flex-1 min-w-0 space-y-3">
 
                 {/* Header */}
                 <div className="flex items-center gap-3 flex-wrap">
-                  <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">{recruitingPosLabel(activePos)} · Position Overview</p>
+                  <p className="font-display font-black uppercase tracking-wide text-2xl text-txt-primary">{recruitingPosLabel(activePos)} · Position Overview</p>
                   {(depthTagOverrides[activePos] || rosterContext[activePos]?.depthTag) && (() => {
                     const isManual = !!depthTagOverrides[activePos];
                     const tag = depthTagOverrides[activePos] || rosterContext[activePos].depthTag;
@@ -2754,16 +2751,16 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 {subHubs ? (
                   <div className="space-y-1">
                     {subHubs.map(sh => (
-                      <h4 key={sh.key} className={`text-xs font-display font-black uppercase tracking-wide ${sh.verdict.head}`}>{sh.headline}</h4>
+                      <h4 key={sh.key} className={`text-base font-display font-black uppercase tracking-wide ${sh.verdict.head}`}>{sh.headline}</h4>
                     ))}
                   </div>
                 ) : (
-                  <h4 className={`text-xs font-display font-black uppercase tracking-wide ${hub.verdict.head}`}>{hub.headline}</h4>
+                  <h4 className={`text-base font-display font-black uppercase tracking-wide ${hub.verdict.head}`}>{hub.headline}</h4>
                 )}
 
                 {/* ── Recruit strategy toggle ── */}
                 <div className="pt-1">
-                  <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500 mb-1.5">Targeting Strategy</p>
+                  <p className="text-[10px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary mb-1.5">Targeting Strategy</p>
                   {subHubs
                     ? <div className="space-y-3">{subHubs.map(sh => renderTargeting(sh.key, sh, sh.label))}</div>
                     : renderTargeting(activePos, hub, null)}
@@ -2771,9 +2768,10 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
 
                 </div>{/* end left column */}
 
-                {/* ── Right: Recruiting Plan vertical box ── */}
-                <div className={`w-44 shrink-0 rounded-lg border p-3 flex flex-col gap-3 ${boxBg}`}>
-                  <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">Recruiting Plan</p>
+                {/* ── Right: Recruiting Plan — a plain column separated by a
+                    hairline instead of its own nested bordered box. ── */}
+                <div className="w-full sm:w-44 shrink-0 sm:border-l sm:border-surface-4 sm:pl-5 flex flex-col gap-3">
+                  <p className="label-sm text-txt-tertiary">Recruiting Plan</p>
                   {subHubs
                     ? subHubs.map((sh, i) => (
                         <div key={sh.key} className={i > 0 ? 'pt-3 border-t border-surface-4' : ''}>
@@ -2793,22 +2791,22 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 const QUALITY_CFG = {
                   starter:    { dot: 'bg-emerald-500', text: 'text-txt-primary', bg: 'bg-surface-3 border-surface-4' },
                   developing: { dot: 'bg-amber-500',   text: 'text-txt-secondary',   bg: 'bg-surface-3 border-surface-4' },
-                  raw:        { dot: 'bg-slate-500',   text: 'text-txt-tertiary',   bg: 'bg-surface-3 border-surface-4' },
+                  raw:        { dot: 'bg-surface-5',   text: 'text-txt-tertiary',   bg: 'bg-surface-3 border-surface-4' },
                 };
                 return (
-                  <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
+                  <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
+                      <p className="font-display font-black uppercase tracking-wide text-lg text-txt-primary">
                         Current Roster · {recruitingPosLabel(activePos)}
                       </p>
                       <div className="flex items-center gap-3 flex-wrap justify-end">
-                        <span className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
+                        <span className="font-display font-black uppercase tracking-wide text-base text-txt-secondary">
                           {(rc.returningCount + (rc.committedCount ?? 0)) === 0 ? 'No players returning' : `${rc.returningCount + (rc.committedCount ?? 0)} on roster`}
                         </span>
                       </div>
                     </div>
                     {rc.allPlayers.length === 0 ? (
-                      <p className="text-[10px] text-slate-600 italic">No {recruitingPosLabel(activePos)} players on roster.</p>
+                      <p className="text-xs text-txt-muted italic">No {recruitingPosLabel(activePos)} players on roster.</p>
                     ) : (
                       <div className="space-y-1">
                         {(() => {
@@ -2828,37 +2826,37 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                             const q = QUALITY_CFG[pl.quality];
                             return (
                               <>
-                                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${'bg-slate-500'}`} />
-                                <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                                  <span className={`text-[10px] font-bold min-w-0 truncate ${q.text}`}>{pl.name}</span>
+                                <div className={`w-2 h-2 rounded-full shrink-0 ${'bg-surface-5'}`} />
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <span className={`text-sm font-bold min-w-0 truncate ${q.text}`}>{pl.name}</span>
                                   {pl._subLabel !== undefined && rc.subPositions ? (
                                     <span
                                       title="Drag this row onto another sub-position group to reassign"
-                                      className="text-[7px] font-display font-black uppercase px-1 py-0.5 rounded border shrink-0 text-slate-500 border-slate-700 bg-slate-900"
+                                      className="text-[9px] font-display font-black uppercase px-1.5 py-0.5 rounded border shrink-0 text-txt-tertiary border-surface-4 bg-surface-2"
                                     >
                                       {pl._subLabel || pl.pos}
                                     </span>
                                   ) : (
-                                    pl.pos && <span className="text-[8px] font-display font-black text-slate-600 shrink-0">{pl.pos}</span>
+                                    pl.pos && <span className="text-[10px] font-display font-black text-txt-muted shrink-0">{pl.pos}</span>
                                   )}
                                   {(() => {
-                                    const dtCls = pl.devTrait === 'Elite'  ? 'bg-surface-3 border-[#0E7A2A] text-[#22E065] shadow-[0_0_16px_rgba(14,122,42,0.85)]'
-                                               : pl.devTrait === 'Star'    ? 'bg-surface-3 border-[#9C7209] text-[#FFD100] shadow-[0_0_14px_rgba(156,114,9,0.8)]'
+                                    const dtCls = pl.devTrait === 'Elite'  ? 'bg-surface-3 border-[#0E7A2A] text-[#22E065]'
+                                               : pl.devTrait === 'Star'    ? 'bg-surface-3 border-[#9C7209] text-[#FFD100]'
                                                : pl.devTrait === 'Impact'  ? 'bg-surface-3 border-[#7C8991] text-[#D6DEE2]'
                                                : pl.devTrait === 'Normal'  ? 'bg-surface-3 border-[#8C5524] text-[#CD7F32]'
-                                               : 'bg-slate-950 border-slate-700 text-slate-600 italic';
+                                               : 'bg-surface-1 border-surface-4 text-txt-muted italic';
                                     return (
-                                      <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
+                                      <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
                                         {pl.devTrait || 'Hidden'}
                                       </span>
                                     );
                                   })()}
                                 </div>
-                                {pl.isATH && !pl.isIncoming && <span className="text-[7px] font-black uppercase px-1 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-400 shrink-0">ATH</span>}
-                                {!pl.isIncoming && <span className="text-[9px] text-slate-500 tabular-nums shrink-0">{pl.ovr > 0 ? pl.ovr : '—'} OVR</span>}
-                                {!pl.isIncoming && <span className="text-[9px] text-slate-500 tabular-nums shrink-0 w-8 text-right">{pl.cls}</span>}
+                                {pl.isATH && !pl.isIncoming && <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-purple-950 border border-purple-800 text-purple-400 shrink-0">ATH</span>}
+                                {!pl.isIncoming && <span className="text-xs text-txt-tertiary tabular-nums shrink-0">{pl.ovr > 0 ? pl.ovr : '—'} OVR</span>}
+                                {!pl.isIncoming && <span className="text-xs text-txt-tertiary tabular-nums shrink-0 w-8 text-right">{pl.cls}</span>}
                                 {pl.isIncoming && (
-                                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-3 border border-[#0E7A2A] text-[#22E065] shrink-0">Incoming</span>
+                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-3 border border-[#0E7A2A] text-[#22E065] shrink-0">Incoming</span>
                                 )}
                                 {!pl.isLeaving && (
                                   <button
@@ -2870,7 +2868,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                                         : pl.effectiveProj === 0 ? 'Projected Non-Starter'
                                         : 'Projected Starter in _ years'
                                     } — click to cycle: 1yr → 2yr → 3yr → Non-Starter → clear`}
-                                    className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
+                                    className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
                                       pl.isManualProj ? 'bg-surface-4 border-surface-5 text-txt-secondary hover:opacity-75' : 'bg-surface-3 border-surface-4 text-txt-tertiary hover:text-txt-secondary'
                                     }`}
                                   >
@@ -2878,14 +2876,14 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                                   </button>
                                 )}
                                 {pl.isSenior && !pl.leavingType && !pl.isIncoming && (
-                                  <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-3 border border-[#7A1F1F] text-[#E3242B] shrink-0">Leaving</span>
+                                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-surface-3 border border-[color:var(--accent-error)] text-[color:var(--accent-error)] shrink-0">Leaving</span>
                                 )}
                                 {!pl.isSenior && !pl.isIncoming && (
                                   <button
                                     onClick={e => { e.stopPropagation(); cycleLeaving(pl.pid); }}
                                     title="Departure risk — click to cycle: Draft Risk → Transfer Risk → Cut → clear"
-                                    className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
-                                      pl.leavingType ? 'bg-surface-3 border-[#7A1F1F] text-[#E3242B] hover:opacity-75' : 'bg-surface-3 border-surface-4 text-txt-tertiary hover:text-txt-secondary'
+                                    className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 transition ${
+                                      pl.leavingType ? 'bg-surface-3 border-[color:var(--accent-error)] text-[color:var(--accent-error)] hover:opacity-75' : 'bg-surface-3 border-surface-4 text-txt-tertiary hover:text-txt-secondary'
                                     }`}
                                   >
                                     {pl.leavingType === 'draft' ? 'Draft Risk' : pl.leavingType === 'transfer' ? 'Transfer Risk' : pl.leavingType === 'cut' ? 'Cut' : 'Leaving'}
@@ -2894,7 +2892,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                               </>
                             );
                           };
-                          const rowClassName = pl => `flex items-center gap-3 px-3 py-2 rounded-lg border border-surface-4 bg-surface-3 cursor-pointer hover:bg-surface-4 hover:border-surface-5 transition ${pl.isLeaving ? 'opacity-60' : ''}`;
+                          const rowClassName = pl => `flex items-center gap-3 px-3.5 py-2.5 rounded-lg cursor-pointer hover:bg-surface-3 transition ${pl.isLeaving ? 'opacity-60' : ''}`;
 
                           if (!rc.subPositions) {
                             return rc.allPlayers.map((pl, i) => (
@@ -2942,7 +2940,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                                   if (!groups[l].length) return null;
                                   return (
                                     <RosterDropArea key={l} id={`subpos:${l}`}>
-                                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500 pt-2 pb-0.5 border-t border-slate-800/60 first:border-t-0 first:pt-0">{l}</p>
+                                      <p className="text-[10px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary pt-2 pb-0.5 border-t border-surface-4/60 first:border-t-0 first:pt-0">{l}</p>
                                       <div className="space-y-1">
                                         {groups[l].map((pl, i) => (
                                           <RosterDraggableRow key={pl.pid || `${l}-${i}`} id={pl.pid || `${l}-${i}`} className={rowClassName(pl)} dimmed={pl.isLeaving} onClick={() => goToPlayer(pl)}>
@@ -2962,7 +2960,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                                   {activeDragId ? (() => {
                                     const dragged = rc.allPlayers.find(p => (p.pid || p.name) === activeDragId);
                                     return dragged ? (
-                                      <div className="px-3 py-2 rounded-lg border border-slate-600 bg-slate-800 shadow-2xl text-[10px] font-bold text-white whitespace-nowrap">
+                                      <div className="px-3 py-2 rounded-lg border border-surface-5 bg-surface-3 shadow-2xl text-[10px] font-bold text-white whitespace-nowrap">
                                         {dragged.name}
                                       </div>
                                     ) : null;
@@ -2990,36 +2988,36 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
 
                 const renderRow = (pl, { removed }) => {
                   const g = getGrade(pl.score);
-                  const dtCls = pl.devTrait === 'Elite'  ? 'bg-surface-3 border-[#0E7A2A] text-[#22E065] shadow-[0_0_16px_rgba(14,122,42,0.85)]'
-                             : pl.devTrait === 'Star'    ? 'bg-surface-3 border-[#9C7209] text-[#FFD100] shadow-[0_0_14px_rgba(156,114,9,0.8)]'
+                  const dtCls = pl.devTrait === 'Elite'  ? 'bg-surface-3 border-[#0E7A2A] text-[#22E065]'
+                             : pl.devTrait === 'Star'    ? 'bg-surface-3 border-[#9C7209] text-[#FFD100]'
                              : pl.devTrait === 'Impact'  ? 'bg-surface-3 border-[#7C8991] text-[#D6DEE2]'
                              : pl.devTrait === 'Normal'  ? 'bg-surface-3 border-[#8C5524] text-[#CD7F32]'
-                             : 'bg-slate-950 border-slate-700 text-slate-600 italic';
+                             : 'bg-surface-1 border-surface-4 text-txt-muted italic';
                   return (
                     <div
                       key={pl.pid}
                       onClick={() => navigate(`/dynasty/${dynasty?.id}/recruiting/${dynasty?.currentTid}/${dynasty?.currentYear}?tab=staff&view=database&pid=${pl.pid}`)}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg border border-surface-4 bg-surface-3 cursor-pointer hover:bg-surface-4 hover:border-surface-5 transition ${removed ? 'opacity-60' : ''}`}
+                      className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg cursor-pointer hover:bg-surface-3 transition ${removed ? 'opacity-60' : ''}`}
                     >
-                      <div className="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-500" />
-                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <div className="w-2 h-2 rounded-full shrink-0 bg-surface-5" />
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
                         <span className="relative inline-block min-w-0 max-w-[60%] shrink">
-                          <span className="text-[10px] font-bold text-txt-primary truncate block">{pl.name}</span>
+                          <span className="text-sm font-bold text-txt-primary truncate block">{pl.name}</span>
                           <GemBustIcon type={pl.gemBust} />
                         </span>
-                        <span className="text-[8px] font-display font-black text-slate-600 shrink-0">{pl.position || activePos}</span>
-                        <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
+                        <span className="text-[10px] font-display font-black text-txt-muted shrink-0">{pl.position || activePos}</span>
+                        <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border shrink-0 ${dtCls}`}>
                           {pl.devTrait || 'Hidden'}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
-                        {pl.score != null && <span className="text-[9px] font-black tabular-nums text-slate-400">{pl.score.toFixed(0)}</span>}
+                        <span className={`text-xs font-black px-1.5 py-0.5 rounded border ${g.cls}`}>{g.grade}</span>
+                        {pl.score != null && <span className="text-xs font-black tabular-nums text-txt-tertiary">{pl.score.toFixed(0)}</span>}
                         {onToggleBoardRemoved && (
                           <button
                             type="button"
                             onClick={e => { e.stopPropagation(); onToggleBoardRemoved(pl); }}
-                            className={`shrink-0 p-1 rounded transition ${removed ? 'text-slate-600 hover:text-emerald-400 hover:bg-emerald-950/40' : 'text-slate-600 hover:text-red-400 hover:bg-red-950/40'}`}
+                            className={`shrink-0 p-1 rounded transition ${removed ? 'text-txt-muted hover:text-emerald-400 hover:bg-emerald-950/40' : 'text-txt-muted hover:text-red-400 hover:bg-red-950/40'}`}
                             title={removed ? 'Restore to board' : 'Remove from board'}
                           >
                             {removed ? (
@@ -3041,21 +3039,21 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 return (
                   <>
                     {activeScored.length > 0 && (
-                      <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
-                        <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
+                      <div className="space-y-2">
+                        <p className="font-display font-black uppercase tracking-wide text-lg text-txt-primary">
                           Actively Targeting · {activeScored.length} prospect{activeScored.length !== 1 ? 's' : ''}
                         </p>
-                        <div className="space-y-1">
+                        <div>
                           {activeScored.map(pl => renderRow(pl, { removed: false }))}
                         </div>
                       </div>
                     )}
                     {removedScored.length > 0 && (
-                      <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-2">
-                        <p className="text-sm font-display font-black uppercase tracking-wide text-txt-primary">
+                      <div className="space-y-2">
+                        <p className="font-display font-black uppercase tracking-wide text-lg text-txt-primary">
                           Removed · {removedScored.length} prospect{removedScored.length !== 1 ? 's' : ''}
                         </p>
-                        <div className="space-y-1">
+                        <div>
                           {removedScored.map(pl => renderRow(pl, { removed: true }))}
                         </div>
                       </div>
@@ -3071,7 +3069,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 const STYLE_UI = {
                   'pass-heavy': { label: 'Pass-Heavy Scheme', cls: 'bg-sky-950 border border-sky-700 text-sky-400' },
                   'run-heavy':  { label: 'Run-Heavy Scheme',  cls: 'bg-amber-950 border border-amber-700 text-amber-400' },
-                  'balanced':   { label: 'Balanced Scheme',   cls: 'bg-slate-800 border border-slate-600 text-slate-400' },
+                  'balanced':   { label: 'Balanced Scheme',   cls: 'bg-surface-3 border border-surface-5 text-txt-tertiary' },
                 };
                 const styleUi = STYLE_UI[playStyle];
 
@@ -3112,10 +3110,10 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                 const considers = archRecs.filter(a => a.status === 'consider').length;
 
                 return (
-                  <div className="bg-surface-3 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="bg-surface-3 border border-surface-4 rounded-xl p-4 space-y-3">
                     {/* Header */}
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-slate-500">
+                      <p className="text-[8px] font-display font-black uppercase tracking-[0.12em] text-txt-tertiary">
                         Archetype Recommendations
                         {targeted > 0 && <span className="ml-2 text-red-400">{targeted} needed</span>}
                         {targeted === 0 && considers > 0 && <span className="ml-2 text-amber-400">{considers} thin</span>}
@@ -3124,7 +3122,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                         {styleUi.label}
                       </span>
                     </div>
-                    <p className="text-[9px] text-slate-600 leading-snug">
+                    <p className="text-[9px] text-txt-muted leading-snug">
                       Depth analysis per archetype based on returning roster.{' '}
                       {playStyle !== 'balanced' ? `Team tendency favors ${playStyle === 'pass-heavy' ? 'passing archetypes' : 'run archetypes'} — scheme fits noted.` : 'Balanced scheme — no strong tendency.'}
                     </p>
@@ -3148,7 +3146,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                             <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1 ${cfg.dot}`} />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-[10px] font-bold text-slate-300 group-hover:text-white transition truncate">{arch}</span>
+                                <span className="text-[10px] font-bold text-txt-secondary group-hover:text-white transition truncate">{arch}</span>
                                 {fits && playStyle !== 'balanced' && (
                                   <span className="text-[7px] font-black uppercase px-1 py-0 rounded bg-sky-950 border border-sky-800 text-sky-500 shrink-0">Fits</span>
                                 )}
@@ -3156,7 +3154,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                                   <span className="text-[7px] font-black uppercase px-1 py-0 rounded bg-emerald-950 border border-emerald-700 text-emerald-400 shrink-0">Preferred</span>
                                 )}
                               </div>
-                              <p className="text-[8px] text-slate-600 mt-0.5 leading-tight">{reason}</p>
+                              <p className="text-[8px] text-txt-muted mt-0.5 leading-tight">{reason}</p>
                               {(boardT1 > 0 || boardT2 > 0) && (
                                 <div className="flex gap-1 mt-0.5">
                                   {boardT1 > 0 && <span className={`text-[7px] font-black px-1 py-0 rounded ${TIER_UI[0].text}`}>T1×{boardT1} on board</span>}

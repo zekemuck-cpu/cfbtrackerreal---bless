@@ -4,7 +4,7 @@ import { getShownGraphic } from '../../utils/scoreGraphics'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getColorsFromTid } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
@@ -31,6 +31,8 @@ import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import FormattedRecap from '../../components/FormattedRecap'
 import SocialFeed from '../../components/SocialFeed'
+import GameContentTools from '../../components/GameContentTools'
+import { isPcAutoDynasty } from '../../editions'
 import { DEFAULT_SOCIAL_PLATFORM, getEffectiveCharacters } from '../../data/socialModel'
 import { sortPlaysChronologically, collapsePatRowsIntoTDs } from '../../utils/scoringPlayOrder'
 import {
@@ -130,8 +132,8 @@ function getMascotName(abbr, teamsData = null) {
     'MIZ': 'Missouri Tigers', 'OU': 'Oklahoma Sooners',
     'GSU': 'Georgia State Panthers',
     // FCS teams
-    'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
-    'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
+    'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
+    'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
   }
   return mascotMap[abbr] || null
 }
@@ -361,6 +363,12 @@ export default function Game() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { currentDynasty, loadingDynastyId, updateDynasty, addGame, isViewOnly, loadSocial } = useDynasty()
   const pathPrefix = usePathPrefix()
+  // CFB27 (PC auto-sync): score/stat/rank editing is automated by Sync from
+  // Save, so the full editor (GameEdit.jsx) is redundant — the Edit button
+  // is hidden and the recap/photos/score-graphic tools it still houses
+  // (the only parts NOT automated) render inline via GameContentTools
+  // instead. Same isCfb27Auto pattern as Dashboard.jsx/Layout.jsx.
+  const isCfb27Auto = isPcAutoDynasty(currentDynasty)
 
   // Check if dynasty data is being lazily loaded from Firebase
   const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
@@ -1417,6 +1425,20 @@ export default function Game() {
   const getTeamData = (side) => {
     const isDisplayTeam = side === 'user'
 
+    // Resolved once, reused below for both ratings and tid — matches
+    // perspective.userTid against whichever of team1Tid/team2Tid it
+    // actually is, rather than assuming team1 is always the user's side.
+    // That assumption held for every game the app's own entry flow ever
+    // wrote (always user-as-team1), but CFB27 auto-synced postseason games
+    // derive team1Tid/team2Tid straight from the save's own home/away
+    // designation, which has no relationship to who's viewing. Confirmed
+    // broken against a real synced bowl game: the user's own team (stored
+    // as team2Tid) displayed the OPPONENT's record.
+    const userTidForGame = !isCPUGame ? (perspective?.userTid ?? null) : null
+    const isTeam1User = userTidForGame != null && Number(game.team1Tid) === Number(userTidForGame)
+    const isTeam2User = userTidForGame != null && Number(game.team2Tid) === Number(userTidForGame)
+    const perspectiveResolved = isTeam1User || isTeam2User
+
     let overall = null
     let offense = null
     let defense = null
@@ -1429,6 +1451,11 @@ export default function Game() {
       overall = isTeam1 ? game.team1Overall : game.team2Overall
       offense = isTeam1 ? game.team1Offense : game.team2Offense
       defense = isTeam1 ? game.team1Defense : game.team2Defense
+    } else if (perspectiveResolved) {
+      const isTeam1 = isDisplayTeam ? isTeam1User : isTeam2User
+      overall = isTeam1 ? game.team1Overall : (game.team2Overall ?? game.opponentOverall ?? null)
+      offense = isTeam1 ? game.team1Offense : (game.team2Offense ?? game.opponentOffense ?? null)
+      defense = isTeam1 ? game.team1Defense : (game.team2Defense ?? game.opponentDefense ?? null)
     } else {
       // For unified format: user ratings in team1*, opponent ratings in team2*
       // For legacy format: opponent ratings in opponent* fields
@@ -1454,6 +1481,9 @@ export default function Game() {
       const team1Abbr = team1Info?.abbr || game.team1
       const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
       tid = isTeam1 ? team1Tid : team2Tid
+    } else if (perspectiveResolved) {
+      const opponentTidForGame = isTeam1User ? game.team2Tid : game.team1Tid
+      tid = isDisplayTeam ? userTidForGame : opponentTidForGame
     } else {
       tid = isDisplayTeam ? (game.team1Tid ?? game.userTid ?? null) : (game.team2Tid ?? game.opponentTid ?? null)
     }
@@ -1828,7 +1858,7 @@ export default function Game() {
           )}
 
           {/* Right: edit / spacer */}
-          {!isViewOnly ? (
+          {!isViewOnly && !isCfb27Auto ? (
             <button
               onClick={() => navigate(`${pathPrefix}/game/${gameId}/edit`, { state: { from: routeLocation.pathname } })}
               className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md font-medium text-xs transition-colors"
@@ -2320,13 +2350,19 @@ export default function Game() {
                 { key: 'gamecast', label: 'Gamecast', shortLabel: 'Cast', show: hasGamecastContent },
                 { key: 'boxscore', label: 'Box Score', shortLabel: 'Box', show: hasBoxForLeaders },
                 { key: 'scoring', label: 'Plays', shortLabel: 'Plays', show: hasScoringSummary },
-                { key: 'recap', label: 'Recap', shortLabel: 'Recap', show: hasRecap },
                 { key: 'social', label: 'Social', shortLabel: 'Social', show: hasSocialData },
                 { key: 'stats', label: 'Team Stats', shortLabel: 'Stats', show: hasTeamStatsData },
                 { key: 'awards', label: 'Awards', shortLabel: 'Awards', show: !isCPUGame && hasAwardsData },
                 { key: 'cards', label: 'Cards', shortLabel: 'Cards', show: hasCardsData },
                 { key: 'photos', label: hasPhotosData ? 'Photos' : 'Graphic', shortLabel: hasPhotosData ? 'Photos' : 'Graphic', show: hasPhotosData || hasScoreGraphicData },
                 { key: 'series', label: 'Series', shortLabel: 'Series', show: hasSeriesData },
+                // CFB27 (PC) dynasties: this tab is also where GameContentTools
+                // lives now (Copy AI Prompt/Paste/Photos/Score Graphic) — it has
+                // to stay reachable even before a recap exists, or there'd be no
+                // way to ever generate the first one. Manual dynasties keep the
+                // original "only show once a recap exists" behavior unchanged.
+                // Positioned right before Odds per explicit request.
+                { key: 'recap', label: 'Recap', shortLabel: 'Recap', show: hasRecap || (isCfb27Auto && !isViewOnly) },
                 { key: 'odds', label: 'Odds', shortLabel: 'Odds', show: game.week != null },
               ].filter(tab => tab.show).map(tab => (
                 <button
@@ -2540,7 +2576,12 @@ export default function Game() {
             const leftRatings = leftIsOpp ? oppRatings : userRatings
             const rightRatings = !leftIsOpp ? oppRatings : userRatings
             const hasAnyRatings = (rr) => rr.ovr || rr.off || rr.def
-            const hasRatings = !isCPUGame && (hasAnyRatings(userRatings) || hasAnyRatings(oppRatings))
+            // CPU-vs-CPU games hide ratings for manual dynasties (no per-game
+            // override, and CPU-team ratings are essentially never entered
+            // there) — but a CFB27 PC dynasty has real synced ratings for
+            // EVERY team, including ones the user never played, so that
+            // blanket exclusion would hide real, available data.
+            const hasRatings = (isCfb27Auto || !isCPUGame) && (hasAnyRatings(userRatings) || hasAnyRatings(oppRatings))
 
             const hasAwards = !isCPUGame && (game.conferencePOW || game.confDefensePOW || game.nationalPOW || game.natlDefensePOW)
 
@@ -3343,11 +3384,19 @@ export default function Game() {
             )
           })()}
 
-          {/* Game Recap Tab — display only. Editing and prompt copying live in
-              the game editor so the viewing surface stays clean. */}
+          {/* Game Recap Tab. CFB27 dynasty: purely the Recap/Photos/Score
+              Graphic generation tools (GameContentTools) — the recap text,
+              score graphic, and social posts it produces are already shown
+              elsewhere (Social tab, Graphic/Photos tab, and the recap is
+              readable via Around the Country / the Dashboard recap card),
+              so nothing is duplicated here. Manual dynasty: unchanged
+              display-only behavior — editing and prompt copying live in the
+              game editor, so the viewing surface here stays clean. */}
           {activeTab === 'recap' && (
             <div className="px-4 py-6 sm:px-6 sm:py-8">
-              {game.aiRecap ? (
+              {isCfb27Auto && !isViewOnly ? (
+                <GameContentTools game={game} />
+              ) : game.aiRecap ? (
                 <FormattedRecap
                   text={game.aiRecap}
                   className="text-txt-secondary text-[15px] leading-relaxed max-w-3xl mx-auto"
@@ -3917,11 +3966,15 @@ export default function Game() {
               const stats = getPlayerBoxScoreStats(name)
               const pid = getPlayerPID(name)
               const initials = (name || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+              const honoreeTid = teamTidForName(name)
+              const honoreeLogo = honoreeTid != null ? getTeamLogoByTid(honoreeTid, teams) : null
               return (
                 <div className="flex items-center gap-3.5">
                   <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 bg-surface-3" style={{ boxShadow: `0 0 0 2px ${accent}` }}>
                     {player?.pictureUrl ? (
                       <img src={proxyImageUrl(player.pictureUrl, 300)} alt={name} className="w-full h-full object-cover" />
+                    ) : honoreeLogo ? (
+                      <img src={honoreeLogo} alt="" className="w-full h-full object-contain p-2 bg-white" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center font-bold text-base" style={{ color: accent }}>{initials}</div>
                     )}

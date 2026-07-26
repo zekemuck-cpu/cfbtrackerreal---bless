@@ -8,6 +8,8 @@ import {
 } from '../utils/devTraitLearning';
 import { computeAttributeQuality } from '../utils/devPrediction';
 import { useToast } from './ui/Toast';
+import { getContrastTextColor } from '../utils/colorUtils';
+import { Modal } from './ui';
 
 // ── Attribute short-name display map ─────────────────────────────────────────
 const ATTR_SHORT = {
@@ -32,10 +34,10 @@ const ATTR_SHORT = {
 // Border/glow match the dev trait badges in the Recruiting Database exactly
 // (PlayerDatabase.jsx's Current Roster dev trait pills), not just the heading text.
 const TIER_STYLES = [
-  { label: 'Tier 1: Elite',  devTrait: 'Elite',  border: 'border-[#0E7A2A]', heading: 'text-[#22E065]', bg: 'bg-surface-3', glow: 'shadow-[0_0_16px_rgba(14,122,42,0.85)]' },
-  { label: 'Tier 2: Star',   devTrait: 'Star',   border: 'border-[#9C7209]', heading: 'text-[#FFD100]', bg: 'bg-surface-3', glow: 'shadow-[0_0_14px_rgba(156,114,9,0.8)]' },
-  { label: 'Tier 3: Impact', devTrait: 'Impact', border: 'border-[#7C8991]', heading: 'text-[#D6DEE2]', bg: 'bg-surface-3', glow: '' },
-  { label: 'Tier 4: Normal', devTrait: 'Normal', border: 'border-[#8C5524]', heading: 'text-[#CD7F32]', bg: 'bg-surface-3', glow: '' },
+  { label: 'Tier 1: Elite',  devTrait: 'Elite',  border: 'border-[#0E7A2A]', heading: 'text-[#22E065]', bg: 'bg-surface-3' },
+  { label: 'Tier 2: Star',   devTrait: 'Star',   border: 'border-[#9C7209]', heading: 'text-[#FFD100]', bg: 'bg-surface-3' },
+  { label: 'Tier 3: Impact', devTrait: 'Impact', border: 'border-[#7C8991]', heading: 'text-[#D6DEE2]', bg: 'bg-surface-3' },
+  { label: 'Tier 4: Normal', devTrait: 'Normal', border: 'border-[#8C5524]', heading: 'text-[#CD7F32]', bg: 'bg-surface-3' },
 ];
 
 const STAR_TABS = ['5', '4', '3', '2', '1'];
@@ -664,15 +666,27 @@ function dynamicBadgeText(profile, attrEntries, direction = 'above') {
   return parts.length ? parts.join(' / ') : null;
 }
 
-export default function ThresholdLookup({ players = [], teamColors, teamLogo, dynastyId = null, jumpTarget = null }) {
+export default function ThresholdLookup({ players = [], teamColors, teamLogo, dynastyId = null, jumpTarget = null, actionsRef = null, onReady = null }) {
   const { getStaffData } = createStaffAccessor(dynastyId);
   const { toast } = useToast();
   const p = teamColors?.primary || '#374151';
+  const teamAccent = p;
+  const teamBgText = getContrastTextColor(teamAccent);
   const [activePos, setActivePos] = useState('QB');
   const [activeArch, setActiveArch] = useState('Pocket Passer');
   const [activeStar, setActiveStar] = useState('5');
   const [showLearned, setShowLearned] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+
+  // The header toolbar (Key/Learned/Help) now renders in Recruiting.jsx's
+  // own hero — this ref bridges those buttons to this component's local
+  // modal state, same pattern as ScoutAnalysis's actionsRef.
+  if (actionsRef) {
+    actionsRef.current.openKey = () => setShowKey(true);
+    actionsRef.current.openLearned = () => setShowLearned(true);
+    actionsRef.current.openHelp = () => setShowHelp(true);
+  }
   const [openTiers, setOpenTiers] = useState(() => new Set());
   const toggleTier = i => setOpenTiers(prev => {
     const next = new Set(prev);
@@ -885,53 +899,14 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
 
   return (
     <div className="space-y-4">
-      {/* Portrait + Info row */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch">
-        {/* Analyst portrait card */}
-        <div className="relative rounded-xl overflow-hidden w-full h-32 sm:w-[110px] sm:h-[100px] sm:flex-shrink-0">
-          {analystImg
-            ? <img src={analystImg} alt="" className="absolute inset-0 w-full h-full object-cover object-top" />
-            : <div className="absolute inset-0 bg-surface-3" />
-          }
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85) 90%, rgba(0,0,0,0.95) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 85%, #34d39955 100%)' }} />
-          <p className="absolute top-2 right-2 text-[5px] font-semibold tracking-wider leading-snug pointer-events-none" style={{ color: '#34d399', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>DATA ANALYST</p>
-          <div className="absolute bottom-0 left-0 right-0 p-2.5 pointer-events-none">
-            <div className="w-6 h-0.5 mb-1 rounded-full" style={{ background: '#34d399' }} />
-            {(() => {
-              const parts = analystName.trim().split(/\s+/);
-              const fn = parts.length > 1 ? parts.slice(0, -1).join(' ') : '';
-              const ln = parts[parts.length - 1];
-              return <>
-                {fn && <p className="text-[6px] font-semibold leading-none" style={{ color: 'rgba(255,255,255,0.75)', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{fn}</p>}
-                <p className="text-xs font-bold leading-tight" style={{ color: 'white', textShadow: '0 1px 8px rgba(0,0,0,1)' }}>{ln}</p>
-              </>;
-            })()}
-          </div>
-        </div>
-
-        {/* Info card */}
-        <div className="flex-1 rounded-xl p-3 flex items-start justify-between gap-3 bg-surface-2 border border-surface-4 sm:h-[100px]">
-          <div className="flex flex-col justify-center gap-1.5 h-full">
-            <p className="text-base font-semibold text-txt-primary">Threshold Benchmarks</p>
-            <p className="text-xs text-txt-tertiary leading-snug">With the current data compiled, these are the thresholds to target at each tier. Benchmarks adjust as more players are scouted.</p>
-          </div>
-          <div className="flex-shrink-0 flex items-center gap-2">
-            <button
-              onClick={() => setShowKey(true)}
-              className="text-[10px] font-display font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition"
-            >
-              Key
-            </button>
-            <button
-              onClick={() => setShowLearned(true)}
-              className="text-[10px] font-display font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border border-surface-4 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition"
-            >
-              Learned
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* The header toolbar (Key/Learned/Help) now renders in Recruiting.jsx's
+          own hero — see the actionsRef wiring above. */}
+      <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Threshold Benchmarks" size="sm">
+        <p className="text-xs text-txt-secondary leading-relaxed">
+          With the current data compiled, these are the thresholds to target at each tier.
+          Benchmarks adjust as more players are scouted.
+        </p>
+      </Modal>
 
       {showKey && (
         <div
@@ -1100,17 +1075,18 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
         </div>
       )}
 
-      {/* Main Panel — position nav left, archetype + tiers right */}
-      <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[520px] bg-surface-2 border border-surface-4">
+      {/* Main Panel — position nav is a horizontal tab strip across the top,
+          matching Program Outlook's nav, instead of a cramped vertical rail. */}
+      <div className="card overflow-hidden flex flex-col min-h-[520px]">
 
         {/* Position Nav */}
-        <div className="w-full md:w-28 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
+        <div className="bg-surface-3 border-b border-surface-4 px-2 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none shrink-0">
           {POSITIONS.map(pos => (
             <button
               key={pos}
               onClick={() => handlePosChange(pos)}
-              style={activePos === pos ? { backgroundColor: p, color: '#fff' } : undefined}
-              className={`flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-left ${
+              style={activePos === pos ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
+              className={`font-display flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg transition shrink-0 text-center ${
                 activePos === pos
                   ? ''
                   : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
@@ -1130,7 +1106,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
               <button
                 key={arch}
                 onClick={() => { setActiveArch(arch); setOpenTiers(new Set()); }}
-                style={activeArch === arch ? { backgroundColor: p, color: '#fff' } : undefined}
+                style={activeArch === arch ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
                 className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition uppercase tracking-wide ${
                   activeArch === arch
                     ? ''
@@ -1157,7 +1133,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
                 <button
                   key={s}
                   onClick={() => setActiveStar(s)}
-                  style={activeStar === s ? { backgroundColor: p, color: '#fff' } : undefined}
+                  style={activeStar === s ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
                   className={`text-[10px] font-semibold px-2.5 py-1 rounded-md transition ${
                     activeStar === s
                       ? ''
@@ -1224,7 +1200,7 @@ export default function ThresholdLookup({ players = [], teamColors, teamLogo, dy
                 <div
                   key={i}
                   onClick={() => toggleTier(i)}
-                  className={`rounded-xl border cursor-pointer transition-colors hover:bg-surface-4 ${style.border} ${style.bg} ${style.glow}`}
+                  className={`rounded-xl border cursor-pointer transition-colors hover:bg-surface-4 ${style.border} ${style.bg}`}
                 >
                   <div className="p-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">

@@ -26,9 +26,11 @@ import {
   Dashboard, Roster, Rankings, Stats, CoachCareer, CoachBuild, Coaches, Players, Player, PlayerEdit,
   PlayersByState, AllTimeLineup, Recruiting, ScoutStaff, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
-  ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, ToDoList, Game,
+  ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, DynastyBlueprint, CoachProfile, CoachEdit, DevTools,
   SocialCharacter, LeaguePreferences, ImageGallery, SchemeBuilder,
+  TopClasses, PlayersOfWeek, HeismanWatch, InjuryReport,
+  PlayersLeaving, TrainingResults,
 } from './routes/lazyPages'
 
 
@@ -86,6 +88,18 @@ function AppRoutes() {
             <Route path="all-conference" element={<AllConference />} />
             <Route path="all-conference/:year" element={<AllConference />} />
             <Route path="all-conference/:year/:conference" element={<AllConference />} />
+            <Route path="topclasses" element={<TopClasses />} />
+            <Route path="topclasses/:year" element={<TopClasses />} />
+            <Route path="players-of-week" element={<PlayersOfWeek />} />
+            <Route path="players-of-week/:year" element={<PlayersOfWeek />} />
+            <Route path="heisman-watch" element={<HeismanWatch />} />
+            <Route path="heisman-watch/:year" element={<HeismanWatch />} />
+            <Route path="players-leaving" element={<PlayersLeaving />} />
+            <Route path="players-leaving/:year" element={<PlayersLeaving />} />
+            <Route path="training-results" element={<TrainingResults />} />
+            <Route path="training-results/:year" element={<TrainingResults />} />
+            <Route path="injury-report" element={<InjuryReport />} />
+            <Route path="injury-report/:tid" element={<InjuryReport />} />
             <Route path="dynasty-records" element={<DynastyRecords />} />
             <Route path="dynasty-records/:category" element={<DynastyRecords />} />
             <Route path="teams" element={<Teams />} />
@@ -99,7 +113,6 @@ function AppRoutes() {
             <Route path="weekly-scores" element={<WeeklyScores />} />
             <Route path="weekly-scores/:year" element={<WeeklyScores />} />
             <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
-            <Route path="todo-list" element={<ToDoList />} />
             <Route path="cards" element={<CardCollection />} />
             <Route path="game/:gameId" element={<Game />} />
             <Route path="social/:charId" element={<SocialCharacter />} />
@@ -182,6 +195,18 @@ function AppRoutes() {
                   <Route path="all-conference" element={<AllConference />} />
                   <Route path="all-conference/:year" element={<AllConference />} />
                   <Route path="all-conference/:year/:conference" element={<AllConference />} />
+                  <Route path="topclasses" element={<TopClasses />} />
+                  <Route path="topclasses/:year" element={<TopClasses />} />
+                  <Route path="players-of-week" element={<PlayersOfWeek />} />
+                  <Route path="players-of-week/:year" element={<PlayersOfWeek />} />
+                  <Route path="heisman-watch" element={<HeismanWatch />} />
+                  <Route path="heisman-watch/:year" element={<HeismanWatch />} />
+                  <Route path="players-leaving" element={<PlayersLeaving />} />
+                  <Route path="players-leaving/:year" element={<PlayersLeaving />} />
+                  <Route path="training-results" element={<TrainingResults />} />
+                  <Route path="training-results/:year" element={<TrainingResults />} />
+                  <Route path="injury-report" element={<InjuryReport />} />
+                  <Route path="injury-report/:tid" element={<InjuryReport />} />
                   <Route path="dynasty-records" element={<DynastyRecords />} />
                   <Route path="dynasty-records/:category" element={<DynastyRecords />} />
                   <Route path="teams" element={<Teams />} />
@@ -195,7 +220,6 @@ function AppRoutes() {
                   <Route path="weekly-scores" element={<WeeklyScores />} />
                   <Route path="weekly-scores/:year" element={<WeeklyScores />} />
                   <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
-            <Route path="todo-list" element={<ToDoList />} />
                   <Route path="cards" element={<CardCollection />} />
                   <Route path="game/new" element={<GameEdit />} />
                   <Route path="game/:gameId" element={<Game />} />

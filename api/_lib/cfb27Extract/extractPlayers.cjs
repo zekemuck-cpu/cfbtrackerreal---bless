@@ -64,6 +64,41 @@ function findPlayerTable(save, forced) {
   return best.table;
 }
 
+/**
+ * Unlike getBestTable's tables (Team/Coach/Conference/SeasonInfo/SeasonGame —
+ * a handful of rows, "many instances, one real one, rest are stale scratch
+ * copies"), Recruit holds the WHOLE league's prospect pool — ~4100+ rows in
+ * a real save, likely at or past a single table instance's row capacity.
+ * That's a genuinely different shape: the live data can be split across
+ * MULTIPLE simultaneously-real instances (an overflow chunk, not a stale
+ * copy), and getBestTable's "keep only the single biggest instance" heuristic
+ * would silently drop every recruit sitting in the other instance — with no
+ * error, just a partial, seemingly-random per-team undercount (whichever
+ * recruits happened to land in the chunk that got read). This merges every
+ * instance's non-empty records instead of picking one.
+ */
+async function getAllTableRecords(save, name) {
+  let candidates = [];
+  if (typeof save.getAllTablesByName === 'function') {
+    candidates = save.getAllTablesByName(name) || [];
+  }
+  if (!candidates.length) {
+    candidates = (save.tables || []).filter((t) => t.name === name);
+  }
+  const records = [];
+  for (const t of candidates) {
+    try {
+      await t.readRecords();
+      for (const r of t.records) {
+        if (r && !r.isEmpty) records.push(r);
+      }
+    } catch (err) {
+      /* skip unreadable instance */
+    }
+  }
+  return records;
+}
+
 /** The save carries several same-named tables (per-slot scratch instances);
  * only one is actually populated. Used for Team/Coach/Conference/SeasonInfo/
  * SeasonGame — all follow this same "many instances, one real one" shape. */
@@ -160,14 +195,41 @@ async function resolveRefWithTable(save, refString) {
 function buildTeamMaps(teamTable) {
   const names = new Map();
   const ratings = new Map();
+  // TeamIndex 255 is shared by all 5 FCS filler rows (East/Midwest/
+  // Northwest/Southeast/West — see buildSchedule's comment on the same
+  // sentinel), so `ratings` above can only ever retain ONE of their 5 real,
+  // distinct ratings (last one processed silently overwrites the rest).
+  // Each row still has its own real name and its own real TEAM_RATING*
+  // fields though, so capture ratings keyed by NAME here too — same
+  // technique buildSchedule already uses to read each one's correct name
+  // straight off its own row instead of through the collision-prone
+  // TeamIndex map. cfb27SaveSync.js routes these back to the app's 5 real
+  // FCS placeholder tids via FCS_FILLER_NAME_TO_TID.
+  const fcsFillerRatings = new Map();
   const rankings = new Map();
-  if (!teamTable) return { names, ratings, rankings };
+  // The save tracks Media Poll and CFP Committee rank as TWO SEPARATE
+  // fields that can genuinely disagree (verified against a real save: Media
+  // Poll had Georgia #1/Miami #2, CFP Poll had Miami #1/Georgia #2) — the
+  // real in-game CFP Bracket screen is seeded off CFPPoll_CurrentRank
+  // specifically, not the Media Poll `rankings` above. Conflating the two
+  // (this file used to only ever extract Media Poll) silently seeded the
+  // tracker's bracket off the wrong poll.
+  const cfpRankings = new Map();
+  // Raw (id -> {national, conference}) TopClassRank/TopClassConferenceRank
+  // values, 0-indexed exactly as the save stores them — renumbered into
+  // topClassRanks (below, after the loop) once every team's raw value is
+  // known. Excluding id 255 (see below) leaves a gap at the front of the
+  // raw sequence that a per-row +1 can't fix; only a second pass that knows
+  // every OTHER real team's raw value can close it correctly.
+  const rawTopClassRanks = new Map();
+  const topClassRanks = new Map();
+  if (!teamTable) return { names, ratings, fcsFillerRatings, rankings, cfpRankings, topClassRanks };
 
   const fields = new Set(teamTable.schema.attributes.map((f) => f.name));
   const nameField = ['LongName', 'DisplayName', 'TeamName'].find((n) => fields.has(n));
   const nickField = ['NickName', 'Mascot'].find((n) => fields.has(n));
   const idField = ['TeamIndex', 'TEAM_ORIGID', 'TeamId'].find((n) => fields.has(n));
-  if (!nameField) return { names, ratings, rankings };
+  if (!nameField) return { names, ratings, fcsFillerRatings, rankings, cfpRankings, topClassRanks };
 
   teamTable.records.forEach((rec, i) => {
     if (!rec || rec.isEmpty) return;
@@ -182,11 +244,15 @@ function buildTeamMaps(teamTable) {
     const offense = Number(readCell(rec, 'TEAM_RATINGOFF'));
     const defense = Number(readCell(rec, 'TEAM_RATINGDEF'));
     if (Number.isFinite(overall) || Number.isFinite(offense) || Number.isFinite(defense)) {
-      ratings.set(id, {
+      const ratingObj = {
         overall: Number.isFinite(overall) ? overall : null,
         offense: Number.isFinite(offense) ? offense : null,
         defense: Number.isFinite(defense) ? defense : null,
-      });
+      };
+      ratings.set(id, ratingObj);
+      if (id === 255 && name && String(name).trim() !== '') {
+        fcsFillerRatings.set(String(name).trim(), ratingObj);
+      }
     }
 
     // Media Poll — the game's default/primary Top 25 ranking (verified
@@ -196,9 +262,51 @@ function buildTeamMaps(teamTable) {
     if (Number.isFinite(mediaRank) && mediaRank >= 1 && mediaRank <= 25) {
       rankings.set(id, mediaRank);
     }
+
+    // CFP Committee Poll — the SEPARATE ranking the real 12-team bracket is
+    // actually seeded from (see this function's header comment).
+    const cfpRank = Number(readCell(rec, 'CFPPoll_CurrentRank'));
+    if (Number.isFinite(cfpRank) && cfpRank >= 1 && cfpRank <= 25) {
+      cfpRankings.set(id, cfpRank);
+    }
+
+    // EA's own precomputed recruiting-class rank. id 255 is the save's
+    // internal "no team assigned" sentinel (same one excluded elsewhere in
+    // this file for player rows) — verified it carries a garbage
+    // TopClassRank with zero actual recruits. Excluded from rawTopClassRanks
+    // entirely (not just filtered at display time) so the renumbering pass
+    // below never has to know about it.
+    if (id === 255) return;
+    const topClassRank = Number(readCell(rec, 'TopClassRank'));
+    const topClassConfRank = Number(readCell(rec, 'TopClassConferenceRank'));
+    if (Number.isFinite(topClassRank) || Number.isFinite(topClassConfRank)) {
+      rawTopClassRanks.set(id, {
+        national: Number.isFinite(topClassRank) ? topClassRank : null,
+        conference: Number.isFinite(topClassConfRank) ? topClassConfRank : null,
+      });
+    }
   });
 
-  return { names, ratings, rankings };
+  // Renumber to sequential 1-indexed ranks from the RAW values, now that
+  // every real team's value is known — a per-row +1 can't do this correctly
+  // once the sentinel is excluded, since a real team's raw value doesn't
+  // reliably start at 0 once the sentinel (whatever raw value IT happened to
+  // have) is out of the picture.
+  const byNational = [...rawTopClassRanks.entries()].filter(([, v]) => v.national != null).sort((a, b) => a[1].national - b[1].national);
+  byNational.forEach(([id], i) => {
+    topClassRanks.set(id, { ...(topClassRanks.get(id) || {}), national: i + 1 });
+  });
+  // Conference rank isn't renumbered the same way — buildTeamMaps doesn't
+  // have conference-membership data (that's a separate table/function), so
+  // there's no confirmed evidence here that the sentinel displaces any real
+  // team's conference rank the way it did nationally. Simple +1, unchanged
+  // from before this fix.
+  for (const [id, v] of rawTopClassRanks) {
+    if (v.conference == null) continue;
+    topClassRanks.set(id, { ...(topClassRanks.get(id) || {}), conference: v.conference + 1 });
+  }
+
+  return { names, ratings, fcsFillerRatings, rankings, cfpRankings, topClassRanks };
 }
 
 const COACH_POSITIONS = {
@@ -233,6 +341,105 @@ function buildCoachingStaff(coachTable) {
   }
 
   return staff;
+}
+
+/**
+ * The human-controlled coach's current team/position — Coach.IsUserControlled,
+ * verified against a real save: exactly one Coach row across the whole
+ * league has this flag set (Ryan Day, HeadCoach, Ohio State), and it's a
+ * direct boolean field on the SAME Coach row buildCoachingStaff already
+ * reads (TeamIndex/Position both already proven fields there). Lets a sync
+ * detect a real in-game job change (the human took a new job, which this
+ * flag alone reflects — no separate "did the user accept" confirmation
+ * exists in the save) without asking the user to re-confirm it manually.
+ *
+ * @returns {{ rawTid: number, position: string } | null}
+ */
+// Distinct from COACH_POSITIONS above (which maps to the coaching-STAFF
+// display shape, e.g. 'headCoach') — this maps to the app's own
+// dynasty.coachPosition short-code convention ('HC'/'OC'/'DC') instead.
+const USER_COACH_POSITION_CODE = {
+  HeadCoach: 'HC',
+  OffensiveCoordinator: 'OC',
+  DefensiveCoordinator: 'DC',
+};
+
+function buildUserCoachInfo(coachTable) {
+  if (!coachTable) return null;
+  for (let i = 0; i < coachTable.records.length; i++) {
+    const rec = coachTable.records[i];
+    if (!rec || rec.isEmpty) continue;
+    if (!readCell(rec, 'IsUserControlled')) continue;
+    const position = USER_COACH_POSITION_CODE[readCell(rec, 'Position')];
+    const rawTid = Number(readCell(rec, 'TeamIndex'));
+    if (!position || !Number.isFinite(rawTid)) continue;
+    // Row POSITION within coachTable (not a field value) — Coach has no
+    // separate stable id column, so this is the same identity buildCoachOffers
+    // matches StaffPersonContractOffer.StaffPerson refs against.
+    return { rawTid, position, coachRowIndex: i };
+  }
+  return null;
+}
+
+/**
+ * Coach-carousel job offers currently pending for the user's own coach.
+ * JobOpening.ContractOfferList resolves to a StaffPersonContractOffer[]
+ * array record (up to 6 candidate slots — verified arraySize 6 on a real
+ * save); each populated slot resolves into the StaffPersonContractOffer
+ * table, whose StaffPerson ref is the CANDIDATE coach being courted for that
+ * job. Verified against a real save: exactly one match (USC's HeadCoach
+ * opening, Status "Pending", 1560 offered vs 1360 expected program points) —
+ * and it's the ONLY match in the whole 181-row JobOpening table, exactly
+ * matching that same coach's own Coach.NumContractOffers value (1).
+ *
+ * Matched by raw table identity + row POSITION (resolveRefWithTable's
+ * `table`/`rowNumber`), not a field value — Coach has no separate stable id
+ * column, same convention buildUserCoachInfo's coachRowIndex already uses.
+ *
+ * @returns {Array<{rawTid:number, position:string, status:string,
+ *   offeredPoints:number, expectedPoints:number, length:number}>}
+ */
+async function buildCoachOffers(save, jobTable, coachTable, userCoachRowIndex) {
+  const offers = [];
+  if (!jobTable || !coachTable || userCoachRowIndex == null) return offers;
+
+  for (const jobRec of jobTable.records) {
+    if (!jobRec || jobRec.isEmpty) continue;
+    const arrResolved = await resolveRefWithTable(save, readCell(jobRec, 'ContractOfferList'));
+    if (!arrResolved || !arrResolved.rec) continue;
+    const arrRec = arrResolved.rec;
+    const size = arrRec.arraySize || 0;
+    for (let i = 0; i < size; i++) {
+      const offerResolved = await resolveRefWithTable(save, readCell(arrRec, `StaffPersonContractOffer${i}`));
+      if (!offerResolved || !offerResolved.rec || offerResolved.rec.isEmpty) continue;
+      const offerRec = offerResolved.rec;
+      // Decoded directly (not via resolveRefWithTable, which doesn't expose
+      // rowNumber on its return value) and compared by row POSITION within
+      // the SAME coachTable object userCoachRowIndex was derived from —
+      // avoids any risk of landing in a different, unpopulated per-slot
+      // Coach table instance.
+      const staffRef = readCell(offerRec, 'StaffPerson');
+      if (!staffRef || typeof staffRef !== 'string' || staffRef.length < 16) continue;
+      const staffRowNumber = parseInt(staffRef.slice(15), 2);
+      if (staffRowNumber !== userCoachRowIndex) continue;
+      const staffRec = coachTable.records[staffRowNumber];
+      if (!staffRec || staffRec.isEmpty) continue;
+
+      const teamRec = await resolveRef(save, readCell(jobRec, 'Team'));
+      const rawTid = teamRec ? Number(readCell(teamRec, 'TeamIndex')) : null;
+      if (!Number.isFinite(rawTid)) continue;
+
+      offers.push({
+        rawTid,
+        position: readCell(jobRec, 'Position') || null,
+        status: readCell(offerRec, 'Status') || null,
+        offeredPoints: Number(readCell(offerRec, 'OfferedContractProgramPoints')) || 0,
+        expectedPoints: Number(readCell(offerRec, 'ExpectedContractProgramPoints')) || 0,
+        length: Number(readCell(offerRec, 'Length')) || null,
+      });
+    }
+  }
+  return offers;
 }
 
 // Save-side DepthChart slot field -> confidently-matching app catalog slot
@@ -355,6 +562,13 @@ function buildSeasonInfo(seasonTable) {
     week: Number(readCell(rec, 'CurrentWeek')),
     weekType: readCell(rec, 'CurrentWeekType'),
     stage: readCell(rec, 'CurrentStage'),
+    // Boundary markers needed to convert CurrentWeek (one continuous count
+    // across the whole season, verified up to 21 in a real save) into the
+    // app's own PHASE-RELATIVE week numbering (conference championship
+    // always week 1, postseason weeks 1-4/5) — see cfb27SaveImport.js's
+    // mapSeasonInfo for why this conversion is required, not optional.
+    regularSeasonLastWeek: Number(readCell(rec, 'RegularSeasonLastWeekScheduled')) || null,
+    conferenceChampionshipWeek: Number(readCell(rec, 'RegularSeasonWeekConferenceChampionship')) || null,
   };
 }
 
@@ -365,7 +579,30 @@ function buildSeasonInfo(seasonTable) {
  * about. HomeTeam/AwayTeam resolve the same reference-chain way as
  * Conference.TeamSlots.
  */
-async function buildSchedule(save, gameTable, teamNames) {
+/**
+ * Maps each of the 6 NY6 bowl stadiums (PlayoffBowlsInfo, always exactly 6
+ * rows) to its real bowl name. Verified against a real save: a CFP
+ * quarterfinal SeasonGame row's own Stadium ref matches one of these 6
+ * exactly, revealing THIS year's real site rotation (this save: Peach/
+ * Fiesta/Cotton/Rose hosting quarterfinals) — the generic "CFP Quarterfinal"
+ * BowlGame.Name alone can't tell you which specific bowl it actually is.
+ *
+ * @returns {Map<string, string>} raw Stadium ref string -> bowl name
+ */
+async function buildPlayoffBowlSites(save) {
+  const sites = new Map();
+  const table = await getBestTable(save, 'PlayoffBowlsInfo');
+  if (!table) return sites;
+  for (const rec of table.records) {
+    if (!rec || rec.isEmpty) continue;
+    const stadiumRef = readCell(rec, 'Stadium');
+    const name = readCell(rec, 'Name');
+    if (stadiumRef && name) sites.set(stadiumRef, name);
+  }
+  return sites;
+}
+
+async function buildSchedule(save, gameTable, teamNames, playoffBowlSites) {
   const games = [];
   if (!gameTable) return games;
 
@@ -373,17 +610,75 @@ async function buildSchedule(save, gameTable, teamNames) {
     if (!rec || rec.isEmpty) continue;
     const homeRec = await resolveRef(save, readCell(rec, 'HomeTeam'));
     const awayRec = await resolveRef(save, readCell(rec, 'AwayTeam'));
-    if (!homeRec || !awayRec) continue;
-    const homeTid = Number(readCell(homeRec, 'TeamIndex'));
-    const awayTid = Number(readCell(awayRec, 'TeamIndex'));
-    if (!Number.isFinite(homeTid) || !Number.isFinite(awayTid)) continue;
+    const weekType = readCell(rec, 'SeasonWeekType');
+    // Regular-season games always have both sides resolved — but a CFP
+    // quarterfinal "bye" shell legitimately has a null AwayTeam (TBD, still
+    // waiting on the first-round winner) until that earlier round finishes.
+    // Requiring both unconditionally silently dropped every quarterfinal/
+    // semifinal/championship row from the whole schedule the moment either
+    // side was still unresolved — which is exactly the normal state for a
+    // bye slot, not a data problem, so postseason rows only require ONE side.
+    const isRegularSeason = weekType === 'RegularSeason';
+    if (isRegularSeason && (!homeRec || !awayRec)) continue;
+    if (!isRegularSeason && !homeRec && !awayRec) continue;
+    const homeTid = homeRec ? Number(readCell(homeRec, 'TeamIndex')) : null;
+    const awayTid = awayRec ? Number(readCell(awayRec, 'TeamIndex')) : null;
+    if (isRegularSeason && (!Number.isFinite(homeTid) || !Number.isFinite(awayTid))) continue;
 
-    const homeInfo = teamNames.get(homeTid);
-    const awayInfo = teamNames.get(awayTid);
+    // TeamIndex 255 is shared by FIVE distinct generic-schedule-filler rows
+    // (FCS East/Midwest/Northwest/Southeast/West all read TeamIndex 255 —
+    // confirmed directly against a real save's own Team table, this is EA's
+    // own data, not an extraction bug). teamNames.get(255) can only ever
+    // return ONE of the five (whichever buildTeamMaps' scan processed
+    // last), silently mislabeling every OTHER generic-FCS opponent with
+    // the wrong specific regional name (e.g. a real "FCS Midwest" game
+    // showing as "FCS West"). resolveRef already landed on the exact right
+    // row for THIS game, so read the name straight off it instead of
+    // through the lossy by-TeamIndex map for this one sentinel value.
+    const nameFromRec = (rec) => readCell(rec, 'LongName') || readCell(rec, 'DisplayName') || readCell(rec, 'TeamName') || null;
+    const nickFromRec = (rec) => readCell(rec, 'NickName') || readCell(rec, 'Mascot') || null;
+    const homeInfo = homeTid === 255
+      ? { name: nameFromRec(homeRec), nick: nickFromRec(homeRec) }
+      : (homeTid != null ? teamNames.get(homeTid) : null);
+    const awayInfo = awayTid === 255
+      ? { name: nameFromRec(awayRec), nick: nickFromRec(awayRec) }
+      : (awayTid != null ? teamNames.get(awayTid) : null);
+
+    // Bowl/CFP resolution — only worth the extra ref-chase for the ~45
+    // non-regular-season games per year, not all ~900 regular-season ones.
+    // BowlGame.Name resolves to the real bowl (Sugar/Cotton/Rose/Orange/
+    // Peach/Fiesta/National Championship/any of the 45 regular bowls).
+    // IsPlayoffBowl + PlayoffBracketSlot (0-3 first round, 4-7 quarterfinal,
+    // 8-9 semifinal, 10 championship) identify the 11 CFP bracket games,
+    // which live in this SAME 45-row BowlGame table alongside the 34 regular
+    // bowls — verified directly against a real save's full BowlGame table.
+    let bowlName = null;
+    let isPlayoffBowl = null;
+    let playoffBracketSlot = null;
+    if (weekType && weekType !== 'RegularSeason') {
+      const bowlRec = await resolveRef(save, readCell(rec, 'BowlGame'));
+      if (bowlRec) {
+        bowlName = readCell(bowlRec, 'Name') || null;
+        isPlayoffBowl = Boolean(readCell(bowlRec, 'IsPlayoffBowl'));
+        playoffBracketSlot = Number(readCell(bowlRec, 'PlayoffBracketSlot'));
+        if (!Number.isFinite(playoffBracketSlot)) playoffBracketSlot = null;
+        // For CFP quarterfinal/semifinal/championship games, BowlGame.Name is
+        // only ever a generic category label ("CFP Quarterfinal") — the
+        // game's own Stadium ref reveals which real NY6 bowl it actually is,
+        // once that site has been assigned in the save.
+        if (isPlayoffBowl && playoffBowlSites) {
+          const realName = playoffBowlSites.get(readCell(rec, 'Stadium'));
+          if (realName) bowlName = realName;
+        }
+      }
+    }
 
     games.push({
       week: Number(readCell(rec, 'SeasonWeek')),
-      weekType: readCell(rec, 'SeasonWeekType'),
+      weekType,
+      bowlName,
+      isPlayoffBowl,
+      playoffBracketSlot,
       year: Number(readCell(rec, 'SeasonYear')),
       gameNum: Number(readCell(rec, 'SeasonGameNum')),
       status: readCell(rec, 'GameStatus'),
@@ -470,15 +765,28 @@ async function buildRecruitingBoard(save, playerFieldPicker, presentRatings) {
     // Slot 0 (index 0, highest TeamInfluence) is the destination once
     // committed; for a still-open recruit it's just their current lean, not
     // a real commitment, so callers must gate use of this on recruit_stage.
+    // All 10 tracked schools (not just slot 0) — lets callers work out where
+    // the user's OWN team currently ranks in this recruit's interest list
+    // (the in-game "Int: 6th" label), sorted by TeamInfluence descending same
+    // as the in-game list itself. Verified technique against the scratch
+    // script (scratch_ro27_asar/build-recruiting-table.mjs) which reads the
+    // identical TopSchoolsList -> ProspectTargetSchool0..9 chain across all
+    // 10 slots and sorts the same way.
     let committedTeamId = null;
+    const topSchools = [];
     const topSchoolsRow = await resolveRef(save, readCell(recruitRec, 'TopSchoolsList'));
     if (topSchoolsRow) {
-      const topSchoolRef = readCell(topSchoolsRow, 'ProspectTargetSchool0');
-      const topSchoolRow = await resolveRef(save, topSchoolRef);
-      if (topSchoolRow && !topSchoolRow.isEmpty) {
+      for (let i = 0; i < 10; i++) {
+        const topSchoolRef = readCell(topSchoolsRow, `ProspectTargetSchool${i}`);
+        const topSchoolRow = await resolveRef(save, topSchoolRef);
+        if (!topSchoolRow || topSchoolRow.isEmpty) continue;
         const tid = Number(readCell(topSchoolRow, 'TeamId'));
-        if (Number.isFinite(tid)) committedTeamId = tid;
+        if (!Number.isFinite(tid)) continue;
+        const influence = Number(readCell(topSchoolRow, 'TeamInfluence'));
+        topSchools.push({ team_id: tid, influence: Number.isFinite(influence) ? influence : 0 });
       }
+      topSchools.sort((a, b) => b.influence - a.influence);
+      if (topSchools.length) committedTeamId = topSchools[0].team_id;
     }
 
     const F = playerFieldPicker;
@@ -505,26 +813,518 @@ async function buildRecruitingBoard(save, playerFieldPicker, presentRatings) {
       recruit_class: readCell(recruitRec, 'Class'),
       recruit_stage: readCell(recruitRec, 'RecruitStage'),
       committed_team_id: committedTeamId,
+      // The scout's Gem/Bust read on this prospect's TRUE dev-trait
+      // ceiling/floor (the green/red gem icon on the in-game Scouting
+      // screen) — verified against a real save: 'NORMAL'/'GEM'/'BUST' are
+      // the only 3 values (checked all 4,101 rows in the Recruit table).
+      // cfb27SaveSync.js maps these to the app's existing gemBust
+      // convention ('Gem'/'Bust'/'').
+      quality_modifier: readCell(recruitRec, 'QualityModifier'),
+      // Sorted by influence descending (highest first) — same order the
+      // in-game interest list shows. Callers resolve each team_id through
+      // their own raw-team-id map to find where a given team (e.g. the
+      // user's own) currently ranks.
+      top_schools: topSchools,
       scholarship_status: readCell(rec, 'ScholarshipStatus'),
       committed_week: Number(readCell(rec, 'CommittedWeekNumber')) || null,
       is_favorite: Boolean(readCell(rec, 'IsFavorite')),
       current_nil_offer: Number(readCell(rec, 'CurrentNILOffer')) || null,
       // Real attributes/dev-trait are always present in the save (the game
       // generates them immediately, before any scouting happens) — the
-      // reveal-to-the-user timing is a UI-layer mechanic on top, tracked
-      // here via UnlockedIntelBitfield. Only ONE calibration point exists
-      // right now (a confirmed 100%-scouted recruit, bitfield value 12) —
-      // every OTHER real recruit checked was already committed, where this
-      // field reads 0 regardless of prior scouting. There's no known
-      // partially-scouted sample yet to decode intermediate percentages or
-      // which bit maps to which attribute, so the mapper (cfb27SaveSync.js)
-      // treats this as a binary gate (>=12 = fully scouted) rather than a
-      // graduated one — under-reveal on uncertainty, never over-reveal.
-      unlocked_intel_bitfield: Number(readCell(rec, 'UnlockedIntelBitfield')) || 0,
+      // reveal-to-the-user timing is a UI-layer mechanic on top. Originally
+      // tracked here via UnlockedIntelBitfield, believed (on a single data
+      // point) to hit 12 once fully scouted — disproven against a real save:
+      // a recruit directly confirmed 100% scouted in-game (attributes
+      // visible, matching exactly) still read bitfield 0, same as every
+      // signed recruit already found reading 0 regardless of scouting. That
+      // field carries no signal at all for this. ProspectHoursSpentCurrent
+      // is the real one — an actual per-recruit scouting-hours counter (not
+      // a flag), confirmed against that same 100%-scouted recruit at value
+      // 30. cfb27SaveSync.js gates attribute reveal on this reaching 30.
+      prospect_hours_spent: Number(readCell(rec, 'ProspectHoursSpentCurrent')) || 0,
     });
   }
 
   return targets;
+}
+
+/**
+ * Whole national recruiting class, aggregated per team — NOT the same as
+ * buildRecruitingBoard above (which is scoped to UserRecruitTarget, the
+ * user's own board only). Reads EVERY instance of the Recruit table via
+ * getAllTableRecords, not just the single biggest one (~4100 rows in a real
+ * save is large enough to spill across more than one live instance — see
+ * getAllTableRecords' comment; using getBestTable here silently dropped
+ * whichever recruits landed in the instance that didn't get read, producing
+ * a partial, seemingly-random per-team undercount), resolving each
+ * committed recruit's real destination team via the SAME
+ * TopSchoolsList -> ProspectTargetSchool0 -> TeamId chain buildRecruitingBoard
+ * already uses above, filtered to RecruitStage SoftCommitted/HardCommitted/
+ * Signed (any committed stage — matches the in-game Top Classes screen,
+ * which counts a class member from their first verbal commitment onward,
+ * not just once they hard-commit or sign). An earlier version of this filter
+ * only counted HardCommitted/Signed, which happened to match a real save
+ * late in the recruiting cycle (most commits had already progressed past
+ * SoftCommitted by then) but badly undercounted early in a season, when most
+ * commits are still SoftCommitted.
+ *
+ * Deliberately aggregate-only (just stars + national rank per recruit, not
+ * full player identity) — feeding src/utils/recruitingScore.js's
+ * calculateRecruitingClassScore (already used for the user's own class,
+ * verified team-agnostic) reproduces the in-game class score with no new
+ * formula needed, and there's no product need to create ~4000 tracked
+ * player records for recruits committed to OTHER teams.
+ */
+
+/**
+ * Whole-league real rivalries. Each Team row carries direct
+ * Rival1TeamRef/Rival2TeamRef/Rival3TeamRef refs to its real rivals —
+ * verified against a real save: Alabama -> Auburn/Tennessee/LSU, Ohio State
+ * -> Michigan/Penn State/Illinois, Clemson -> South Carolina/Florida
+ * State/Georgia Tech, all exact real-world matches. The separate 233-row
+ * Rivalry table (Team1/Team2 refs) is scanned once and cross-referenced
+ * against each team's 3 rival refs to pull the human-readable rivalry Name
+ * and FirstYearPlayed for that specific pair.
+ *
+ * @returns {Map<number, {rivalRawTid:number, name:string|null, formedYear:number|null}[]>}
+ */
+async function buildLeagueRivalries(save, teamTable) {
+  const byTeam = new Map();
+  if (!teamTable) return byTeam;
+
+  const rivalryTable = await getBestTable(save, 'Rivalry');
+  const rivalryRows = [];
+  if (rivalryTable) {
+    for (const rec of rivalryTable.records) {
+      if (!rec || rec.isEmpty) continue;
+      const team1Rec = await resolveRef(save, readCell(rec, 'Team1'));
+      const team2Rec = await resolveRef(save, readCell(rec, 'Team2'));
+      if (!team1Rec || !team2Rec) continue;
+      const team1RawTid = Number(readCell(team1Rec, 'TeamIndex'));
+      const team2RawTid = Number(readCell(team2Rec, 'TeamIndex'));
+      if (!Number.isFinite(team1RawTid) || !Number.isFinite(team2RawTid)) continue;
+      rivalryRows.push({
+        team1RawTid,
+        team2RawTid,
+        name: readCell(rec, 'Name') || null,
+        formedYear: Number(readCell(rec, 'FirstYearPlayed')) || null,
+      });
+    }
+  }
+
+  const findRivalryRow = (tidA, tidB) => rivalryRows.find(
+    (r) => (r.team1RawTid === tidA && r.team2RawTid === tidB) || (r.team1RawTid === tidB && r.team2RawTid === tidA)
+  );
+
+  for (const rec of teamTable.records) {
+    if (!rec || rec.isEmpty) continue;
+    const rawTid = Number(readCell(rec, 'TeamIndex'));
+    if (!Number.isFinite(rawTid) || rawTid === 255) continue;
+
+    const rivals = [];
+    for (const field of ['Rival1TeamRef', 'Rival2TeamRef', 'Rival3TeamRef']) {
+      const rivalRec = await resolveRef(save, readCell(rec, field));
+      if (!rivalRec) continue;
+      const rivalRawTid = Number(readCell(rivalRec, 'TeamIndex'));
+      if (!Number.isFinite(rivalRawTid)) continue;
+      const rivalryRow = findRivalryRow(rawTid, rivalRawTid);
+      rivals.push({
+        rivalRawTid,
+        name: rivalryRow?.name ?? null,
+        formedYear: rivalryRow?.formedYear ?? null,
+      });
+    }
+    if (rivals.length) byTeam.set(rawTid, rivals);
+  }
+
+  return byTeam;
+}
+
+// EA's own program grade fields, read as-is (letter grades displayed
+// directly, no invented formula). Verified against a real save via the
+// Team.MySchoolTrackingTable ref (a naive positional zip between the two
+// tables is WRONG — record counts differ, 143 vs 138 — the ref is the only
+// safe join): Ohio State Aplus/Aplus/Aplus, Alabama Aplus/Aminus/Aplus,
+// Georgia State C/F/Dminus for conference/coach/tradition grades.
+const SCHOOL_GRADE_FIELDS = [
+  'AcademicPrestigeGrade', 'AthleticFacilitiesGrade', 'AthleticFacilitiesScore',
+  'BrandExposureGrade', 'CampusLifestyleGrade', 'ChampionshipContenderGrade',
+  'ChampionshipContenderCurrentYearRank', 'ChampionshipContenderYearPlus1Rank',
+  'ChampionshipContenderYearPlus2Rank', 'ChampionshipContenderYearPlus3Rank',
+  'CoachPrestigeGrade', 'CoachStabilityGrade', 'ConferencePrestigeGrade',
+  'ProgramTraditionGrade', 'StadiumAtmosphereGrade',
+  'ProPotentialGradeDB', 'ProPotentialGradeDL', 'ProPotentialGradeK',
+  'ProPotentialGradeLB', 'ProPotentialGradeOL', 'ProPotentialGradeP',
+  'ProPotentialGradeQB', 'ProPotentialGradeRB', 'ProPotentialGradeTE', 'ProPotentialGradeWR',
+];
+
+/**
+ * Whole-league program/school grades. `Team.MySchoolTrackingTable` is a
+ * genuine reference field (same pattern as Stadium/HeadCoach) — resolving it
+ * per team is the only correct join (see SCHOOL_GRADE_FIELDS comment above).
+ *
+ * @returns {Map<number, object>} rawTeamId -> flat grades object
+ */
+async function buildLeagueSchoolGrades(save, teamTable) {
+  const byTeam = new Map();
+  if (!teamTable) return byTeam;
+
+  for (const rec of teamTable.records) {
+    if (!rec || rec.isEmpty) continue;
+    const rawTid = Number(readCell(rec, 'TeamIndex'));
+    if (!Number.isFinite(rawTid) || rawTid === 255) continue;
+
+    const gradeRec = await resolveRef(save, readCell(rec, 'MySchoolTrackingTable'));
+    if (!gradeRec) continue;
+
+    const grades = {};
+    for (const field of SCHOOL_GRADE_FIELDS) {
+      const value = readCell(gradeRec, field);
+      if (value != null) grades[field] = value;
+    }
+    if (Object.keys(grades).length) byTeam.set(rawTid, grades);
+  }
+
+  return byTeam;
+}
+
+/**
+ * @returns {Map<number, {stars:number, nationalRank:number|null, nilCompensation:number}[]>} rawTeamId -> recruit list
+ */
+async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker) {
+  const byTeam = new Map();
+  if (!recruitRecords || !recruitRecords.length) return byTeam;
+
+  for (const recruitRec of recruitRecords) {
+    if (!recruitRec || recruitRec.isEmpty) continue;
+    // Any of the 3 committed stages counts toward a team's class, matching
+    // the in-game Top Classes screen — verified this was actually wrong
+    // before: restricting to HardCommitted/Signed only happened to match a
+    // real save late in the cycle (most commits had already progressed past
+    // SoftCommitted by then), but undercounts badly early in a season when
+    // most commits are still SoftCommitted (a real verbal commitment that
+    // counts toward the class in-game well before it hard-commits or signs).
+    const stage = readCell(recruitRec, 'RecruitStage');
+    if (stage !== 'SoftCommitted' && stage !== 'HardCommitted' && stage !== 'Signed') continue;
+
+    const topSchoolsRow = await resolveRef(save, readCell(recruitRec, 'TopSchoolsList'));
+    if (!topSchoolsRow) continue;
+    const topSchoolRow = await resolveRef(save, readCell(topSchoolsRow, 'ProspectTargetSchool0'));
+    if (!topSchoolRow || topSchoolRow.isEmpty) continue;
+    const rawTid = Number(readCell(topSchoolRow, 'TeamId'));
+    if (!Number.isFinite(rawTid)) continue;
+    // 255 is the save's internal "no team assigned" sentinel — the same one
+    // excluded elsewhere in this file. A committed recruit should never
+    // resolve here in practice, but skip defensively rather than let a
+    // sentinel "team" accumulate a fake recruiting class.
+    if (rawTid === 255) continue;
+
+    // Recruit.Player resolves through the same reference mechanism as
+    // buildRecruitingBoard's UserRecruitTarget-scoped rows above (it's the
+    // same underlying Recruit table either way, just not filtered to the
+    // user's board here) — the outer playerFieldPicker is already proven
+    // correct for this exact reference chain.
+    //
+    // stars is left as the RAW enum string (e.g. "FOUR_STAR"), same as
+    // buildRecruitingBoard does above — it is NOT numeric in the save, and
+    // converting with Number() here would silently collapse every recruit
+    // to 0 stars (verified: this was a real bug during development). The
+    // client-side mapStars() (cfb27SaveImport.js) does the real conversion,
+    // exactly like it already does for buildRecruitingBoard's rows.
+    const playerRec = await resolveRef(save, readCell(recruitRec, 'Player'));
+    const F = playerFieldPicker;
+    const stars = (playerRec && !playerRec.isEmpty && F.stars) ? readCell(playerRec, F.stars) : null;
+    const nationalRank = Number(readCell(recruitRec, 'NationalRank')) || null;
+    // Player.CurrentNILCompensation — a real field directly on the recruit's
+    // own Player row (not scoped to the human user's board the way
+    // UserRecruitTarget.CurrentNILOffer is), matching the in-game Top
+    // Classes screen's per-team "Total NIL Committed" column, which sums
+    // every recruit's NIL regardless of which team they're committing to.
+    const nilCompensation = (playerRec && !playerRec.isEmpty)
+      ? Number(readCell(playerRec, 'CurrentNILCompensation')) || 0
+      : 0;
+
+    if (!byTeam.has(rawTid)) byTeam.set(rawTid, []);
+    byTeam.get(rawTid).push({ stars, nationalRank, nilCompensation });
+  }
+
+  return byTeam;
+}
+
+// AwardType -> { side, scope } for the 4 weekly Player of the Week variants
+// found in the save's PlayerAward table (national + per-conference, offense
+// + defense). Every other AwardType in that table (All-American ballots,
+// etc.) is intentionally ignored here.
+const POTW_AWARD_TYPES = {
+  Offensive_Player_of_Week: { side: 'offensive', scope: 'national' },
+  Defensive_Player_of_Week: { side: 'defensive', scope: 'national' },
+  Offensive_Player_of_Week_Conf: { side: 'offensive', scope: 'conference' },
+  Defensive_Player_of_Week_Conf: { side: 'defensive', scope: 'conference' },
+};
+
+/**
+ * Whole-league weekly Offensive/Defensive Player of the Week — national and
+ * per-conference. Save table: PlayerAward, `AwardType` in
+ * Offensive_Player_of_Week / Defensive_Player_of_Week (national, one row per
+ * week, `Period: 'Game'`, `PeriodIndex` = the week number the award is FOR)
+ * and the `_Conf` variants (one row per conference per week). Verified
+ * against a real save: the periodIndex-7 entries resolve to Jayden Moore
+ * (Duke, WR, #8) and DJ Pickett (LSU, CB, #3) — an exact match to the
+ * in-game "Players of the Week" screen captioned "Season Week 7".
+ * `AwardScore` is always 0 for this award type — NOT usable for a stat
+ * line; callers must derive the actual stat line from that player's
+ * already-extracted box score for the same week/team instead.
+ *
+ * IMPORTANT: a `Player` ref resolved from PlayerAward/HeismanAwardRanking
+ * can land in a DIFFERENT player-table instance than the main roster table
+ * `playerFieldPicker` was built from (this file's own "several same-named
+ * tables — per-slot scratch instances" quirk, see the file header comment).
+ * Verified directly: field names differ between the two. Never reuse the
+ * OUTER playerFieldPicker for these refs — build a fresh one per resolved
+ * table instead (memoized below, since in practice only a couple of
+ * distinct table instances ever appear across all rows).
+ *
+ * @returns {{ national: Object<number, {offensive?, defensive?}>,
+ *             conference: Object<number, Object<string, {offensive?, defensive?}>> }}
+ */
+async function buildPlayerAwards(save, awardTable) {
+  const national = {};
+  const conference = {};
+  if (!awardTable) return { national, conference };
+
+  const pickerCache = new Map();
+  const pickerFor = (table) => {
+    if (!pickerCache.has(table)) pickerCache.set(table, buildPlayerFieldPicker(table));
+    return pickerCache.get(table);
+  };
+
+  for (const rec of awardTable.records) {
+    if (!rec || rec.isEmpty) continue;
+    const meta = POTW_AWARD_TYPES[readCell(rec, 'AwardType')];
+    if (!meta) continue;
+
+    const week = Number(readCell(rec, 'PeriodIndex'));
+    if (!Number.isFinite(week)) continue;
+
+    const playerResolved = await resolveRefWithTable(save, readCell(rec, 'Player'));
+    if (!playerResolved || playerResolved.rec.isEmpty) continue;
+    const F = pickerFor(playerResolved.table);
+
+    const teamRec = await resolveRef(save, readCell(rec, 'Team'));
+    const rawTid = (teamRec && !teamRec.isEmpty) ? Number(readCell(teamRec, 'TeamIndex')) : null;
+
+    const entry = {
+      first_name: F.first ? readCell(playerResolved.rec, F.first) : null,
+      last_name: F.last ? readCell(playerResolved.rec, F.last) : null,
+      position: F.position ? String(readCell(playerResolved.rec, F.position) || '') : null,
+      jersey: F.jersey ? Number(readCell(playerResolved.rec, F.jersey)) : null,
+      asset_name: F.assetName ? readCell(playerResolved.rec, F.assetName) : null,
+      generic_head_asset_name: F.genericHeadAssetName ? readCell(playerResolved.rec, F.genericHeadAssetName) : null,
+      portrait_id: F.portraitId ? Number(readCell(playerResolved.rec, F.portraitId)) : null,
+      team_id: rawTid,
+    };
+
+    if (meta.scope === 'national') {
+      if (!national[week]) national[week] = {};
+      national[week][meta.side] = entry;
+    } else {
+      const confRec = await resolveRef(save, readCell(rec, 'Conference'));
+      const confName = (confRec && !confRec.isEmpty) ? readCell(confRec, 'Name') : null;
+      if (!confName) continue;
+      if (!conference[week]) conference[week] = {};
+      if (!conference[week][confName]) conference[week][confName] = {};
+      conference[week][confName][meta.side] = entry;
+    }
+  }
+
+  return { national, conference };
+}
+
+// National All-American / All-Conference team designations (final results,
+// not preseason predictions — the _PRE variants are intentionally excluded).
+// Verified against a real save: ALL_AM_1ST's 25 entries (one per position)
+// exactly matched the in-game National All-Americans 1st Team screen for
+// every single position (Trinidad Chambliss/Ole Miss QB through Ron Watson/
+// Navy P). ALL_AM_1ST_CONF (275 = 25 positions x 11 conferences) is the same
+// concept per-conference — this save's real All-Conference teams.
+const ALL_AM_AWARD_TYPES = {
+  ALL_AM_1ST: { designation: 'first', scope: 'national' },
+  ALL_AM_2ND: { designation: 'second', scope: 'national' },
+  ALL_AM_FR: { designation: 'freshman', scope: 'national' },
+  ALL_AM_1ST_CONF: { designation: 'first', scope: 'conference' },
+  ALL_AM_2ND_CONF: { designation: 'second', scope: 'conference' },
+  ALL_AM_FR_CONF: { designation: 'freshman', scope: 'conference' },
+};
+
+// Preseason 1st/2nd Team predictions — the save's own "PRESEASON 1ST TEAM"/
+// "PRESEASON 2ND TEAM" screens. Verified against a real save (a fresh
+// preseason dynasty with no final honors yet): PlayerAward held exactly
+// ALL_AM_1ST_PRE (25), ALL_AM_1ST_PRE_CONF (275), ALL_AM_2ND_PRE (25),
+// ALL_AM_2ND_PRE_CONF (275) — note _PRE comes before _CONF in the type
+// string, not after. No freshman preseason variant exists in the save (there
+// wouldn't be one to predict before the season starts). These rows are
+// expected to coexist with the final ALL_AM_* rows once the season crowns
+// real honorees — buildLeagueHonors keeps them in a separate bucket so the
+// sync layer can prefer final honors and only fall back to preseason when
+// nothing final exists yet for that scope.
+const ALL_AM_PRESEASON_AWARD_TYPES = {
+  ALL_AM_1ST_PRE: { designation: 'first', scope: 'national' },
+  ALL_AM_2ND_PRE: { designation: 'second', scope: 'national' },
+  ALL_AM_1ST_PRE_CONF: { designation: 'first', scope: 'conference' },
+  ALL_AM_2ND_PRE_CONF: { designation: 'second', scope: 'conference' },
+};
+
+// Named individual season awards -> the app's existing Awards.jsx award key
+// (see AWARD_DISPLAY in src/pages/dynasty/Awards.jsx). Verified against a
+// real save by resolving each winner and cross-checking their actual
+// position/team against the real-world award's known scope — e.g. BEST_QB
+// resolved to a QB (matches the Davey O'Brien Award), BEST_SR_QB
+// specifically to a senior QB (matches the Unitas Golden Arm Award, which is
+// senior-QB-specific in real life), BEST_DE to an edge rusher (matches Edge
+// Rusher of the Year) while BEST_IL resolved to a center (matches the
+// Outland Trophy's true interior-lineman scope). BEST_ACADEMIC/
+// BEST_FRESHMAN_POTY/BEST_SR/BEST_DL, and the two coach awards (Bear Bryant/
+// Broyles), have no home in AWARD_DISPLAY yet or no verified save field —
+// intentionally left unmapped rather than guessed.
+const NAMED_AWARD_TYPES = {
+  HEISMAN: 'heisman',
+  BEST_POTY: 'maxwell',
+  BEST_PLAYER: 'walterCamp',
+  BEST_QB: 'daveyObrien',
+  BEST_RB: 'doakWalker',
+  BEST_REC: 'fredBiletnikoff',
+  BEST_TE: 'johnMackey',
+  BEST_SR_QB: 'unitasGoldenArm',
+  BEST_DEF_1: 'chuckBednarik',
+  BEST_DEF_2: 'broncoNagurski',
+  BEST_DB: 'jimThorpe',
+  BEST_LB: 'dickButkus',
+  BEST_DE: 'edgeRusherOfTheYear',
+  BEST_IL: 'outland',
+  BEST_C: 'rimington',
+  BEST_KICK: 'louGroza',
+  BEST_PUNT: 'rayGuy',
+  MOST_VERSATILE: 'shaunAlexander',
+};
+
+/**
+ * Whole-league season-end honors: National All-Americans, All-Conference
+ * teams, and named individual awards (Heisman, Maxwell, etc.) — all read
+ * from the SAME PlayerAward table the weekly Player of the Week honors
+ * already come from (see buildPlayerAwards above for the shared Player-ref-
+ * can-land-in-a-different-table-instance caveat, handled the same way here).
+ *
+ * @returns {{
+ *   allAmericans: { national: object[], conference: object[] },
+ *   allAmericansPreseason: { national: object[], conference: object[] },
+ *   namedAwards: Object<string, object>
+ * }}
+ */
+async function buildLeagueHonors(save, awardTable) {
+  const allAmericans = { national: [], conference: [] };
+  const allAmericansPreseason = { national: [], conference: [] };
+  const namedAwards = {};
+  if (!awardTable) return { allAmericans, allAmericansPreseason, namedAwards };
+
+  const pickerCache = new Map();
+  const pickerFor = (table) => {
+    if (!pickerCache.has(table)) pickerCache.set(table, buildPlayerFieldPicker(table));
+    return pickerCache.get(table);
+  };
+
+  for (const rec of awardTable.records) {
+    if (!rec || rec.isEmpty) continue;
+    const awardType = readCell(rec, 'AwardType');
+    const aaMeta = ALL_AM_AWARD_TYPES[awardType];
+    const aaPreMeta = ALL_AM_PRESEASON_AWARD_TYPES[awardType];
+    const namedKey = NAMED_AWARD_TYPES[awardType];
+    if (!aaMeta && !aaPreMeta && !namedKey) continue;
+
+    const playerResolved = await resolveRefWithTable(save, readCell(rec, 'Player'));
+    if (!playerResolved || playerResolved.rec.isEmpty) continue;
+    const F = pickerFor(playerResolved.table);
+
+    const teamRec = await resolveRef(save, readCell(rec, 'Team'));
+    const rawTid = (teamRec && !teamRec.isEmpty) ? Number(readCell(teamRec, 'TeamIndex')) : null;
+
+    const first_name = F.first ? readCell(playerResolved.rec, F.first) : null;
+    const last_name = F.last ? readCell(playerResolved.rec, F.last) : null;
+    // The PlayerAward row itself carries Position directly — no need to
+    // resolve it off the player row (which can be a different position for
+    // a since-converted player anyway).
+    const position = readCell(rec, 'Position') || (F.position ? readCell(playerResolved.rec, F.position) : null);
+    const year = F.year ? readCell(playerResolved.rec, F.year) : null;
+    const redshirt = F.redshirt ? readCell(playerResolved.rec, F.redshirt) : null;
+
+    if (aaMeta) {
+      const entry = { first_name, last_name, position, year, redshirt, team_id: rawTid, designation: aaMeta.designation };
+      if (aaMeta.scope === 'national') allAmericans.national.push(entry);
+      else allAmericans.conference.push(entry);
+    }
+    if (aaPreMeta) {
+      const entry = { first_name, last_name, position, year, redshirt, team_id: rawTid, designation: aaPreMeta.designation };
+      if (aaPreMeta.scope === 'national') allAmericansPreseason.national.push(entry);
+      else allAmericansPreseason.conference.push(entry);
+    }
+    if (namedKey) {
+      namedAwards[namedKey] = { first_name, last_name, position, team_id: rawTid };
+    }
+  }
+
+  return { allAmericans, allAmericansPreseason, namedAwards };
+}
+
+/**
+ * Top-4 Heisman Watch ranking. Save table: HeismanAwardRanking (exactly 4
+ * non-empty rows in a real save). `CurrentRank`/`LastWeekRank` are
+ * 0-indexed; `LastWeekRank === -1` means "wasn't in the top 4 last week" (a
+ * brand-new entry — shown in-game with the same "improved" up-arrow a
+ * numeric rank increase gets, not a neutral/flat indicator). Verified
+ * against a real save: resolves to Maiava (USC) / Leavitt (LSU) / Staley
+ * (Tennessee) / Reed (Texas A&M) in the exact order, with the exact
+ * rank-change signal (flat / flat / up / up-as-new), shown in the in-game
+ * "2026 Heisman Watch" screen.
+ *
+ * @returns {{rank:number, prev_rank:number|null, first_name, last_name, position, team_id}[]}
+ */
+async function buildHeismanWatch(save, heismanTable) {
+  const out = [];
+  if (!heismanTable) return out;
+
+  const pickerCache = new Map();
+  const pickerFor = (table) => {
+    if (!pickerCache.has(table)) pickerCache.set(table, buildPlayerFieldPicker(table));
+    return pickerCache.get(table);
+  };
+
+  for (const rec of heismanTable.records) {
+    if (!rec || rec.isEmpty) continue;
+    const currentRank = Number(readCell(rec, 'CurrentRank'));
+    const lastWeekRank = Number(readCell(rec, 'LastWeekRank'));
+    if (!Number.isFinite(currentRank)) continue;
+
+    const playerResolved = await resolveRefWithTable(save, readCell(rec, 'Player'));
+    if (!playerResolved || playerResolved.rec.isEmpty) continue;
+    const F = pickerFor(playerResolved.table);
+
+    const teamRec = await resolveRef(save, readCell(rec, 'Team'));
+    const rawTid = (teamRec && !teamRec.isEmpty) ? Number(readCell(teamRec, 'TeamIndex')) : null;
+
+    out.push({
+      rank: currentRank + 1,
+      prev_rank: lastWeekRank === -1 ? null : lastWeekRank + 1,
+      first_name: F.first ? readCell(playerResolved.rec, F.first) : null,
+      last_name: F.last ? readCell(playerResolved.rec, F.last) : null,
+      position: F.position ? String(readCell(playerResolved.rec, F.position) || '') : null,
+      asset_name: F.assetName ? readCell(playerResolved.rec, F.assetName) : null,
+      generic_head_asset_name: F.genericHeadAssetName ? readCell(playerResolved.rec, F.genericHeadAssetName) : null,
+      portrait_id: F.portraitId ? Number(readCell(playerResolved.rec, F.portraitId)) : null,
+      team_id: rawTid,
+    });
+  }
+
+  out.sort((a, b) => a.rank - b.rank);
+  return out;
 }
 
 // A player/team's own stat row (GameOffensiveStats/GameDefensiveStats/
@@ -719,6 +1519,23 @@ function buildPlayerFieldPicker(table) {
     // Reference into the GameStats[] array table (one row per player, 23
     // weekly slots named GameStats0..GameStats22) — see buildGameStats.
     gameStats: pick('GameStats'),
+    // Injury Report fields — direct on the player row, no reference chain
+    // needed. Verified against a real save (John Walker, Ohio State DT):
+    // InjuryStatus 'Injured', InjuryType 'LegQuadTear', MaxInjuryDuration 2
+    // — matches the in-game Injury Report screen's "Quad Tear" / Length 2
+    // exactly. MaxInjuryDuration (not MinInjuryDuration/TotalInjuryDuration,
+    // both of which read differently for the same player) is the field that
+    // matches the displayed "Length".
+    injuryStatus: pick('InjuryStatus'),
+    injuryType: pick('InjuryType'),
+    injuryLength: pick('MaxInjuryDuration'),
+    // 6-bit field: 0-6 = real draft rounds 1-7, 63 (all-1s) is the sentinel
+    // for "not drafted / not yet drafted this cycle" — same convention as
+    // the TeamIndex 255 sentinel used elsewhere in this file. Not yet
+    // verified against a real post-draft screenshot (the test save used
+    // this session was mid-regular-season) — implemented on the same
+    // sentinel-exclusion pattern already proven correct for other fields.
+    draftRound: pick('PLYR_DRAFTROUND'),
   };
 }
 
@@ -827,6 +1644,10 @@ function buildPlayerRows(table, teamNames, opts, fieldPicker) {
       abilities: core.abilities,
       ratings: core.ratings,
       is_captain: F.captain ? Boolean(readCell(rec, F.captain)) : false,
+      is_injured: F.injuryStatus ? readCell(rec, F.injuryStatus) === 'Injured' : false,
+      injury_type: F.injuryType ? readCell(rec, F.injuryType) : null,
+      injury_length: F.injuryLength ? Number(readCell(rec, F.injuryLength)) : null,
+      draft_round: F.draftRound ? Number(readCell(rec, F.draftRound)) : null,
     });
   }
 
@@ -855,13 +1676,30 @@ async function extractFullSave(filePath, opts = {}) {
   const presentRatings = schema.RATING_FIELDS.filter((r) => playerFieldNames.has(r));
 
   const teamTable = await getBestTable(save, 'Team');
-  const { names: teamNames, ratings: teamRatings, rankings: teamRankings } = buildTeamMaps(teamTable);
+  const { names: teamNames, ratings: teamRatings, fcsFillerRatings, rankings: teamRankings, cfpRankings, topClassRanks } = buildTeamMaps(teamTable);
 
   const players = buildPlayerRows(playerTable, teamNames, opts, playerFieldPicker);
   const recruitingBoard = await buildRecruitingBoard(save, playerFieldPicker, presentRatings);
 
+  const recruitRecords = await getAllTableRecords(save, 'Recruit');
+  const leagueRecruitingClasses = await buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker);
+
+  const leagueRivalries = await buildLeagueRivalries(save, teamTable);
+  const leagueSchoolGrades = await buildLeagueSchoolGrades(save, teamTable);
+
+  const playerAwardTable = await getBestTable(save, 'PlayerAward');
+  const playerAwards = await buildPlayerAwards(save, playerAwardTable);
+  const leagueHonors = await buildLeagueHonors(save, playerAwardTable);
+
+  const heismanTable = await getBestTable(save, 'HeismanAwardRanking');
+  const heismanWatch = await buildHeismanWatch(save, heismanTable);
+
   const coachTable = await getBestTable(save, 'Coach');
   const coachingStaff = buildCoachingStaff(coachTable);
+  const userCoachInfo = buildUserCoachInfo(coachTable);
+
+  const jobOpeningTable = await getBestTable(save, 'JobOpening');
+  const coachOffers = await buildCoachOffers(save, jobOpeningTable, coachTable, userCoachInfo?.coachRowIndex);
 
   const confTable = await getBestTable(save, 'Conference');
   const conferences = await buildConferences(save, confTable);
@@ -870,7 +1708,8 @@ async function extractFullSave(filePath, opts = {}) {
   const season = buildSeasonInfo(seasonTable);
 
   const gameTable = await getBestTable(save, 'SeasonGame');
-  const games = await buildSchedule(save, gameTable, teamNames);
+  const playoffBowlSites = await buildPlayoffBowlSites(save);
+  const games = await buildSchedule(save, gameTable, teamNames, playoffBowlSites);
 
   // Only bother resolving weekly stat slots (whole-league, 2 tables' worth
   // of reference-chasing) for weeks that actually have a played game —
@@ -886,12 +1725,23 @@ async function extractFullSave(filePath, opts = {}) {
     teamCount: teamNames.size,
     tableRowCount: playerTable.records.length,
     teamRatings: Object.fromEntries(teamRatings),
+    fcsFillerRatings: Object.fromEntries(fcsFillerRatings),
     teamRankings: Object.fromEntries(teamRankings),
+    cfpRankings: Object.fromEntries(cfpRankings),
+    topClassRanks: Object.fromEntries(topClassRanks),
     coachingStaff: Object.fromEntries(coachingStaff),
     conferences,
     season,
     games,
     recruitingBoard,
+    leagueRecruitingClasses: Object.fromEntries(leagueRecruitingClasses),
+    leagueRivalries: Object.fromEntries(leagueRivalries),
+    leagueSchoolGrades: Object.fromEntries(leagueSchoolGrades),
+    playerAwards,
+    leagueHonors,
+    heismanWatch,
+    userCoachInfo,
+    coachOffers,
     gameStats,
     depthCharts,
   };

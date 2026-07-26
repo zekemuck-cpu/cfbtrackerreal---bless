@@ -57,7 +57,7 @@ const stateFullNames = {
   DC: 'Washington, D.C.',
 }
 
-export default function RecruitCard({ recruit, player, bg, text, teamsData, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null, scoutStaffEnabled = false, weightsMap = null, pool = null }) {
+export default function RecruitCard({ recruit, player, bg, text, teamsData, teamLogo = null, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null, scoutStaffEnabled = false, weightsMap = null, pool = null }) {
   const teamBgText = text
   const teamAccent = bg
   const teamsSource = teamsData || {}
@@ -97,8 +97,16 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, isAl
 
   const isPortalRecruit = recruit.isPortal === true
   const showFromChip = isPortalRecruit && !!previousTeamName
-  const showHsMarker = !showFromChip
-  const showBottomChips = showFromChip || showHsMarker
+  // A JUCO recruit isn't a High School recruit — covers both the CFB27 sync
+  // path (isHighSchoolRecruit: false) and the manual/sheet-entry path, which
+  // has never had that flag and instead encodes it directly in the class
+  // string ('JUCO Fr'/'JUCO So'/'JUCO Jr', or this feature's own 'JC (JR)'
+  // etc — see mapRecruitClassLabel in cfb27SaveImport.js).
+  const isJucoRecruit = recruit.isHighSchoolRecruit === false ||
+    (typeof recruit.class === 'string' && (recruit.class.toUpperCase().startsWith('JUCO') || recruit.class.startsWith('JC (')))
+  const showHsMarker = !showFromChip && !isJucoRecruit
+  const showJucoMarker = !showFromChip && isJucoRecruit
+  const showBottomChips = showFromChip || showHsMarker || showJucoMarker
   const starCount = Number(recruit.stars) || 0
 
   return (
@@ -124,6 +132,13 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, isAl
               className="w-11 h-11 sm:w-14 sm:h-14 object-cover rounded-md flex-shrink-0"
               style={{ border: `2px solid ${teamBgText}66` }}
             />
+          ) : teamLogo ? (
+            <div
+              className="w-11 h-11 sm:w-14 sm:h-14 rounded-md flex-shrink-0 flex items-center justify-center bg-white p-1.5"
+              style={{ border: `2px solid ${teamBgText}66` }}
+            >
+              <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+            </div>
           ) : (
             <div
               className="w-11 h-11 sm:w-14 sm:h-14 rounded-md flex-shrink-0 flex items-center justify-center"
@@ -254,7 +269,14 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, isAl
                   <span className="truncate" style={{ color: themed ? prevSecondary : undefined }}>{previousTeamName}</span>
                 </span>
               )
-            })() : (
+            })() : showJucoMarker ? (
+              <span
+                className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
+                style={{ letterSpacing: '1.5px', color: teamAccent, backgroundColor: teamBgText, border: `1px solid ${teamBgText}` }}
+              >
+                Junior College
+              </span>
+            ) : (
               <span
                 className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-widest"
                 style={{ letterSpacing: '1.5px', color: teamAccent, backgroundColor: teamBgText, border: `1px solid ${teamBgText}` }}

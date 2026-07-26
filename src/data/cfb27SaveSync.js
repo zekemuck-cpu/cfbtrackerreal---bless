@@ -43,6 +43,9 @@ import {
   buildRawTeamIdMap,
   mapTeamRatings,
   mapCoachingStaff,
+  mapTeamRecruitingClass,
+  mapPlayerOfWeekEntry,
+  mapHeismanEntry,
   mapPreseasonTop25,
   mapScheduleForTeam,
   mapSeasonInfo,
@@ -54,8 +57,17 @@ import {
   mapPortraitUrl,
   mapAttributes,
   mapStars,
+  mapLeagueRivalries,
+  mapRecruitClassLabel,
+  mapDraftRound,
+  mapSchoolGrades,
+  mapHonorEntry,
+  mapAwardEntry,
+  mapCoachOffer,
+  FCS_FILLER_NAME_TO_TID,
 } from './cfb27SaveImport'
 import { attributeNamesFor } from '../utils/recruitAttributes'
+import { getCFPGameId, CFP_BRACKET_SLOTS } from './cfpConstants'
 
 function normalizedNameTeamKey(name, tid) {
   const n = (name || '').toLowerCase().trim()
@@ -65,6 +77,72 @@ function normalizedNameTeamKey(name, tid) {
 
 function isValidRow(row) {
   return Boolean(row && row.stars !== 'Invalid' && row.height && row.first_name && row.last_name)
+}
+
+// Parses the app's "6'2\"" height string into total inches for comparison.
+function parseHeightInches(heightStr) {
+  const m = /^(\d+)'(\d+)"$/.exec(heightStr || '')
+  return m ? Number(m[1]) * 12 + Number(m[2]) : null
+}
+
+// A same-named dangling recruit record is only ever a LAST-resort candidate
+// (see the call site) — before trusting a pure name match, corroborate it
+// against everything else this dynasty already knows about that recruit:
+// their expected enrollment year, height, hometown, weight, and any
+// attributes the recruiting board revealed pre-signing. Each check only
+// applies when BOTH sides actually have the data (a recruit who was never
+// scouted has no attributes to compare, and that's fine — it just means
+// one less signal, not an automatic fail) but ANY hard contradiction on a
+// check that DOES have data on both sides rejects the match outright.
+//  1. Year: a HS/JUCO signee's very first real roster row appears the
+//     season right after their signing class year (targetYear + 1) — a
+//     small +1-year grace window covers a skipped sync, but a name match a
+//     decade later is almost certainly a different, unrelated real person.
+//  2. Height: doesn't change after signing — an exact match once both sides
+//     have one.
+//  3. Hometown: doesn't change either — exact match on both city and state
+//     once both sides have them (state included specifically because two
+//     unrelated recruits can share a common city name in different
+//     states, e.g. two "Columbus" hometowns).
+//  4. Weight: allowed to fluctuate a real amount (an offseason of
+//     training) without failing the match, but a wild swing suggests a
+//     different body.
+//  5. Attributes: recruiting-board attributes are the SAME "key 10" the
+//     in-game scouting screen reveals — real development growth between
+//     signing and arrival is expected, so this tolerates normal drift and
+//     only rejects a match where the numbers are simply incompatible.
+function isPlausibleRecruitLink(recruitRecord, mappedRow, syncYear) {
+  const targetYear = Number(recruitRecord.targetYear)
+  if (!Number.isFinite(targetYear)) return false
+  const yearsSinceTarget = syncYear - targetYear
+  if (yearsSinceTarget < 1 || yearsSinceTarget > 2) return false
+
+  const recruitInches = parseHeightInches(recruitRecord.height)
+  const rowInches = parseHeightInches(mappedRow.height)
+  if (recruitInches != null && rowInches != null && recruitInches !== rowInches) return false
+
+  const recruitHometown = (recruitRecord.hometown || '').trim().toLowerCase()
+  const rowHometown = (mappedRow.hometown || '').trim().toLowerCase()
+  if (recruitHometown && rowHometown && recruitHometown !== rowHometown) return false
+  const recruitState = (recruitRecord.state || '').trim().toUpperCase()
+  const rowState = (mappedRow.state || '').trim().toUpperCase()
+  if (recruitState && rowState && recruitState !== rowState) return false
+
+  if (recruitRecord.weight != null && mappedRow.weight != null) {
+    if (Math.abs(recruitRecord.weight - mappedRow.weight) > 25) return false
+  }
+
+  const recruitAttrs = recruitRecord.attributes
+  const rowAttrs = mappedRow.attributesByYear?.[syncYear]
+  if (recruitAttrs && rowAttrs) {
+    const keys = Object.keys(recruitAttrs).filter((k) => rowAttrs[k] != null)
+    if (keys.length) {
+      const avgDiff = keys.reduce((sum, k) => sum + Math.abs(recruitAttrs[k] - rowAttrs[k]), 0) / keys.length
+      if (avgDiff > 12) return false
+    }
+  }
+
+  return true
 }
 
 // Most recent teamsByYear entry strictly before `beforeYear` — a player's
@@ -104,7 +182,7 @@ function isNoOpPlayerPatch(existing, patch, year) {
   // for a bench/CPU player) has its ENTIRE patch — pictureUrl included —
   // thrown away as a no-op, so a fixed-but-never-applied photo can never
   // self-heal no matter how many times you re-sync.
-  const fields = ['name', 'firstName', 'lastName', 'position', 'jerseyNumber', 'archetype', 'height', 'weight', 'hometown', 'state', 'team', 'cfb27AssetName', 'year', 'overall', 'devTrait', 'pictureUrl', 'isCaptain']
+  const fields = ['name', 'firstName', 'lastName', 'position', 'jerseyNumber', 'archetype', 'height', 'weight', 'hometown', 'state', 'team', 'cfb27AssetName', 'year', 'overall', 'devTrait', 'pictureUrl', 'isCaptain', 'isInjured', 'injuryType', 'injuryLength']
   for (const f of fields) {
     if ((existing[f] ?? null) !== (patch[f] ?? null)) return false
   }
@@ -141,6 +219,16 @@ function isNoOpPlayerPatch(existing, patch, year) {
 export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) {
   const { byTid, unresolvedTeamNames } = groupExtractedRowsByTid(rows, dynastyTeams)
 
+  // Whole, UNFILTERED row list keyed by asset_name — a player who left the
+  // active roster this sync (drafted/graduated) no longer appears in `byTid`
+  // (grouped by CURRENT team), but PLYR_DRAFTROUND lives on the player row
+  // regardless of current team assignment, so a departed player's real draft
+  // round can still be looked up here.
+  const rowsByAssetName = new Map()
+  for (const row of rows) {
+    if (row.asset_name) rowsByAssetName.set(row.asset_name, row)
+  }
+
   // existingByAssetName keeps every candidate per asset_name, not just the
   // last one written — asset_name is verified NOT globally unique (a real
   // save had an exact cross-team collision: two different real players, two
@@ -174,6 +262,11 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
     for (const row of teamRows) {
       const assetName = row.asset_name || null
       const name = `${row.first_name || ''} ${row.last_name || ''}`.trim()
+      // Computed once up front (pid filled in below once `existing` is
+      // resolved) so the dangling-recruit plausibility check below and the
+      // patch-building further down never risk mapping the same row twice
+      // with different results.
+      const mapped = mapExtractedRowToAppPlayer(row, { year, pid: null, tid })
       let existing = null
       const assetCandidates = assetName ? existingByAssetName.get(assetName) : null
       if (assetCandidates?.length) {
@@ -200,10 +293,38 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
           || null
       }
       if (!existing) existing = existingByNameTeam.get(normalizedNameTeamKey(name, tid))
+      // A recruit this dynasty's own team once scouted/offered, who ended up
+      // signing with someone else, has no cfb27AssetName yet (a Recruit row
+      // very commonly has an empty asset_name — see reconcileRecruitingBoard's
+      // header comment — it only gets a real one once truly "created" as a
+      // signed character) and sits with team:-1 forever, since only a signee
+      // of THIS dynasty's own team ever gets team/teamsByYear set (again see
+      // reconcileRecruitingBoard). Without this fallback, that exact same
+      // real person shows up here as a brand-new arrival on their new team,
+      // leaving the original recruit-board profile frozen forever at
+      // team:-1 while an entirely separate, unlinked pid tracks their real
+      // career — so clicking through from an old recruiting class to "see
+      // where they ended up" finds nothing. Matching by name alone against
+      // ONLY a still-dangling (team:-1, isTarget) record is safe here
+      // specifically because it's the LAST resort, after both stronger
+      // matches (asset name, name+team) already failed — it can only ever
+      // upgrade an inert placeholder into a real tracked player, never steal
+      // identity from an already-matched real one. A name match alone is
+      // still too weak on its own though (this dynasty's own real save data
+      // has 25+ confirmed same-name pairs among unrelated players), so it
+      // additionally has to survive isPlausibleRecruitLink's year/height/
+      // weight/attribute corroboration before it's trusted.
+      if (!existing) {
+        const danglingRecruit = existingByNameTeam.get(normalizedNameTeamKey(name, -1))
+        if (danglingRecruit?.isTarget && isPlausibleRecruitLink(danglingRecruit, mapped, year)) {
+          existing = danglingRecruit
+        }
+      }
 
       if (existing) {
         matchedPids.add(existing.pid)
-        const mapped = mapExtractedRowToAppPlayer(row, { year, pid: existing.pid, tid })
+        mapped.pid = existing.pid
+        mapped.id = `player-${existing.pid}`
         const lastStint = getLastKnownStint(existing, year)
         const isTransfer = lastStint && Number(lastStint.tid) !== Number(tid)
 
@@ -219,8 +340,16 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
           weight: mapped.weight,
           hometown: mapped.hometown,
           state: mapped.state,
-          pictureUrl: mapped.pictureUrl || existing.pictureUrl,
+          // Always take the freshly-mapped value, even when it's empty —
+          // falling back to existing.pictureUrl here would silently keep a
+          // stale, previously-wrong photo (e.g. one sourced from a since-
+          // removed fallback) forever, since a corrected "no reliable match"
+          // result could never overwrite it.
+          pictureUrl: mapped.pictureUrl,
           isCaptain: mapped.isCaptain,
+          isInjured: mapped.isInjured,
+          injuryType: mapped.injuryType,
+          injuryLength: mapped.injuryLength,
           team: tid,
           // Top-level mirrors, kept in lockstep with the per-year maps below
           // for the CURRENT year specifically. migrateDynastyV2.js's
@@ -275,7 +404,6 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
           toUpdate.push({ pid: existing.pid, patch, name: mapped.name, transfer: isTransfer })
         }
       } else {
-        const mapped = mapExtractedRowToAppPlayer(row, { year, pid: null, tid })
         const isRecruitClass = mapped.year === 'Fr' || mapped.year === 'RS Fr'
         toCreate.push({
           ...mapped,
@@ -296,28 +424,46 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
   // cfb27AssetName was never something this sync could see in the first
   // place, so its absence proves nothing.
   const departures = []
+  const draftedPlayers = []
   for (const p of existingPlayers) {
     if (!p.cfb27AssetName || matchedPids.has(p.pid)) continue
     if (alreadyHasMoreSpecificDeparture(p, year)) continue
     const lastStint = getLastKnownStint(p, year + 1) // include the sync year itself
     const lastClass = lastStint?.klass || p.classByYear?.[year] || ''
-    const departure = /Sr$/.test(lastClass) ? 'graduated' : 'pro_draft'
+    // A real draft round from the save is definitive proof over the
+    // Sr-vs-not heuristic below — e.g. an underclassman who declared early
+    // would otherwise be misclassified 'graduated' had no draft data existed.
+    const rawRow = rowsByAssetName.get(p.cfb27AssetName)
+    const draftRound = rawRow ? mapDraftRound(rawRow.draft_round) : null
+    const departure = draftRound ? 'pro_draft' : (/Sr$/.test(lastClass) ? 'graduated' : 'pro_draft')
     departures.push({
       pid: p.pid,
       name: p.name,
       patch: {
+        ...(draftRound ? { draftYear: year, draftRound } : {}),
         movementByYear: {
           ...(p.movementByYear || {}),
-          [year]: { type: 'departure', departure, toTid: null },
+          [year]: { type: 'departure', departure, toTid: null, ...(draftRound ? { draftRound } : {}) },
         },
       },
     })
+    if (draftRound) {
+      draftedPlayers.push({
+        tid: lastStint?.tid ?? null,
+        pid: p.pid,
+        playerName: p.name,
+        position: p.position,
+        overall: p.overall,
+        draftRound,
+      })
+    }
   }
 
   return {
     toUpdate,
     toCreate,
     departures,
+    draftedPlayers,
     unresolvedTeamNames,
     stats: {
       updated: toUpdate.length,
@@ -388,6 +534,75 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
     if (!name) continue
 
     const status = classifyRecruitStage(row.recruit_stage)
+
+    // Where the user's own team currently ranks in this recruit's interest
+    // list (the in-game "Int: 6th" label). row.top_schools is already
+    // sorted by TeamInfluence descending by the extractor (see
+    // extractPlayers.cjs's buildRecruitingBoard), so once each raw team_id
+    // is resolved to a dynasty tid the same way committed_team_id already
+    // is above, the array index (1-based) IS the rank.
+    let interestRank = null
+    if (Array.isArray(row.top_schools) && row.top_schools.length > 0) {
+      for (let i = 0; i < row.top_schools.length; i++) {
+        const tid = rawTeamIdMap.get(Number(row.top_schools[i].team_id))
+        if (tid === userTid) { interestRank = i + 1; break }
+      }
+      // Not found among the tracked schools at all — verified against a
+      // real save this is NOT "unknown," it's the game's own displayed
+      // floor: Jimmy Macpherson showed "Int: 10th" in-game despite North
+      // Texas not literally being one of his 10 tracked schools (same root
+      // cause already confirmed for Dwayne Flinn's lockedOut bug — falling
+      // out of the tracked list is, at best, tied for its last slot, not
+      // some unrelated unknown). Floors to the list's actual length rather
+      // than a hardcoded 10 so a still-early recruit with fewer than 10
+      // schools tracked so far floors to that smaller count instead.
+      if (interestRank == null) interestRank = row.top_schools.length
+    }
+
+    // The recruit's own narrowing tier, the same funnel the in-game
+    // recruiting board's progress bar shows — distinct from `status` above
+    // (committed vs. not) and purely additive for display; never touches
+    // commitmentTid/team/etc. Full raw funnel confirmed from the save
+    // format's own RecruitStage enum (its real, non-sentinel members, in
+    // order): Top10 -> Top5 -> Top3 -> Battle -> SoftCommitted ->
+    // HardCommitted -> Signed. `Top10` carries no visible meaning in-game
+    // though — verified against a real save, the progress bar itself only
+    // ever labels OPEN / TOP 5 / TOP 3 (no "Top 10" checkpoint at all), and
+    // a recruit the save read as 'Top10' displayed as plain "Open" with no
+    // tier tag on the in-game board (Jimmy Macpherson) — so it maps to the
+    // 'Open' label here rather than showing "Top 10". `Signed` isn't in
+    // this map at all; it's handled separately below via `isSigned`
+    // (dev trait/attribute reveal, roster arrival), not as a display tier.
+    // Only Top5/Top3 have a confirmed numeric cutoff to compare
+    // interestRank against — Battle/SoftCommitted/HardCommitted don't (a
+    // recruit that far along isn't meaningfully "locked out" by a rank
+    // number), so they're tagged for display but never drive lockedOut.
+    const RECRUIT_STAGE_TIER = {
+      Top10: 'Open',
+      Top5: 'Top5',
+      Top3: 'Top3',
+      Battle: 'Battle',
+      SoftCommitted: 'SoftCommitted',
+      HardCommitted: 'HardCommitted',
+    }
+    const TIER_CUTOFF = { Top5: 5, Top3: 3 }
+    const commitmentTier = RECRUIT_STAGE_TIER[row.recruit_stage] || null
+    // Locked out: the recruit has narrowed to a tier smaller than the user's
+    // own current interest rank — i.e. the user's team didn't make the cut.
+    // Only meaningful pre-commitment; a still-Open recruit (no tier yet) or
+    // one already committed elsewhere/to us isn't "locked out," just
+    // undecided/done.
+    // `interestRank` is already floored to the bottom of the tracked list
+    // (see above) whenever the user's team fell out of a recruit's real
+    // top 10 entirely — verified against a real save: a recruit the game
+    // showed fully "LOCKED OUT" (red lock, in-game detail screen) had
+    // narrowed to Top 5 with the user's own team completely absent from his
+    // TopSchoolsList, not merely ranked below the Top 5 cutoff — so that
+    // floored value alone correctly exceeds the cutoff below without any
+    // special-casing here. The `interestRank == null` half of this check is
+    // just defensive fallback for the (rarer) case of a completely empty
+    // top_schools list, which the floor above can't apply to.
+    const lockedOut = !!(commitmentTier && TIER_CUTOFF[commitmentTier] != null && (interestRank == null || interestRank > TIER_CUTOFF[commitmentTier]))
     // A recruit stays on YOUR board (still showing "Committed" in-game)
     // even after hard-committing to a DIFFERENT school you'd simply
     // offered at some point — verified against a real save (a recruit
@@ -407,25 +622,57 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
 
     // The save generates a recruit's TRUE dev trait and full ratings the
     // instant it creates them — the game reveals them to the human player
-    // progressively (scouting hours) as a deliberate mechanic, not because
-    // the data doesn't exist yet. Reading the save directly bypasses that
-    // on its own, so this mirrors the reveal gate here rather than exposing
-    // spoilers (confirmed with the user this matters):
-    //   - Dev trait: only once truly signed — even HardCommitted is still
-    //     hidden in-game.
-    //   - Attributes: gated on UnlockedIntelBitfield (only ONE calibration
-    //     point exists — a confirmed 100%-scouted recruit at value 12 — so
-    //     this is a binary "fully scouted or nothing" gate, not graduated),
-    //     AND even when fully scouted, only the game's own "key 10"
-    //     attributes for this position/archetype are shown — reusing
-    //     attributeNamesFor (src/utils/recruitAttributes.js), the SAME list
-    //     already used everywhere else scouted attributes are displayed —
-    //     never the full ~53-attribute set, which the game never reveals
-    //     pre-signing regardless of scouting completion.
-    const fullyScouted = (row.unlocked_intel_bitfield || 0) >= 12
+    // progressively as a deliberate mechanic, not because the data doesn't
+    // exist yet. Reading the save directly bypasses that on its own, so
+    // this mirrors the reveal gate here rather than exposing spoilers
+    // (confirmed with the user this matters):
+    //   - Dev trait: only once truly signed (Early/Regular National Signing
+    //     Day in-game) — even HardCommitted is still hidden.
+    //   - Attributes: revealed once truly signed (same as dev trait), OR
+    //     once enough scouting hours are invested pre-signing. The hours
+    //     threshold (30) is calibrated against a real save: a still-Open,
+    //     unsigned recruit the user directly confirmed as "100% scouted"
+    //     in-game (all 10 key attributes visible, matching exactly) read
+    //     ProspectHoursSpentCurrent === 30. UnlockedIntelBitfield was tried
+    //     first and fully disproven — it read 0 for that same 100%-scouted
+    //     recruit, and also 0 for every signed recruit checked regardless of
+    //     scouting — it carries no signal for this at all.
+    //   - Junior College transfers are ALWAYS fully revealed, regardless of
+    //     hours spent — confirmed against a real save: a still-Open JC (JR)
+    //     recruit showing "100% SCOUTED" in-game (all 10 attributes visible)
+    //     read ProspectHoursSpentCurrent === 0. Unlike a true HS prospect, a
+    //     JUCO player already has a public college track record, so the game
+    //     never hides their ratings behind the scouting-hours mechanic at all.
+    //   - Even once revealed, only the game's own "key 10" attributes for
+    //     this position/archetype are shown — reusing attributeNamesFor
+    //     (src/utils/recruitAttributes.js), the SAME list already used
+    //     everywhere else scouted attributes are displayed — never the
+    //     full ~53-attribute set, which the game never reveals pre-signing
+    //     regardless of scouting completion.
     const isSigned = row.recruit_stage === 'Signed'
+    // Recruit.Class distinguishes a true High School recruit from a Junior
+    // College transfer — the save's OWN class label for JUCO recruits (e.g.
+    // "JC (JR)") is a completely different track from a normal HS recruit's
+    // Fr/So/Jr/Sr progression, and must be preserved as-is rather than
+    // translated into one (see mapRecruitClassLabel). Persisted onto the
+    // player record (not just used locally) so it survives into
+    // dynasty.players once signed, and so downstream consumers (Scout
+    // Staff's Database eligibility, Targets/Commitments display) can gate on
+    // it without re-deriving it.
+    const isHighSchoolRecruit = row.recruit_class === 'HighSchool'
+    const jucoClassLabel = mapRecruitClassLabel(row.recruit_class)
+    const attributesRevealed = isSigned || !isHighSchoolRecruit || (row.prospect_hours_spent || 0) >= 30
+    // The Gem/Bust scouting read (the green/red gem badge on the in-game
+    // Scouting screen) is gated behind the SAME full-scouting reveal as
+    // attributes/dev trait, confirmed by the user against a real save — it
+    // does not show in-game until the prospect is 100% scouted. Matches the
+    // app's existing gemBust convention ('Gem'/'Bust'/'' — see
+    // PlayerEditModal.jsx).
+    const gemBust = attributesRevealed
+      ? (row.quality_modifier === 'GEM' ? 'Gem' : row.quality_modifier === 'BUST' ? 'Bust' : '')
+      : ''
     let attributes
-    if (fullyScouted) {
+    if (attributesRevealed) {
       const allAttrs = mapAttributes(row.ratings)
       const keyNames = attributeNamesFor(position, archetype)
       attributes = allAttrs && keyNames
@@ -454,6 +701,19 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
       isTarget: true,
       targetYear: year,
       isFavorite: Boolean(row.is_favorite),
+      isHighSchoolRecruit,
+      recruitClass: row.recruit_class || null,
+      jucoClassLabel,
+      scoutedFully: attributesRevealed,
+      gemBust,
+      // Where the user's own team ranks in this recruit's interest list
+      // ("Int: 6th" in-game), the recruit's own narrowing tier, whether
+      // that tier has locked the user out, and current NIL points offered —
+      // see the computation above this block for how each is derived.
+      interestRank,
+      commitmentTier,
+      lockedOut,
+      nilOffered: row.current_nil_offer ?? null,
       // Mirrors recruitingTargets.js's applyStatus() exactly — the same
       // fields the in-app "resolve a target" flow writes — so a
       // save-detected commitment lands in the identical state a manual
@@ -485,6 +745,15 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
             isRecruit: true,
             recruitYear: year,
             boardRemoved: true,
+            // A JUCO signee's class is NOT a normal Fr/So/Jr/Sr progression —
+            // it has to keep reading "JC (JR)" (etc.) once on the roster, not
+            // get treated as a true freshman like every other signee. A plain
+            // HS recruit gets no year/classByYear here at all (unchanged
+            // behavior — the normal whole-roster sync fills that in once
+            // they actually appear as a rostered Player).
+            ...(jucoClassLabel
+              ? { year: jucoClassLabel, classByYear: { [year + 1]: jucoClassLabel }, isJucoTransfer: true }
+              : {}),
           }
         : status === 'committed'
         ? {
@@ -511,7 +780,7 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
       // reference, or a freshly-built {} would never equal an existing {}
       // and every synced target would show as "changed" forever.
       const unchanged = Object.entries(fields).every(([k, v]) => {
-        if (k === 'teamsByYear' || k === 'attributes') return JSON.stringify(existing[k] || null) === JSON.stringify(v || null)
+        if (k === 'teamsByYear' || k === 'attributes' || k === 'classByYear') return JSON.stringify(existing[k] || null) === JSON.stringify(v || null)
         return (existing[k] ?? null) === (v ?? null)
       })
       if (!unchanged) toUpdate.push({ pid: existing.pid, patch: fields, name })
@@ -528,8 +797,13 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
     if (committedToUser) {
       committedRecords.push({
         cfb27AssetName: assetName,
-        name, class: fields.position ? row.recruit_class : undefined, position,
-        archetype, stars: fields.stars, devTrait: fields.devTrait,
+        // RecruitCard.jsx (Commitments tab) reads this exact field, falling
+        // back to the literal string 'HS' when absent — matches that
+        // convention directly instead of leaking the raw save enum
+        // ("HighSchool"/"JuniorCollege_Junior") into the UI.
+        name, class: jucoClassLabel || 'HS', position,
+        isHighSchoolRecruit,
+        archetype, stars: fields.stars, devTrait: fields.devTrait, gemBust: fields.gemBust,
         nationalRank: fields.nationalRank, stateRank: fields.stateRank, positionRank: fields.positionRank,
         height: fields.height, weight: fields.weight, hometown: fields.hometown, state: fields.state,
       })
@@ -596,9 +870,19 @@ function cpuGameId(year, week, tidA, tidB) {
  * @returns {{toWrite: object[], stats: {gamesTouched: number, boxScoresAdded: number}}}
  */
 export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existingGames, userTid, year) {
+  // The save's own Conference Championship week (SeasonInfo's
+  // RegularSeasonWeekConferenceChampionship, e.g. 16) — CCG matchups arrive
+  // in this SAME weekType==='RegularSeason' pool (verified against a real
+  // save: no separate weekType exists for them), so they're only
+  // distinguishable by week number. Used to tag them isConferenceChampionship/
+  // gameType:'conference_championship' instead of a plain 'regular' game —
+  // without this, Dashboard.jsx's hasCCData (and CC History) never see them,
+  // since both key off that flag, not just game.year/week.
+  const ccgWeek = parsed.season?.conferenceChampionshipWeek ?? null
+
   const existingByMatchup = new Map()
   for (const g of existingGames || []) {
-    if (g.gameType !== 'regular' || Number(g.year) !== year) continue
+    if ((g.gameType !== 'regular' && g.gameType !== 'conference_championship') || Number(g.year) !== year) continue
     if (g.team1Tid == null || g.team2Tid == null) continue
     existingByMatchup.set(`${g.week}:${cpuGameId(year, g.week, g.team1Tid, g.team2Tid)}`, g)
   }
@@ -608,12 +892,21 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
 
   for (const g of parsed.games || []) {
     if (g.weekType !== 'RegularSeason') continue
-    const homeAppTid = rawTeamIdMap.get(g.homeTeamId)
-    const awayAppTid = rawTeamIdMap.get(g.awayTeamId)
+    // The save's generic schedule-filler opponent (TeamIndex 255 — "FCS
+    // West" etc) carries no real players, so it never lands in
+    // rawTeamIdMap (built from player rows) and used to make this whole
+    // game vanish from BOTH teams' schedules — the exact "Indiana only has
+    // 11 games" bug reported against a real save (Indiana's Week 2/10 FCS
+    // opponents silently dropped). mapScheduleForTeam already resolves this
+    // sentinel to the app's 5 real placeholder tids (137-141) for the
+    // user's OWN schedule; mirrored here for every other team's CPU games.
+    let homeAppTid = g.homeTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.homeTeam] ?? null : rawTeamIdMap.get(g.homeTeamId)
+    let awayAppTid = g.awayTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.awayTeam] ?? null : rawTeamIdMap.get(g.awayTeamId)
     if (homeAppTid == null || awayAppTid == null) continue
     if (homeAppTid === userTid || awayAppTid === userTid) continue // handled by the user-team pipeline instead
 
     const week = g.week
+    const isCCG = ccgWeek != null && week === ccgWeek
     const matchKey = `${week}:${cpuGameId(year, week, homeAppTid, awayAppTid)}`
     const existing = existingByMatchup.get(matchKey)
     const played = g.status !== 'Unplayed'
@@ -665,6 +958,11 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     const record = existing
       ? {
           ...existing,
+          // Self-heals a record synced before this fix existed (still
+          // 'regular' with no isConferenceChampionship flag) the next time
+          // it's touched, same "save always wins" rule as every other field.
+          gameType: isCCG ? 'conference_championship' : (existing.gameType || 'regular'),
+          ...(isCCG ? { isConferenceChampionship: true } : {}),
           team1Score,
           team2Score,
           isPlayed: played,
@@ -676,7 +974,8 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
           id: cpuGameId(year, week, homeAppTid, awayAppTid),
           week,
           year,
-          gameType: 'regular',
+          gameType: isCCG ? 'conference_championship' : 'regular',
+          ...(isCCG ? { isConferenceChampionship: true } : {}),
           team1Tid,
           team2Tid,
           team1Score,
@@ -695,6 +994,7 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
         existing.team1Score === record.team1Score &&
         existing.team2Score === record.team2Score &&
         Boolean(existing.isPlayed) === Boolean(record.isPlayed) &&
+        Boolean(existing.isConferenceChampionship) === Boolean(isCCG) &&
         JSON.stringify(existing.boxScore || null) === JSON.stringify(record.boxScore || null) &&
         JSON.stringify(existing.quarters || null) === JSON.stringify(record.quarters || null)
       if (unchanged) continue
@@ -705,6 +1005,238 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
   }
 
   return { toWrite, stats: { gamesTouched: toWrite.length, boxScoresAdded } }
+}
+
+// PlayoffBracketSlot -> cfpSlot, a FIXED index into the real bracket
+// structure — verified directly against a real save's actual locked
+// bracket: slot3(Virginia home/Nebraska away)=5v12=cfpfr1, slot2(Georgia/
+// Tennessee)=6v11=cfpfr3, slot1(UNLV/Ole Miss)=7v10=cfpfr4, slot0(Michigan/
+// Texas A&M)=8v9=cfpfr2; quarterfinal bye hosts slot4(Miami)=cfpqf1(bye
+// seed1), slot7(SMU)=cfpqf2(bye seed4), slot6(Houston)=cfpqf3(bye seed3),
+// slot5(Pittsburgh)=cfpqf4(bye seed2) — consistent with each cfpqf's
+// feedsFrom chain back to its first-round slot. slot10 is always the
+// National Championship. This REPLACES two earlier, now-disproven
+// approaches: seed-ranking-based first-round labeling (buildCFPProjection's
+// computed seeds don't match EA's real seeding) and bowl-name-based
+// quarterfinal/semifinal labeling (BowlGame.Name for those is only ever a
+// generic category label like "CFP Quarterfinal", never the specific bowl).
+const PLAYOFF_SLOT_TO_CFP_SLOT = {
+  0: 'cfpfr2', 1: 'cfpfr4', 2: 'cfpfr3', 3: 'cfpfr1',
+  4: 'cfpqf1', 5: 'cfpqf4', 6: 'cfpqf3', 7: 'cfpqf2',
+  10: 'cfpnc',
+}
+const CFP_SLOT_GAME_TYPE = {
+  cfpfr1: 'cfp_first_round', cfpfr2: 'cfp_first_round', cfpfr3: 'cfp_first_round', cfpfr4: 'cfp_first_round',
+  cfpqf1: 'cfp_quarterfinal', cfpqf2: 'cfp_quarterfinal', cfpqf3: 'cfp_quarterfinal', cfpqf4: 'cfp_quarterfinal',
+  cfpsf1: 'cfp_semifinal', cfpsf2: 'cfp_semifinal',
+  cfpnc: 'cfp_championship',
+}
+// The manual CFP-shell flow (DynastyContext.jsx's createOrUpdateCFPGameShells)
+// and every consumer of a CFP game record (CFPBracket.jsx, Dashboard.jsx's
+// userCFPFirstRoundGame/findUserCFPGameShell, GameEdit.jsx) key off these
+// legacy boolean flags + cfpRound — NOT cfpSlot/gameType alone. Missing them
+// here meant an auto-synced CFP game was invisible to all of that code even
+// though cfpSlot/gameType were already correct.
+const CFP_SLOT_LEGACY_FLAG = {
+  cfp_first_round: 'isCFPFirstRound',
+  cfp_quarterfinal: 'isCFPQuarterfinal',
+  cfp_semifinal: 'isCFPSemifinal',
+  cfp_championship: 'isCFPChampionship',
+}
+
+// Semifinals are a 4-into-2 merge (cfpsf1 receives BOTH cfpqf1 AND cfpqf2's
+// winners), so there's no fixed 1:1 slot index the way first-round ->
+// quarterfinal has. Resolved instead by checking which quarterfinal(s) a
+// semifinal's own two participants actually came from.
+function resolveSemifinalCfpSlot(slotTeams, team1Tid, team2Tid) {
+  const sf1Feeders = new Set([...(slotTeams.get(4) || []), ...(slotTeams.get(7) || [])])
+  if (sf1Feeders.has(team1Tid) || sf1Feeders.has(team2Tid)) return 'cfpsf1'
+  return 'cfpsf2'
+}
+
+// Every playoff game's participants by PlayoffBracketSlot, regardless of
+// played status — needed for resolveSemifinalCfpSlot, and shared by
+// deriveCFPSeeds below so the two stay self-consistent by construction.
+function buildPlayoffSlotTeams(parsed, rawTeamIdMap) {
+  const slotTeams = new Map()
+  for (const g of parsed.games || []) {
+    if (!g.isPlayoffBowl || g.playoffBracketSlot == null) continue
+    const t1 = rawTeamIdMap.get(g.homeTeamId)
+    const t2 = rawTeamIdMap.get(g.awayTeamId)
+    slotTeams.set(g.playoffBracketSlot, [t1, t2].filter((t) => t != null))
+  }
+  return slotTeams
+}
+
+/**
+ * Bowl + full CFP bracket results, EVERY team including the user's own
+ * (unlike buildWholeLeagueGames above, which is CPU-only and regular-season-
+ * only) — the goal is zero manual entry for any postseason game.
+ *
+ * Writes a game the moment its matchup is real (both teams known) — NOT
+ * gated on `status !== 'Unplayed'`. A regular bowl's two teams are locked in
+ * (announced) well before the game is actually played, which is the whole
+ * premise of "Bowl Week 1 of 4" existing as a multi-week window; only the
+ * SCORE is genuinely provisional pre-kickoff, not the matchup. The
+ * `team1Tid == null || team2Tid == null` check just below is what actually
+ * excludes still-provisional slots (a CFP quarterfinal/semifinal bye with no
+ * opponent decided yet) — confirmed against a real save: skipping ALL
+ * Unplayed games meant the user's own already-assigned, not-yet-played bowl
+ * (Reliaquest Bowl vs a real, named opponent) silently never synced, so the
+ * Dashboard kept asking the manual "Did you make a bowl?" wizard instead of
+ * showing the real matchup.
+ *
+ * Also stamps the same fields the manual shell-creation flows
+ * (DynastyContext.jsx's createOrUpdateBowlGameShell / createOrUpdateCFPGameShells)
+ * already use — isBowlGame/bowlWeek for regular bowls, cfpRound + the legacy
+ * isCFPFirstRound/isCFPQuarterfinal/isCFPSemifinal/isCFPChampionship flags for
+ * CFP games — since Dashboard.jsx, CFPBracket.jsx, and GameEdit.jsx all key
+ * off THOSE fields, not cfpSlot/gameType alone.
+ *
+ * @param {object} parsed - raw save-parse result
+ * @param {Map<number,number>} rawTeamIdMap - from buildRawTeamIdMap
+ * @param {object[]} existingGames - dynasty's current games
+ * @param {number} year
+ * @returns {object[]} games to upsert into dynasty.games
+ */
+export function buildPostseasonGames(parsed, rawTeamIdMap, existingGames, year) {
+  const toWrite = []
+  const existingByKey = new Map()
+  for (const g of existingGames || []) {
+    if (Number(g.year) !== year) continue
+    if (g.cfpSlot) {
+      existingByKey.set(`cfp:${g.cfpSlot}`, g)
+    } else if (g.gameType === 'bowl' && g.bowlName && g.team1Tid != null && g.team2Tid != null) {
+      const [lo, hi] = g.team1Tid < g.team2Tid ? [g.team1Tid, g.team2Tid] : [g.team2Tid, g.team1Tid]
+      existingByKey.set(`bowl:${g.bowlName}:${lo}:${hi}`, g)
+    }
+  }
+
+  const slotTeams = buildPlayoffSlotTeams(parsed, rawTeamIdMap)
+
+  for (const g of parsed.games || []) {
+    if (g.weekType === 'RegularSeason') continue
+    if (!g.bowlName) continue
+    const team1Tid = rawTeamIdMap.get(g.homeTeamId)
+    const team2Tid = rawTeamIdMap.get(g.awayTeamId)
+    // Still-provisional (e.g. a CFP quarterfinal/semifinal bye whose
+    // opponent isn't decided yet) — genuinely nothing real to write yet.
+    if (team1Tid == null || team2Tid == null) continue
+
+    const isPlayed = g.status !== 'Unplayed'
+
+    let cfpSlot = null
+    if (g.isPlayoffBowl) {
+      const slot = g.playoffBracketSlot
+      cfpSlot = (slot === 8 || slot === 9)
+        ? resolveSemifinalCfpSlot(slotTeams, team1Tid, team2Tid)
+        : (PLAYOFF_SLOT_TO_CFP_SLOT[slot] || null)
+    }
+    const gameType = cfpSlot ? CFP_SLOT_GAME_TYPE[cfpSlot] : 'bowl'
+    const cfpConfig = cfpSlot ? CFP_BRACKET_SLOTS[cfpSlot] : null
+
+    const [lo, hi] = team1Tid < team2Tid ? [team1Tid, team2Tid] : [team2Tid, team1Tid]
+    const key = cfpSlot ? `cfp:${cfpSlot}` : `bowl:${g.bowlName}:${lo}:${hi}`
+    const existing = existingByKey.get(key)
+    const team1Score = isPlayed ? (existing && existing.team1Tid === team2Tid ? g.awayScore : g.homeScore) : null
+    const team2Score = isPlayed ? (existing && existing.team1Tid === team2Tid ? g.homeScore : g.awayScore) : null
+    const record = {
+      id: cfpSlot ? getCFPGameId(cfpSlot, year) : (existing?.id || `cfb27-bowl-${year}-${g.bowlName.replace(/\s+/g, '-').toLowerCase()}-${lo}-${hi}`),
+      year,
+      week: cfpConfig ? `Bowl ${cfpConfig.week}` : 'Bowl',
+      gameType,
+      ...(cfpSlot
+        ? { cfpSlot, cfpRound: cfpConfig?.round, [CFP_SLOT_LEGACY_FLAG[gameType]]: true }
+        : { isBowlGame: true, bowlWeek: g.weekType === 'BowlSeason2' ? 'week2' : 'week1' }),
+      bowlName: g.bowlName,
+      team1Tid: existing?.team1Tid ?? team1Tid,
+      team2Tid: existing?.team2Tid ?? team2Tid,
+      team1Score,
+      team2Score,
+      // Neutral-site convention — matches both manual shell-creation flows
+      // (createOrUpdateBowlGameShell/createOrUpdateCFPGameShells), which
+      // never distinguish a real home team for any postseason game.
+      homeTeamTid: null,
+      isPlayed,
+      winnerTid: isPlayed ? (team1Score > team2Score ? team1Tid : team2Tid) : null,
+    }
+
+    if (existing) {
+      const unchanged = existing.team1Score === record.team1Score
+        && existing.team2Score === record.team2Score
+        && Boolean(existing.isPlayed) === isPlayed
+      if (unchanged) continue
+      toWrite.push({ ...existing, ...record })
+    } else {
+      toWrite.push(record)
+    }
+  }
+
+  return toWrite
+}
+
+/**
+ * The real, locked 12-team CFP seed list + real NY6 bowl host assignments —
+ * derived from the SAME fixed PLAYOFF_SLOT_TO_CFP_SLOT structure
+ * buildPostseasonGames uses, so the two are always self-consistent by
+ * construction (never two different sources of truth for the bracket).
+ * Mirrors CFPSeedsModal's exact save shape (Dashboard.jsx) so this sync and
+ * manual entry stay fully interchangeable.
+ *
+ * Returns null until the bracket is actually locked in the save — i.e. all 4
+ * first-round matchups (seeds 5-12) AND all 4 quarterfinal bye hosts (seeds
+ * 1-4) have real, non-null participants. Before that point (mid regular
+ * season), these same save fields exist but reflect a still-changing
+ * standings projection — cfpProjection.js's buildCFPProjection is the
+ * correct (and untouched) tool for that earlier, pre-lock phase.
+ *
+ * @returns {{ seeds: {seed:number, tid:number}[], bowlConfig: object } | null}
+ */
+export function deriveCFPSeeds(parsed, rawTeamIdMap) {
+  const slotTeams = buildPlayoffSlotTeams(parsed, rawTeamIdMap)
+  const bowlNameBySlot = new Map()
+  for (const g of parsed.games || []) {
+    if (!g.isPlayoffBowl || g.playoffBracketSlot == null || !g.bowlName) continue
+    bowlNameBySlot.set(g.playoffBracketSlot, g.bowlName)
+  }
+
+  const seeds = []
+  const bowlConfig = {}
+
+  // First round: home team is always the higher (lower-numbered) seed —
+  // verified against a real save's 4 first-round games matching the app's
+  // own CFP_FIRST_ROUND_SLOTS seed pairs exactly for every one of the 4.
+  const FR_SEED_PAIRS = { 0: [8, 9], 1: [7, 10], 2: [6, 11], 3: [5, 12] }
+  for (const [slot, [hiSeed, loSeed]] of Object.entries(FR_SEED_PAIRS)) {
+    const teams = slotTeams.get(Number(slot))
+    if (!teams || teams.length !== 2) return null
+    seeds.push({ seed: hiSeed, tid: teams[0] })
+    seeds.push({ seed: loSeed, tid: teams[1] })
+  }
+
+  // Quarterfinal bye slots directly give seeds 1-4, plus the real bowl
+  // hosting that seed's quarterfinal once its site is assigned in the save.
+  const QF_BYE_SEED = { 4: 1, 7: 4, 6: 3, 5: 2 }
+  for (const [slot, seed] of Object.entries(QF_BYE_SEED)) {
+    const teams = slotTeams.get(Number(slot))
+    if (!teams || teams.length < 1) return null
+    seeds.push({ seed, tid: teams[0] })
+    const bowlName = bowlNameBySlot.get(Number(slot))
+    if (bowlName) bowlConfig[`seed${seed}`] = bowlName
+  }
+
+  // Semifinal bowl hosts — best-effort, only once each site is assigned;
+  // DEFAULT_BOWL_CONFIG's fallback covers sf1/sf2 until then.
+  for (const slot of [8, 9]) {
+    const teams = slotTeams.get(slot)
+    if (!teams || teams.length !== 2) continue
+    const cfpSlot = resolveSemifinalCfpSlot(slotTeams, teams[0], teams[1])
+    const bowlName = bowlNameBySlot.get(slot)
+    if (bowlName) bowlConfig[cfpSlot === 'cfpsf1' ? 'sf1' : 'sf2'] = bowlName
+  }
+
+  seeds.sort((a, b) => a.seed - b.seed)
+  return { seeds, bowlConfig }
 }
 
 // Save-side DepthChart slot field -> app's outlookBoard.js catalog slot id.
@@ -862,6 +1394,8 @@ export function buildSyncPlan(dynasty, parsed) {
   const mergedTeams = { ...dynastyTeams }
   let teamsRatingsUpdated = 0
   let teamsCoachingUpdated = 0
+  let recruitingClassesUpdated = 0
+  let schoolGradesUpdated = 0
 
   // Whole-roster pid lookup for depth chart resolution (broader than
   // pidByName above, which is scoped to recruiting targets only — depth
@@ -902,6 +1436,8 @@ export function buildSyncPlan(dynasty, parsed) {
     const yearData = team.byYear[year]
     const ratings = mapTeamRatings(parsed.teamRatings, rawTid)
     const staff = mapCoachingStaff(parsed.coachingStaff, rawTid)
+    const recruitingClass = mapTeamRecruitingClass(parsed.leagueRecruitingClasses?.[rawTid], parsed.topClassRanks?.[rawTid])
+    const schoolGrades = mapSchoolGrades(parsed.leagueSchoolGrades?.[rawTid])
     const patchedYear = { ...yearData }
     if (ratings) {
       patchedYear.teamRatings = ratings
@@ -911,7 +1447,36 @@ export function buildSyncPlan(dynasty, parsed) {
       patchedYear.coachingStaff = staff
       teamsCoachingUpdated += 1
     }
+    if (recruitingClass) {
+      patchedYear.recruitingClassRank = recruitingClass.recruitingClassRank
+      patchedYear.recruitingClassConferenceRank = recruitingClass.recruitingClassConferenceRank
+      patchedYear.recruitingClassStats = recruitingClass.recruitingClassStats
+      recruitingClassesUpdated += 1
+    }
+    if (schoolGrades) {
+      patchedYear.schoolGrades = schoolGrades
+      schoolGradesUpdated += 1
+    }
     mergedTeams[tidKey] = { ...team, byYear: { ...team.byYear, [year]: patchedYear } }
+  }
+
+  // The main loop above keys ratings by raw TeamIndex, but all 5 FCS filler
+  // teams (East/Midwest/Northwest/Southeast/West) share TeamIndex 255 — so
+  // at most one of them got real ratings there, and whichever one did may
+  // have gotten a DIFFERENT filler's ratings misattributed to it. Apply each
+  // filler's own correctly-named rating directly via FCS_FILLER_NAME_TO_TID
+  // (parsed.fcsFillerRatings is keyed by name, not raw id, specifically to
+  // dodge this collision) — same fix pattern already used for their names.
+  for (const [fcsName, fcsTid] of Object.entries(FCS_FILLER_NAME_TO_TID)) {
+    const tidKey = String(fcsTid)
+    const team = mergedTeams[tidKey] || mergedTeams[fcsTid]
+    if (!team) continue
+    const ratings = mapTeamRatings(parsed.fcsFillerRatings, fcsName)
+    if (!ratings) continue
+    const yearData = team.byYear?.[year] || {}
+    const patchedYear = { ...yearData, teamRatings: ratings }
+    mergedTeams[tidKey] = { ...team, byYear: { ...team.byYear, [year]: patchedYear } }
+    teamsRatingsUpdated += 1
   }
 
   // A sync writes real ratings/coaching-staff/schedule data for the user's
@@ -1004,14 +1569,42 @@ export function buildSyncPlan(dynasty, parsed) {
     }
   }
 
+  // CFP Committee Poll — a SEPARATE ranking from the Media Poll above (see
+  // extractPlayers.cjs's buildTeamMaps for why: verified against a real
+  // save that the two genuinely disagree, e.g. Media Poll had Georgia #1/
+  // Miami #2 while CFP Poll had Miami #1/Georgia #2). The real in-game CFP
+  // Bracket screen seeds off THIS poll, not rankByWeek — stored under its
+  // own cfpRankByWeek field so Rankings.jsx's Top 25 (which is legitimately
+  // about the Media Poll) is never affected.
+  const cfpPollRankings = mapPreseasonTop25(parsed.cfpRankings, rawTeamIdMap, dynastyTeams)
+  for (const entry of cfpPollRankings) {
+    const tidKey = String(entry.tid)
+    const team = mergedTeams[tidKey]
+    if (!team) continue
+    const yearData = team.byYear[year] || {}
+    mergedTeams[tidKey] = {
+      ...team,
+      byYear: {
+        ...team.byYear,
+        [year]: { ...yearData, cfpRankByWeek: { ...(yearData.cfpRankByWeek || {}), [week]: entry.rank } },
+      },
+    }
+  }
+
   // Schedule/scores for the user's own team — raw material for the caller's
   // computeScheduleDiff/applyScheduleDiff + isGamePlayed pass.
   const scheduleForUserTeam = mapScheduleForTeam(parsed.games, rawTeamIdMap, userTid, dynastyTeams)
   const gameScoresForUserTeam = (parsed.games || [])
     .filter((g) => g.weekType === 'RegularSeason' && g.status !== 'Unplayed')
     .map((g) => {
-      const homeTid = rawTeamIdMap.get(g.homeTeamId)
-      const awayTid = rawTeamIdMap.get(g.awayTeamId)
+      // TeamIndex 255 is the FCS-filler sentinel (see FCS_FILLER_NAME_TO_TID's
+      // comment) — rawTeamIdMap has no entry for it, so without this resolved
+      // through the name instead, homeTid/awayTid comes back null for the FCS
+      // side and the game never matches applyCfb27GameScores' tid check below,
+      // silently leaving the user's OWN played FCS games stuck at "Upcoming"
+      // with no score ever applied.
+      const homeTid = g.homeTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.homeTeam] ?? null : rawTeamIdMap.get(g.homeTeamId)
+      const awayTid = g.awayTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.awayTeam] ?? null : rawTeamIdMap.get(g.awayTeamId)
       if (homeTid !== userTid && awayTid !== userTid) return null
       return {
         week: g.week, homeTid, awayTid, homeScore: g.homeScore, awayScore: g.awayScore,
@@ -1035,6 +1628,186 @@ export function buildSyncPlan(dynasty, parsed) {
   // ~60-70 new results, not the full 891-game season every time.
   const cpuGames = buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, dynasty.games || [], userTid, year)
 
+  // Whole-league weekly Players of the Week (national + per-conference) —
+  // pure identity (name/position/team/photo) only. The actual stat line
+  // ("3 TKL, 1 INT, 2 PBU, 1 TD") is deliberately NOT computed here — it's
+  // derived at render time from that week's already-synced box score
+  // (PlayerAward.AwardScore is always 0 in the save, not usable), so it can
+  // never go stale relative to a later box-score fix.
+  const playersOfWeekUpdate = {}
+  for (const [weekStr, sides] of Object.entries(parsed.playerAwards?.national || {})) {
+    const w = Number(weekStr)
+    if (!playersOfWeekUpdate[w]) playersOfWeekUpdate[w] = {}
+    playersOfWeekUpdate[w].national = {
+      ...(sides.offensive ? { offensive: mapPlayerOfWeekEntry(sides.offensive, rawTeamIdMap) } : {}),
+      ...(sides.defensive ? { defensive: mapPlayerOfWeekEntry(sides.defensive, rawTeamIdMap) } : {}),
+    }
+  }
+  for (const [weekStr, byConf] of Object.entries(parsed.playerAwards?.conference || {})) {
+    const w = Number(weekStr)
+    if (!playersOfWeekUpdate[w]) playersOfWeekUpdate[w] = {}
+    playersOfWeekUpdate[w].byConference = {}
+    for (const [confName, sides] of Object.entries(byConf)) {
+      playersOfWeekUpdate[w].byConference[confName] = {
+        ...(sides.offensive ? { offensive: mapPlayerOfWeekEntry(sides.offensive, rawTeamIdMap) } : {}),
+        ...(sides.defensive ? { defensive: mapPlayerOfWeekEntry(sides.defensive, rawTeamIdMap) } : {}),
+      }
+    }
+  }
+
+  // Heisman Watch — the save only ever carries ONE live top-4 ranking (not
+  // a per-week history table like PlayerAward), so this sync's snapshot
+  // lands under the save's own current week; syncing week after week
+  // naturally builds a week-by-week history in dynasty.heismanWatchByYear.
+  const heismanWatchUpdate = { [week]: (parsed.heismanWatch || []).map((h) => mapHeismanEntry(h, rawTeamIdMap)) }
+
+  // Rivalries — auto-seed/gap-fill dynasty.rivalries[] (a flat array, not
+  // nested per-team-per-year like everything else above) with the user's
+  // OWN team's real rivals from the save. Never overwrites an existing
+  // name/formedYear — the user's own creative trophy naming/description/
+  // image system is a completely separate, untouched concern — only fills
+  // gaps and adds brand-new entries for real rivalries not yet tracked.
+  let rawUserTid = null
+  for (const [raw, tid] of rawTeamIdMap) {
+    if (tid === userTid) { rawUserTid = raw; break }
+  }
+  const mappedRivalries = rawUserTid != null
+    ? mapLeagueRivalries(parsed.leagueRivalries?.[rawUserTid], rawTeamIdMap)
+    : []
+  const existingRivalries = dynasty.rivalries || []
+  const existingRivalryByTid = new Map(existingRivalries.map((r) => [Number(r.rivalTid), r]))
+  const rivalriesToAdd = []
+  const rivalriesToPatch = []
+  for (const mr of mappedRivalries) {
+    const existing = existingRivalryByTid.get(mr.rivalTid)
+    if (!existing) {
+      rivalriesToAdd.push({
+        id: `cfb27-rival-${mr.rivalTid}`,
+        rivalTid: mr.rivalTid,
+        formedYear: mr.formedYear,
+        active: true,
+        name: mr.name,
+        trophyName: null,
+        manuallyAdded: false,
+        dismissed: false,
+      })
+    } else {
+      const patch = {}
+      if (existing.name == null && mr.name != null) patch.name = mr.name
+      if (existing.formedYear == null && mr.formedYear != null) patch.formedYear = mr.formedYear
+      if (Object.keys(patch).length) rivalriesToPatch.push({ id: existing.id, patch })
+    }
+  }
+
+  // NFL Draft Results — mirrors handleDraftResultsSave's (Dashboard.jsx)
+  // exact write shape so the manual Google-Sheet flow and this sync stay
+  // fully interchangeable. playerDiff.draftedPlayers already carries only
+  // departures with a real, non-sentinel PLYR_DRAFTROUND value.
+  const draftResultsByTid = new Map()
+  for (const d of playerDiff.draftedPlayers) {
+    if (d.tid == null) continue
+    const list = draftResultsByTid.get(d.tid) || []
+    list.push({ playerName: d.playerName, pid: d.pid, position: d.position, overall: d.overall, draftRound: d.draftRound })
+    draftResultsByTid.set(d.tid, list)
+  }
+  const draftResultsUpdate = Object.fromEntries(
+    [...draftResultsByTid.entries()].map(([tid, results]) => [tid, results])
+  )
+
+  // Bowl + full CFP bracket results — EVERY team including the user's own
+  // (unlike buildWholeLeagueGames above, which is CPU-only regular-season).
+  // cfpSlot identification now comes directly from the save's own fixed
+  // bracket structure (see buildPostseasonGames/PLAYOFF_SLOT_TO_CFP_SLOT) —
+  // no ranking-based guessing involved.
+  const postseasonGames = buildPostseasonGames(parsed, rawTeamIdMap, dynasty.games || [], year)
+
+  // Real CFP seed list + bowl-host config, mirroring CFPSeedsModal's exact
+  // save shape — null until the bracket is actually locked (see
+  // deriveCFPSeeds's header comment), in which case cfpSeedsUpdate below
+  // stays null and the existing dynasty.cfpSeedsByYear (if any) is untouched.
+  const cfpSeeds = deriveCFPSeeds(parsed, rawTeamIdMap)
+
+  // Season-end honors — National All-Americans, All-Conference teams, and
+  // named individual awards (Heisman, Maxwell, etc.), all sourced from the
+  // save's real PlayerAward table (extractPlayers.cjs's buildLeagueHonors)
+  // instead of manual AI-assisted entry. Null (untouched) until the save
+  // actually has real honorees — an early-season sync shouldn't wipe
+  // last year's still-displayed awards with an empty set.
+  //
+  // Preseason 1st/2nd Team predictions (allAmericansPreseason, same table,
+  // see ALL_AM_PRESEASON_AWARD_TYPES) are gap-filled the same way but into
+  // separate allAmericansPreseason/allConferencePreseason keys — never
+  // written over the final list, purely a fallback the UI shows only when
+  // the final list for that year is still empty. Included in the same
+  // update object (and same non-null gate, extended to also fire on
+  // preseason-only data) so a dynasty synced before the season's regular
+  // games start still gets SOMETHING to show instead of "No All-Americans
+  // Yet".
+  const rawHonors = parsed.leagueHonors?.allAmericans
+  const rawHonorsPreseason = parsed.leagueHonors?.allAmericansPreseason
+  const hasFinalHonors = rawHonors?.national?.length || rawHonors?.conference?.length
+  const hasPreseasonHonors = rawHonorsPreseason?.national?.length || rawHonorsPreseason?.conference?.length
+  const allAmericansUpdate = (hasFinalHonors || hasPreseasonHonors)
+    ? {
+        ...(hasFinalHonors ? {
+          allAmericans: (rawHonors.national || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
+          allConference: (rawHonors.conference || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
+        } : {}),
+        ...(hasPreseasonHonors ? {
+          allAmericansPreseason: (rawHonorsPreseason.national || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
+          allConferencePreseason: (rawHonorsPreseason.conference || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
+        } : {}),
+      }
+    : null
+
+  const rawNamedAwards = parsed.leagueHonors?.namedAwards
+  const awardsUpdate = rawNamedAwards && Object.keys(rawNamedAwards).length
+    ? Object.fromEntries(
+        Object.entries(rawNamedAwards).map(([key, raw]) => [key, mapAwardEntry(raw, rawTeamIdMap, dynastyTeams)])
+      )
+    : null
+
+  // User job-change detection — Coach.IsUserControlled (extractPlayers.cjs's
+  // buildUserCoachInfo) tells us definitively which team/position the human
+  // is ACTUALLY coaching in the save right now. If that differs from what
+  // this dynasty has tracked, the user took a real in-game job — no
+  // "Taking a New Job?" prompt needed. Mirrors handleNewJobSave's exact
+  // write shape (Dashboard.jsx) so the rest of that existing flow
+  // (pendingUserId, etc.) keeps working unchanged regardless of whether the
+  // job change was detected here or answered manually.
+  let userJobChange = null
+  // Set when this sync's coach identity now correctly matches the dynasty's
+  // OWN tracked team again — the counterpart to userJobChange above, for
+  // clearing a stale newJobData flag a PREVIOUS sync left behind (e.g. the
+  // user accidentally synced a different save/dynasty's file once, saw an
+  // incorrect "Taking a New Job" banner, then re-synced with the correct
+  // file). Without this, userJobChange only ever WRITES newJobData, never
+  // clears it — a wrong-file sync's flag would stick around forever even
+  // after a correct re-sync, since "no mismatch this time" and "never had
+  // one" produce the exact same (null) userJobChange otherwise.
+  let userJobChangeResolved = false
+  if (parsed.userCoachInfo) {
+    const newTid = rawTeamIdMap.get(parsed.userCoachInfo.rawTid)
+    const newPosition = parsed.userCoachInfo.position
+    if (newTid != null) {
+      if (Number(newTid) !== Number(userTid) || newPosition !== dynasty.coachPosition) {
+        userJobChange = { tid: newTid, position: newPosition }
+      } else if (dynasty.newJobData?.takingNewJob) {
+        userJobChangeResolved = true
+      }
+    }
+  }
+
+  // Coach Carousel — pending job offers from OTHER schools for the user's
+  // OWN coach (extractPlayers.cjs's buildCoachOffers). Always a full
+  // replace, never merged with a prior sync's list — these only exist
+  // while genuinely live in the save (bowl season, hot-seat/poaching
+  // window), and an offer that's since disappeared from the save (declined,
+  // expired, or the carousel resolved) should disappear here too.
+  const coachOffersUpdate = (parsed.coachOffers || [])
+    .map((o) => mapCoachOffer(o, rawTeamIdMap, dynastyTeams))
+    .filter(Boolean)
+
   return {
     toCreatePlayers,
     toUpdatePatches,
@@ -1044,7 +1817,19 @@ export function buildSyncPlan(dynasty, parsed) {
     gameScoresForUserTeam,
     boxScoresByWeek,
     cpuGamesToWrite: cpuGames.toWrite,
+    postseasonGamesToWrite: postseasonGames,
     depthChartUpdates,
+    playersOfWeekUpdate,
+    heismanWatchUpdate,
+    rivalriesToAdd,
+    rivalriesToPatch,
+    draftResultsUpdate,
+    cfpSeedsUpdate: cfpSeeds,
+    allAmericansUpdate,
+    awardsUpdate,
+    userJobChange,
+    userJobChangeResolved,
+    coachOffersUpdate,
     seasonInfo,
     unresolvedTeamNames: playerDiff.unresolvedTeamNames,
     summary: {
@@ -1055,10 +1840,22 @@ export function buildSyncPlan(dynasty, parsed) {
       recruitingTargets: recruitDiff.stats.targets,
       teamsRatingsUpdated,
       teamsCoachingUpdated,
+      recruitingClassesUpdated,
+      schoolGradesUpdated,
       rankingsUpdated: rankings.length,
       boxScoresAdded: Object.keys(boxScoresByWeek).length + cpuGames.stats.boxScoresAdded,
       cpuGamesUpdated: cpuGames.stats.gamesTouched,
+      postseasonGamesUpdated: postseasonGames.length,
       depthChartsUpdated: Object.keys(depthChartUpdates).length,
+      rivalriesAdded: rivalriesToAdd.length,
+      rivalriesPatched: rivalriesToPatch.length,
+      draftResultsTeams: Object.keys(draftResultsUpdate).length,
+      cfpSeedsLocked: cfpSeeds != null,
+      allAmericansUpdated: allAmericansUpdate != null,
+      awardsUpdated: awardsUpdate ? Object.keys(awardsUpdate).length : 0,
+      userJobChangeDetected: userJobChange != null,
+      userJobChangeResolved,
+      coachOffersFound: coachOffersUpdate.length,
     },
   }
 }
@@ -1350,8 +2147,13 @@ export function buildBoxScoresForUserGames(parsed, rawTeamIdMap, dynastyTeams, u
 
   for (const g of parsed.games || []) {
     if (g.weekType !== 'RegularSeason' || g.status === 'Unplayed') continue
-    const homeAppTid = rawTeamIdMap.get(g.homeTeamId)
-    const awayAppTid = rawTeamIdMap.get(g.awayTeamId)
+    // Same FCS-filler (TeamIndex 255) resolution as gameScoresForUserTeam
+    // above — without it, `homeAppTid == null || awayAppTid == null` always
+    // skipped the whole game the moment the FCS opponent's tid came back
+    // null, so the user's OWN real box-score stats never got attached for
+    // any game played against an FCS filler team either.
+    const homeAppTid = g.homeTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.homeTeam] ?? null : rawTeamIdMap.get(g.homeTeamId)
+    const awayAppTid = g.awayTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.awayTeam] ?? null : rawTeamIdMap.get(g.awayTeamId)
     if (homeAppTid == null || awayAppTid == null) continue
     if (homeAppTid !== userTid && awayAppTid !== userTid) continue
 

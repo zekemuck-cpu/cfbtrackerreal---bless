@@ -163,7 +163,7 @@ export default function SortableStatsTable({
  * matches the avatar + name link the inline tables rendered before
  * we extracted this component.
  */
-export function PlayerCell({ player, accentColor, pathPrefix }) {
+export function PlayerCell({ player, accentColor, pathPrefix, teamLogo }) {
   if (!player) return null
   return (
     <Link
@@ -177,6 +177,10 @@ export function PlayerCell({ player, accentColor, pathPrefix }) {
           alt=""
           className="w-6 h-6 rounded-full object-cover flex-shrink-0"
         />
+      ) : teamLogo ? (
+        <span className="w-6 h-6 rounded-full bg-white p-0.5 flex items-center justify-center flex-shrink-0">
+          <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+        </span>
       ) : (
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"

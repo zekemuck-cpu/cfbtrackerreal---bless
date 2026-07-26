@@ -16,7 +16,7 @@ const hexA = (hex, a) => {
 // One honoree tile — a team-color gradient row with the player's photo (or a
 // monogram), name, a team logo+name pill, class, and position. The whole tile
 // links to the player's page.
-export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr, teamLogo, primary = '#3a3d47', photoUrl, to }) {
+export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr, teamLogo, primary = '#3a3d47', photoUrl, to, statLine, rankBadge }) {
   // Full, true team color (the box-score / game-card treatment) instead of a
   // low-alpha wash that fades to dark and muddies the color. Text is
   // contrast-aware; the team chip + avatar sit in dark translucent pills so
@@ -25,6 +25,14 @@ export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr,
   const initial = (name || '?').trim().charAt(0).toUpperCase()
   const inner = (
     <div className="relative z-[1] flex items-center gap-2 px-2 py-2">
+      {rankBadge != null && (
+        <span
+          className="w-7 flex-shrink-0 text-center font-display font-black tabular-nums"
+          style={{ color: txt, fontSize: '1.35rem', lineHeight: 1 }}
+        >
+          {rankBadge}
+        </span>
+      )}
       {position && (
         <span className="w-7 flex-shrink-0 text-center text-[10px] font-bold tracking-wider tabular-nums" style={{ color: txt, opacity: 0.72 }}>
           {position}
@@ -36,7 +44,9 @@ export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr,
       >
         {photoUrl
           ? <img src={proxyImageUrl(photoUrl, 120)} alt="" className="w-full h-full object-cover" />
-          : <span className="text-sm font-bold" style={{ color: txt }}>{initial}</span>}
+          : teamLogo
+            ? <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
+            : <span className="text-sm font-bold" style={{ color: txt }}>{initial}</span>}
       </span>
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm leading-tight truncate" style={{ color: txt, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{name}</div>
@@ -51,6 +61,11 @@ export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr,
           </span>
           {klass && <span className="text-[11px] flex-shrink-0" style={{ color: txt, opacity: 0.72 }}>{klass}</span>}
         </div>
+        {statLine && (
+          <div className="mt-1 text-[11px] font-semibold truncate" style={{ color: txt, opacity: 0.85 }}>
+            {statLine}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createStaffAccessor } from './staffDB';
-import FrontPage from './ScoutStaffFrontPage';
 import PlayerDatabase from './PlayerDatabase';
 import ScoutAnalysis from './ScoutAnalysis';
 import ThresholdLookup from './ThresholdLookup';
@@ -48,19 +47,29 @@ function shapeRecruit(pl, addedIndex) {
     weight: pl.weight || null,
     hometown: pl.hometown || '',
     state: pl.state || '',
-    class: getPlayerClassForYear(pl, pl.recruitYear) || 'HS',
+    // A still-open (not yet committed) CFB27 JUCO target has no
+    // classByYear/year yet (only set once they actually commit — see
+    // reconcileRecruitingBoard) — jucoClassLabel is set on the raw player
+    // record regardless of commit status, so prefer it here to avoid a
+    // JUCO recruit falsely reading "HS" before they sign.
+    class: pl.jucoClassLabel || getPlayerClassForYear(pl, pl.recruitYear) || 'HS',
     positionRank: pl.positionRank,
     addedIndex,
     boardRemoved: !!pl.boardRemoved,
+    // CFB27-sync-only fields (undefined for manually-entered recruits —
+    // every consumer of these must treat undefined as "unknown, don't
+    // exclude" rather than "fails the check").
+    isHighSchoolRecruit: pl.isHighSchoolRecruit,
+    scoutedFully: pl.scoutedFully,
   };
 }
 
 // Recruiting.jsx owns the actual top-level tab (and its URL persistence);
 // this just translates that outer tab key to the internal view name this
 // component's JSX below still switches on.
-const SECTION_TO_VIEW = { staff: 'home', database: 'database', outlook: 'analysis', thresholds: 'thresholds', counts: 'counts' };
+const SECTION_TO_VIEW = { database: 'database', outlook: 'analysis', thresholds: 'thresholds', counts: 'counts' };
 
-export default function ScoutStaff({ year, section = 'staff', onNavigate } = {}) {
+export default function ScoutStaff({ year, section = 'staff', onNavigate, toolbarActionsRef = null, onToolbarReady = null } = {}) {
   const { currentDynasty, updateDynasty, updatePlayer, isViewOnly } = useDynasty();
   const { toast } = useToast();
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams);
@@ -347,8 +356,18 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
     return warnings.slice(0, 3);
   }, [currentDynasty, recruits]);
 
-  // True freshmen only — no portal/transfer players
-  const freshmanRecruits = useMemo(() => databaseRecruits.filter(r => !r.isPortal && !r.previousTeam), [databaseRecruits]);
+  // True freshmen only — no portal/transfer players, no Junior College
+  // transfers (checked both via the CFB27 sync's explicit isHighSchoolRecruit
+  // flag and the class string itself, so a manually-entered 'JUCO ...' recruit
+  // is excluded the same way), and — CFB27-synced recruits only — must be
+  // 100% scouted (scoutedFully === false means the save says otherwise;
+  // undefined means "no data", e.g. a manual entry, which is never excluded
+  // on this basis since that system has no partial-scouting concept at all).
+  const isJucoRecruit = (r) => r.isHighSchoolRecruit === false ||
+    (typeof r.class === 'string' && (r.class.toUpperCase().startsWith('JUCO') || r.class.startsWith('JC (')));
+  const freshmanRecruits = useMemo(() => databaseRecruits.filter(r =>
+    !r.isPortal && !r.previousTeam && !isJucoRecruit(r) && r.scoutedFully !== false
+  ), [databaseRecruits]);
 
   const teamTheme = { teamColors, teamLogo };
 
@@ -394,7 +413,12 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
   // mounted, and this stable wrapper is what Daily Brief calls to decrement a
   // generic "1 HS"/"1 Portal" pill straight from the Recruiting Plan, exactly
   // as if the coach had clicked the "−" stepper inside Program Outlook itself.
-  const analysisActionsRef = useRef({});
+  // Reuses the same ref Recruiting.jsx's hero toolbar buttons write into
+  // (toolbarActionsRef) when provided, so ScoutAnalysis's Configure/Help
+  // hooks land in the one ref object the toolbar already calls — falls back
+  // to a local ref so this component still works standalone.
+  const localActionsRef = useRef({});
+  const analysisActionsRef = toolbarActionsRef || localActionsRef;
   const adjustExtraTargetsFromBrief = (key, type, delta, resolved) =>
     analysisActionsRef.current.adjustExtraTargets?.(key, type, delta, resolved);
   // One-shot: analysisJumpPos never went back to null after being consumed, so
@@ -441,21 +465,49 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate } = {})
     }
   };
 
+  // PlayerDatabase.jsx's own handleDelete already intercepts database-only
+  // recruits internally (isFromRecruitingDatabase -> recruitingDatabasePlayers)
+  // BEFORE ever calling this — so this only ever runs for a real, save-synced
+  // Target. Actually deleting one isn't available (it would just reappear on
+  // the next Sync from Save, or orphan history tied to the pid) — but Batch
+  // Edit's own "delete" for exactly this case already has a real answer:
+  // recruitingDatabaseExcludedPids, which hides the pid from the Recruiting
+  // Database view only (every other surface — Targets, roster, stats — is
+  // untouched). This mirrors that same mechanism for the single-row Delete
+  // Prospect button, so both paths behave identically. Also, passing a
+  // non-null onDelete here is what makes the "Delete Prospect" button render
+  // AT ALL for genuine database-only recruits — PlayerDatabase.jsx gates the
+  // button's visibility on `onDelete` being truthy, not on whether the
+  // currently-open recruit happens to be database-only, so leaving this prop
+  // unset (as it was) hid the button for every recruit, even ones that
+  // really are deletable.
+  const handleDeleteDatabasePlayer = async (pl) => {
+    if (!pl?.pid) return;
+    try {
+      const existingExcluded = currentDynasty?.recruitingDatabaseExcludedPids || [];
+      if (existingExcluded.some(id => String(id) === String(pl.pid))) return;
+      const nextExcluded = [...existingExcluded, pl.pid];
+      await updateDynasty(currentDynasty.id, { recruitingDatabaseExcludedPids: nextExcluded });
+      toast.success(`Removed "${pl.name}" from the Recruiting Database. The real recruiting target itself (Targets, roster, etc.) is untouched.`);
+    } catch (err) {
+      console.error('Failed to remove prospect from Recruiting Database:', err);
+      toast.error('Failed to remove. Please try again.');
+    }
+  };
+
   return (
     <div className="w-full space-y-4">
-      {subView === 'home' && <FrontPage onViewDatabase={openDatabase} onJumpToPosition={goToAnalysisPosition} onGoToAnalysisOverview={goToAnalysisOverview} onRemoveFromBoard={isViewOnly ? null : handleToggleBoardRemoved} onAdjustTarget={isViewOnly ? null : adjustExtraTargetsFromBrief} currentTeamName={currentDynasty?.teamName || 'college football team'} currentYear={currentDynasty?.currentYear || new Date().getFullYear()} coachName={currentDynasty?.coachName || ''} recruits={recruits} databaseRecruits={freshmanRecruits} rosterWarnings={rosterWarnings} rosterSummary={rosterSummary} outlookSummary={outlookSummary || cachedOutlookSummary} committedRecruits={committedRecruits} dynastyId={dynastyId} {...teamTheme} />}
-
       {/* Read-only: mirrors the recruiting Targets sheet. Freshmen and portal targets are split.
           Uses the unfiltered list so a target removed from the board still shows up here. */}
-      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} highlightPid={highlightPid} />}
-      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} jumpTarget={thresholdsJumpTarget} />}
-      {subView === 'counts'     && <PlayerCount onSelectBucket={goToThresholdsBucket} />}
+      {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onDelete={isViewOnly ? null : handleDeleteDatabasePlayer} highlightPid={highlightPid} actionsRef={toolbarActionsRef} onReady={onToolbarReady} />}
+      {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} jumpTarget={thresholdsJumpTarget} actionsRef={toolbarActionsRef} onReady={onToolbarReady} />}
+      {subView === 'counts'     && <PlayerCount onSelectBucket={goToThresholdsBucket} {...teamTheme} actionsRef={toolbarActionsRef} onReady={onToolbarReady} />}
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
           Hidden when not on the analysis view — UI is invisible but computation runs.
           Uses boardRecruits so removed targets are no longer discussed in Program Outlook. */}
       <div className={subView === 'analysis' ? '' : 'hidden'}>
-        <ScoutAnalysis players={boardRecruits} removedRecruits={removedBoardRecruits} onToggleBoardRemoved={isViewOnly ? null : handleToggleBoardRemoved} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onOutlookReady={data => { setOutlookSummary(data); }} jumpToPos={analysisJumpPos} resetToOverviewKey={analysisResetKey} actionsRef={analysisActionsRef} />
+        <ScoutAnalysis players={boardRecruits} removedRecruits={removedBoardRecruits} onToggleBoardRemoved={isViewOnly ? null : handleToggleBoardRemoved} roleContext="Data Analyst" {...teamTheme} dynasty={currentDynasty} committedRecruits={committedRecruits} onOutlookReady={data => { setOutlookSummary(data); }} jumpToPos={analysisJumpPos} resetToOverviewKey={analysisResetKey} actionsRef={analysisActionsRef} onReady={onToolbarReady} />
       </div>
     </div>
   );

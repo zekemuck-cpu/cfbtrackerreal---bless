@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear, getPlayerClassForYear } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear, getPlayerClassForYear, computeScheduleDiff, applyScheduleDiff, getScheduleForTeam } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
@@ -181,6 +181,8 @@ export default function DangerZone() {
   // Class data fix state
   const [transferYearFixStatus, setTransferYearFixStatus] = useState(null)
   const [clearRosterStatus, setClearRosterStatus] = useState(null)
+  const [resetCfb27Status, setResetCfb27Status] = useState(null)
+  const [rebuildGamesStatus, setRebuildGamesStatus] = useState(null)
   const [ncaa11Status, setNcaa11Status] = useState(null)
   const [playAsIdaho, setPlayAsIdaho] = useState(false)
   const [advanceClassesStatus, setAdvanceClassesStatus] = useState(null)
@@ -561,6 +563,161 @@ export default function DangerZone() {
       setClearRosterStatus({ success: true, message: `Cleared ${removePids.size} player(s). Re-import via the Enter Roster task (use its Edit button).` })
     } catch (error) {
       setClearRosterStatus({ success: false, message: 'Clear failed: ' + error.message })
+    }
+  }
+
+  // Wipes EVERYTHING the CFB27 save-sync pipeline has ever written to this
+  // dynasty, back to a pre-sync state — recovery tool for when the WRONG
+  // save file got uploaded (a different dynasty's own save, not a newer
+  // version of this same one) and contaminated players/games/records/season
+  // state with a completely different simulated universe's data. A normal
+  // re-sync with the correct file can't undo this on its own: (1) sync is a
+  // merge/upsert, it never deletes stale records the new file doesn't
+  // mention, and (2) computeCfb27SyncSeasonAdvance explicitly refuses to
+  // rewind currentWeek/currentPhase backward if the correct save's real
+  // season point is EARLIER than what's already stored (e.g. stuck at Bowl
+  // Week 1 when the real save is still Preseason) — so week/phase must be
+  // reset here too, or even a correct re-sync can never move it back.
+  // Deliberately leaves alone: team identity (abbr/name/colors/conference),
+  // rivalries (gap-fill only, safe either way, and holds the user's own
+  // trophy customization), teamFuture (Scheme Builder depth-chart/package
+  // customization), and memberPhotos (tied to the user's profile, not a
+  // season).
+  const handleResetCfb27SyncData = async () => {
+    const ok = await confirm({
+      title: 'Reset all CFB27 sync data?',
+      message: `This wipes EVERYTHING the CFB27 save sync has ever written to this dynasty, for every year: every player, every game, team ratings/rankings/coaching staff/school grades/recruiting classes, Players of the Week, Heisman Watch, All-Americans/All-Conference, named awards, CFP seeds, NFL draft results, the Coach Carousel job-offer list, and the current week/phase (reset to Preseason Wk 0). Your next "Sync from Save" rebuilds everything fresh from whatever save you upload. Use this to recover from accidentally syncing the wrong dynasty's save file. This cannot be undone.`,
+      confirmLabel: 'Reset Sync Data',
+      variant: 'danger',
+    })
+    if (!ok) return
+
+    setResetCfb27Status('running')
+    try {
+      const teams = currentDynasty?.teams || {}
+      const clearedTeams = {}
+      for (const [tid, team] of Object.entries(teams)) {
+        clearedTeams[tid] = {
+          ...team,
+          byYear: {},
+          pendingUserId: null,
+          coachPosition: team.userId ? team.coachPosition : null,
+        }
+      }
+
+      await updateDynasty(currentDynasty.id, {
+        players: [],
+        games: [],
+        teams: clearedTeams,
+        currentWeek: 0,
+        currentPhase: 'preseason',
+        playersOfWeekByYear: {},
+        heismanWatchByYear: {},
+        allAmericansByYear: {},
+        awardsByYear: {},
+        cfpSeedsByYear: {},
+        cfpSeedsByYearTid: {},
+        cfpBowlConfigByYear: {},
+        draftResultsByTeamYear: {},
+        coachOffers: [],
+        newJobData: null,
+      })
+      setResetCfb27Status({ success: true, message: 'All CFB27 sync data cleared. Use "Sync from Save" with the correct save file to rebuild.' })
+    } catch (error) {
+      setResetCfb27Status({ success: false, message: 'Reset failed: ' + error.message })
+    }
+  }
+
+  // Recovery for a specific bug: syncing from a save whose schedule hasn't
+  // been generated yet (e.g. Preseason Wk 0, before the game itself has
+  // assigned matchups) makes the sync see "0 games this year" and delete
+  // every real game record for that team/year — computeScheduleDiff can't
+  // tell "genuinely empty" apart from "nothing to compare against yet".
+  // teams[tid].byYear[year].schedule (the denormalized copy the Dashboard's
+  // schedule panel reads) isn't touched by that bug, so it still holds the
+  // real week/opponent list even after dynasty.games gets wiped. This
+  // re-runs that same schedule through computeScheduleDiff/applyScheduleDiff
+  // as if it were freshly synced, recreating the missing game records
+  // without needing to wait for the save to regenerate anything.
+  // A game synced BEFORE the FCS tid fix (2026-07-25) cached its generic FCS
+  // opponent with no opponentTid at all — a real game record built from that
+  // has no team2Tid, which every downstream tid-based lookup (Team View's
+  // schedule rows included) can't resolve, so the row disappears entirely
+  // instead of just showing a bad logo. The cached string could be ANY of
+  // several historical formats depending on exactly when this dynasty last
+  // synced (plain raw name "FCS Midwest", 4-letter abbr "FCSM", or 5-letter
+  // abbr "FCSMW") — matched by region name via regex instead of an exact
+  // abbr list so it can't miss regardless of which format got cached.
+  // Checked most-specific-first (Southeast/Northwest/Midwest before
+  // East/West) since "East"/"West" are substrings of the compound region
+  // names.
+  const FCS_REGION_PATTERNS = [
+    { tid: 141, re: /fcs\s*se\b|fcs\s*south\s*east/i },
+    { tid: 139, re: /fcs\s*nw?\b|fcs\s*north\s*west/i },
+    { tid: 138, re: /fcs\s*mw?\b|fcs\s*mid\s*west/i },
+    { tid: 137, re: /fcs\s*e\b|fcs\s*east/i },
+    { tid: 140, re: /fcs\s*w\b|fcs\s*west/i },
+  ]
+  const repairLegacyFCSEntries = (schedule) => schedule.map(entry => {
+    if (entry.opponentTid || !entry.opponent) return entry
+    const opponentStr = String(entry.opponent)
+    const match = FCS_REGION_PATTERNS.find(p => p.re.test(opponentStr))
+    if (!match) return entry
+    const realAbbr = TEAMS[match.tid]?.abbr || entry.opponent
+    return { ...entry, opponentTid: match.tid, opponent: realAbbr }
+  })
+
+  const handleRebuildGamesFromSchedule = async () => {
+    if (!currentDynasty?.currentTid) return
+    const tid = currentDynasty.currentTid
+    const year = currentDynasty.currentYear
+    const schedule = repairLegacyFCSEntries(getScheduleForTeam(currentDynasty, tid, year))
+
+    const ok = await confirm({
+      title: 'Rebuild games from cached schedule?',
+      message: `Recreates ${year}'s game records for your team from the schedule already cached on the Dashboard (${schedule.filter(e => !e.isBye).length} games) — use this if Team View's Schedule tab shows "No Schedule" even though the Dashboard still shows your real schedule. Any already-played games/scores for weeks NOT in dynasty.games right now will need to be re-entered manually (this only rebuilds the matchup shells, not past scores). This does not affect any other data.`,
+      confirmLabel: 'Rebuild Games',
+      variant: 'danger',
+    })
+    if (!ok) return
+
+    setRebuildGamesStatus('running')
+    try {
+      if (!schedule.length) {
+        setRebuildGamesStatus({ success: false, message: 'No cached schedule found for this team/year — there is nothing to rebuild from.' })
+        return
+      }
+      const existingGames = currentDynasty.games || []
+      const diff = computeScheduleDiff(currentDynasty, schedule, tid, year)
+      const mergedGames = applyScheduleDiff(existingGames, diff)
+
+      // Also write the repaired (real-tid) schedule back into the cache
+      // itself — the Dashboard's schedule panel reads
+      // teams[tid].byYear[year].schedule directly, NOT dynasty.games, so
+      // only fixing dynasty.games (as this tool originally did) left the
+      // Dashboard still showing the stale, un-repaired FCS entry even after
+      // Team View's schedule tab started rendering correctly from the fixed
+      // game records.
+      const existingTeam = currentDynasty.teams?.[tid]
+      const teamsUpdate = existingTeam
+        ? {
+            teams: {
+              ...currentDynasty.teams,
+              [tid]: {
+                ...existingTeam,
+                byYear: {
+                  ...existingTeam.byYear,
+                  [year]: { ...(existingTeam.byYear?.[year] || {}), schedule: diff.updatedSchedule },
+                },
+              },
+            },
+          }
+        : {}
+
+      await updateDynasty(currentDynasty.id, { games: mergedGames, ...teamsUpdate })
+      setRebuildGamesStatus({ success: true, message: `Rebuilt ${diff.toAdd.length} game(s), updated ${diff.toUpdate.length}, kept ${diff.toKeep.length} already correct. Dashboard's cached schedule was refreshed too.` })
+    } catch (error) {
+      setRebuildGamesStatus({ success: false, message: 'Rebuild failed: ' + error.message })
     }
   }
 
@@ -1933,7 +2090,7 @@ export default function DangerZone() {
   //   - a confirm dialog that requires the user to acknowledge they
   //     have a backup before the destructive handler runs
   // Safer handlers pass through unchanged.
-  const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'primary', danger = false }) => {
+  const ActionCard = ({ title, description, buttonText, onClick, status, variant = 'primary', danger = false, pcOnly = false }) => {
     const isRunning = status === 'running'
 
     const guardedClick = async () => {
@@ -1957,9 +2114,21 @@ export default function DangerZone() {
        
       >
         <div className="mb-3">
-          {danger && (
-            <div className="label-xs mb-1.5" style={{ color: 'var(--accent-error)', letterSpacing: '1.5px' }}>
-              USE WITH CAUTION
+          {(danger || pcOnly) && (
+            <div className="flex items-center gap-2 mb-1.5">
+              {danger && (
+                <span className="label-xs" style={{ color: 'var(--accent-error)', letterSpacing: '1.5px' }}>
+                  USE WITH CAUTION
+                </span>
+              )}
+              {pcOnly && (
+                <span
+                  className="label-xs px-1.5 py-0.5 rounded"
+                  style={{ color: 'var(--accent-info, #60a5fa)', border: '1px solid currentColor', letterSpacing: '1px' }}
+                >
+                  PC ONLY
+                </span>
+              )}
             </div>
           )}
           <h3 className="label-sm text-txt-primary m-0">{title}</h3>
@@ -2615,6 +2784,24 @@ export default function DangerZone() {
             buttonText="Clear Roster"
             onClick={handleClearRoster}
             status={clearRosterStatus}
+          />
+          <ActionCard
+            danger
+            pcOnly
+            title="Reset CFB27 Sync Data"
+            description="For CFB27 dynasties only: wipes every player, game, team record, and synced feature (recruiting, awards, CFP seeds, draft results, job offers) back to a pre-sync state, and resets the current week/phase. Use this if the wrong save file (a different dynasty's save) ever got uploaded via Sync from Save — a normal re-sync with the correct file can't undo that contamination on its own. Your next Sync from Save rebuilds everything fresh."
+            buttonText="Reset Sync Data"
+            onClick={handleResetCfb27SyncData}
+            status={resetCfb27Status}
+          />
+          <ActionCard
+            danger
+            pcOnly
+            title="Rebuild Games From Schedule"
+            description="For CFB27 dynasties only: if Team View's Schedule tab shows 'No Schedule' even though the Dashboard still shows your real schedule, a sync from a save with no schedule generated yet (e.g. Preseason Wk 0) likely deleted your game records. This rebuilds them from the schedule still cached on the Dashboard, without needing to wait for a new save. Already-played scores for missing weeks aren't recovered — only the matchup shells."
+            buttonText="Rebuild Games"
+            onClick={handleRebuildGamesFromSchedule}
+            status={rebuildGamesStatus}
           />
           <Card className="flex flex-col h-full">
             <div className="mb-3">

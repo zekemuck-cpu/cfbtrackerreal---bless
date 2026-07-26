@@ -49,6 +49,11 @@ export default function CreateDynasty() {
     // an edition default (a manually-typed custom year is preserved).
     startYear: String(getEditionConfig(DEFAULT_EDITION).releaseYear),
     gameEdition: DEFAULT_EDITION,
+    // Console = the plain manual tracker. PC = the auto-sync tracker (roster,
+    // ratings, stats, schedule, recruiting, etc. all pulled from a save file).
+    // Defaults to Console — PC requires an explicit, deliberate choice (or
+    // gets set automatically the moment a save is actually uploaded below).
+    platform: 'console',
   })
 
   // The list of TeamBuilder teams in this dynasty.
@@ -113,12 +118,13 @@ export default function CreateDynasty() {
       })
       setCfb27Parsed(result)
       setCfb27Status('ready')
-      // A CFB27 save always dictates its own edition and actual in-save
-      // year/week/phase — auto-fill both so nothing needs typing.
+      // A CFB27 save always dictates its own edition, platform, and actual
+      // in-save year/week/phase — auto-fill all so nothing needs typing.
       const season = mapSeasonInfo(result.season)
       setFormData(prev => ({
         ...prev,
         gameEdition: 'cfb27',
+        platform: 'pc',
         startYear: season ? String(season.year) : prev.startYear,
       }))
     } catch (error) {
@@ -496,6 +502,10 @@ export default function CreateDynasty() {
                       ...prev,
                       gameEdition: ed.key,
                       startYear: yearIsDefault ? String(ed.releaseYear) : prev.startYear,
+                      // PC (save sync) only exists for CFB 27 — CFB 26 is
+                      // Console-only, so switching away from CFB 27 drops
+                      // any PC selection back to Console.
+                      platform: ed.key === 'cfb27' ? prev.platform : 'console',
                     }
                   })}
                   aria-pressed={active}
@@ -509,6 +519,50 @@ export default function CreateDynasty() {
               )
             })}
           </div>
+        </div>
+
+        {/* Platform — Console is the plain manual tracker; PC is the
+            auto-sync tracker (roster, ratings, stats, schedule, recruiting,
+            all pulled from a save file, all season). PC only exists for
+            CFB 27 (that's the only edition with a save-sync path) — CFB 26
+            is Console-only. Locked to PC once a save is uploaded below,
+            same as Game Edition. */}
+        <div className="mb-6">
+          <p className="block text-sm font-medium text-txt-primary mb-2">Platform</p>
+          {cfb27Parsed ? (
+            <p className="text-xs text-txt-tertiary mb-2">Set to PC by your imported save.</p>
+          ) : formData.gameEdition !== 'cfb27' && (
+            <p className="text-xs text-txt-tertiary mb-2">PC sync is only available on CFB 27 — CFB 26 is Console-only.</p>
+          )}
+          <div className="flex w-full rounded-lg p-1 bg-surface-2 border border-surface-4">
+            {[
+              { value: 'console', label: 'Console' },
+              { value: 'pc', label: 'PC' },
+            ].map((opt) => {
+              const active = formData.platform === opt.value
+              const locked = !!cfb27Parsed || (opt.value === 'pc' && formData.gameEdition !== 'cfb27')
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => setFormData(prev => ({ ...prev, platform: opt.value }))}
+                  aria-pressed={active}
+                  className={`flex-1 py-2 rounded-md text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    active ? 'text-txt-primary' : 'text-txt-tertiary hover:text-txt-secondary'
+                  }`}
+                  style={active ? { backgroundColor: 'var(--surface-4)' } : undefined}
+                >
+                  {opt.label}
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-txt-tertiary mt-2">
+            {formData.platform === 'pc'
+              ? 'PC dynasties sync rosters, ratings, stats, and schedules directly from your save file.'
+              : 'Console dynasties are entered and updated manually — there is no save file to sync from.'}
+          </p>
         </div>
 
         <div className="mb-6 flex w-full rounded-lg p-1 bg-surface-2 border border-surface-4">
@@ -549,62 +603,65 @@ export default function CreateDynasty() {
 
               {/* PC-only, additive import: uploads a CFB 27 save file, parses
                   it server-side, and seeds every resolved team's real roster
-                  instead of the bundled/default one. Console players simply
-                  have no save file to pick here — nothing else changes for
-                  them. */}
-              <div className="mt-4 p-4 rounded-lg" style={{ border: '1px dashed var(--surface-5)' }}>
-                <p className="text-sm font-semibold text-txt-primary mb-1">PC Players Only: Import CFB 27 Save</p>
-                <p className="text-xs text-txt-tertiary mb-3">
-                  Upload your DYNASTY-* save file to seed every team's real roster (ratings, archetypes, dev traits) instead of typing rosters in by hand.
-                </p>
+                  instead of the bundled/default one. Only shown when Platform
+                  is set to PC — Console dynasties have no save file to pick,
+                  so this whole box (and the "Choose Save File" button) never
+                  appears for them. */}
+              {formData.platform === 'pc' && (
+                <div className="mt-4 p-4 rounded-lg" style={{ border: '1px dashed var(--surface-5)' }}>
+                  <p className="text-sm font-semibold text-txt-primary mb-1">Import CFB 27 Save</p>
+                  <p className="text-xs text-txt-tertiary mb-3">
+                    Upload your DYNASTY-* save file to seed every team's real roster (ratings, archetypes, dev traits) instead of typing rosters in by hand.
+                  </p>
 
-                <input
-                  ref={cfb27FileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleCfb27FileChange}
-                />
+                  <input
+                    ref={cfb27FileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleCfb27FileChange}
+                  />
 
-                {!cfb27FileName && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => cfb27FileInputRef.current?.click()}
-                  >
-                    Choose Save File
-                  </Button>
-                )}
-
-                {cfb27FileName && (
-                  <div className="space-y-2">
-                    <p className="text-sm text-txt-secondary">{cfb27FileName}</p>
-
-                    {(cfb27Status === 'uploading' || cfb27Status === 'parsing') && (
-                      <p className="text-sm text-txt-tertiary">
-                        {cfb27Status === 'uploading' ? 'Uploading save...' : 'Parsing save...'}
-                      </p>
-                    )}
-
-                    {cfb27Status === 'ready' && cfb27Preview && (
-                      <p className="text-sm text-txt-secondary">
-                        {cfb27Preview.playerCount.toLocaleString()} players parsed across {cfb27Preview.teamCount} teams, plus team ratings, coaching staff, conferences, and your schedule. Starting Year and Game Edition were set from the save.
-                        {cfb27Preview.unresolvedTeamNames.length > 0 && (
-                          <> {cfb27Preview.unresolvedTeamNames.length} team{cfb27Preview.unresolvedTeamNames.length === 1 ? '' : 's'} not recognized and will be skipped: {cfb27Preview.unresolvedTeamNames.join(', ')}.</>
-                        )}
-                      </p>
-                    )}
-
-                    {cfb27Status === 'error' && (
-                      <p className="text-sm" style={{ color: 'var(--danger)' }}>{cfb27Error}</p>
-                    )}
-
-                    <Button type="button" variant="outline" size="sm" onClick={clearCfb27Import}>
-                      Remove
+                  {!cfb27FileName && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => cfb27FileInputRef.current?.click()}
+                    >
+                      Choose Save File
                     </Button>
-                  </div>
-                )}
-              </div>
+                  )}
+
+                  {cfb27FileName && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-txt-secondary">{cfb27FileName}</p>
+
+                      {(cfb27Status === 'uploading' || cfb27Status === 'parsing') && (
+                        <p className="text-sm text-txt-tertiary">
+                          {cfb27Status === 'uploading' ? 'Uploading save...' : 'Parsing save...'}
+                        </p>
+                      )}
+
+                      {cfb27Status === 'ready' && cfb27Preview && (
+                        <p className="text-sm text-txt-secondary">
+                          {cfb27Preview.playerCount.toLocaleString()} players parsed across {cfb27Preview.teamCount} teams, plus team ratings, coaching staff, conferences, and your schedule. Starting Year and Game Edition were set from the save.
+                          {cfb27Preview.unresolvedTeamNames.length > 0 && (
+                            <> {cfb27Preview.unresolvedTeamNames.length} team{cfb27Preview.unresolvedTeamNames.length === 1 ? '' : 's'} not recognized and will be skipped: {cfb27Preview.unresolvedTeamNames.join(', ')}.</>
+                          )}
+                        </p>
+                      )}
+
+                      {cfb27Status === 'error' && (
+                        <p className="text-sm" style={{ color: 'var(--danger)' }}>{cfb27Error}</p>
+                      )}
+
+                      <Button type="button" variant="outline" size="sm" onClick={clearCfb27Import}>
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-4 rounded-lg" style={{ border: '1px dashed var(--surface-5)' }}>

@@ -9,9 +9,11 @@ import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from
 import { warmScoutScoresForDynasty } from '../utils/scoutScore'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import DynastyMigrationModal from './DynastyMigrationModal'
+import CFB27SyncModal from './CFB27SyncModal'
 import { needsV2Migration, isCleanButUnstamped } from '../data/migrateDynastyV2'
 import { useToast, useConfirm } from './ui'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
+import { isPcAutoDynasty } from '../editions'
 
 // Build-time version stamp injected by vite.config.js. Format is
 // "YYYY.MM.DD-<short-sha>" so every commit produces a distinct value —
@@ -23,7 +25,12 @@ const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady } = useDynasty()
+  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly } = useDynasty()
+  const [showCfb27SyncModal, setShowCfb27SyncModal] = useState(false)
+  // PC (CFB27) dynasties get their state from "Sync from Save," not manual
+  // week advancement — the header's Advance Week control is replaced with a
+  // direct shortcut to that same modal Dashboard.jsx's action tile opens.
+  const isCfb27Auto = isPcAutoDynasty(currentDynasty)
   const [showV2Migration, setShowV2Migration] = useState(false)
   const [v2MigrationDismissed, setV2MigrationDismissed] = useState(false)
   const { user, signOut, isAdmin } = useAuth()
@@ -803,9 +810,28 @@ export default function Layout({ children }) {
                     </button>
                   )}
 
+                  {/* PC (CFB27) dynasties: state comes from "Sync from Save,"
+                      not manual advancement, so the header shows a direct
+                      shortcut to that modal instead of Advance Week. */}
+                  {isCfb27Auto && !isViewOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setShowCfb27SyncModal(true)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-semibold hover:opacity-70 transition-opacity"
+                      style={{ color: headerText, border: '1px solid currentColor' }}
+                      title="Sync from Save"
+                      aria-label="Sync from Save"
+                    >
+                      <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className="hidden sm:inline">Sync from Save</span>
+                    </button>
+                  )}
+
                   {/* Advance Week Button with Dropdown — force-advance users
                       (commish + co-commishes) only in a shared dynasty. */}
-                  {(!advanceReadyInfo?.isShared || advanceReadyInfo?.canForceAdvance) && (<>
+                  {!isCfb27Auto && (!advanceReadyInfo?.isShared || advanceReadyInfo?.canForceAdvance) && (<>
                   <div className="flex items-center">
                     <button
                       onClick={handleAdvanceWeek}
@@ -1014,6 +1040,12 @@ export default function Layout({ children }) {
         players={playersNeedingConfirmation}
         teamColors={teamColors}
         year={currentDynasty?.currentYear}
+      />
+
+      {/* PC (CFB27) header shortcut, opened in place of Advance Week above */}
+      <CFB27SyncModal
+        isOpen={showCfb27SyncModal}
+        onClose={() => setShowCfb27SyncModal(false)}
       />
 
       {/* v2 roster data migration prompt — shows once per dynasty load until accepted */}

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { getTeamRanking, calculateTeamRecordFromGames } from '../context/DynastyContext'
 import { getContrastTextColor } from '../utils/colorUtils'
+import { isPcAutoDynasty } from '../editions'
+import { getGameSpread } from './SportsbookPanel'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -85,6 +87,20 @@ function baseUserWinProb(ctx) {
   return clamp01(1 / (1 + Math.exp(-margin / 7)))
 }
 
+// CFB27 (PC auto-sync) version — reuses the exact same power model that drives
+// the Sportsbook line (real recency-weighted win margin, real box-score yards/
+// turnover margin, SOS-adjusted power, team rating) instead of the simplified
+// ovr+rank+record approximation above, so the picks and the posted line always
+// agree on the same matchup. Manual dynasties keep baseUserWinProb unchanged —
+// they don't have reliable ratings/box scores to feed the richer model.
+function cfb27WinProb(dynasty, userTid, opponentTid, isHome, isNeutral, year, week) {
+  const homeTid = (isHome || isNeutral) ? userTid : opponentTid
+  const awayTid = homeTid === userTid ? opponentTid : userTid
+  const spread = getGameSpread(dynasty, homeTid, awayTid, year, week, isNeutral, null)
+  const userFavoredBy = homeTid === userTid ? spread : -spread
+  return clamp01(1 / (1 + Math.exp(-userFavoredBy / 7)))
+}
+
 // ── Analyst definitions ───────────────────────────────────────────────────────
 // Each analyst has a `skew(baseProb, ctx)` fn that bends the base user-win
 // probability toward their personality, and a `quip` fn for their reasoning.
@@ -96,9 +112,14 @@ const ANALYSTS = [
     id: 'desmond',
     name: 'Desmond',
     title: 'The Enthusiastic Wildcard',
-    // Loves the disrespected team — flips contrarian toward the underdog.
+    // Loves the disrespected team — leans hard toward the underdog on close
+    // games, but the lean fades as the mismatch grows so he won't hand a
+    // three-touchdown favorite the loss.
     skew(p) {
-      return sharpen(p, -0.45)
+      const compressed = sharpen(p, 0.8)         // soften the gap toward a coin flip
+      const closeness = 1 - Math.abs(p - 0.5) * 2 // 1 at a pick'em, 0 at a lock
+      const dogNudge = 0.22 * closeness
+      return clamp01(p >= 0.5 ? compressed - dogNudge : compressed + dogNudge)
     },
     quip({ side, userName, oppName, gameKey }) {
       const m  = mascot(side === 'user' ? userName : oppName)
@@ -723,7 +744,10 @@ export default function GamedayPicks({
   // Base win probability from the matchup, then each analyst skews it to their
   // personality and a seeded roll lands their final pick. Seeding on gameKey +
   // analyst id keeps picks stable per matchup (no reshuffle on re-render).
-  const baseProb = baseUserWinProb(ctx)
+  const isCfb27Auto = isPcAutoDynasty(dynasty)
+  const baseProb = isCfb27Auto
+    ? cfb27WinProb(dynasty, userTid, opponentTid, isHome, isNeutral, year, weekProp)
+    : baseUserWinProb(ctx)
 
   const picks = ANALYSTS.map(a => {
     const pUser = a.skew(baseProb, ctx)

@@ -2699,94 +2699,117 @@ const BATCH_4 = {
 // ---------------------------------------------------------------------------
 const FCS_TEAMS = {
   "FCS Southeast": {
+    // Updated to match the real bundled logo file (public/fcs-logos/
+    // fcs-southeast.png) — the old snarling-grouper-fish design doesn't
+    // match what's actually there; it's a hawk/eagle head. Nickname
+    // ("Hawks") inferred from the imagery, not confirmed via any in-game
+    // text label — same caveat as the other 3 redone below.
     primaryPMS: null,
-    primaryHex: "#4A7C59",
+    primaryHex: "#12213A",
     secondaryPMS: null,
-    secondaryHex: "#F0E68C",
+    secondaryHex: "#E8622C",
     tertiaryHex: "#FFFFFF",
-    motifs: ["snarling grouper fish head"],
-    helmet: { baseColor: "sea green", logoMark: "snarling grouper head", stripe: "single black center stripe", finish: "glossy" },
-    logoDescription: "An aggressive snarling grouper fish head facing forward and slightly to the right, jaw clamped shut with the grouper's characteristic prominent thick lips and stout broad jaw. A jagged spiky dorsal fin with multiple sharp triangular points fans up from the top of the head, and a small side fin protrudes from the lower-left of the body with the tail fin tip just visible behind the right side. The fish has a large angry eye with a heavy black brow, curved gill lines, and bared aggressive features. Rendered in sage / sea green (#4A7C59) as the dominant fill with bold black outlines and shadow detail and crisp white inline highlights along the gills, mouth, brow, and fin edges. No wordmark.",
-    wordmarkStyle: "Logo-driven brand — the snarling grouper head is the primary identity, with no consistent wordmark treatment.",
+    motifs: ["hawk head", "sharp beak"],
+    helmet: { baseColor: "navy", logoMark: "orange hawk head with navy accents", stripe: "single orange center stripe", finish: "glossy" },
+    logoDescription: "A fierce hawk/eagle head shown in profile facing left, with a sharply hooked orange beak and an intense narrowed eye. The head and neck feathers are rendered in burnt orange with layered feather detailing sweeping back from the crown, while the eye area and lower neck carry navy blue shading and outline work for contrast. The whole mark is wrapped in a thin white outer outline. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the orange hawk head is the primary identity, with no consistent wordmark treatment.",
     visualEra: "modern/athletic",
     isFictional: true,
-    homeJerseyColor: "sea green",
+    homeJerseyColor: "navy",
     awayJerseyColor: "white",
-    graphicNotes: "Generic in-game FCS opponent — the Groupers. Sea / sage green (#4A7C59) paired with khaki yellow (#F0E68C, used sparingly), with heavy black outlines and white inline highlights. The snarling grouper head is the only mark — no secondary logo, no wordmark fallback.",
-    shortNickname: "Groupers",
-    confidence: "high"
+    graphicNotes: "Generic in-game FCS opponent (mascot inferred: Hawks). Navy (#12213A) paired with burnt orange (#E8622C) and a white outer outline. The hawk head is the only mark — no secondary logo, no wordmark fallback.",
+    shortNickname: "Hawks",
+    confidence: "medium"
   },
   "FCS Northwest": {
+    // Updated to match the real bundled logo file (public/fcs-logos/
+    // fcs-northwest.png) — the old stallion-head design doesn't match;
+    // it's a bear head inside a mountain peak with pine trees. Nickname
+    // ("Grizzlies") inferred from the imagery, not confirmed in-game.
     primaryPMS: null,
-    primaryHex: "#BFA544",
+    primaryHex: "#0D2B2E",
     secondaryPMS: null,
-    secondaryHex: "#477F62",
+    secondaryHex: "#FFC72C",
     tertiaryHex: "#FFFFFF",
-    motifs: ["stallion head", "flowing mane"],
-    helmet: { baseColor: "forest green", logoMark: "stallion head with green mane", stripe: "single gold center stripe", finish: "glossy" },
-    logoDescription: "A side-profile stallion head facing right with a fierce aggressive expression — heavy black brow, sharp piercing eye, defined nostril, and clamped jaw. The horse's face is rendered in old gold (#BFA544) with bold black internal detail lines defining the muzzle, cheek, jawline, and facial musculature. A flowing wild mane streams back behind the head in layered sections — the upper layers are forest green (#477F62) with jagged spike-like tips, and lower mane sections alternate between gold and green, all separated by sharp black shadow cuts. A small pointed ear tucks at the top, partly hidden by the green mane. The whole mark is wrapped in a thin white outer outline. No wordmark.",
-    wordmarkStyle: "Logo-driven brand — the stallion head with flowing green-and-gold mane is the primary identity, with no consistent wordmark treatment.",
+    motifs: ["bear head", "mountain peak", "pine trees"],
+    helmet: { baseColor: "charcoal", logoMark: "bear head within a mountain peak with pine trees", stripe: "single gold center stripe", finish: "glossy" },
+    logoDescription: "A roaring gray bear head shown front-facing, mouth open with bared teeth, set inside a bold dark charcoal/navy triangular mountain-peak outline. Two small gold pine trees sit at the base of the triangle, one on each side of the bear's neck. The bear's fur is rendered in cool gray tones with dark charcoal shadow detail defining the muzzle, brow, and ears, with a white highlight along the top of the head. The whole mark is wrapped in a thin white outer outline. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the bear head inside a mountain peak is the primary identity, with no consistent wordmark treatment.",
     visualEra: "modern/athletic",
     isFictional: true,
-    homeJerseyColor: "forest green",
+    homeJerseyColor: "charcoal",
     awayJerseyColor: "white",
-    graphicNotes: "Generic in-game FCS opponent. Old gold (#BFA544) and forest green (#477F62) co-dominate — gold for the horse's face/body, green for the layered mane — with heavy black internal line work and a white outer outline. The stallion head with streaming green-and-gold mane is the only mark; no secondary logo, no wordmark fallback.",
-    shortNickname: "Stallions",
-    confidence: "high"
+    graphicNotes: "Generic in-game FCS opponent (mascot inferred: Grizzlies). Dark charcoal/navy (#0D2B2E) paired with gold (#FFC72C) for the pine trees, gray for the bear, and a white outer outline. The bear-in-a-mountain mark is the only logo — no secondary logo, no wordmark fallback.",
+    shortNickname: "Grizzlies",
+    confidence: "medium"
   },
   "FCS Midwest": {
+    // Updated for this year's redesigned in-game logo — the old
+    // donkey/mule-and-lightning-bolt mark ("Rebels") no longer matches what
+    // the game actually renders. Confirmed via a real score graphic attempt
+    // going wrong (the AI invented the old donkey mark from this profile)
+    // and the user's own reference image of the current logo, plus the
+    // in-game schedule/matchup screen naming the mascot "Thunderbirds".
     primaryPMS: null,
-    primaryHex: "#91ABC7",
+    primaryHex: "#5C1A1B",
     secondaryPMS: null,
-    secondaryHex: "#E1D76E",
+    secondaryHex: "#2EC4B6",
     tertiaryHex: "#FFFFFF",
-    motifs: ["donkey/mule head", "lightning bolt"],
-    helmet: { baseColor: "powder blue", logoMark: "donkey head with lightning bolt", stripe: "single yellow center stripe", finish: "glossy" },
-    logoDescription: "A front-facing donkey/mule head with two tall pointed ears upright, the head and ears centered over a horizontal yellow lightning bolt that zigzags diagonally behind it from lower-left to upper-right. The donkey head is rendered in powder blue (#91ABC7) as the dominant fill with dark navy/black internal detail lines defining the snout, nostrils, mouth, brow, and inner-ear contours; the lightning bolt is solid pale yellow (#E1D76E) with a thin dark outline. The whole mark is wrapped in a thin white outer outline. No wordmark.",
-    wordmarkStyle: "Logo-driven brand — the donkey-and-lightning-bolt mark is the primary identity, with no consistent wordmark treatment.",
+    motifs: ["thunderbird head", "angular wing"],
+    helmet: { baseColor: "maroon", logoMark: "teal thunderbird head with maroon wing accent", stripe: "single teal center stripe", finish: "glossy" },
+    logoDescription: "A stylized thunderbird (hawk/bird-of-prey) head shown in profile facing left, rendered in teal/turquoise with dark internal line work defining the eye and curved beak. Behind and around the head, an angular dark maroon wing/flame-shaped backdrop sweeps upward and back, giving the mark a sharp, aggressive silhouette. A thin white outline separates the teal head from the maroon backdrop. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the teal thunderbird head over an angular maroon wing is the primary identity, with no consistent wordmark treatment.",
     visualEra: "modern/athletic",
     isFictional: true,
-    homeJerseyColor: "powder blue",
+    homeJerseyColor: "maroon",
     awayJerseyColor: "white",
-    graphicNotes: "Generic in-game FCS opponent. Powder blue (#91ABC7) paired with pale yellow (#E1D76E), with dark navy/black used for internal line work and a white outer outline. The donkey/mule head over a diagonal lightning bolt is the only mark — no secondary logos, no wordmark fallback.",
-    shortNickname: "Rebels",
-    confidence: "high"
+    graphicNotes: "Generic in-game FCS opponent (mascot: Thunderbirds). Dark maroon paired with teal/turquoise, with white used for outline separation between the two. The teal thunderbird head over an angular maroon wing is the only mark — no secondary logos, no wordmark fallback.",
+    shortNickname: "Thunderbirds",
+    confidence: "medium"
   },
   "FCS East": {
+    // Updated to match the real bundled logo file (public/fcs-logos/
+    // fcs-east.png) — the old robed-magistrate design doesn't match; it's a
+    // colonial minuteman head in a tricorn hat. Nickname ("Patriots")
+    // inferred from the imagery, not confirmed in-game.
     primaryPMS: null,
-    primaryHex: "#2F1936",
+    primaryHex: "#1B2A4A",
     secondaryPMS: null,
-    secondaryHex: "#8E85A1",
-    tertiaryHex: "#FFFFFF",
-    motifs: ["robed magistrate", "judicial wig"],
-    helmet: { baseColor: "dark purple", logoMark: "robed judge silhouette", stripe: "single lavender center stripe", finish: "matte" },
-    logoDescription: "A side-profile silhouette of a robed judicial magistrate striding to the right. The figure wears a long flowing floor-length robe and a curly British-style judicial wig with tight scrolled curls cascading down the back of the head. The right arm is raised forward and slightly upward holding a small circular handheld object aloft (reads as a hand-held emblem or scales-of-justice medallion); the left arm is bent across the body at the waist. The figure stands on a small horizontal stepped pedestal. The mark is rendered in two-tone deep eggplant purple (#2F1936) as the dominant fill with lighter lavender-gray (#8E85A1) interior detail lines defining the robe folds, wig curls, and facial features, wrapped in a thin white outer outline. No wordmark.",
-    wordmarkStyle: "Logo-driven brand — the robed magistrate figure is the primary identity, with no consistent wordmark treatment.",
+    secondaryHex: "#C9A227",
+    tertiaryHex: "#D9B896",
+    motifs: ["colonial minuteman head", "tricorn hat"],
+    helmet: { baseColor: "navy", logoMark: "colonial soldier head with tricorn hat", stripe: "single gold center stripe", finish: "glossy" },
+    logoDescription: "A stern, weathered colonial minuteman/patriot soldier head shown facing forward, wearing a navy blue tricorn hat with a gold band and a small gold cockade accent on the front fold. The face has a rugged, angry expression with heavy dark eyebrows, deep-set eyes, and a strong jawline, rendered in a tan/flesh tone with bold black shadow and line work defining the brow, nose, and cheek contours. A popped navy coat collar with gold trim frames the neck. The whole mark is wrapped in a thin white outer outline. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the colonial minuteman head is the primary identity, with no consistent wordmark treatment.",
     visualEra: "modern/athletic",
     isFictional: true,
-    homeJerseyColor: "dark purple",
+    homeJerseyColor: "navy",
     awayJerseyColor: "white",
-    graphicNotes: "Generic in-game FCS opponent. Deep eggplant purple (#2F1936) paired with lavender-gray (#8E85A1) and a white outline are the entire palette — distinctly darker and more muted than FCS West's royal purple. The robed-magistrate silhouette is the only mark; no secondary logo, no wordmark fallback.",
-    shortNickname: "Judicials",
-    confidence: "high"
+    graphicNotes: "Generic in-game FCS opponent (mascot inferred: Patriots/Minutemen). Navy blue (#1B2A4A) paired with gold (#C9A227), a tan flesh tone for the face, and a white outer outline. The soldier head is the only mark — no secondary logo, no wordmark fallback.",
+    shortNickname: "Patriots",
+    confidence: "medium"
   },
   "FCS West": {
+    // Updated to match the real bundled logo file (public/fcs-logos/
+    // fcs-west.png) — the old lightning-bolt design doesn't match; it's an
+    // aggressive pink frog/toad head. Nickname ("Toads") inferred from the
+    // imagery, not confirmed in-game.
     primaryPMS: null,
-    primaryHex: "#462E6A",
+    primaryHex: "#E91E8C",
     secondaryPMS: null,
-    secondaryHex: "#AF9458",
+    secondaryHex: "#1A1A1A",
     tertiaryHex: "#FFFFFF",
-    motifs: ["lightning bolt"],
-    helmet: { baseColor: "purple", logoMark: "purple-and-gold lightning bolt", stripe: "single gold center stripe", finish: "glossy" },
-    logoDescription: "A stylized lightning bolt mark, vertically oriented. The top of the bolt is a wide horizontal rectangular banner-like section (the bolt's 'head'); the body then zigzags downward with sharp angular cuts and tapers to a single sharp point at the bottom. The mark is constructed in three nested layers: a solid royal purple core fill (#462E6A), wrapped by a metallic Vegas-gold inline outline (#AF9458), then a white outer outline. No wordmark, no internal detail beyond the layered outlines. Reads as a single bold lightning-bolt monogram.",
-    wordmarkStyle: "Logo-driven brand — the lightning bolt mark is the primary identity, with no consistent wordmark treatment.",
+    motifs: ["frog head", "bared teeth"],
+    helmet: { baseColor: "black", logoMark: "pink frog head with bared teeth", stripe: "single pink center stripe", finish: "glossy" },
+    logoDescription: "An aggressive frog/toad head shown facing forward-left, mouth open with small sharp bared teeth and a fierce narrowed eye. The head is rendered in vivid hot pink/magenta as the dominant fill, with a darker rose-pink underside/jaw shade for depth, and bold black outlines defining the eye, mouth, and bumpy skin texture along the brow. The whole mark is wrapped in a thin black outer outline. No wordmark.",
+    wordmarkStyle: "Logo-driven brand — the pink frog head is the primary identity, with no consistent wordmark treatment.",
     visualEra: "modern/athletic",
     isFictional: true,
-    homeJerseyColor: "purple",
-    awayJerseyColor: "white",
-    graphicNotes: "Generic in-game FCS opponent. Royal purple (#462E6A) paired with metallic Vegas gold (#AF9458) and a white outline are the entire palette. The triple-outlined lightning bolt is the only mark — no secondary logos, no wordmark to fall back on.",
-    shortNickname: "Titans",
-    confidence: "high"
+    homeJerseyColor: "black",
+    awayJerseyColor: "hot pink",
+    graphicNotes: "Generic in-game FCS opponent (mascot inferred: Toads). Hot pink/magenta (#E91E8C) is the dominant color, with black used for outlines and shading. The frog head is the only mark — no secondary logo, no wordmark fallback.",
+    shortNickname: "Toads",
+    confidence: "medium"
   }
 }
 

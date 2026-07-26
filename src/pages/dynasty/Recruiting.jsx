@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from 'react'
+import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useDynasty, getRecruitingCommitments, lookupByTeamYear, isPlayerOnRoster } from '../../context/DynastyContext'
@@ -27,6 +27,8 @@ import TargetResolutionModal from '../../components/TargetResolutionModal'
 import RecruitCard from '../../components/RecruitCard'
 import { buildRevealedPool } from '../../utils/devTraitLearning'
 import { buildAttributeQualityMap } from '../../utils/devPrediction'
+import { isPcAutoDynasty } from '../../editions'
+import { TopClassesBody } from './TopClasses'
 
 const stateFullNames = {
   'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
@@ -121,36 +123,36 @@ export default function Recruiting() {
   // Commitments / Targets / Scout Staff tab (persisted in the URL like the
   // other filters — an explicit ?tab= always wins across refresh/back-forward,
   // and is omitted when it matches the default so URLs stay clean). When Scout
-  // Staff is enabled for this dynasty (League Preferences), it becomes the
-  // primary recruiting workflow, so it takes over as both the first tab shown
-  // and the default landing tab. Otherwise, default depends on the class being
-  // viewed: the CURRENT recruiting year opens on Targets (you're actively
-  // scouting); past/future years open on Commitments (reviewing a finished class).
+  // Staff is enabled for this dynasty (League Preferences), Targets is the
+  // default landing tab (see tabOrder below — there's no separate "Staff"
+  // tab anymore, it was removed). Otherwise, default depends on the class
+  // being viewed: the CURRENT recruiting year opens on Targets (you're
+  // actively scouting); past/future years open on Commitments (reviewing a
+  // finished class).
   const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled
   const viewingYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : Number(currentDynasty?.currentYear))
   const isCurrentRecruitingYear = viewingYear !== 'all' && viewingYear === Number(currentDynasty?.currentYear)
   const hasTargetsThisYear = isCurrentRecruitingYear && isOwnTeam
     && (currentDynasty?.players || []).some((p) => p?.isTarget && Number(p.targetYear) === viewingYear)
-  const defaultTab = scoutStaffEnabled ? 'staff' : hasTargetsThisYear ? 'targets' : 'commitments'
+  const defaultTab = scoutStaffEnabled ? 'targets' : hasTargetsThisYear ? 'targets' : 'commitments'
   const tabParam = searchParams.get('tab')
   // 'database'/'outlook'/'thresholds'/'counts' are Scout Staff's own Recruiting
   // Database / Program Outlook / Threshold Lookup / Player Count sections,
   // promoted to top-level tabs here instead of nav tiles nested inside the
   // Scout Staff tab — see ScoutStaff.jsx's SECTION_TO_VIEW mapping.
-  const KNOWN_TABS = ['targets', 'commitments', 'staff', 'database', 'outlook', 'thresholds', 'counts']
+  const KNOWN_TABS = ['targets', 'commitments', 'database', 'outlook', 'thresholds', 'counts']
   const activeTab = KNOWN_TABS.includes(tabParam) ? tabParam : defaultTab
   const setActiveTab = (t) => setParam('tab', t === defaultTab ? null : t, null)
   const tabOrder = scoutStaffEnabled
     ? [
-        { k: 'staff', l: 'Staff' },
         { k: 'targets', l: 'Targets' },
         { k: 'commitments', l: 'Commitments' },
-        { k: 'database', l: 'Database' },
         { k: 'outlook', l: 'Outlook' },
+        { k: 'database', l: 'Database' },
         { k: 'thresholds', l: 'Thresholds' },
         { k: 'counts', l: 'Scouting Needs' },
       ]
-    : [{ k: 'commitments', l: 'Commitments' }, { k: 'targets', l: 'Targets' }, { k: 'staff', l: 'Staff' }]
+    : [{ k: 'commitments', l: 'Commitments' }, { k: 'targets', l: 'Targets' }]
 
   // Tab switches only touch the URL's query string, not its pathname, so the
   // route-level ScrollToTop never fires — land at the top of each tab manually.
@@ -184,6 +186,28 @@ export default function Recruiting() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [showRankModal, setShowRankModal] = useState(false)
+  // Targets (Big Board) toolbar now renders here in the hero (so it's the
+  // exact same DOM element as Commitments' toolbar, not a separate card) —
+  // boardStats mirrors ScoutBoard's live counts/sort value, and
+  // boardActionsRef lets these buttons trigger ScoutBoard's own local state
+  // (Clear All modal, sort change) without lifting all of it up. Same
+  // pattern as ScoutStaff.jsx's analysisActionsRef.
+  const [boardStats, setBoardStats] = useState({ total: 0, openCount: 0, sortBy: 'scoutscore' })
+  const boardActionsRef = useRef({})
+  // Same bridge for Outlook/Database/Thresholds/Scouting Needs — each of
+  // those lives inside <ScoutStaff>, which forwards this single ref/callback
+  // down to whichever sub-page is active (see ScoutStaff.jsx).
+  const [staffStats, setStaffStats] = useState({})
+  const staffActionsRef = useRef({})
+  // URL-driven like the other filters (tab/view) — lets the Dashboard's
+  // "Recruiting Class Rank" PC-mode row deep-link straight to Commitments
+  // with this already open via ?topClasses=1, instead of requiring a
+  // second click once the page loads.
+  const showTopClasses = searchParams.get('topClasses') === '1'
+  const setShowTopClasses = (updater) => {
+    const next = typeof updater === 'function' ? updater(showTopClasses) : updater
+    setParam('topClasses', next ? '1' : null, null)
+  }
 
   const baseTeam = TEAMS[selectedTid]
   const dynastyTeam = currentDynasty?.teams?.[selectedTid]
@@ -1040,19 +1064,31 @@ export default function Recruiting() {
     return { fiveStars, fourStars, threeStars, twoStars, oneStars, total: allCommitmentsUnfiltered.length }
   }, [allCommitmentsUnfiltered])
 
+  // Prefer the CFB27-synced whole-league Top Classes number (same formula,
+  // same field this page always used — see cfb27SaveImport.js's
+  // mapTeamRecruitingClass) over a locally-recomputed one, so this page and
+  // the Top Classes leaderboard can never disagree. Falls back to local
+  // computation for dynasties with no synced data (manual/spreadsheet
+  // tracking, or a CFB27 dynasty that hasn't synced this year yet).
+  const syncedClassStats = !isAllSeasons
+    ? currentDynasty?.teams?.[selectedTid]?.byYear?.[selectedYear]?.recruitingClassStats
+    : null
   const classScore = useMemo(() => {
     if (isAllSeasons) return 0
+    if (syncedClassStats?.score != null) return syncedClassStats.score
     return calculateRecruitingClassScore(allCommitmentsUnfiltered)
-  }, [allCommitmentsUnfiltered, isAllSeasons])
+  }, [allCommitmentsUnfiltered, isAllSeasons, syncedClassStats])
 
   const classHistory = useMemo(() => {
     if (!selectedTid) return []
     const rows = []
     availableYears.forEach(year => {
       if (typeof year !== 'number') return
+      const yearSyncedStats = currentDynasty?.teams?.[selectedTid]?.byYear?.[year]?.recruitingClassStats
       const commits = flattenClassCommitments(getRecruitingCommitments(currentDynasty, selectedTid, year))
-      const score = calculateRecruitingClassScore(commits)
-      const rank = lookupByTeamYear(currentDynasty?.recruitingClassRankByTeamYear, currentDynasty, selectedTid, year) ?? null
+      const score = yearSyncedStats?.score ?? calculateRecruitingClassScore(commits)
+      const rank = currentDynasty?.teams?.[selectedTid]?.byYear?.[year]?.recruitingClassRank
+        ?? lookupByTeamYear(currentDynasty?.recruitingClassRankByTeamYear, currentDynasty, selectedTid, year) ?? null
       if (commits.length === 0 && !rank && !score) return
       rows.push({ year, score, rank, count: commits.length })
     })
@@ -1081,8 +1117,11 @@ export default function Recruiting() {
     })
   }
 
+  // Same synced-first, manual-fallback rule as classScore above.
   const nationalRank = !isAllSeasons
-    ? (lookupByTeamYear(currentDynasty.recruitingClassRankByTeamYear, currentDynasty, selectedTid, selectedYear) ?? null)
+    ? (currentDynasty?.teams?.[selectedTid]?.byYear?.[selectedYear]?.recruitingClassRank
+      ?? lookupByTeamYear(currentDynasty.recruitingClassRankByTeamYear, currentDynasty, selectedTid, selectedYear)
+      ?? null)
     : null
 
   const hasHSandPortal = true
@@ -1172,7 +1211,11 @@ export default function Recruiting() {
               </span>
             </div>
           </div>
-          {!isViewOnly && !isAllSeasons && (
+          {/* Edit Rank / Edit — manual-entry tools for class rank + commitments.
+              Both are already auto-populated by CFB27 sync (recruiting class
+              rank via mapTeamRecruitingClass, commitments via
+              reconcileRecruitingBoard), so they're pointless on a PC dynasty. */}
+          {!isViewOnly && !isAllSeasons && !isPcAutoDynasty(currentDynasty) && (
             <div className="self-start sm:self-center flex-shrink-0 flex items-center gap-2">
               <button
                 onClick={() => setShowRankModal(true)}
@@ -1253,6 +1296,23 @@ export default function Recruiting() {
                 </span>
                 <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>Commits</span>
               </div>
+            </div>
+          )}
+
+          {/* Top Classes — only ever populated by CFB27 sync, same gate the
+              sidebar nav item uses (no manual-entry path exists). Toggles an
+              inline panel in place rather than navigating away — clicking
+              again closes it and you're still on Commitments, never left it. */}
+          {!isAllSeasons && isPcAutoDynasty(currentDynasty) && (
+            <div className="flex items-center px-3 sm:px-4 py-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowTopClasses(v => !v)}
+                className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10"
+                style={showTopClasses ? { backgroundColor: teamBgText, color: teamAccent } : { border: `1px solid ${teamBgText}55` }}
+              >
+                Top Classes
+              </button>
             </div>
           )}
 
@@ -1339,7 +1399,200 @@ export default function Recruiting() {
         </div>
       </div>
         )}
+
+        {/* Targets (Big Board) toolbar — same technique as Commitments'
+            toolbar above: a plain div inheriting the hero's own background,
+            separated only by a hairline border-top, so there's no seam. */}
+        {activeTab === 'targets' && (
+        <div
+          className="relative"
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.18)',
+            color: teamBgText,
+            '--text-tertiary': `color-mix(in srgb, ${teamBgText} 66%, transparent)`,
+          }}
+        >
+        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
+          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 flex-shrink-0">
+            <span className="font-display font-black uppercase" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Big Board</span>
+            <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{boardStats.total} Recruits</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
+            <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Pos</span>
+            <Select
+              size="sm"
+              style={filterSelectStyle}
+              value={positionFilter}
+              onChange={(e) => setPositionFilter(e.target.value)}
+              aria-label="Filter by position"
+            >
+              {POSITION_FILTER_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0 md:ml-auto">
+            <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Sort</span>
+            <Select
+              size="sm"
+              style={filterSelectStyle}
+              value={boardStats.sortBy}
+              onChange={(e) => boardActionsRef.current.setSortBy?.(e.target.value)}
+              aria-label="Sort targets"
+            >
+              <option value="scoutscore">{currentDynasty?.scoutStaffEnabled ? 'Scout Grade' : 'ScoutScore'}</option>
+              <option value="national">National Rank</option>
+              <option value="priority">My Priority</option>
+            </Select>
+          </div>
+          {!isViewOnly && openTargets.length > 0 && (
+            <div className="flex items-center px-3 sm:px-4 py-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowResolveModal(true)}
+                className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10"
+                style={{ border: `1px solid ${teamBgText}55` }}
+              >
+                New commits? ({openTargets.length})
+              </button>
+            </div>
+          )}
+          {isOwnTeam && !isViewOnly && (
+            <div className="flex items-center px-3 sm:px-4 py-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => boardActionsRef.current.openClearAll?.()}
+                disabled={boardStats.openCount === 0}
+                title={boardStats.openCount === 0 ? 'No open targets to clear' : 'Clear all open targets'}
+                className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10 disabled:opacity-40"
+                style={{ border: `1px solid ${teamBgText}55` }}
+              >
+                Clear All
+              </button>
+            </div>
+          )}
+        </div>
+        </div>
+        )}
+
+        {/* Outlook / Database / Thresholds / Scouting Needs toolbars — same
+            attached technique, bridged to each Scout Staff sub-page via
+            staffActionsRef/staffStats (see ScoutStaff.jsx). */}
+        {activeTab === 'outlook' && (
+        <div
+          className="relative"
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.18)',
+            color: teamBgText,
+            '--text-tertiary': `color-mix(in srgb, ${teamBgText} 66%, transparent)`,
+          }}
+        >
+        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
+          <div className="flex items-center px-3 sm:px-5 py-3 flex-shrink-0">
+            <span className="font-display font-black uppercase" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Program Outlook</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 flex-shrink-0 md:ml-auto">
+            <button
+              type="button"
+              onClick={() => staffActionsRef.current.openHelp?.()}
+              className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10"
+              style={{ border: `1px solid ${teamBgText}55` }}
+            >
+              Help
+            </button>
+            <button
+              type="button"
+              onClick={() => staffActionsRef.current.toggleConfig?.()}
+              className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10"
+              style={staffStats.showConfig ? { backgroundColor: teamBgText, color: teamAccent } : { border: `1px solid ${teamBgText}55` }}
+            >
+              Configure
+            </button>
+          </div>
+        </div>
+        </div>
+        )}
+
+        {activeTab === 'database' && (
+        <div
+          className="relative"
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.18)',
+            color: teamBgText,
+            '--text-tertiary': `color-mix(in srgb, ${teamBgText} 66%, transparent)`,
+          }}
+        >
+        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
+          <div className="flex items-center px-3 sm:px-5 py-3 flex-shrink-0">
+            <span className="font-display font-black uppercase" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Recruiting Database</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 flex-shrink-0 flex-wrap md:ml-auto">
+            {/* Add / Batch Edit are manual-entry tools — pointless (and
+                confusing) on a CFB27 PC dynasty, where every Database row is
+                populated automatically by Sync from Save. */}
+            {!isPcAutoDynasty(currentDynasty) && (
+              <>
+                <button type="button" onClick={() => staffActionsRef.current.openAdd?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Add</button>
+                <button type="button" onClick={() => staffActionsRef.current.openBatchEdit?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Batch Edit</button>
+              </>
+            )}
+            <button type="button" onClick={() => staffActionsRef.current.exportJson?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Export JSON</button>
+            <button type="button" onClick={() => staffActionsRef.current.restoreJson?.()} disabled={!!staffStats.restoringJson} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10 disabled:opacity-50" style={{ border: `1px solid ${teamBgText}55` }}>
+              {staffStats.restoringJson ? 'Reading…' : 'Restore from JSON'}
+            </button>
+            <button type="button" onClick={() => staffActionsRef.current.openHelp?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Help</button>
+          </div>
+        </div>
+        </div>
+        )}
+
+        {activeTab === 'thresholds' && (
+        <div
+          className="relative"
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.18)',
+            color: teamBgText,
+            '--text-tertiary': `color-mix(in srgb, ${teamBgText} 66%, transparent)`,
+          }}
+        >
+        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
+          <div className="flex items-center px-3 sm:px-5 py-3 flex-shrink-0">
+            <span className="font-display font-black uppercase" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Threshold Lookup</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 flex-shrink-0 md:ml-auto">
+            <button type="button" onClick={() => staffActionsRef.current.openHelp?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Help</button>
+            <button type="button" onClick={() => staffActionsRef.current.openKey?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Key</button>
+            <button type="button" onClick={() => staffActionsRef.current.openLearned?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Learned</button>
+          </div>
+        </div>
+        </div>
+        )}
+
+        {activeTab === 'counts' && (
+        <div
+          className="relative"
+          style={{
+            borderTop: '1px solid rgba(255,255,255,0.18)',
+            color: teamBgText,
+            '--text-tertiary': `color-mix(in srgb, ${teamBgText} 66%, transparent)`,
+          }}
+        >
+        <div className="flex flex-col md:flex-row md:flex-wrap md:items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
+          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 flex-shrink-0">
+            <span className="font-display font-black uppercase" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Scouting Needs</span>
+            <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{staffStats.total ?? 0} Recruits</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 sm:px-5 py-3 flex-shrink-0 md:ml-auto">
+            <button type="button" onClick={() => staffActionsRef.current.openHelp?.()} className="px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider transition-colors hover:bg-white/10" style={{ border: `1px solid ${teamBgText}55` }}>Help</button>
+          </div>
+        </div>
+        </div>
+        )}
       </section>
+
+      {activeTab === 'commitments' && showTopClasses && (
+        <TopClassesBody dynasty={currentDynasty} year={selectedYear} pathPrefix={pathPrefix} />
+      )}
 
       {activeTab === 'commitments' ? (
         allCommitments.length > 0 ? (
@@ -1361,6 +1614,7 @@ export default function Recruiting() {
                 bg={teamAccent}
                 text={teamBgText}
                 teamsData={teamsData}
+                teamLogo={heroLogo}
                 isAllSeasons={isAllSeasons}
                 interactive={!!linkPid}
                 playStyle={playStyle}
@@ -1391,10 +1645,10 @@ export default function Recruiting() {
           />
         </Card>
         )
-      ) : ['staff', 'database', 'outlook', 'thresholds', 'counts'].includes(activeTab) ? (
+      ) : ['database', 'outlook', 'thresholds', 'counts'].includes(activeTab) ? (
         currentDynasty?.scoutStaffEnabled ? (
           <Suspense fallback={<div className="py-12 text-center text-sm text-txt-tertiary">Loading Scout Staff…</div>}>
-            <ScoutStaff year={selectedYear} section={activeTab} onNavigate={setActiveTab} />
+            <ScoutStaff year={selectedYear} section={activeTab} onNavigate={setActiveTab} toolbarActionsRef={staffActionsRef} onToolbarReady={fields => setStaffStats(s => ({ ...s, ...fields }))} />
           </Suspense>
         ) : (
           <Card>
@@ -1408,11 +1662,10 @@ export default function Recruiting() {
           userTid={selectedTid}
           pathPrefix={pathPrefix}
           positionFilter={positionFilter}
-          onPositionFilterChange={setPositionFilter}
           viewingOwnTeam={isOwnTeam}
-          onResolveTargets={!isViewOnly && openTargets.length > 0 ? () => setShowResolveModal(true) : null}
-          resolveCount={openTargets.length}
           scoutStaffEnabled={!!currentDynasty?.scoutStaffEnabled}
+          boardActionsRef={boardActionsRef}
+          onBoardReady={setBoardStats}
         />
       )}
 

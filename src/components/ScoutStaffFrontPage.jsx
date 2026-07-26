@@ -10,6 +10,7 @@ import { buildAttributeQualityMap } from '../utils/devPrediction';
 import { createStaffAccessor } from './staffDB';
 import RecruitingPlanRow from './RecruitingPlanRow';
 import GemBustIcon from './GemBustIcon';
+import { getContrastTextColor } from '../utils/colorUtils';
 
 // Full FBS membership — used so a generated staff member's alma mater is picked
 // directly from this real list (in JS, not left to the AI) and cycled through a
@@ -809,21 +810,22 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md cursor-zoom-out p-4"
           onClick={() => setActiveModalImg(null)}
         >
-          <div className="relative max-w-lg w-full aspect-square bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden p-1.5 shadow-2xl">
+          <div className="relative max-w-lg w-full aspect-square bg-surface-1 border border-surface-4 rounded-2xl overflow-hidden p-1.5 shadow-2xl">
             <img src={activeModalImg} alt="Staff Portrait" className="w-full h-full object-cover rounded-xl select-none" />
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-black/70 backdrop-blur-md rounded-full text-[10px] tracking-widest text-slate-300 font-bold uppercase select-none border border-slate-800">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-black/70 backdrop-blur-md rounded-full label-xs text-txt-secondary select-none border border-surface-4">
               Click Anywhere to Close
             </div>
           </div>
         </div>
       )}
 
-      {/* ── HERO ROW: portrait cards + recommendations panel ── */}
-      <div className="flex flex-col md:flex-row gap-4 items-start">
+      <div className="space-y-4">
 
-        {/* Left column — portrait cards. */}
-        <div className="flex flex-col gap-4 shrink-0 md:w-[42%]">
-        <div className="flex gap-2 sm:gap-3">
+        {/* ── Portrait cards — wide banner treatment (fixed photo height,
+            not aspect-ratio-driven) so the pair fills the full card width
+            like everything else on the page, instead of a fixed-width
+            column that leaves a dead gap beside it. ── */}
+        <div className="flex gap-3">
         {[
           {
             slot: 1,
@@ -835,8 +837,8 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
             contractLength: scoutContractLength,
             confirmed: scoutConfirmed,
             role: 'National Scout',
-            roleColor: '#94a3b8',
-            glowColor: '#94a3b8',
+            roleColor: p,
+            glowColor: p,
             showUrl: showScoutUrlInput, setShowUrl: setShowScoutUrlInput,
             urlText: scoutUrlText, setUrlText: setScoutUrlText,
             accentColor: p,
@@ -851,8 +853,8 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
             contractLength: analystContractLength,
             confirmed: analystConfirmed,
             role: 'Data Analyst',
-            roleColor: '#94a3b8',
-            glowColor: '#94a3b8',
+            roleColor: s !== '#ffffff' ? s : p,
+            glowColor: s !== '#ffffff' ? s : p,
             showUrl: showAnalystUrlInput, setShowUrl: setShowAnalystUrlInput,
             urlText: analystUrlText, setUrlText: setAnalystUrlText,
             accentColor: s !== '#ffffff' ? s : p,
@@ -867,13 +869,12 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
           // Overlay matches the role badge treatment — dark glass with the role color
           // glowing through the border/text, instead of a flat color fill.
           return (
-          <div key={slot} className="relative flex-1 flex flex-col rounded-xl overflow-hidden group min-h-[300px] bg-surface-2 border border-surface-4"
-            style={ isExpired ? { borderColor: 'rgba(239,68,68,0.25)', background: 'rgba(25,5,5,1)' } : {} }>
+          <div key={slot} className="card cfb-texture relative flex-1 flex flex-col overflow-hidden group min-h-[300px]"
+            style={ isExpired ? { borderColor: 'rgba(239,68,68,0.35)', background: 'linear-gradient(180deg, rgba(80,0,0,0.12) 0%, var(--surface-2) 40%)' } : {} }>
 
             {/* ── PHOTO — always rendered (visible through overlay when empty) ── */}
             <div
-              className={`relative flex-shrink-0 overflow-hidden ${isHiring ? 'cursor-pointer' : (img && !isExpired && !isEmptySlot ? 'cursor-zoom-in' : '')}`}
-              style={{ aspectRatio: '4/5' }}
+              className={`relative flex-shrink-0 overflow-hidden h-40 sm:h-48 ${isHiring ? 'cursor-pointer' : (img && !isExpired && !isEmptySlot ? 'cursor-zoom-in' : '')}`}
               onClick={() => {
                 if (isHiring) { photoInputRefs.current[slot]?.click(); }
                 else if (img && !isExpired && !isEmptySlot) { setActiveModalImg(img); }
@@ -926,7 +927,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
             <div className="flex-1 flex flex-col gap-2 p-3 border-t border-surface-4">
               {/* Accent bar + Name */}
               <div>
-                <div className="w-6 h-0.5 mb-1.5 rounded-full bg-slate-600" />
+                <div className="w-6 h-0.5 mb-1.5 rounded-full" style={{ background: accentColor }} />
                 {nameEditSlot === slot && !isEmptySlot ? (
                   <input
                     type="text"
@@ -958,10 +959,10 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
               {/* Expired actions */}
               {isExpired && (
                 <div className="flex gap-2">
-                  <button onClick={() => handleResignStaff(slot)} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: '#059669', color: '#fff' }}>
+                  <button onClick={() => handleResignStaff(slot)} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: 'var(--accent-success)', color: '#fff' }}>
                     Re-sign
                   </button>
-                  <button onClick={() => { clearSlot(slot); setHiringMode(prev => ({ ...prev, [slot]: true })); }} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: 'rgba(127,29,29,0.8)', color: '#fca5a5' }}>
+                  <button onClick={() => { clearSlot(slot); setHiringMode(prev => ({ ...prev, [slot]: true })); }} className="flex-1 py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider transition" style={{ background: 'color-mix(in srgb, var(--accent-error) 35%, var(--surface-1))', color: '#fca5a5' }}>
                     Replace
                   </button>
                 </div>
@@ -986,9 +987,9 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                   <div
                     onClick={() => setBioEditSlot(slot)}
                     className="cursor-text rounded-lg p-2 min-h-[44px]"
-                    style={{ background: 'rgba(0,0,0,0.35)', border: '1.5px dashed #475569' }}
+                    style={{ background: 'rgba(0,0,0,0.35)', border: '1.5px dashed var(--surface-5)' }}
                   >
-                    <p className="text-[10px] font-bold text-slate-400">+ Click to add bio…</p>
+                    <p className="text-[10px] font-bold text-txt-tertiary">+ Click to add bio…</p>
                   </div>
                 )}
                 {!bio && (
@@ -1008,7 +1009,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                 )}
                 <button onClick={fireStaff}
                   className="w-full py-1.5 rounded font-display font-black text-[10px] uppercase tracking-wider mt-auto"
-                  style={{ background: 'rgba(127,29,29,0.45)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  style={{ background: 'color-mix(in srgb, var(--accent-error) 18%, transparent)', color: '#fca5a5', border: '1px solid color-mix(in srgb, var(--accent-error) 30%, transparent)' }}>
                   Fire {slot === 1 ? 'Scout' : 'Analyst'}
                 </button>
               </>)}
@@ -1032,9 +1033,9 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                   <div
                     onClick={() => setBioEditSlot(slot)}
                     className="cursor-text rounded-lg p-2 min-h-[44px]"
-                    style={{ background: 'rgba(0,0,0,0.35)', border: '1.5px dashed #475569' }}
+                    style={{ background: 'rgba(0,0,0,0.35)', border: '1.5px dashed var(--surface-5)' }}
                   >
-                    <p className="text-[10px] font-bold text-slate-400">+ Click to add bio…</p>
+                    <p className="text-[10px] font-bold text-txt-tertiary">+ Click to add bio…</p>
                   </div>
                 )}
                 <div className="grid grid-cols-2 gap-1.5">
@@ -1074,7 +1075,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                     <input type="text" value={urlText}
                       onChange={(e) => { if (slot === 1) setScoutUrlText(e.target.value); else setAnalystUrlText(e.target.value); }}
                       placeholder="Paste image URL…"
-                      className="flex-1 bg-transparent text-[11px] font-mono text-slate-300 focus:outline-none px-2 py-1"
+                      className="flex-1 bg-transparent text-[11px] font-mono text-txt-secondary focus:outline-none px-2 py-1"
                     />
                     <button onClick={() => handleUrlSubmit(slot)} className="px-3 py-1 text-[9px] font-display font-bold text-white uppercase" style={{ background: accentColor }}>
                       Save
@@ -1095,40 +1096,16 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
               </>)}
             </div>
 
-            {/* ── EMPTY OVERLAY — dark glass + role-colored glow, matching the title badge look ── */}
+            {/* ── EMPTY OVERLAY — flat scrim + solid team-color CTA, no glow ── */}
             {isEmptySlot && (
               <div
                 className="absolute inset-0 flex items-center justify-center z-20"
-                style={{ background: 'rgba(3,7,13,0.86)', backdropFilter: 'blur(1px)' }}
+                style={{ background: 'rgba(10,12,16,0.78)' }}
               >
-                <div
-                  className="absolute rounded-full pointer-events-none"
-                  style={{
-                    width: 160, height: 160,
-                    background: `radial-gradient(circle, ${glowColor}3d 0%, ${glowColor}00 70%)`,
-                  }}
-                />
                 <button
                   onClick={() => setHiringMode(prev => ({ ...prev, [slot]: true }))}
-                  className="relative px-8 py-3 rounded-xl font-display font-black text-[13px] uppercase tracking-widest transition-all cursor-pointer"
-                  style={{
-                    background: 'rgba(0,0,0,0.5)',
-                    color: glowColor,
-                    border: `1.5px solid ${glowColor}`,
-                    boxShadow: `0 0 10px 2px ${glowColor}99, 0 0 22px 4px ${glowColor}4d, inset 0 0 8px ${glowColor}33`,
-                    backdropFilter: 'blur(6px)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = 'rgba(0,0,0,0.65)';
-                    e.currentTarget.style.boxShadow = `0 0 16px 4px ${glowColor}cc, 0 0 34px 8px ${glowColor}80, inset 0 0 10px ${glowColor}55`;
-                    e.currentTarget.style.borderColor = glowColor;
-                    e.currentTarget.style.transform = 'scale(1.03)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'rgba(0,0,0,0.5)';
-                    e.currentTarget.style.boxShadow = `0 0 10px 2px ${glowColor}99, 0 0 22px 4px ${glowColor}4d, inset 0 0 8px ${glowColor}33`;
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
+                  className="px-6 py-2.5 rounded-lg font-display font-bold text-xs uppercase tracking-widest transition-opacity hover:opacity-90"
+                  style={{ background: glowColor, color: getContrastTextColor(glowColor) }}
                 >
                   Hire {slot === 1 ? 'Scout' : 'Analyst'}
                 </button>
@@ -1137,25 +1114,19 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
           </div>
         );})}
 
-        </div>{/* end portrait grid */}
+        </div>{/* end portrait row */}
 
-        </div>{/* end left column */}
+        {/* Daily Brief panel — full width, own row. */}
+        <div className="flex flex-col">
 
-        {/* Daily Brief panel — grows to fit its own content; no fixed height,
-            no internal scroll. */}
-        <div className="flex-1 rounded-xl bg-surface-2 border border-surface-4 flex flex-col">
+          {/* Header — plain bold title, no boxed bar, matching Dashboard's section headers */}
+          <p className="font-display font-black uppercase text-lg text-txt-primary mb-4">Daily Brief</p>
 
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-surface-4 shrink-0 flex items-center justify-between gap-3">
-            <p className="text-sm font-display font-bold uppercase text-txt-primary">Daily Brief</p>
-          </div>
+          <div className="flex flex-col space-y-6">
 
-          <div className="flex flex-col">
-
-            {/* ── PROGRAM OUTLOOK SNAPSHOT + RECRUITING PLAN — side by side ── */}
-            <div className="flex border-b border-surface-4">
-            <div className="w-1/2 min-w-0 px-4 pt-4 pb-3 border-r border-surface-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500 mb-3">Position Status</p>
+            {/* ── POSITION STATUS ── */}
+            <div>
+              <p className="label-sm text-txt-tertiary mb-3">Position Status</p>
               {outlookSummary ? (() => {
                 // Read directly from outlookSummary verdictKey — same source as Program Outlook
                 const ALL_TRACKED = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','FB','K','P'];
@@ -1163,60 +1134,79 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                 const depths = ALL_TRACKED.filter(pos => outlookSummary[pos]?.verdictKey === 'depth-needed').map(pos => ({ pos }));
                 const allClear = crits.length === 0 && depths.length === 0;
                 return (
-                  <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
                     {/* At-a-glance counts */}
-                    <div className="flex items-end gap-5">
+                    <div className="flex items-end gap-8 shrink-0">
                       {crits.length > 0 && (
                         <div>
-                          <p className="text-[26px] font-black leading-none text-txt-primary">{crits.length}</p>
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-[#E3242B] mt-0.5">Critical</p>
+                          <p className="font-display text-4xl font-black leading-none" style={{ color: 'var(--accent-error)' }}>{crits.length}</p>
+                          <p className="label-xs mt-1" style={{ color: 'var(--accent-error)' }}>Critical</p>
                         </div>
                       )}
                       {depths.length > 0 && (
                         <div>
-                          <p className="text-[26px] font-black leading-none text-txt-primary">{depths.length}</p>
-                          <p className="text-[9px] font-bold uppercase tracking-widest text-[#FFC72C] mt-0.5">Depth</p>
+                          <p className="font-display text-4xl font-black leading-none" style={{ color: 'var(--accent-warning)' }}>{depths.length}</p>
+                          <p className="label-xs mt-1" style={{ color: 'var(--accent-warning)' }}>Depth</p>
+                        </div>
+                      )}
+                      {allClear && (
+                        <div>
+                          <p className="font-display text-4xl font-black leading-none" style={{ color: 'var(--accent-success)' }}>0</p>
+                          <p className="label-xs mt-1" style={{ color: 'var(--accent-success)' }}>All Clear</p>
                         </div>
                       )}
                     </div>
 
-                    {/* Summary sentences */}
-                    {allClear ? (
-                      <p className="text-[13px] text-slate-400 leading-snug">All positions are in good shape. Nothing urgent on the roster right now.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {crits.length > 0 && (
-                          <p className="text-[13px] leading-snug text-slate-300">
-                            <span className="text-[#E3242B] font-semibold">{crits.map(r => recruitingPosLabel(r.pos)).join(', ')}</span>
-                            {crits.length === 1 ? ' has a gap' : ' have gaps'} that need to be addressed before next season.
-                          </p>
-                        )}
-                        {depths.length > 0 && (
-                          <p className="text-[13px] leading-snug text-slate-400">
-                            <span className="text-[#FFC72C]/80 font-semibold">{depths.map(r => recruitingPosLabel(r.pos)).join(', ')}</span>
-                            {depths.length === 1 ? ' is running light' : ' are running light'} on depth in the next couple years.
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    <button
-                      onClick={() => goToAnalysisOverview()}
-                      className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors font-medium tracking-wide"
-                    >
-                      Program Outlook →
-                    </button>
+                    {/* Position chips — a wrapped row of small tags reads far
+                        cleaner than a comma-joined sentence once a roster has
+                        a dozen-plus positions flagged at once. */}
+                    <div className="flex-1 min-w-0 space-y-2.5">
+                      {allClear ? (
+                        <p className="text-sm text-txt-tertiary leading-snug">All positions are in good shape. Nothing urgent on the roster right now.</p>
+                      ) : (
+                        <>
+                          {crits.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {crits.map(r => (
+                                <span key={r.pos} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded"
+                                  style={{ color: 'var(--accent-error)', background: 'color-mix(in srgb, var(--accent-error) 14%, transparent)' }}>
+                                  {recruitingPosLabel(r.pos)}
+                                </span>
+                              ))}
+                              <span className="text-xs text-txt-tertiary">need to be addressed before next season</span>
+                            </div>
+                          )}
+                          {depths.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {depths.map(r => (
+                                <span key={r.pos} className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded"
+                                  style={{ color: 'var(--accent-warning)', background: 'color-mix(in srgb, var(--accent-warning) 14%, transparent)' }}>
+                                  {recruitingPosLabel(r.pos)}
+                                </span>
+                              ))}
+                              <span className="text-xs text-txt-tertiary">running light on depth</span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      <button
+                        onClick={() => goToAnalysisOverview()}
+                        className="text-xs text-txt-tertiary hover:text-txt-secondary transition-colors font-medium tracking-wide"
+                      >
+                        Program Outlook →
+                      </button>
+                    </div>
                   </div>
                 );
               })() : (
-                <button onClick={() => goToAnalysisOverview()} className="w-full rounded-lg px-3 py-3 border border-dashed border-slate-700 text-[11px] text-slate-500 hover:border-slate-500 hover:text-slate-400 transition-colors text-center">
+                <button onClick={() => goToAnalysisOverview()} className="w-full rounded-lg px-3 py-3 border border-dashed border-surface-4 text-xs text-txt-tertiary hover:border-surface-5 hover:text-txt-secondary transition-colors text-center">
                   Open Program Outlook to generate position data
                 </button>
               )}
             </div>
 
             {/* ── RECRUITING PLAN ── */}
-            <div className="w-1/2 min-w-0">
+            <div>
             {outlookSummary && (() => {
               const POSITIONS = ['QB','HB','FB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','K','P'];
               // Build a flag lookup from Position Status data
@@ -1254,78 +1244,61 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
               const defRows = rows.filter(r => DEF_POS.has(r.pos));
               const stRows  = rows.filter(r => !OFF_POS.has(r.pos) && !DEF_POS.has(r.pos));
 
-              const col = (label, colRows) => colRows.length ? (
-                <div className="flex-1 min-w-0">
-                  <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">{label}</p>
-                  <div className="space-y-1">
-                    {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} onRemove={onRemoveFromBoard ? (pid) => onRemoveFromBoard({ pid }) : null} onRemoveGeneric={onAdjustTarget ? (type) => onAdjustTarget(r.pos, type, -1, type === 'hs' ? r.hs : r.portal) : null} />)}
-                  </div>
-                </div>
-              ) : null;
-
-              const gridCol = (label, colRows) => colRows.length ? (
+              // showFlag is false on the main (inline) view — the critical/depth
+              // warning triangle only shows in the expanded Recruiting Plan
+              // modal, so the compact inline rows stay clean.
+              const gridCol = (label, colRows, showFlag = false) => colRows.length ? (
                 <div>
-                  <p className="text-xs font-display font-black uppercase tracking-[0.12em] text-slate-500 mb-3 pb-2 border-b border-surface-4">{label}</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} onRemove={onRemoveFromBoard ? (pid) => onRemoveFromBoard({ pid }) : null} onRemoveGeneric={onAdjustTarget ? (type) => onAdjustTarget(r.pos, type, -1, type === 'hs' ? r.hs : r.portal) : null} />)}
+                  <p className="label-xs text-txt-tertiary mb-2.5">{label}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {colRows.map((r, i) => <RecruitingPlanRow key={i} {...r} showFlag={showFlag} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} onRemove={onRemoveFromBoard ? (pid) => onRemoveFromBoard({ pid }) : null} onRemoveGeneric={onAdjustTarget ? (type) => onAdjustTarget(r.pos, type, -1, type === 'hs' ? r.hs : r.portal) : null} />)}
                   </div>
                 </div>
               ) : null;
 
               return (
-                <div className="px-4 pt-4 pb-4">
+                <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">Recruiting Plan</p>
+                    <p className="label-sm text-txt-tertiary">Recruiting Plan</p>
                     <button
                       type="button"
                       onClick={() => setPlanExpanded(true)}
                       title="Expand Recruiting Plan"
-                      className="p-1 -m-1 rounded text-slate-500 hover:text-txt-primary hover:bg-surface-4 transition"
+                      className="p-1 -m-1 rounded text-txt-tertiary hover:text-txt-primary hover:bg-surface-4 transition"
                     >
                       <ExpandIcon className="w-3 h-3" />
                     </button>
                   </div>
 
                   {/* At-a-glance totals */}
-                  <div className="flex items-end justify-between gap-2 mb-3">
+                  <div className="flex items-end gap-8 mb-4">
                     {totalHs > 0 && (
                       <div>
-                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5 whitespace-nowrap">HS Targets</p>
+                        <p className="font-display text-2xl font-black leading-none text-txt-primary">{totalHs}</p>
+                        <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">HS Targets</p>
                       </div>
                     )}
                     {totalPortal > 0 && (
                       <div>
-                        <p className="text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5 whitespace-nowrap">Portal</p>
+                        <p className="font-display text-2xl font-black leading-none text-txt-primary">{totalPortal}</p>
+                        <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Portal</p>
                       </div>
                     )}
                     <div>
-                      <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
-                      <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Total</p>
+                      <p className="font-display text-2xl font-black leading-none text-txt-tertiary">{totalHs + totalPortal}</p>
+                      <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Total</p>
                     </div>
                     {projRoster !== null && (
-                      <div className="text-right">
-                        <p className={`text-[20px] font-black leading-none ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}>
-                          {projRoster}<span className="text-[13px] text-slate-600">/85</span>
+                      <div>
+                        <p className={`font-display text-2xl font-black leading-none ${projRoster > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}>
+                          {projRoster}<span className="text-sm text-txt-muted">/85</span>
                         </p>
-                        <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5 whitespace-nowrap">Proj. Roster</p>
+                        <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Proj. Roster</p>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    {col('Offense', offRows)}
-                    {col('Defense', defRows)}
-                    {stRows.length > 0 && (
-                      <div>
-                        <p className="text-[8px] font-black uppercase tracking-[0.12em] text-slate-600 mb-1.5">Special Teams</p>
-                        <div className="space-y-1">
-                          {stRows.map((r, i) => <RecruitingPlanRow key={i} {...r} onClick={onJumpToPosition ? () => onJumpToPosition(r.pos) : null} onRemove={onRemoveFromBoard ? (pid) => onRemoveFromBoard({ pid }) : null} onRemoveGeneric={onAdjustTarget ? (type) => onAdjustTarget(r.pos, type, -1, type === 'hs' ? r.hs : r.portal) : null} />)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  {/* Position-by-position breakdown only shows in the expanded modal now — see below. */}
 
                   {planExpanded && (
                     <div
@@ -1334,7 +1307,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                       onClick={() => setPlanExpanded(false)}
                     >
                       <div
-                        className="relative bg-surface-2 border border-surface-4 rounded-xl w-full max-w-6xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-6"
+                        className="card cfb-texture-strong relative w-full max-w-6xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-6"
                         onClick={e => e.stopPropagation()}
                       >
                         {teamLogo && (
@@ -1355,23 +1328,23 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                           </button>
                           <div className="flex flex-col items-center text-center gap-5">
                             {currentYear && (
-                              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-600">{currentYear}</p>
+                              <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-txt-muted">{currentYear}</p>
                             )}
                             <p className="text-sm font-display font-bold uppercase text-txt-primary">Recruiting Plan</p>
                             {currentRoster !== null && (
                               <div className="flex flex-col items-center">
                                 <div className="inline-grid grid-cols-2">
-                                  <span className="text-[20px] font-black leading-none text-slate-400 text-right">{currentRoster}</span>
-                                  <span className="text-[20px] font-black leading-none text-left"><span className="text-slate-600">/85</span></span>
+                                  <span className="font-display text-[20px] font-black leading-none text-txt-tertiary text-right">{currentRoster}</span>
+                                  <span className="font-display text-[20px] font-black leading-none text-left"><span className="text-txt-muted">/85</span></span>
                                 </div>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{currentYear ? `Current ${currentYear + 1} Roster` : 'Current Roster'}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">{currentYear ? `Current ${currentYear + 1} Roster` : 'Current Roster'}</p>
                               </div>
                             )}
                             <div className="w-80 grid grid-cols-[1fr_auto_1fr] items-end">
                               <div className="text-center">
                                 {totalHs > 0 && (
                                   <>
-                                    <p className="text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
+                                    <p className="font-display text-[20px] font-black leading-none text-txt-primary">{totalHs}</p>
                                     <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">HS Targets</p>
                                   </>
                                 )}
@@ -1379,31 +1352,31 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                               <div className="text-center px-6">
                                 {totalPortal > 0 && (
                                   <>
-                                    <p className="text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
+                                    <p className="font-display text-[20px] font-black leading-none text-txt-primary">{totalPortal}</p>
                                     <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">Portal</p>
                                   </>
                                 )}
                               </div>
                               <div className="text-center">
-                                <p className="text-[20px] font-black leading-none text-slate-400">{totalHs + totalPortal}</p>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">Total</p>
+                                <p className="font-display text-[20px] font-black leading-none text-txt-tertiary">{totalHs + totalPortal}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">Total</p>
                               </div>
                             </div>
                             {projRoster !== null && (
                               <div className="flex flex-col items-center">
                                 <div className="inline-grid grid-cols-2">
-                                  <span className={`text-[20px] font-black leading-none text-right ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}>{projRoster}</span>
-                                  <span className={`text-[20px] font-black leading-none text-left ${projRoster > 85 ? 'text-red-400' : 'text-slate-400'}`}><span className="text-slate-600">/85</span></span>
+                                  <span className={`font-display text-[20px] font-black leading-none text-right ${projRoster > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}>{projRoster}</span>
+                                  <span className={`font-display text-[20px] font-black leading-none text-left ${projRoster > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}><span className="text-txt-muted">/85</span></span>
                                 </div>
-                                <p className="text-[8px] font-bold uppercase tracking-widest text-slate-500 mt-0.5">{currentYear ? `Proj. ${currentYear + 1} Roster` : 'Proj. Roster'}</p>
+                                <p className="text-[8px] font-bold uppercase tracking-widest text-txt-tertiary mt-0.5">{currentYear ? `Proj. ${currentYear + 1} Roster` : 'Proj. Roster'}</p>
                               </div>
                             )}
                           </div>
                         </div>
                         <div className="space-y-6">
-                          {gridCol('Offense', offRows)}
-                          {gridCol('Defense', defRows)}
-                          {gridCol('Special Teams', stRows)}
+                          {gridCol('Offense', offRows, true)}
+                          {gridCol('Defense', defRows, true)}
+                          {gridCol('Special Teams', stRows, true)}
                         </div>
                       </div>
                     </div>
@@ -1412,16 +1385,15 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
               );
             })()}
             </div>
-            </div>
 
             {/* ── RECENTLY FILED ── */}
             {databaseRecruits.length > 0 && (() => {
               // Sort by recentRank descending — highest rank = most recently added to the database
               const recent = [...databaseRecruits].sort((a, b) => (b.recentRank ?? 0) - (a.recentRank ?? 0)).slice(0, 3);
               return (
-                <div className="px-4 pt-3 pb-4 border-b border-surface-4">
-                  <p className="text-[8px] font-black uppercase tracking-[0.15em] text-slate-500 mb-2.5">Recently Filed</p>
-                  <div className="space-y-1.5">
+                <div>
+                  <p className="label-sm text-txt-tertiary mb-3">Recently Filed</p>
+                  <div className="divide-y divide-surface-4">
                     {recent.map((r, i) => {
                       const rawScore = computeScore(r, weightsMap, revealedPool);
                       const score = rawScore != null ? Math.round(rawScore) : null;
@@ -1443,23 +1415,22 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                       ];
                       const tier = score != null
                         ? (gradeTiers.find(t => score >= t.min) ?? gradeTiers[gradeTiers.length - 1])
-                        : { grade: '-', cls: 'bg-surface-3 border border-surface-4 text-slate-500' };
+                        : { grade: '-', cls: 'bg-surface-3 border border-surface-4 text-txt-tertiary' };
                       return (
                         <div
                           key={i}
                           onClick={() => onViewDatabase && onViewDatabase(r.pid)}
-                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 bg-surface-3 border border-surface-4 transition-colors ${onViewDatabase ? 'cursor-pointer hover:bg-surface-4' : ''}`}
+                          className={`flex items-center gap-3 py-2.5 transition-colors ${onViewDatabase ? 'cursor-pointer hover:bg-surface-3' : ''}`}
                         >
-                          {r.stars > 0 && <span className="text-[10px] font-black text-amber-400 tracking-wide shrink-0">{r.stars}★</span>}
-                          <span className="text-[8px] font-display font-black tracking-wide px-1.5 py-0.5 rounded shrink-0 bg-surface-4 border border-surface-5 text-txt-tertiary">{recruitingPosLabel(r.position)}</span>
-                          <span className="relative inline-block min-w-0 max-w-[45%] shrink">
-                            <span className="text-[11px] font-bold text-txt-primary truncate block">{r.name}</span>
+                          {r.stars > 0 && <span className="text-xs font-black text-amber-400 tracking-wide shrink-0 w-7">{r.stars}★</span>}
+                          <span className="text-[10px] font-display font-black tracking-wide text-txt-tertiary shrink-0 w-9">{recruitingPosLabel(r.position)}</span>
+                          <span className="relative inline-block min-w-0 flex-1 shrink">
+                            <span className="text-sm font-bold text-txt-primary truncate block">{r.name}</span>
                             <GemBustIcon type={r.gemBust} />
                           </span>
-                          <div className="flex-1" />
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-3 shrink-0">
                             <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${tier.cls}`}>{tier.grade}</span>
-                            {score != null && <span className="text-[9px] font-black tabular-nums text-slate-400">{score}</span>}
+                            {score != null && <span className="font-display text-sm font-black tabular-nums text-txt-primary w-8 text-right">{score}</span>}
                           </div>
                         </div>
                       );
@@ -1470,13 +1441,13 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
             })()}
 
             {/* Sign-off */}
-            <div className="mt-auto px-4 py-3">
-              <span className="text-[9px] text-txt-tertiary flex items-center gap-1.5">— <Signature name={analystName} color="#94a3b8" fontSize="1.25rem" /></span>
+            <div>
+              <span className="text-xs text-txt-tertiary flex items-center gap-1.5">— <Signature name={analystName} color="#94a3b8" fontSize="1.25rem" /></span>
             </div>
           </div>
         </div>
 
-      </div>{/* end hero row */}
+      </div>
     </div>
   );
 }

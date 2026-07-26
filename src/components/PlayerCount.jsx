@@ -6,6 +6,8 @@ import { ARCHETYPE_REGISTRY } from '../data/configData';
 import { DEV_TRAITS, buildRevealedPool, countBoundaries, gapToStrong } from '../utils/devTraitLearning';
 import { useCurrentTeamColors } from '../hooks/useTeamColors';
 import { createStaffAccessor } from './staffDB';
+import { getContrastTextColor } from '../utils/colorUtils';
+import { Modal } from './ui';
 
 const POS_ORDER = ['QB','HB','WR','TE','OT','OG','C','DE','DT','OLB','MIKE','CB','FS','SS','ATH'];
 
@@ -21,10 +23,10 @@ const LADDER_ORDER = ['Elite', 'Star', 'Impact', 'Normal'];
 // ScoutAnalysis.jsx, GemBustIcon.jsx) already keeps its own copy instead of
 // sharing one module.
 const TRAIT_COLORS = {
-  Elite:  { border: '#0E7A2A', text: '#22E065', glow: '0 0 16px rgba(14,122,42,0.85)' },
-  Star:   { border: '#9C7209', text: '#FFD100', glow: '0 0 14px rgba(156,114,9,0.8)' },
-  Impact: { border: '#7C8991', text: '#D6DEE2', glow: 'none' },
-  Normal: { border: '#8C5524', text: '#CD7F32', glow: 'none' },
+  Elite:  { border: '#0E7A2A', text: '#22E065' },
+  Star:   { border: '#9C7209', text: '#FFD100' },
+  Impact: { border: '#7C8991', text: '#D6DEE2' },
+  Normal: { border: '#8C5524', text: '#CD7F32' },
 };
 
 const STAR_CONFIG = [
@@ -42,13 +44,16 @@ ARCHETYPE_REGISTRY.forEach(({ position, archetype }) => {
   ARCHETYPES_BY_POS[position].push(archetype);
 });
 
-export default function PlayerCount({ onSelectBucket = null } = {}) {
+export default function PlayerCount({ onSelectBucket = null, actionsRef = null, onReady = null } = {}) {
   const { currentDynasty } = useDynasty();
   const [selectedPos, setSelectedPos] = useState(null);
+  const [showHelp, setShowHelp] = useState(false);
   const [selectedStar, setSelectedStar] = useState('5');
 
   const teamColors = useCurrentTeamColors(currentDynasty);
   const p = teamColors.primary;
+  const teamAccent = p;
+  const teamBgText = getContrastTextColor(teamAccent);
 
   const [scoutImg, setScoutImg] = useState('');
   const [scoutName, setScoutName] = useState('National Scout');
@@ -94,6 +99,12 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
 
   const total = allRecruits.length;
 
+  // The header toolbar (title/count/Help) now renders in Recruiting.jsx's
+  // own hero — this ref bridges the Help button to local modal state, and
+  // onReady reports the live total for the hero's stat text.
+  if (actionsRef) actionsRef.current.openHelp = () => setShowHelp(true);
+  useEffect(() => { onReady?.({ total }); }, [total]);
+
   // Star-tier counts scoped to each position — drives the star pill counts
   // in Archetypes by Position.
   const starCountsByPos = useMemo(() => {
@@ -130,52 +141,17 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
   return (
     <div className="space-y-4">
 
-      {/* Scout portrait + info row */}
-      <div className="flex flex-col sm:flex-row gap-4 items-stretch">
-
-        {/* Scout portrait card */}
-        <div className="relative rounded-xl overflow-hidden shadow-xl w-full h-32 sm:w-[110px] sm:h-[100px] sm:flex-shrink-0">
-          {scoutImg ? (
-            <img src={scoutImg} alt="National Scout" className="absolute inset-0 w-full h-full object-cover object-top" />
-          ) : (
-            <div className="absolute inset-0 bg-surface-3" />
-          )}
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 82%, rgba(0,0,0,0.85) 90%, rgba(0,0,0,0.95) 100%)' }} />
-          <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(to bottom, transparent 85%, #38bdf855 100%)' }} />
-          <p className="absolute top-2 right-2 text-[5px] font-black uppercase tracking-[0.12em] text-sky-400" style={{ textShadow: '0 1px 6px rgba(0,0,0,1)' }}>National Scout</p>
-          <div className="absolute bottom-0 left-0 right-0 p-2">
-            <div className="w-4 h-0.5 mb-1 rounded-full bg-sky-400" />
-            {(() => {
-              const parts = scoutName.trim().split(' ');
-              const last = parts.pop() || '';
-              const first = parts.join(' ');
-              return (
-                <>
-                  {first && <p className="leading-none text-[6px] font-semibold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.7)', textShadow: '0 1px 6px rgba(0,0,0,1)' }}>{first}</p>}
-                  <p className="text-white leading-none font-bold text-xs" style={{ textShadow: '0 2px 10px rgba(0,0,0,1)' }}>{last}</p>
-                </>
-              );
-            })()}
-          </div>
-        </div>
-
-        {/* Info card — the total is the hero stat here, not a caption */}
-        <div className="flex-1 rounded-xl p-3 flex items-start justify-between gap-3 bg-surface-2 border border-surface-4 sm:h-[100px]">
-          <div className="flex flex-col justify-center gap-1.5 h-full">
-            <p className="text-base font-semibold text-txt-primary">Scouting Needs</p>
-            <p className="text-xs text-txt-tertiary leading-snug">
-              Exactly which dev traits to scout next so your Analyst has real data to compare future recruits against
-            </p>
-          </div>
-          <div className="flex-shrink-0 flex flex-col justify-center items-end h-full text-right">
-            <p className="text-4xl sm:text-5xl font-display font-black leading-none tabular-nums" style={{ color: p }}>{total}</p>
-            <p className="text-[9px] font-display font-black uppercase tracking-[0.14em] text-txt-tertiary mt-1">Recruits</p>
-          </div>
-        </div>
-      </div>
+      {/* The header toolbar (title/count/Help) now renders in Recruiting.jsx's
+          own hero — see the actionsRef/onReady wiring above. */}
+      <Modal isOpen={showHelp} onClose={() => setShowHelp(false)} title="Scouting Needs" size="sm">
+        <p className="text-xs text-txt-secondary leading-relaxed">
+          Exactly which dev traits to scout next so your Analyst has real data to compare
+          future recruits against.
+        </p>
+      </Modal>
 
       {total === 0 ? (
-        <div className="rounded-xl bg-surface-2 border border-surface-4 p-10 text-center">
+        <div className="card p-10 text-center">
           <p className="text-sm text-txt-tertiary italic">Add recruiting targets to build the database.</p>
         </div>
       ) : (
@@ -191,16 +167,16 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
               about — but the list is sorted so the buckets closest to
               "Strong" confidence (fewest additional recruits needed) surface
               first, since those are the quickest wins. */}
-          <div className="rounded-xl overflow-hidden flex flex-col md:flex-row min-h-[420px] bg-surface-2 border border-surface-4">
-            {/* Position Nav */}
-            <div className="w-full md:w-28 bg-surface-3 border-b md:border-b-0 md:border-r border-surface-4 p-2 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible scrollbar-none shrink-0">
+          <div className="card overflow-hidden flex flex-col min-h-[420px]">
+            {/* Position Nav — horizontal tab strip, matching Program Outlook / Thresholds */}
+            <div className="bg-surface-3 border-b border-surface-4 px-2 py-2 flex items-center gap-1 overflow-x-auto scrollbar-none shrink-0">
               {archPositions.map(([pos, posTotal]) => (
                 <button
                   key={pos}
                   type="button"
                   onClick={() => setSelectedPos(pos)}
-                  style={pos === activePos ? { backgroundColor: p, color: '#fff' } : undefined}
-                  className={`flex items-center justify-between gap-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-2 rounded-lg transition shrink-0 text-left ${
+                  style={pos === activePos ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
+                  className={`font-display flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg transition shrink-0 text-center ${
                     pos === activePos
                       ? ''
                       : 'text-txt-tertiary hover:bg-surface-4 hover:text-txt-primary'
@@ -220,7 +196,7 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
                     key={key}
                     type="button"
                     onClick={() => setSelectedStar(key)}
-                    style={key === selectedStar ? { backgroundColor: p, color: '#fff' } : undefined}
+                    style={key === selectedStar ? { backgroundColor: teamAccent, color: teamBgText } : undefined}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition ${
                       key === selectedStar
                         ? ''
@@ -273,14 +249,14 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
                   return key(a) - key(b);
                 });
                 return (
-                  <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto divide-y divide-surface-4">
                     {rows.map(({ arch, archNorm, traitCounts, isStrong, isComplete, gap, missingForComplete, label, colorCls }) => (
                       <button
                         key={arch}
                         type="button"
                         onClick={() => onSelectBucket?.(activePos, arch, selectedStar)}
-                        className={`w-full text-left bg-surface-3 border border-surface-4 rounded-lg px-4 py-3 space-y-2.5 transition ${
-                          onSelectBucket ? 'hover:border-txt-tertiary cursor-pointer' : ''
+                        className={`w-full text-left px-4 py-3 space-y-2.5 transition ${
+                          onSelectBucket ? 'hover:bg-surface-3 cursor-pointer' : ''
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -310,7 +286,7 @@ export default function PlayerCount({ onSelectBucket = null } = {}) {
                                 key={dt}
                                 className="bg-surface-2 border px-2.5 py-1 rounded-md text-xs font-display font-bold uppercase tracking-wide"
                                 style={has
-                                  ? { borderColor: c.border, color: c.text, boxShadow: c.glow }
+                                  ? { borderColor: c.border, color: c.text }
                                   : { borderColor: 'var(--surface-4)', color: 'var(--txt-tertiary)', opacity: 0.45 }
                                 }
                               >

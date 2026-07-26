@@ -18,14 +18,15 @@
 //                     form. This is a UI default and may move over time
 //                     (e.g. flip to cfb27 once that content is ready).
 //
-// They happen to both be 'cfb26' today, but they answer different
-// questions and are wired to different call sites.
+// They answer different questions and are wired to different call sites —
+// DEFAULT_EDITION moved to 'cfb27' once PC auto-sync made it the primary
+// experience; LEGACY_EDITION stays 'cfb26' forever, independent of that.
 
 import cfb26 from './cfb26'
 import cfb27 from './cfb27'
 
 export const LEGACY_EDITION = 'cfb26'
-export const DEFAULT_EDITION = 'cfb26'
+export const DEFAULT_EDITION = 'cfb27'
 
 // Raw edition definitions, keyed by edition key. Each may declare
 // `extends` to inherit from another edition (resolved below).
@@ -90,6 +91,20 @@ export function normalizeEditionKey(value) {
 // entire backward-compatibility guarantee for old saves.
 export function getEditionKey(dynasty) {
   return normalizeEditionKey(dynasty?.gameEdition)
+}
+
+// Is this dynasty a PC (auto-sync) dynasty? A CFB27 dynasty can be played on
+// Console OR PC — only PC has an actual save file to sync from, so ALL of the
+// "Sync from Save"-derived behavior (auto-filled schedule/ratings/recruiting,
+// the Edit-button removals, the Sportsbook/Gameday Picks power model, the
+// sync-only nav pages, etc.) must gate on this, never on edition alone.
+// Dynasties created before the Console/PC selector existed have no
+// `platform` field at all — every one of them is a real PC dynasty (the
+// feature didn't exist for anyone else yet), so a missing `platform`
+// defaults to 'pc'. Only an explicit 'console' turns this off.
+export function isPcAutoDynasty(dynasty) {
+  if (getEditionKey(dynasty) !== 'cfb27') return false
+  return dynasty?.platform !== 'console'
 }
 
 // Given a dynasty OR an edition key, return the resolved config bundle.

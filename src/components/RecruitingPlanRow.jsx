@@ -2,7 +2,7 @@ import { recruitingPosLabel } from '../utils/recruitAttributes';
 
 // Shared "Recruiting Plan" row — used by the Daily Brief (one row per position)
 // and by Program Outlook's per-position vertical box.
-export default function RecruitingPlanRow({ pos, hs, portal, targetName, targetIsPortal, targetPid, flag, onClick, onRemove, onRemoveGeneric }) {
+export default function RecruitingPlanRow({ pos, hs, portal, targetName, targetIsPortal, targetPid, flag, onClick, onRemove, onRemoveGeneric, showFlag = true }) {
   const isCritical = flag === 'critical';
   const isDepth    = flag === 'depth';
   const posColor   = 'text-txt-secondary';
@@ -69,15 +69,15 @@ export default function RecruitingPlanRow({ pos, hs, portal, targetName, targetI
         {hsPills.map(({ label, isName }, i) => pill(label, isName, 'hs', i, `hs-${i}`))}
         {portalPills.map(({ label, isName }, i) => pill(label, isName, 'portal', i, `portal-${i}`))}
       </div>
-      {isCritical && (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 text-[#E3242B]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {showFlag && isCritical && (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 text-[color:var(--accent-error)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
           <line x1="12" y1="9" x2="12" y2="13" />
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       )}
-      {isDepth && (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 text-[#FFC72C]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {showFlag && isDepth && (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 shrink-0 text-[color:var(--accent-warning)]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
           <line x1="12" y1="9" x2="12" y2="13" />
           <line x1="12" y1="17" x2="12.01" y2="17" />

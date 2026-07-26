@@ -107,48 +107,62 @@ export function buildCFPProjection(dynasty, year) {
       .sort((a, b) => a.rank - b.rank)
     latestWeek = 'Final'
   } else {
-    // Walk rankByWeek across every team to find the latest fully-
-    // populated week (≥10 ranked teams). Build the Top 25 from that
-    // week's slots, dropping duplicate rank claims (first team to
-    // claim each slot wins — same defense the Rankings page uses).
+    // Walk a per-team weekly-rank field across every team to find the
+    // latest fully-populated week (≥10 ranked teams), then build the Top 25
+    // from that week's slots (dropping duplicate rank claims — first team
+    // to claim each slot wins, same defense the Rankings page uses).
+    //
+    // Tried in order: cfpRankByWeek (the CFP Committee Poll — the field the
+    // real in-game bracket is actually seeded from; verified against a real
+    // save that it genuinely disagrees with the Media Poll, e.g. Media had
+    // Georgia #1/Miami #2 while CFP had Miami #1/Georgia #2 — using the
+    // wrong one silently swapped seed pairs), falling back to rankByWeek
+    // (Media Poll) for years/dynasties synced before cfpRankByWeek existed,
+    // or non-CFB27 dynasties that only ever populate the one field.
     const POPULATED_THRESHOLD = 10
     const teams = dynasty.teams || {}
-    const weekCounts = new Map() // wk -> count of teams ranked that week
-    for (const team of Object.values(teams)) {
-      const rbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
-      if (!rbw) continue
-      for (const [wkKey, v] of Object.entries(rbw)) {
-        const wk = Number(wkKey)
-        if (!Number.isFinite(wk)) continue
-        if (typeof v !== 'number' || v < 1 || v > 25) continue
-        weekCounts.set(wk, (weekCounts.get(wk) || 0) + 1)
+    const buildFromField = (field) => {
+      const weekCounts = new Map() // wk -> count of teams ranked that week
+      for (const team of Object.values(teams)) {
+        const rbw = team?.byYear?.[year]?.[field] ?? team?.byYear?.[String(year)]?.[field]
+        if (!rbw) continue
+        for (const [wkKey, v] of Object.entries(rbw)) {
+          const wk = Number(wkKey)
+          if (!Number.isFinite(wk)) continue
+          if (typeof v !== 'number' || v < 1 || v > 25) continue
+          weekCounts.set(wk, (weekCounts.get(wk) || 0) + 1)
+        }
       }
-    }
-    let chosenWeek = null
-    if (weekCounts.size > 0) {
-      const populated = [...weekCounts.entries()]
-        .filter(([, c]) => c >= POPULATED_THRESHOLD)
-        .map(([w]) => w)
-        .sort((a, b) => b - a)
-      if (populated.length > 0) {
-        chosenWeek = populated[0]
-      } else {
-        // No fully-populated week — pick latest week with ANY data.
-        chosenWeek = [...weekCounts.keys()].sort((a, b) => b - a)[0]
+      let chosenWeek = null
+      if (weekCounts.size > 0) {
+        const populated = [...weekCounts.entries()]
+          .filter(([, c]) => c >= POPULATED_THRESHOLD)
+          .map(([w]) => w)
+          .sort((a, b) => b - a)
+        chosenWeek = populated.length > 0
+          ? populated[0]
+          // No fully-populated week — pick latest week with ANY data.
+          : [...weekCounts.keys()].sort((a, b) => b - a)[0]
       }
-    }
-    if (chosenWeek != null) {
+      if (chosenWeek == null) return null
       const slotMap = new Map() // rank -> { rank, team, tid }
       for (const [tidKey, team] of Object.entries(teams)) {
-        const rbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+        const rbw = team?.byYear?.[year]?.[field] ?? team?.byYear?.[String(year)]?.[field]
         if (!rbw) continue
         const v = rbw[chosenWeek] ?? rbw[String(chosenWeek)]
         if (typeof v !== 'number' || v < 1 || v > 25) continue
         if (slotMap.has(v)) continue
         slotMap.set(v, { rank: v, team: team.abbr || null, tid: Number(tidKey) })
       }
-      rankings = [...slotMap.values()].sort((a, b) => a.rank - b.rank)
-      latestWeek = chosenWeek
+      return { rankings: [...slotMap.values()].sort((a, b) => a.rank - b.rank), week: chosenWeek }
+    }
+
+    const cfpResult = buildFromField('cfpRankByWeek')
+    const mediaResult = cfpResult ? null : buildFromField('rankByWeek')
+    const picked = cfpResult || mediaResult
+    if (picked) {
+      rankings = picked.rankings
+      latestWeek = picked.week
     } else {
       const live = buildLiveTop25FromGames(dynasty, year)
       rankings = live.entries || []

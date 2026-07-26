@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useDynasty, getCurrentCustomConferences } from '../context/DynastyContext'
-import { getEditionKey } from '../editions'
+import { getEditionKey, isPcAutoDynasty } from '../editions'
 import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import { isEditor } from '../data/leagueModel'
@@ -162,9 +162,17 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const editionConfig = getEditionConfig(currentDynasty)
   const showBlueprint = Boolean(editionConfig?.features?.dynastyPoints) && !isViewOnly
 
-  // Scheme Builder's formation/play/scheme data is sourced from CFB 27 only —
-  // hidden entirely for dynasties on any other game edition.
+  // Scheme Builder's formation/play/scheme data is sourced from CFB 27's rule
+  // set itself — hidden for other editions, but shown on Console CFB27 too
+  // (it's ruleset content, not synced data).
   const showSchemeBuilder = getEditionKey(currentDynasty) === 'cfb27'
+
+  // Injury Report / Players of the Week / Heisman Watch are only ever
+  // populated by CFB27 Sync from Save — no manual-entry path exists for any
+  // of them, so (unlike Scheme Builder above) they must gate on PC, not just
+  // the CFB27 edition — a Console CFB27 dynasty would otherwise show these
+  // and they'd sit permanently empty.
+  const isPcAuto = isPcAutoDynasty(currentDynasty)
 
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },
@@ -175,11 +183,18 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'CFP Bracket', path: `${pathPrefix}/cfp-bracket` },
     { name: 'Conf. Standings', path: `${pathPrefix}/conference-standings` },
     { name: 'Recruiting', path: `${pathPrefix}/recruiting/${teamTid}/${currentYear}` },
+    // Top Classes deliberately has NO sidebar entry — it's reached via a
+    // pill button on Recruiting's Commitments tab instead, per the user's
+    // request, to keep it discoverable from the recruiting context it's
+    // most relevant to rather than adding another top-level nav item.
+    ...(isPcAuto ? [{ name: 'Injury Report', path: `${pathPrefix}/injury-report/${teamTid}` }] : []),
     { name: 'Coach Career', path: `${pathPrefix}/coach-career` },
     { name: 'Leaderboard', path: `${pathPrefix}/dynasty-records` },
     { name: 'Bowl History', path: `${pathPrefix}/bowl-history` },
     { name: 'CC History', path: `${pathPrefix}/conference-championship-history` },
     { name: 'Awards', path: `${pathPrefix}/awards` },
+    ...(isPcAuto ? [{ name: 'Players of the Week', path: `${pathPrefix}/players-of-week/${currentYear}` }] : []),
+    ...(isPcAuto ? [{ name: 'Heisman Watch', path: `${pathPrefix}/heisman-watch/${currentYear}` }] : []),
     { name: 'All-Americans', path: `${pathPrefix}/all-americans` },
     { name: 'All-Conference', path: `${pathPrefix}/all-conference/${currentYear}/${conferenceUrlParam}` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },

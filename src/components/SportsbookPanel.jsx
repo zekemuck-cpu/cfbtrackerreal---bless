@@ -1,8 +1,12 @@
 import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { getTeamConference } from '../data/conferenceTeams'
 import { isFCSPlaceholderAbbr } from '../data/teamRegistry'
-import { getCustomConferencesForYear } from '../context/DynastyContext'
+import { getCustomConferencesForYear, getTeamRatingsForYear } from '../context/DynastyContext'
+import { getTeamColors } from '../data/teamColors'
+import { getContrastTextColor } from '../utils/colorUtils'
 import { getSchoolName } from '../data/teams'
+import { isPcAutoDynasty } from '../editions'
 
 // ─── Rounding ─────────────────────────────────────────────────────────────────
 
@@ -32,83 +36,103 @@ function getTeamAbbr(dynasty, tid) {
   return t?.abbr || `T${tid}`
 }
 
-function isFCSTeam(dynasty, tid) {
-  if (!tid) return false
-  const abbr = getTeamAbbr(dynasty, tid)
-  return isFCSPlaceholderAbbr(abbr)
-}
-
-function getTeamOverall(dynasty, tid, year) {
-  if (!tid) return null
+function getTeamName(dynasty, tid) {
   const t = dynasty.teams?.[tid] || dynasty.teams?.[String(tid)]
-  const byYear = t?.byYear
-  if (!byYear) return null
-  const yr = byYear[Number(year)] || byYear[String(year)]
-  return yr?.teamRatings?.overall || null
+  return t?.name || getTeamAbbr(dynasty, tid)
 }
 
-function calcTeamStats(dynasty, tid, year, upToWeek = 99) {
+function getTeamLogo(dynasty, tid) {
+  const t = dynasty.teams?.[tid] || dynasty.teams?.[String(tid)]
+  return t?.logo || ''
+}
+
+// Resolve a team's conference the same way the recap filter does (by tid, with
+// the dynasty teams map) so the page-level filter values line up exactly.
+function teamConf(dynasty, tid, customConfs) {
+  if (tid == null) return null
+  try { return getTeamConference(Number(tid), customConfs, dynasty?.teams) } catch { return null }
+}
+
+// "3-0 (1-0)" — overall record with conference record in parentheses.
+function recordStr(stats, conf) {
+  const o = `${stats?.wins ?? 0}-${stats?.losses ?? 0}`
+  return conf ? `${o} (${conf.wins ?? 0}-${conf.losses ?? 0})` : o
+}
+
+// Gather a team's played games (with real scores) within a [minYear, maxYear]
+// range, as { year, my, their }. The in-progress week cap (upToWeek) only
+// applies to `year` itself — prior seasons are complete. Supports modern
+// tid-keyed and legacy user-game (userTid / teamScore) formats. A game counts
+// if flagged played OR carrying real (non-zero) scores — the user's own games
+// are often stored with the score entered but isPlayed still false.
+function teamGamesInRange(dynasty, tid, year, minYear, maxYear, upToWeek = 99) {
   const tidNum = Number(tid)
   const abbr   = getTeamAbbr(dynasty, tid)
-
-  // Gather games that involve this team, supporting both the modern
-  // tid-keyed format and the legacy user-game format (userTid / teamScore).
+  const yearN  = Number(year)
   const seenKey = new Set()
-  const games = (dynasty.games || []).filter(g => {
-    if (Number(g.year) !== Number(year)) return false
-    if (!g.isPlayed) return false
+  const out = []
+
+  for (const g of (dynasty.games || [])) {
+    const gy = Number(g.year)
+    if (gy < minYear || gy > maxYear) continue
+
+    const t1 = Number(g.team1Score), t2 = Number(g.team2Score)
+    const u1 = Number(g.teamScore),  u2 = Number(g.opponentScore)
+    const realScore = (Number.isFinite(t1) && Number.isFinite(t2) && (t1 > 0 || t2 > 0))
+      || (Number.isFinite(u1) && Number.isFinite(u2) && (u1 > 0 || u2 > 0))
+    if (!g.isPlayed && !realScore) continue
 
     const hasScores =
       (g.team1Score !== undefined && g.team2Score !== undefined) ||
       (g.teamScore !== undefined && g.opponentScore !== undefined)
-    if (!hasScores) return false
+    if (!hasScores) continue
 
-    const inGame =
-      Number(g.team1Tid) === tidNum ||
-      Number(g.team2Tid) === tidNum ||
-      Number(g.userTid) === tidNum ||
-      Number(g.opponentTid) === tidNum ||
-      g.userTeam === abbr ||
-      g.opponent === abbr ||
-      g.team1 === abbr ||
-      g.team2 === abbr
-    if (!inGame) return false
+    // The week cap only restricts the in-progress current season.
+    if (gy === yearN && g.week != null && Number(g.week) >= Number(upToWeek)) continue
 
-    if (g.week != null && Number(g.week) >= Number(upToWeek)) return false
+    let my, their, oppTid
+    if (Number(g.team1Tid) === tidNum) { my = Number(g.team1Score) || 0; their = Number(g.team2Score) || 0; oppTid = Number(g.team2Tid) }
+    else if (Number(g.team2Tid) === tidNum) { my = Number(g.team2Score) || 0; their = Number(g.team1Score) || 0; oppTid = Number(g.team1Tid) }
+    else if (Number(g.userTid) === tidNum || g.userTeam === abbr) { my = Number(g.teamScore) || 0; their = Number(g.opponentScore) || 0; oppTid = Number(g.opponentTid) }
+    else if (Number(g.opponentTid) === tidNum || g.opponent === abbr) { my = Number(g.opponentScore) || 0; their = Number(g.teamScore) || 0; oppTid = Number(g.userTid) }
+    else continue
 
-    // Deduplicate by week+gameType (same slot played twice in data)
-    const key = `${g.week ?? 'post'}-${g.gameType || 'regular'}`
-    if (seenKey.has(key)) return false
+    const key = `${gy}-${g.week ?? 'post'}-${g.gameType || 'regular'}`
+    if (seenKey.has(key)) continue
     seenKey.add(key)
-    return true
-  })
 
+    // Real per-game team stats (yards, turnovers) — only present on CFB27-synced
+    // games via game.boxScore.teamStatsByTid. Manual dynasties simply won't have
+    // this, so these stay null and every stat-efficiency term downstream no-ops.
+    const myStats  = g.boxScore?.teamStatsByTid?.[tidNum] ?? g.boxScore?.teamStatsByTid?.[String(tidNum)]
+    const oppStats = oppTid != null
+      ? (g.boxScore?.teamStatsByTid?.[oppTid] ?? g.boxScore?.teamStatsByTid?.[String(oppTid)])
+      : null
+    const myYards      = Number(myStats?.totalYards)
+    const theirYards    = Number(oppStats?.totalYards)
+    const myTurnovers   = Number(myStats?.turnovers)
+    const theirTurnovers = Number(oppStats?.turnovers)
+
+    out.push({
+      year: gy, my, their, oppTid: Number.isFinite(oppTid) ? oppTid : null,
+      myYards: Number.isFinite(myYards) ? myYards : null,
+      theirYards: Number.isFinite(theirYards) ? theirYards : null,
+      myTurnovers: Number.isFinite(myTurnovers) ? myTurnovers : null,
+      theirTurnovers: Number.isFinite(theirTurnovers) ? theirTurnovers : null,
+    })
+  }
+  return out
+}
+
+// Current-season record + scoring — used for the displayed record, win-total
+// pace, and championship win%.
+function calcTeamStats(dynasty, tid, year, upToWeek = 99) {
+  const games = teamGamesInRange(dynasty, tid, year, Number(year), Number(year), upToWeek)
   let wins = 0, losses = 0, ptsFor = 0, ptsAgainst = 0
   for (const g of games) {
-    let myScore, theirScore
-
-    if (Number(g.team1Tid) === tidNum) {
-      myScore    = Number(g.team1Score) || 0
-      theirScore = Number(g.team2Score) || 0
-    } else if (Number(g.team2Tid) === tidNum) {
-      myScore    = Number(g.team2Score) || 0
-      theirScore = Number(g.team1Score) || 0
-    } else if (Number(g.userTid) === tidNum || g.userTeam === abbr) {
-      myScore    = Number(g.teamScore)     || 0
-      theirScore = Number(g.opponentScore) || 0
-    } else if (Number(g.opponentTid) === tidNum || g.opponent === abbr) {
-      myScore    = Number(g.opponentScore) || 0
-      theirScore = Number(g.teamScore)     || 0
-    } else {
-      continue
-    }
-
-    if (myScore > theirScore) wins++
-    else losses++
-    ptsFor     += myScore
-    ptsAgainst += theirScore
+    if (g.my > g.their) wins++; else losses++
+    ptsFor += g.my; ptsAgainst += g.their
   }
-
   const total = wins + losses
   return {
     wins,
@@ -121,22 +145,134 @@ function calcTeamStats(dynasty, tid, year, upToWeek = 99) {
   }
 }
 
-// Power score = (winPct × 40) + (avgPointDiff × 3), blended with team rating
-// for early-season accuracy when few games have been played.
+// Strength + scoring PROFILE over the last few seasons, weighted toward recent
+// games (current season ×1, each prior season ×0.6). A far bigger sample than a
+// 2–3 game current season, so early-year power / spreads / totals aren't driven
+// by one or two blowouts. Drives the power score and the over/under.
+const PROFILE_SEASONS = 3
+const PROFILE_DECAY   = 0.6
+
+function calcScoringProfile(dynasty, tid, year, upToWeek = 99) {
+  const yearN = Number(year)
+  const games = teamGamesInRange(dynasty, tid, year, yearN - (PROFILE_SEASONS - 1), yearN, upToWeek)
+  let wW = 0, wWins = 0, wFor = 0, wAgainst = 0
+  let wStatW = 0, wYardsMargin = 0, wTurnoverMargin = 0
+  for (const g of games) {
+    const w = Math.pow(PROFILE_DECAY, yearN - g.year)
+    wW += w
+    if (g.my > g.their) wWins += w
+    wFor += w * g.my
+    wAgainst += w * g.their
+    // Real box-score margins (CFB27-synced games only — see teamGamesInRange).
+    // Takeaways = the opponent's giveaways in that same game.
+    if (g.myYards != null && g.theirYards != null && g.myTurnovers != null && g.theirTurnovers != null) {
+      wStatW += w
+      wYardsMargin += w * (g.myYards - g.theirYards)
+      wTurnoverMargin += w * (g.theirTurnovers - g.myTurnovers)
+    }
+  }
+  if (wW <= 0) {
+    return { winPct: 0.5, avgFor: 24, avgAgainst: 24, avgDiff: 0, sampleGames: 0, rawGames: 0, yardsMarginAvg: 0, turnoverMarginAvg: 0, statSampleGames: 0 }
+  }
+  return {
+    winPct:      wWins / wW,
+    avgFor:      wFor / wW,
+    avgAgainst:  wAgainst / wW,
+    avgDiff:     (wFor - wAgainst) / wW,
+    sampleGames: wW,
+    rawGames:    games.length,
+    yardsMarginAvg:    wStatW > 0 ? wYardsMargin / wStatW : 0,
+    turnoverMarginAvg: wStatW > 0 ? wTurnoverMargin / wStatW : 0,
+    statSampleGames:   wStatW,
+  }
+}
+
+// Real team-stat efficiency, secondary to the scoring margin above: yards
+// margin (~0.03 power/yard — a +200 yd/g margin ≈ +6) and turnover margin
+// (~2.5 power/turnover — real games are frequently decided by 1-2 takeaways).
+// Clamped so a small number of extreme box scores can't swing power more than
+// a full season of scoring does. Only present on CFB27-synced games — null on
+// every other game, so statSampleGames stays 0 and this contributes nothing
+// for manual dynasties (identical behavior to before this was added).
+const YARDS_MARGIN_PER  = 0.03
+const TURNOVER_MARGIN_PER = 2.5
+const STAT_EFFICIENCY_CAP = 15
+
+function calcStatEfficiency(prof) {
+  const raw = prof.yardsMarginAvg * YARDS_MARGIN_PER + prof.turnoverMarginAvg * TURNOVER_MARGIN_PER
+  return Math.max(-STAT_EFFICIENCY_CAP, Math.min(STAT_EFFICIENCY_CAP, raw))
+}
+
+// Power score = (winPct × 40) + (avgPointDiff × 3) + a real-stat efficiency
+// term (yards margin + turnover margin, CFB27-synced games only — see
+// calcStatEfficiency) from the multi-season profile. Team rating is blended
+// in separately by calcSpread/calcSeededPower, not here. For a thin sample (a
+// brand-new program with little history) regress toward a neutral baseline
+// (20 ≈ an even, 0-diff team); the stat-efficiency term gets its own trust
+// gate since box-score data may lag behind (or predate) the scoring sample.
 function calcPowerScore(dynasty, tid, year, upToWeek = 99) {
-  const stats = calcTeamStats(dynasty, tid, year, upToWeek)
-  const overall = getTeamOverall(dynasty, tid, year)
+  const prof = calcScoringProfile(dynasty, tid, year, upToWeek)
+  const statTrust = Math.min(1, prof.statSampleGames / 3)
+  const onField = (prof.winPct * 40) + (prof.avgDiff * 3) + calcStatEfficiency(prof) * statTrust
+  const trust = Math.min(1, prof.sampleGames / 3)
+  return onField * trust + 20 * (1 - trust)
+}
 
-  let score = (stats.winPct * 40) + (stats.avgDiff * 3)
+// Strength-of-schedule adjustment (SRS-style). calcPowerScore is
+// opponent-agnostic — beating a strong team and a weak team count identically,
+// so a team that ran up its record against a soft slate looks as good as one
+// that did it against ranked teams, and transitive results ("we beat a team
+// that beat Miss St") earn no credit. This layers an iterative opponent
+// adjustment on top: a team's rating shifts toward the strength of the teams it
+// actually played this season. rating = basePower + SOS_WEIGHT × (avg current
+// opponent rating − league mean), solved by a few fixed-point passes so credit
+// propagates transitively. Returns a Map<tid, adjustedPower>. Game Lines only —
+// futures/win-totals still call calcPowerScore directly.
+const SRS_ITERATIONS = 6
+const SRS_SOS_WEIGHT = 0.75
 
-  if (stats.gamesPlayed < 3 && overall) {
-    const ratingBonus = (overall - 75) * 0.4
-    score = stats.gamesPlayed === 0
-      ? ratingBonus
-      : score * (stats.gamesPlayed / 3) + ratingBonus * (1 - stats.gamesPlayed / 3)
+function buildSrsPowerMap(dynasty, year, week) {
+  const teams = dynasty?.teams || {}
+  const tids = Object.keys(teams)
+    .map(Number)
+    .filter(tid => teams[tid]?.abbr && !isFCSPlaceholderAbbr(teams[tid].abbr))
+
+  const base = new Map()
+  for (const tid of tids) base.set(tid, calcPowerScore(dynasty, tid, year, week ?? 99))
+  if (tids.length < 2) return base
+
+  const leagueMean = [...base.values()].reduce((a, b) => a + b, 0) / tids.length
+
+  // Each team's CURRENT-season opponents (only those in the FBS base set — FCS
+  // placeholders and unknown-tid legacy games are skipped). Multi-season base
+  // power already smooths the sample; SOS is about who you played THIS year.
+  const sched = new Map()
+  for (const tid of tids) {
+    const gs = teamGamesInRange(dynasty, tid, year, Number(year), Number(year), week ?? 99)
+    sched.set(tid, gs.map(g => g.oppTid).filter(o => o != null && base.has(o)))
   }
 
-  return score
+  let rating = new Map(base)
+  for (let it = 0; it < SRS_ITERATIONS; it++) {
+    const next = new Map()
+    for (const tid of tids) {
+      const opps = sched.get(tid)
+      if (!opps.length) { next.set(tid, base.get(tid)); continue }
+      let sum = 0
+      for (const o of opps) sum += rating.get(o)
+      const avgOpp = sum / opps.length
+      next.set(tid, base.get(tid) + SRS_SOS_WEIGHT * (avgOpp - leagueMean))
+    }
+    rating = next
+  }
+  return rating
+}
+
+// Power for one team, preferring the SRS-adjusted map when the caller supplies
+// one (Game Lines path); otherwise the raw opponent-agnostic power.
+function powerFor(dynasty, tid, year, week, powerMap) {
+  const v = powerMap?.get(Number(tid))
+  return v != null ? v : calcPowerScore(dynasty, tid, year, week ?? 99)
 }
 
 // Conference games only — same logic as calcTeamStats but filtered to isConferenceGame.
@@ -147,7 +283,15 @@ function calcConfStats(dynasty, tid, year, upToWeek = 99) {
 
   const games = (dynasty.games || []).filter(g => {
     if (Number(g.year) !== Number(year)) return false
-    if (!g.isPlayed) return false
+    // Count a game if it's flagged played OR carries real (non-zero) scores.
+    // The user's OWN games are routinely stored with the final score entered
+    // but isPlayed still false — relying on isPlayed alone zeroed out the user
+    // team's record and dropped it to a rating-only power estimate.
+    const _t1 = Number(g.team1Score), _t2 = Number(g.team2Score)
+    const _u1 = Number(g.teamScore),  _u2 = Number(g.opponentScore)
+    const _realScore = (Number.isFinite(_t1) && Number.isFinite(_t2) && (_t1 > 0 || _t2 > 0))
+      || (Number.isFinite(_u1) && Number.isFinite(_u2) && (_u1 > 0 || _u2 > 0))
+    if (!g.isPlayed && !_realScore) return false
     if (!g.isConferenceGame) return false
     const hasScores =
       (g.team1Score !== undefined && g.team2Score !== undefined) ||
@@ -189,12 +333,16 @@ function calcConfStats(dynasty, tid, year, upToWeek = 99) {
   }
 }
 
-// Blended championship score: 60% power + 40% win% (scaled 0-100).
-// A 10-0 team will never rank below 8-2 unless power gap is huge.
-function calcChampScore(dynasty, tid, year, week) {
+// Blended championship score: 75% power (now rank/OVR-dominant, see
+// calcSeededPower) + 25% this-season win% (scaled 0-100). Win% still nudges
+// things — an undefeated team should edge a 1-loss team ranked just above
+// it — but can no longer be the main driver, since nearly every unbeaten
+// team shares the identical win% this early and that was letting on-field
+// noise (not real quality) pick the order among them.
+function calcChampScore(dynasty, tid, year, week, powerMap = null) {
   const stats = calcTeamStats(dynasty, tid, year, week ?? 99)
-  const ps    = calcPowerScore(dynasty, tid, year, week ?? 99)
-  return ps * 0.6 + (stats.winPct * 100) * 0.4
+  const ps    = calcSeededPower(dynasty, tid, year, week ?? 99, powerMap)
+  return ps * 0.75 + (stats.winPct * 100) * 0.25
 }
 
 // ─── Spread calculation (min-max normalized) ──────────────────────────────────
@@ -203,7 +351,7 @@ function calcChampScore(dynasty, tid, year, week) {
 // 20-point normalized gap → 5-point spread, 60-point gap → 15-point spread.
 // Home field adds 3. Result is clamped to ±28.
 
-function buildNormSpreadContext(dynasty, year, week) {
+function buildNormSpreadContext(dynasty, year, week, powerMap = null) {
   const teams = dynasty?.teams || {}
   const scores = Object.keys(teams)
     .map(Number)
@@ -212,7 +360,7 @@ function buildNormSpreadContext(dynasty, year, week) {
       if (isFCSPlaceholderAbbr(teams[tid].abbr)) return false
       return true
     })
-    .map(tid => calcPowerScore(dynasty, tid, year, week ?? 99))
+    .map(tid => powerFor(dynasty, tid, year, week, powerMap))
 
   if (scores.length < 2) return { min: 0, max: 100, range: 100 }
   const min   = Math.min(...scores)
@@ -226,12 +374,200 @@ function normScore(ps, ctx) {
 }
 
 // spreadVal > 0 → home favored by that many points. Negative → away favored.
-function calcNormalizedSpread(homePS, awayPS, normCtx) {
+// Home field worth +3, but only at a real home site — neutral-site games get no
+// home edge.
+function calcNormalizedSpread(homePS, awayPS, normCtx, isNeutral = false) {
   const homeNorm = normScore(homePS, normCtx)
   const awayNorm = normScore(awayPS, normCtx)
-  const raw      = (homeNorm - awayNorm) / 4 + 3
+  const raw      = (homeNorm - awayNorm) / 4 + (isNeutral ? 0 : 3)
   const clamped  = Math.max(-28, Math.min(28, raw))
   return Math.round(clamped * 2) / 2
+}
+
+// Team overall rating for a season, or null if not entered. Used to seed the
+// line before any games are played (in the preseason every team's on-field
+// power is the flat neutral baseline, so without this the spread is just the
+// home-field 3 for everyone).
+function teamOvr(dynasty, tid, year) {
+  const o = Number(getTeamRatingsForYear(dynasty, Number(tid), year)?.overall)
+  return Number.isFinite(o) && o > 0 ? o : null
+}
+
+// Offense / defense ratings for a season, or null if not entered. Feeds the
+// O/U total's seed below, mirroring how teamOvr feeds the spread's seed.
+function teamOffRating(dynasty, tid, year) {
+  const o = Number(getTeamRatingsForYear(dynasty, Number(tid), year)?.offense)
+  return Number.isFinite(o) && o > 0 ? o : null
+}
+function teamDefRating(dynasty, tid, year) {
+  const o = Number(getTeamRatingsForYear(dynasty, Number(tid), year)?.defense)
+  return Number.isFinite(o) && o > 0 ? o : null
+}
+
+// For a CFB27 (PC auto-sync) dynasty, team ratings are synced fresh every
+// week, all season — they're never a one-time stale preseason guess the way a
+// manual entry usually is. So ratings should never fade all the way to zero
+// influence: on-field results still take over as the DOMINANT signal (a
+// team's actual results reflect scheme fit, chemistry, injuries — things a
+// rating can't capture), but the rating keeps a real, permanent floor of
+// influence instead of being fully discarded by ~6 games played. Manual
+// dynasties keep the original fully-on-field-by-6-games behavior unchanged
+// (their rating, if entered at all, really is just a preseason snapshot).
+const ON_FIELD_WEIGHT_CAP_CFB27 = 0.7 // ratings retain >=30% weight forever
+function onFieldWeightCap(dynasty) {
+  return isPcAutoDynasty(dynasty) ? ON_FIELD_WEIGHT_CAP_CFB27 : 1
+}
+function ratingBlendWeight(dynasty, gamesPlayed) {
+  return Math.min(onFieldWeightCap(dynasty), gamesPlayed / 6)
+}
+
+// The effective overall for ONE side of a specific game. The per-game value the
+// user entered on the game record (game.teamNOverall / opponentOverall) takes
+// priority — it's what they typed for THIS matchup — falling back to the team's
+// season rating. Mirrors GamedayPicks (game.team1Overall ?? season) so the line
+// and the picks agree. Without this the line read ONLY season ratings, so an
+// overall entered on the game never reached it: with one side rated the calc
+// stayed pure on-field, and entering the second side's overall looked ignored.
+function gameSideOvr(dynasty, game, tid, year) {
+  const t1 = Number(game?.team1Tid)
+  const raw = Number(tid) === t1
+    ? game?.team1Overall
+    : (game?.team2Overall ?? game?.opponentOverall)
+  const n = Number(raw)
+  if (Number.isFinite(n) && n > 0) return n
+  return teamOvr(dynasty, tid, year)
+}
+
+// Current real poll rank for a team. Deliberately does NOT depend on
+// dynasty.currentWeek/currentPhase (getTeamRanking's approach) or on any
+// `week` argument threaded down from a caller (this file's earlier
+// attempt) — both turned out to be unreliable here: calcSeededPower's
+// `week` is meant for on-field stat cutoffs and is either absent (defaults
+// to 99) or sourced from an arbitrary displayed game's own week, neither of
+// which reliably reflects "what week is it right now" for polling purposes.
+// Instead this mirrors EXACTLY what Rankings.jsx does to find its own
+// default week (proven correct — it's what's actually on screen): scan
+// every canonical poll slot this team has on record and take the value at
+// the HIGHEST one. No external "current week" signal needed at all — the
+// data itself says which is latest.
+function currentPollRank(dynasty, tid, year) {
+  const t = dynasty?.teams?.[tid]
+  const rbw = t?.byYear?.[Number(year)]?.rankByWeek ?? t?.byYear?.[String(year)]?.rankByWeek
+  if (!rbw) return null
+  let best = null
+  let bestWeek = -Infinity
+  for (const k of Object.keys(rbw)) {
+    const wk = Number(k)
+    if (!Number.isFinite(wk)) continue
+    // Canonical poll slots only (same set Rankings.jsx recognizes):
+    // Preseason(0), Weeks 1-15, Conf Champ(16), Bowl Weeks(17-20), CFP
+    // rounds + Final(101-105) — skips legacy/orphan slots like "100".
+    const isCanonical = (wk >= 0 && wk <= 20) || (wk >= 101 && wk <= 105)
+    if (!isCanonical) continue
+    const v = rbw[k]
+    if (typeof v !== 'number' || v < 1 || v > 25) continue
+    if (wk > bestWeek) { bestWeek = wk; best = v }
+  }
+  return best
+}
+
+// Preseason strength SEED for the futures boards. On-field power (calcPowerScore)
+// is the flat neutral 20 for every team until games are played, which makes the
+// futures (natl champ / conf champ / win totals) collapse to an even split at
+// week 0 — every team the same +13000. Seed that preseason gap from the two
+// signals a user actually enters BEFORE kickoff: team OVR and the preseason Top
+// 25, mapped onto the same power scale (neutral = 20). The seed carries the
+// number in the preseason and fades out as real games accumulate (pure on-field
+// by ~6 games), exactly like the OVR blend in calcSpread. Game Lines are
+// unaffected — they blend OVR separately via calcSpread.
+const AVG_OVR = 76          // ~average FBS overall → maps to the neutral baseline
+const OVR_POWER_PER = 3.5   // power points per OVR point above/below average
+const RANK_POWER_PER = 2.2  // power points per spot above #26 (a #1 ≈ +55)
+
+function ovrToPower(ovr) {
+  return 20 + (ovr - AVG_OVR) * OVR_POWER_PER
+}
+function rankToPower(rank) {
+  if (!(rank >= 1 && rank <= 25)) return null
+  return 20 + (26 - rank) * RANK_POWER_PER
+}
+
+// Power score for the three FUTURES boards (National Championship, Conf
+// Championship, Win Totals) — deliberately NOT the same on-field/SRS power
+// Game Lines uses. Two rounds of tuning that on-field formula (recency-
+// weighted scoring margin, then real box-score stat efficiency, then SOS
+// adjustment) still left unranked teams (Missouri, Tennessee, Virginia,
+// Colorado, Auburn, Vanderbilt...) ahead of the actual #1 team in the real
+// poll on the championship board — the app's home-grown formula just isn't
+// as trustworthy as the two signals a real sportsbook (and the human AP
+// voters) already lean on most early in a season:
+//   - the team's real, current, already-synced poll rank — a human
+//     judgment that's already weighing quality of wins and schedule
+//     strength far better than a few games of margin/turnover stats can.
+//   - the team's real roster OVR rating — talent that doesn't disappear
+//     just because the schedule so far hasn't tested it yet.
+// So this is now a FIXED weighting (rank 50% / OVR 35% / on-field-SRS 15%)
+// rather than a seed that fades in and cedes control to on-field results
+// after a handful of games — both rank and OVR are already live, current
+// signals for a CFB27 dynasty (refreshed every sync), not a stale
+// preseason guess that needs to be phased out over the season. An unranked
+// or unrated team defaults to the neutral baseline (20) for that piece —
+// same convention calcPowerScore already uses for "no signal yet."
+const FUTURES_RANK_WEIGHT = 0.5
+const FUTURES_OVR_WEIGHT = 0.35
+const FUTURES_ONFIELD_WEIGHT = 0.15
+
+function calcSeededPower(dynasty, tid, year, week = 99, powerMap = null) {
+  const rank = currentPollRank(dynasty, tid, year)
+  const rankPower = rank != null ? rankToPower(rank) : 20
+  const ovr = teamOvr(dynasty, tid, year)
+  const ovrPower = ovr != null ? ovrToPower(ovr) : 20
+  const onField = powerFor(dynasty, tid, year, week, powerMap)
+  return rankPower * FUTURES_RANK_WEIGHT + ovrPower * FUTURES_OVR_WEIGHT + onField * FUTURES_ONFIELD_WEIGHT
+}
+
+// ~points of spread per point of overall difference. A 25-OVR gap (e.g. a 95
+// vs a 70) → ~22.5, which lands near a 25-point line once home field is added.
+const OVR_SPREAD_PER = 0.9
+
+// The line for one matchup. When BOTH teams have an overall entered, the spread
+// blends an overall-difference component with on-field results — the overall
+// carries it in the preseason and fades out as real games accumulate (by ~6
+// games it's purely on-field). Teams without both overalls keep the pure
+// on-field line (unchanged behavior). Positive → home favored.
+function calcSpread(dynasty, homeTid, awayTid, year, week, normCtx, isNeutral = false, game = null, powerMap = null) {
+  const onField = (normScore(powerFor(dynasty, homeTid, year, week, powerMap), normCtx)
+                 - normScore(powerFor(dynasty, awayTid, year, week, powerMap), normCtx)) / 4
+  const homeField = isNeutral ? 0 : 3
+
+  const hOvr = game ? gameSideOvr(dynasty, game, homeTid, year) : teamOvr(dynasty, homeTid, year)
+  const aOvr = game ? gameSideOvr(dynasty, game, awayTid, year) : teamOvr(dynasty, awayTid, year)
+
+  let core = onField
+  if (hOvr != null && aOvr != null) {
+    const ovrComponent = (hOvr - aOvr) * OVR_SPREAD_PER
+    const played = Math.min(
+      calcScoringProfile(dynasty, homeTid, year, week).sampleGames,
+      calcScoringProfile(dynasty, awayTid, year, week).sampleGames,
+    )
+    const w = ratingBlendWeight(dynasty, played) // 0 preseason (pure overall) → mostly on-field by ~6 games (CFB27 keeps a permanent floor)
+    core = ovrComponent * (1 - w) + onField * w
+  }
+
+  const clamped = Math.max(-28, Math.min(28, core + homeField))
+  return Math.round(clamped * 2) / 2
+}
+
+// Full point-spread for one matchup, home-field aware — builds the same
+// SRS-adjusted power map + league normalization the Sportsbook line uses and
+// runs it through calcSpread. Exported so GamedayPicks (CFB27 dynasties only)
+// can derive its win probabilities from the exact same model as the posted
+// line, instead of a separate simplified one — the two features then always
+// agree on the same matchup. Positive → homeTid favored.
+export function getGameSpread(dynasty, homeTid, awayTid, year, week, isNeutral = false, game = null) {
+  const powerMap = buildSrsPowerMap(dynasty, year, week)
+  const normCtx  = buildNormSpreadContext(dynasty, year, week, powerMap)
+  return calcSpread(dynasty, homeTid, awayTid, year, week, normCtx, isNeutral, game, powerMap)
 }
 
 // ─── Spread → Moneyline (reference table with linear interpolation) ───────────
@@ -272,13 +608,39 @@ function spreadToML(absSp) {
   return { favML: -1200, dogML: 750 }
 }
 
+// ~expected points from an offense/defense rating pair. 75 ≈ average FBS
+// rating → 24 pts (the same neutral baseline calcScoringProfile falls back
+// to). Mirrors OVR_SPREAD_PER's role for the spread, but for the total.
+const AVG_RATING = 75
+const OFF_PTS_PER_RATING = 0.35
+const DEF_PTS_PER_RATING = 0.35
+function ratingsToExpectedPoints(offRating, oppDefRating) {
+  return 24 + (offRating - AVG_RATING) * OFF_PTS_PER_RATING - (oppDefRating - AVG_RATING) * DEF_PTS_PER_RATING
+}
+
 // ─── Total (Over/Under) ───────────────────────────────────────────────────────
-// Books apply ~1.05 inflation factor to raw average combined scoring.
-// Round to nearest 0.5. Key round numbers (45, 50, 55…) get shaded -115/-105.
+// Each team's expected points = its offense blended with the OPPONENT's defense
+// (avgFor vs the other team's avgAgainst). Summing both season offenses instead
+// double-counts scoring and ignores defense, which balloons totals (e.g. two
+// 45-ppg offenses → a 95 total). Round to nearest 0.5; key round numbers
+// (45, 50, 55…) get shaded -115/-105.
 function calcTotal(dynasty, tid1, tid2, year, week) {
-  const s1 = calcTeamStats(dynasty, tid1, year, week)
-  const s2 = calcTeamStats(dynasty, tid2, year, week)
-  const combined = (s1.avgFor + s2.avgFor) * 1.05
+  const s1 = calcScoringProfile(dynasty, tid1, year, week)
+  const s2 = calcScoringProfile(dynasty, tid2, year, week)
+  let exp1 = (s1.avgFor + s2.avgAgainst) / 2 // tid1 offense vs tid2 defense
+  let exp2 = (s2.avgFor + s1.avgAgainst) / 2 // tid2 offense vs tid1 defense
+
+  // Seed each side from real offense/defense ratings when entered, blending
+  // toward real scoring as games accumulate (same curve, same permanent
+  // CFB27 floor, as the spread's OVR blend) — otherwise every matchup starts
+  // at a flat ~49.5 total regardless of how good either offense/defense is.
+  const off1 = teamOffRating(dynasty, tid1, year), def1 = teamDefRating(dynasty, tid1, year)
+  const off2 = teamOffRating(dynasty, tid2, year), def2 = teamDefRating(dynasty, tid2, year)
+  const w = ratingBlendWeight(dynasty, Math.min(s1.sampleGames, s2.sampleGames))
+  if (off1 != null && def2 != null) exp1 = ratingsToExpectedPoints(off1, def2) * (1 - w) + exp1 * w
+  if (off2 != null && def1 != null) exp2 = ratingsToExpectedPoints(off2, def1) * (1 - w) + exp2 * w
+
+  const combined = (exp1 + exp2) * 1.03        // light book shade toward the over
   const raw = combined > 20 ? combined : 48
   const total = Math.round(raw * 2) / 2
 
@@ -291,20 +653,20 @@ function calcTotal(dynasty, tid1, tid2, year, week) {
 }
 
 // ─── Probability → American odds ─────────────────────────────────────────────
-// Uses sportsbook-clean rounding. Enforces +110 minimum for underdogs.
+// Sportsbook-clean rounding. Underdogs floored at +110 and capped at maxDog.
 function probToAmerican(p, opts = {}) {
-  const { leaderFloor = -300 } = opts
-  if (p < 0.005) return 50000
-  if (p < 0.02)  return 10000
-
-  let ml
-  if (p > 0.5) {
-    ml = -(p / (1 - p)) * 100
-    ml = Math.max(roundOddsToBook(ml), leaderFloor) // clamp leader
-    return ml
+  const { leaderFloor = -300, maxDog = 50000 } = opts
+  // Clamp p: never ≥ 1 (the vig multiplier can push a heavy favorite's implied
+  // prob above 1, which flips the sign of the favorite formula and mispriced it
+  // as a +2800 longshot), and never 0. This is the bug behind the broken conf
+  // championship board.
+  const cp = Math.min(Math.max(p, 1e-6), 0.985)
+  if (cp > 0.5) {
+    const ml = -(cp / (1 - cp)) * 100
+    return Math.max(roundOddsToBook(ml), leaderFloor) // clamp leader
   }
-  ml = ((1 - p) / p) * 100
-  return Math.max(roundOddsToBook(ml), 110)
+  const ml = ((1 - cp) / cp) * 100
+  return Math.min(Math.max(roundOddsToBook(ml), 110), maxDog)
 }
 
 function fmt(ml) {
@@ -315,10 +677,12 @@ function fmt(ml) {
 const VIG = 1.045
 
 function softmaxOdds(rows, scoreKey, opts = {}) {
-  const { topN = Infinity, outsiderOdds = 50000, leaderFloor = -300 } = opts
+  const { topN = Infinity, outsiderOdds = 50000, leaderFloor = -300, temp = 10 } = opts
   if (rows.length === 0) return []
 
-  const expScores = rows.map(r => Math.exp(r[scoreKey] / 10))
+  // Higher temp = softer spread (used for small fields like one conference,
+  // where teams are closer in strength and shouldn't collapse to one favorite).
+  const expScores = rows.map(r => Math.exp(r[scoreKey] / temp))
   const totalExp  = expScores.reduce((a, b) => a + b, 0)
 
   const withProb = rows.map((r, i) => ({
@@ -355,11 +719,20 @@ function buildNatlChampBoard(dynasty, year, week) {
   })
   if (tids.length === 0) return []
 
+  // SOS-adjusted power, same as Game Lines — without this, beating a soft
+  // out-of-conference slate looks identical to beating ranked opponents, so
+  // an undefeated team with an easy schedule can outrank a team with a
+  // tougher one purely on won-loss record. This was the single biggest
+  // driver of unrealistic-looking title odds early in a season, when every
+  // undefeated team's win% is otherwise identical.
+  const powerMap = buildSrsPowerMap(dynasty, year, week)
+
   const rows = tids.map(tid => {
     const stats = calcTeamStats(dynasty, tid, year, week ?? 99)
-    const ps    = calcPowerScore(dynasty, tid, year, week ?? 99)
-    const cs    = calcChampScore(dynasty, tid, year, week)
-    return { tid, team: teams[tid], stats, ps, cs }
+    const conf  = calcConfStats(dynasty, tid, year, week ?? 99)
+    const ps    = powerFor(dynasty, tid, year, week, powerMap)
+    const cs    = calcChampScore(dynasty, tid, year, week, powerMap)
+    return { tid, team: teams[tid], stats, conf, ps, cs }
   })
 
   return softmaxOdds(rows, 'cs', { topN: 25, outsiderOdds: 50000, leaderFloor: -300 })
@@ -379,28 +752,52 @@ function buildConfChampBoard(dynasty, year, week, confTeamAbbrs) {
 
   if (tids.length === 0) return []
 
+  // League-wide SOS map (not conference-scoped) — a team's non-conference
+  // games matter for its SOS credit too, same reasoning as buildNatlChampBoard.
+  const powerMap = buildSrsPowerMap(dynasty, year, week)
+
   const rows = tids.map(tid => {
     const overall = calcTeamStats(dynasty, tid, year, week ?? 99)
     const conf    = calcConfStats(dynasty, tid, year, week ?? 99)
-    const ps      = calcPowerScore(dynasty, tid, year, week ?? 99)
-    // Conf score: 50% conf win%, 30% overall power, 20% conf point diff
-    const confScore = (conf.winPct * 50) + (ps * 0.3) + (conf.avgDiff * 2)
-    return { tid, team: teams[tid], stats: overall, conf, ps, cs: confScore }
+    const ps      = calcSeededPower(dynasty, tid, year, week ?? 99, powerMap)
+    // Power-dominant — ps is now rank/OVR-driven (see calcSeededPower), so
+    // conference record can only be a small NUDGE on top of it, never
+    // override it. Hard-capped (same pattern as calcStatEfficiency's cap
+    // elsewhere in this file): uncapped, this term could swing up to ±60 at
+    // full trust, which used to be reasonable against the old on-field-heavy
+    // ps scale but completely swamps the new rank/OVR scale (~20-75) — e.g.
+    // a team that simply hadn't played its conference opener yet (confEdge
+    // defaults to 0) could rank behind a team that had banked one early
+    // conference win, even when the first team is the #1 team in the country
+    // and the second is unranked. Weight still ramps up with conference
+    // games played so a single early result can't have full effect either.
+    const CONF_EDGE_CAP = 10
+    const confTrust = Math.min(1, conf.gamesPlayed / 4)
+    const confEdgeRaw = ((conf.winPct - 0.5) * 40 + conf.avgDiff * 1) * confTrust
+    const confEdge = Math.max(-CONF_EDGE_CAP, Math.min(CONF_EDGE_CAP, confEdgeRaw))
+    return { tid, team: teams[tid], stats: overall, conf, ps, cs: ps + confEdge }
   })
 
-  return softmaxOdds(rows, 'cs', { topN: Infinity, outsiderOdds: 100000, leaderFloor: -300 })
+  // Softer temperature: a single conference is ~16 teams of similar strength,
+  // so the field should spread out rather than collapse onto one favorite.
+  return softmaxOdds(rows, 'cs', { topN: Infinity, leaderFloor: -300, temp: 20 })
 }
 
 // ─── Win totals with pace-based drift ────────────────────────────────────────
 const SEASON_GAMES = 12
 
-function calcWinTotal(dynasty, tid, year) {
-  const overall   = getTeamOverall(dynasty, tid, year)
-  let baseTotal   = overall ? Math.round(((overall - 50) / 50) * 8 + 4) : 7.5
+function calcWinTotal(dynasty, tid, year, week, powerMap = null) {
+  const stats = calcTeamStats(dynasty, tid, year)
+  // Season win line from power score via an expected per-game win rate (power
+  // 20 ≈ a .500 / 6-win team). The old `(ps-20)/12` mapping was too steep and
+  // pegged every strong team at the 12 cap; this lands even elite teams around
+  // 10–11 with a realistic spread underneath.
+  const ps        = calcSeededPower(dynasty, tid, year, week ?? 99, powerMap)
+  const expWinPct = Math.max(0.05, Math.min(0.95, 0.5 + (ps - 20) / 210))
+  let baseTotal   = expWinPct * SEASON_GAMES
   baseTotal       = Math.max(2, Math.min(12, baseTotal))
   const total     = Math.round(baseTotal * 2) / 2
 
-  const stats = calcTeamStats(dynasty, tid, year)
   let overML = -110, underML = -110
 
   if (stats.gamesPlayed > 0) {
@@ -420,657 +817,178 @@ function calcWinTotal(dynasty, tid, year) {
     wins: stats.wins,
     losses: stats.losses,
     gamesPlayed: stats.gamesPlayed,
-    overall,
   }
 }
 
-// ─── Debug helpers ───────────────────────────────────────────────────────────
-
-function buildDebugReport(dynasty, game) {
+// ─── Debug: copyable computation breakdown for THIS game ─────────────────────
+// Produces a plain-text report showing exactly how the spread, moneyline,
+// total, win totals, and championship inputs are derived for this matchup.
+// Mirrors the live model (calcPowerScore / calcNormalizedSpread / spreadToML /
+// calcTotal) step by step so the numbers can be audited.
+function buildDebugText(dynasty, game) {
   const year = game?.year
   const week = game?.week
-  const teams = dynasty?.teams || {}
+  const tid1 = Number(game.team1Tid)
+  const tid2 = Number(game.team2Tid)
+  const isNeutral = game.homeTeamTid == null
+  const homeTid = game.homeTeamTid != null ? Number(game.homeTeamTid) : tid1
+  const awayTid = homeTid === tid1 ? tid2 : tid1
 
-  const normCtx = buildNormSpreadContext(dynasty, year, week)
+  const powerMap = buildSrsPowerMap(dynasty, year, week)
+  const normCtx = buildNormSpreadContext(dynasty, year, week, powerMap)
+  const L = []
+  const p = (s = '') => L.push(s)
+  const sgn = (n) => (n >= 0 ? '+' : '') + n.toFixed(1)
 
-  // ── Step 1: team data audit ──────────────────────────────────────────────
-  const teamAudit = Object.keys(teams)
-    .map(Number)
-    .filter(tid => teams[tid]?.abbr && !isFCSPlaceholderAbbr(teams[tid].abbr))
-    .map(tid => {
-      const abbr    = teams[tid].abbr
-      const stats   = calcTeamStats(dynasty, tid, year, week ?? 99)
-      const overall = getTeamOverall(dynasty, tid, year)
-      const ps      = calcPowerScore(dynasty, tid, year, week ?? 99)
+  p('SPORTSBOOK DEBUG')
+  p(`${getTeamAbbr(dynasty, awayTid)} @ ${getTeamAbbr(dynasty, homeTid)}${isNeutral ? '  (neutral site)' : ''}`)
+  p(`${dynasty.leagueName || 'CFB'} · ${year} Season · Week ${week ?? 'Post'}`)
+  p('')
+  p(`NORMALIZATION CONTEXT  (non-FCS teams, through week ${week})`)
+  p(`  min power = ${normCtx.min.toFixed(2)}   max = ${normCtx.max.toFixed(2)}   range = ${normCtx.range.toFixed(2)}`)
+  p('')
 
-      const issues = []
-      if (stats.gamesPlayed === 0)  issues.push('no games found — using rating fallback')
-      if (stats.avgFor === 24 && stats.gamesPlayed === 0) issues.push('avgFor is default (no real data)')
-      if (overall === null)          issues.push('overall rating missing')
-
-      return { tid, abbr, stats, overall, ps, issues }
-    })
-
-  // ── Step 2: matchup step-by-step (first 3 non-FCS games this week) ──────
-  const weekGames = (week != null)
-    ? (dynasty.games || []).filter(g =>
-        Number(g.year) === Number(year) &&
-        g.week != null &&
-        Number(g.week) === Number(week) &&
-        !isFCSTeam(dynasty, g.team1Tid) &&
-        !isFCSTeam(dynasty, g.team2Tid)
-      ).slice(0, 3)
-    : []
-
-  const matchupBreakdowns = weekGames.map(g => {
-    const tid1    = Number(g.team1Tid)
-    const tid2    = Number(g.team2Tid)
-    const homeTid = g.homeTeamTid != null ? Number(g.homeTeamTid) : tid1
-    const awayTid = homeTid === tid1 ? tid2 : tid1
-
-    const homeAbbr  = getTeamAbbr(dynasty, homeTid)
-    const awayAbbr  = getTeamAbbr(dynasty, awayTid)
-    const homeStats = calcTeamStats(dynasty, homeTid, year, week)
-    const awayStats = calcTeamStats(dynasty, awayTid, year, week)
-    const homeOvr   = getTeamOverall(dynasty, homeTid, year)
-    const awayOvr   = getTeamOverall(dynasty, awayTid, year)
-
-    const homeRaw = (homeStats.winPct * 40) + (homeStats.avgDiff * 3)
-    const awayRaw = (awayStats.winPct * 40) + (awayStats.avgDiff * 3)
-    const homePS  = calcPowerScore(dynasty, homeTid, year, week)
-    const awayPS  = calcPowerScore(dynasty, awayTid, year, week)
-
-    const homeNorm    = normScore(homePS, normCtx)
-    const awayNorm    = normScore(awayPS, normCtx)
-    const rawNormDiff = homeNorm - awayNorm
-    const adjSpread   = rawNormDiff / 4 + 3
-    const finalSpread = Math.round(Math.max(-28, Math.min(28, adjSpread)) * 2) / 2
-    const absSp       = Math.abs(finalSpread)
-    const { favML, dogML } = spreadToML(absSp)
-    const homeFav     = finalSpread > 0
-
-    const totalData = calcTotal(dynasty, homeTid, awayTid, year, week)
-
-    // Sanity flags
-    const flags = []
-    if (absSp > 28)                  flags.push('SPREAD > 28 — power rating issue')
-    if (Math.abs(homeFav ? favML : dogML) > 900) flags.push('ML shorter than -900 — clamped')
-    if (totalData.total < 20)        flags.push('TOTAL < 20 — data issue, do not display')
-    if (totalData.total > 80)        flags.push('TOTAL > 80 — data issue, do not display')
-    if (homeStats.avgFor === 0 && homeStats.gamesPlayed > 0) flags.push(`${homeAbbr} avgFor = 0 — data missing`)
-    if (awayStats.avgFor === 0 && awayStats.gamesPlayed > 0) flags.push(`${awayAbbr} avgFor = 0 — data missing`)
-
-    return {
-      label: `${awayAbbr} @ ${homeAbbr}`,
-      homeAbbr, awayAbbr,
-      homeStats, awayStats,
-      homeOvr, awayOvr,
-      homeRaw, awayRaw,
-      homePS, awayPS,
-      homeNorm, awayNorm, rawNormDiff, adjSpread, finalSpread,
-      homeFav,
-      favML, dogML,
-      totalData,
-      flags,
+  const block = (tid, role) => {
+    const abbr    = getTeamAbbr(dynasty, tid)
+    const cur     = calcTeamStats(dynasty, tid, year, week)
+    const prof    = calcScoringProfile(dynasty, tid, year, week)
+    const statTrust = Math.min(1, prof.statSampleGames / 3)
+    const statEff = calcStatEfficiency(prof)
+    const onField = (prof.winPct * 40) + (prof.avgDiff * 3) + statEff * statTrust
+    const basePs  = calcPowerScore(dynasty, tid, year, week)
+    const ps      = powerFor(dynasty, tid, year, week, powerMap)
+    const norm    = normScore(ps, normCtx)
+    const trust   = Math.min(1, prof.sampleGames / 3)
+    p(`${role}: ${abbr}  (${cur.wins}-${cur.losses} this season)`)
+    p(`  profile sample: ${prof.rawGames} games over last ${PROFILE_SEASONS} seasons (recency-weighted = ${prof.sampleGames.toFixed(1)})`)
+    p(`  weighted: win% ${prof.winPct.toFixed(3)}   pts for/g ${prof.avgFor.toFixed(1)}   pts against/g ${prof.avgAgainst.toFixed(1)}   avg diff ${sgn(prof.avgDiff)}`)
+    if (prof.statSampleGames > 0) {
+      p(`  real box-score stats (${prof.statSampleGames.toFixed(1)} synced games): yards margin/g ${sgn(prof.yardsMarginAvg)}   turnover margin/g ${sgn(prof.turnoverMarginAvg)}`)
+      p(`  stat efficiency = clamp(yardsMargin*${YARDS_MARGIN_PER} + turnoverMargin*${TURNOVER_MARGIN_PER}, ±${STAT_EFFICIENCY_CAP}) = ${sgn(statEff)}  (trust ${statTrust.toFixed(2)})`)
     }
-  })
-
-  // ── Step 3: global sanity checks ─────────────────────────────────────────
-  const globalFlags = []
-  globalFlags.push(`Norm context: min=${normCtx.min.toFixed(1)} max=${normCtx.max.toFixed(1)} range=${normCtx.range.toFixed(1)} (${teamAudit.length} non-FCS teams)`)
-  const zeroScoringTeams = teamAudit.filter(t => t.stats.avgFor === 0 && t.stats.gamesPlayed > 0)
-  if (zeroScoringTeams.length > 0) {
-    globalFlags.push(`Teams with 0 avgFor but games played (excluded from odds): ${zeroScoringTeams.map(t => t.abbr).join(', ')}`)
-  }
-  const noDataTeams = teamAudit.filter(t => t.stats.gamesPlayed === 0 && t.overall === null)
-  if (noDataTeams.length > 0) {
-    globalFlags.push(`Teams with NO game data AND no rating (using defaults): ${noDataTeams.map(t => t.abbr).join(', ')}`)
-  }
-
-  return { teamAudit, matchupBreakdowns, globalFlags }
-}
-
-function DebugPanel({ dynasty, game }) {
-  const report = useMemo(() => buildDebugReport(dynasty, game), [dynasty, game])
-  const { teamAudit, matchupBreakdowns, globalFlags } = report
-
-  const teamsWithIssues = teamAudit.filter(t => t.issues.length > 0)
-  const week = game?.week
-
-  return (
-    <div className="bg-[#0a0f1a] border border-yellow-600/40 rounded-lg mx-4 my-4 overflow-hidden text-[11px] font-mono">
-      <div className="px-3 py-2 bg-yellow-600/20 border-b border-yellow-600/30 text-yellow-400 font-bold uppercase tracking-widest text-[10px]">
-        Sportsbook Debug Report — Week {week ?? 'Post'} · {game?.year}
-      </div>
-
-      {/* Step 1: Team data audit */}
-      <div className="px-3 py-2 border-b border-surface-4">
-        <div className="text-yellow-300 font-bold mb-2">STEP 1 — Team Data Audit ({teamAudit.length} teams)</div>
-
-        {teamsWithIssues.length > 0 && (
-          <div className="mb-2 text-red-400">
-            <div className="font-bold">Teams with issues:</div>
-            {teamsWithIssues.map(t => (
-              <div key={t.tid} className="pl-2">
-                {t.abbr}: {t.issues.join(' | ')}
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="text-txt-muted border-b border-surface-3">
-                <th className="pr-3 pb-1">Team</th>
-                <th className="pr-3 pb-1">W-L</th>
-                <th className="pr-3 pb-1">Avg PF</th>
-                <th className="pr-3 pb-1">Avg PA</th>
-                <th className="pr-3 pb-1">OVR</th>
-                <th className="pr-3 pb-1">Power</th>
-                <th className="pb-1">Source</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teamAudit.map(t => (
-                <tr key={t.tid} className={`border-b border-surface-3/30 ${t.issues.length > 0 ? 'text-red-400' : 'text-txt-secondary'}`}>
-                  <td className="pr-3 py-0.5 font-bold text-txt-primary">{t.abbr}</td>
-                  <td className="pr-3">{t.stats.wins}-{t.stats.losses}</td>
-                  <td className="pr-3">{t.stats.avgFor.toFixed(1)}</td>
-                  <td className="pr-3">{t.stats.avgAgainst.toFixed(1)}</td>
-                  <td className="pr-3">{t.overall ?? '—'}</td>
-                  <td className="pr-3">{t.ps.toFixed(2)}</td>
-                  <td className="text-txt-muted text-[10px]">
-                    {t.stats.gamesPlayed === 0
-                      ? (t.overall ? 'rating only' : 'default')
-                      : t.stats.gamesPlayed < 3 && t.overall ? 'blended' : 'games'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Step 2: Matchup breakdowns */}
-      <div className="px-3 py-2 border-b border-surface-4">
-        <div className="text-yellow-300 font-bold mb-2">
-          STEP 2 — Matchup Math ({matchupBreakdowns.length} sample{matchupBreakdowns.length !== 1 ? 's' : ''})
-        </div>
-        {matchupBreakdowns.length === 0 ? (
-          <div className="text-txt-muted">No regular-season games found for Week {week}.</div>
-        ) : (
-          matchupBreakdowns.map((m, i) => (
-            <div key={i} className={`mb-3 ${i > 0 ? 'border-t border-surface-3 pt-2' : ''}`}>
-              <div className="text-txt-primary font-bold mb-1">{m.label}</div>
-              <div className="grid grid-cols-2 gap-x-4 text-[10px] text-txt-secondary">
-                <div>
-                  <div className="text-txt-muted mb-0.5">{m.homeAbbr} (home)</div>
-                  <div>WinPct={m.homeStats.winPct.toFixed(3)} × 40 = {(m.homeStats.winPct*40).toFixed(1)}</div>
-                  <div>AvgDiff={m.homeStats.avgDiff.toFixed(1)} × 3 = {(m.homeStats.avgDiff*3).toFixed(1)}</div>
-                  <div>RawScore = {m.homeRaw.toFixed(2)}{m.homeOvr && m.homeStats.gamesPlayed < 3 ? ` → blended w/ OVR${m.homeOvr}` : ''}</div>
-                  <div className="text-txt-primary font-bold">FinalPS = {m.homePS.toFixed(2)}</div>
-                </div>
-                <div>
-                  <div className="text-txt-muted mb-0.5">{m.awayAbbr} (away)</div>
-                  <div>WinPct={m.awayStats.winPct.toFixed(3)} × 40 = {(m.awayStats.winPct*40).toFixed(1)}</div>
-                  <div>AvgDiff={m.awayStats.avgDiff.toFixed(1)} × 3 = {(m.awayStats.avgDiff*3).toFixed(1)}</div>
-                  <div>RawScore = {m.awayRaw.toFixed(2)}{m.awayOvr && m.awayStats.gamesPlayed < 3 ? ` → blended w/ OVR${m.awayOvr}` : ''}</div>
-                  <div className="text-txt-primary font-bold">FinalPS = {m.awayPS.toFixed(2)}</div>
-                </div>
-              </div>
-              <div className="mt-1.5 text-[10px] space-y-0.5">
-                <div>Norm range: min={normCtx.min.toFixed(1)} max={normCtx.max.toFixed(1)} range={normCtx.range.toFixed(1)}</div>
-                <div>{m.homeAbbr} norm={m.homeNorm.toFixed(1)}  {m.awayAbbr} norm={m.awayNorm.toFixed(1)}  diff={m.rawNormDiff.toFixed(1)}</div>
-                <div>Spread: ({m.rawNormDiff.toFixed(1)} / 4) + 3 = {m.adjSpread.toFixed(2)} → clamped/rounded: <span className="text-txt-primary font-bold">{m.finalSpread > 0 ? `${m.homeAbbr} −${Math.abs(m.finalSpread)}` : m.finalSpread < 0 ? `${m.awayAbbr} −${Math.abs(m.finalSpread)}` : 'PK'}</span></div>
-                <div>Spread table lookup (|{Math.abs(m.finalSpread)}|): fav <span className="text-blue-400">{m.favML}</span> / dog <span className="text-blue-400">+{m.dogML}</span></div>
-                <div>Total: ({m.homeStats.avgFor.toFixed(1)} + {m.awayStats.avgFor.toFixed(1)}) × 1.05 = <span className="text-txt-primary font-bold">{m.totalData.total}</span> (vig {m.totalData.overVig}/{m.totalData.underVig})</div>
-              </div>
-              {m.flags.length > 0 && (
-                <div className="mt-1 text-red-400 text-[10px]">
-                  {m.flags.map((f, fi) => <div key={fi}>⚠ {f}</div>)}
-                </div>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Step 3: Global sanity checks */}
-      <div className="px-3 py-2">
-        <div className="text-yellow-300 font-bold mb-1">STEP 3 — Sanity Checks</div>
-        {globalFlags.length === 0 ? (
-          <div className="text-green-400">All checks passed.</div>
-        ) : (
-          globalFlags.map((f, i) => (
-            <div key={i} className="text-red-400">⚠ {f}</div>
-          ))
-        )}
-        {matchupBreakdowns.every(m => m.flags.length === 0) && matchupBreakdowns.length > 0 && (
-          <div className="text-green-400 mt-1">All {matchupBreakdowns.length} sampled matchup(s) passed spread/total sanity checks.</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── Sub-panel: Game Lines ────────────────────────────────────────────────────
-
-function GameLinesPanel({ dynasty, game }) {
-  const year = game?.year
-  const week = game?.week
-
-  const matchups = useMemo(() => {
-    if (!dynasty?.games || week == null) return []
-
-    // Build normalization context from all non-FCS team scores this week
-    const normCtx = buildNormSpreadContext(dynasty, year, week)
-
-    return dynasty.games
-      .filter(g => {
-        if (Number(g.year) !== Number(year)) return false
-        if (g.week == null || Number(g.week) !== Number(week)) return false
-        // Skip games involving FCS placeholders
-        if (isFCSTeam(dynasty, g.team1Tid) || isFCSTeam(dynasty, g.team2Tid)) return false
-        return true
-      })
-      .map(g => {
-        const tid1    = Number(g.team1Tid)
-        const tid2    = Number(g.team2Tid)
-        const homeTid = g.homeTeamTid != null ? Number(g.homeTeamTid) : tid1
-        const awayTid = homeTid === tid1 ? tid2 : tid1
-
-        const homePower = calcPowerScore(dynasty, homeTid, year, week)
-        const awayPower = calcPowerScore(dynasty, awayTid, year, week)
-        // Normalized spread: positive = home favored
-        const spreadVal = calcNormalizedSpread(homePower, awayPower, normCtx)
-        const absSp     = Math.abs(spreadVal)
-
-        const { favML, dogML } = spreadToML(absSp)
-        const homeFav = spreadVal > 0
-
-        // Display spreads: favorite shows negative (e.g. -7), dog shows positive (+7)
-        const homeSpreadDisplay = spreadVal === 0 ? 'PK'
-          : homeFav ? fmt(-absSp) : fmt(absSp)
-        const awaySpreadDisplay = spreadVal === 0 ? 'PK'
-          : homeFav ? fmt(absSp) : fmt(-absSp)
-
-        const homeML = homeFav ? favML : dogML
-        const awayML = homeFav ? dogML : favML
-
-        const totalData = calcTotal(dynasty, homeTid, awayTid, year, week)
-
-        return {
-          id: g.id,
-          homeTid,
-          awayTid,
-          homeAbbr: getTeamAbbr(dynasty, homeTid),
-          awayAbbr: getTeamAbbr(dynasty, awayTid),
-          homeSpreadDisplay,
-          awaySpreadDisplay,
-          homeFav,
-          awayFav: !homeFav && spreadVal !== 0,
-          homeML,
-          awayML,
-          totalData,
-          isNeutral: g.homeTeamTid == null,
-          isPlayed: g.isPlayed,
-          homeScore: homeTid === tid1 ? g.team1Score : g.team2Score,
-          awayScore: awayTid === tid1 ? g.team1Score : g.team2Score,
-          isThisGame: String(g.id) === String(game.id),
-        }
-      })
-  }, [dynasty, year, week, game?.id])
-
-  if (week == null) {
-    return (
-      <p className="text-txt-tertiary text-sm px-4 py-6 text-center">
-        Game lines are available for regular season games only.
-      </p>
-    )
+    p(`  on-field power = winPct*40 + avgDiff*3 + statEff*trust = ${prof.winPct.toFixed(3)}*40 + ${prof.avgDiff.toFixed(1)}*3 + ${statEff.toFixed(1)}*${statTrust.toFixed(2)} = ${onField.toFixed(2)}`)
+    if (trust < 1) {
+      p(`  thin sample -> regress toward neutral 20 (trust = ${trust.toFixed(2)})`)
+      p(`    base power = onField*${trust.toFixed(2)} + 20*${(1 - trust).toFixed(2)} = ${basePs.toFixed(2)}`)
+    } else {
+      p(`  base power = ${basePs.toFixed(2)}`)
+    }
+    const sos = ps - basePs
+    p(`  strength-of-schedule adj = ${sgn(sos)}  ->  adjusted power = ${ps.toFixed(2)}`)
+    p(`  normalized = (power - min) / range * 100 = ${norm.toFixed(2)}`)
+    p('')
+    return { abbr, cur, prof, ps, norm }
   }
 
-  if (matchups.length === 0) {
-    return (
-      <p className="text-txt-tertiary text-sm px-4 py-6 text-center">
-        No matchups found for Week {week}.
-      </p>
-    )
+  const home = block(homeTid, 'HOME')
+  const away = block(awayTid, 'AWAY')
+
+  // Spread (mirrors calcSpread: overall-diff blended with on-field results,
+  // +3 home edge, none at neutral sites).
+  const hfa         = isNeutral ? 0 : 3
+  const hOvr        = gameSideOvr(dynasty, game, homeTid, year)
+  const aOvr        = gameSideOvr(dynasty, game, awayTid, year)
+  const onFieldEdge = (home.norm - away.norm) / 4
+  const finalSpread = calcSpread(dynasty, homeTid, awayTid, year, week, normCtx, isNeutral, game, powerMap)
+  const absSp       = Math.abs(finalSpread)
+  const homeFav     = finalSpread > 0
+  const { favML, dogML } = spreadToML(absSp)
+
+  p('SPREAD')
+  if (hOvr != null && aOvr != null) {
+    const played = Math.min(home.prof.sampleGames, away.prof.sampleGames)
+    const w      = ratingBlendWeight(dynasty, played)
+    const ovrEdge = (hOvr - aOvr) * OVR_SPREAD_PER
+    p(`  both teams rated -> overall drives it early, on-field takes over as games play`)
+    p(`  overall edge = (${hOvr} - ${aOvr}) * ${OVR_SPREAD_PER} = ${ovrEdge.toFixed(2)}`)
+    p(`  on-field edge = (${home.norm.toFixed(2)} - ${away.norm.toFixed(2)})/4 = ${onFieldEdge.toFixed(2)}`)
+    p(`  blend (games played min ${played.toFixed(1)} -> weight ${w.toFixed(2)} on-field${onFieldWeightCap(dynasty) < 1 ? `, capped at ${onFieldWeightCap(dynasty)} so rating never fully fades` : ''}) + homeField(${hfa})`)
+  } else {
+    p(`  raw = (homeNorm - awayNorm)/4 + homeField(${hfa})${isNeutral ? '  [neutral site: no home edge]' : ''}`)
+    p(`      = (${home.norm.toFixed(2)} - ${away.norm.toFixed(2)})/4 + ${hfa}`)
+  }
+  p(`  clamp[-28,28], round 0.5 -> ${finalSpread}`)
+  p(`  ${finalSpread === 0 ? 'pick\'em' : `${(homeFav ? home.abbr : away.abbr)} favored by ${absSp}`}`)
+  p('')
+
+  p('MONEYLINE  (spread->ML table, interpolated)')
+  p(`  favorite ${favML}   underdog ${dogML}`)
+  p(`  ${home.abbr} ${homeFav ? favML : dogML}    ${away.abbr} ${homeFav ? dogML : favML}`)
+  p('')
+
+  const t = calcTotal(dynasty, homeTid, awayTid, year, week)
+  const onFieldExpHome = (home.prof.avgFor + away.prof.avgAgainst) / 2
+  const onFieldExpAway = (away.prof.avgFor + home.prof.avgAgainst) / 2
+  const hOff = teamOffRating(dynasty, homeTid, year), hDef = teamDefRating(dynasty, homeTid, year)
+  const aOff = teamOffRating(dynasty, awayTid, year), aDef = teamDefRating(dynasty, awayTid, year)
+  const totalW = ratingBlendWeight(dynasty, Math.min(home.prof.sampleGames, away.prof.sampleGames))
+  p('TOTAL  (each offense vs the other defense, weighted profiles)')
+  p(`  ${home.abbr} on-field exp = (off ${home.prof.avgFor.toFixed(1)} + ${away.abbr} def ${away.prof.avgAgainst.toFixed(1)}) / 2 = ${onFieldExpHome.toFixed(1)}`)
+  p(`  ${away.abbr} on-field exp = (off ${away.prof.avgFor.toFixed(1)} + ${home.abbr} def ${home.prof.avgAgainst.toFixed(1)}) / 2 = ${onFieldExpAway.toFixed(1)}`)
+  if (hOff != null && aDef != null) {
+    const seedHome = ratingsToExpectedPoints(hOff, aDef)
+    p(`  ${home.abbr} rating-seeded exp = ratings(${hOff} off vs ${aDef} def) = ${seedHome.toFixed(1)}  ->  blend weight ${totalW.toFixed(2)} on-field`)
+  }
+  if (aOff != null && hDef != null) {
+    const seedAway = ratingsToExpectedPoints(aOff, hDef)
+    p(`  ${away.abbr} rating-seeded exp = ratings(${aOff} off vs ${hDef} def) = ${seedAway.toFixed(1)}  ->  blend weight ${totalW.toFixed(2)} on-field`)
+  }
+  p(`  total = (final exp home + final exp away) * 1.03 -> O ${t.total} (${t.overVig})  U ${t.total} (${t.underVig})`)
+  p('')
+
+  p('WIN TOTALS')
+  for (const [tid, abbr] of [[homeTid, home.abbr], [awayTid, away.abbr]]) {
+    const wt = calcWinTotal(dynasty, tid, year, week, powerMap)
+    p(`  ${abbr}: line ${wt.total}  (over ${wt.overML} / under ${wt.underML})  [${wt.wins}-${wt.losses} so far]`)
+  }
+  p('')
+
+  p('CHAMPIONSHIP INPUT  (champ score = power*0.6 + currentWin%*100*0.4)')
+  for (const info of [home, away]) {
+    const cs = info.ps * 0.6 + info.cur.winPct * 100 * 0.4
+    p(`  ${info.abbr}: ${info.ps.toFixed(2)}*0.6 + ${(info.cur.winPct * 100).toFixed(1)}*0.4 = ${cs.toFixed(2)}`)
   }
 
-  return (
-    <div className="divide-y divide-surface-3">
-      {matchups.map(m => (
-        <div
-          key={m.id}
-          className={`px-4 py-3 ${m.isThisGame ? 'bg-surface-3/40 border-l-2 border-blue-500' : ''}`}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-txt-tertiary uppercase tracking-wide">
-              {m.isNeutral ? 'Neutral Site' : `${m.awayAbbr} @ ${m.homeAbbr}`}
-              {m.isPlayed && (
-                <span className="ml-2 text-green-400">
-                  FINAL: {m.awayAbbr} {m.awayScore} – {m.homeAbbr} {m.homeScore}
-                </span>
-              )}
-            </span>
-            {m.isThisGame && (
-              <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide">
-                This Game
-              </span>
-            )}
-          </div>
-
-          {/* Odds grid */}
-          <div className="grid grid-cols-[1fr_80px_80px_80px] gap-x-2 text-xs">
-            <div />
-            <div className="text-center text-txt-muted font-semibold uppercase tracking-wide pb-1">Spread</div>
-            <div className="text-center text-txt-muted font-semibold uppercase tracking-wide pb-1">ML</div>
-            <div className="text-center text-txt-muted font-semibold uppercase tracking-wide pb-1">Total</div>
-
-            {/* Away row */}
-            <div className="font-semibold text-txt-primary">{m.awayAbbr}</div>
-            <div className="text-center">
-              <div className={m.awayFav ? 'text-blue-400 font-bold' : 'text-txt-primary'}>{m.awaySpreadDisplay}</div>
-              <div className="text-blue-500 text-[10px]">-110</div>
-            </div>
-            <div className="text-center">
-              <div className={m.awayFav ? 'text-blue-400 font-bold' : 'text-txt-primary'}>{fmt(m.awayML)}</div>
-              <div className="text-[10px]">&nbsp;</div>
-            </div>
-            <div className="text-center">
-              <div className="text-txt-primary">O {m.totalData.total}</div>
-              <div className="text-blue-500 text-[10px]">{fmt(m.totalData.overVig)}</div>
-            </div>
-
-            {/* Home row */}
-            <div className="font-semibold text-txt-primary mt-1">
-              {m.homeAbbr}{!m.isNeutral && <span className="text-txt-muted text-[10px] ml-1">HM</span>}
-            </div>
-            <div className="text-center mt-1">
-              <div className={m.homeFav ? 'text-blue-400 font-bold' : 'text-txt-primary'}>{m.homeSpreadDisplay}</div>
-              <div className="text-blue-500 text-[10px]">-110</div>
-            </div>
-            <div className="text-center mt-1">
-              <div className={m.homeFav ? 'text-blue-400 font-bold' : 'text-txt-primary'}>{fmt(m.homeML)}</div>
-              <div className="text-[10px]">&nbsp;</div>
-            </div>
-            <div className="text-center mt-1">
-              <div className="text-txt-primary">U {m.totalData.total}</div>
-              <div className="text-blue-500 text-[10px]">{fmt(m.totalData.underVig)}</div>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
+  return L.join('\n')
 }
 
-// ─── Shared odds row list ─────────────────────────────────────────────────────
+// ─── Shared line rendering (Game Lines board + single-game Odds) ─────────────
 
-function OddsBoard({ title, rows, recordLabel = r => `${r.stats.wins}-${r.stats.losses}` }) {
-  if (rows.length === 0) {
-    return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">No team data available.</p>
-  }
-  return (
-    <div
-      className="border border-blue-600/60 rounded-lg overflow-hidden"
-      style={{ background: 'rgba(30,58,138,0.08)' }}
-    >
-      <div className="px-4 py-2 border-b border-blue-600/40 text-xs font-bold uppercase tracking-widest text-blue-400">
-        {title}
-      </div>
-      <div className="divide-y divide-surface-3">
-        {rows.map((r, i) => (
-          <div key={r.tid} className="flex items-center justify-between px-4 py-2">
-            <div className="flex items-center gap-3">
-              <span className="text-txt-muted text-xs w-5 text-right">{i + 1}</span>
-              <span className="text-txt-primary text-sm font-semibold">{r.team?.abbr || `T${r.tid}`}</span>
-              <span className="text-txt-tertiary text-xs">{recordLabel(r)}</span>
-            </div>
-            <div className={`text-sm font-bold ${r.odds <= 0 ? 'text-blue-400' : r.odds >= 50000 ? 'text-txt-muted' : 'text-txt-primary'}`}>
-              {r.odds >= 100000 ? <span className="text-[11px]">ELIM</span> : fmt(r.odds)}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
+// Build the line + result for one game, deterministically from data through its
+// own week. `normCtx` is the league power normalization for that week.
+function buildMatchup(dynasty, g, year, week, normCtx, powerMap = null) {
+  const tid1      = Number(g.team1Tid)
+  const tid2      = Number(g.team2Tid)
+  const isNeutral = g.homeTeamTid == null
+  const homeTid   = g.homeTeamTid != null ? Number(g.homeTeamTid) : tid1
+  const awayTid   = homeTid === tid1 ? tid2 : tid1
 
-// ─── Sub-panel: National Championship ────────────────────────────────────────
+  const spreadVal = calcSpread(dynasty, homeTid, awayTid, year, week, normCtx, isNeutral, g, powerMap)
+  const absSp = Math.abs(spreadVal)
+  const { favML, dogML } = spreadToML(absSp)
+  const homeFav = spreadVal > 0
 
-function NatlChampPanel({ dynasty, game }) {
-  const year = game?.year
-  const week = game?.week ?? 17
+  const homeSpreadDisplay = spreadVal === 0 ? 'PK' : homeFav ? fmt(-absSp) : fmt(absSp)
+  const awaySpreadDisplay = spreadVal === 0 ? 'PK' : homeFav ? fmt(absSp) : fmt(-absSp)
+  const homeML = homeFav ? favML : dogML
+  const awayML = homeFav ? dogML : favML
+  const totalData = calcTotal(dynasty, homeTid, awayTid, year, week)
 
-  const rows = useMemo(
-    () => buildNatlChampBoard(dynasty, year, week),
-    [dynasty, year, week]
-  )
-
-  return (
-    <div className="px-4 py-4">
-      <OddsBoard
-        title={`CFB Playoff — National Championship ${year}`}
-        rows={rows}
-      />
-      <p className="text-txt-muted text-[10px] mt-2 text-center">
-        Top 25 priced · Others +50000 · Blends power score + record
-      </p>
-    </div>
-  )
-}
-
-// ─── Sub-panel: Conference Championship ──────────────────────────────────────
-
-function ConfChampPanel({ dynasty, game }) {
-  const year  = game?.year
-  const week  = game?.week ?? 17
-  const teams = dynasty?.teams || {}
-
-  // Build conference list from all non-FCS teams
-  const customConfs = useMemo(() => {
-    try { return getCustomConferencesForYear(dynasty, year) }
-    catch { return null }
-  }, [dynasty, year])
-
-  const conferences = useMemo(() => {
-    const confSet = new Set()
-    Object.keys(teams).forEach(tid => {
-      const abbr = teams[tid]?.abbr
-      if (!abbr || isFCSPlaceholderAbbr(abbr)) return
-      const conf = getTeamConference(abbr, customConfs)
-      if (conf) confSet.add(conf)
-    })
-    return Array.from(confSet).sort()
-  }, [teams, customConfs])
-
-  const [activeConf, setActiveConf] = useState(() => conferences[0] || '')
-
-  // Keep activeConf valid when conferences load
-  const conf = conferences.includes(activeConf) ? activeConf : (conferences[0] || '')
-
-  const confTeams = useMemo(() => {
-    if (!conf) return []
-    return Object.keys(teams)
-      .map(Number)
-      .filter(tid => {
-        const abbr = teams[tid]?.abbr
-        if (!abbr || isFCSPlaceholderAbbr(abbr)) return false
-        return getTeamConference(abbr, customConfs) === conf
-      })
-      .map(tid => teams[tid]?.abbr)
-      .filter(Boolean)
-  }, [conf, teams, customConfs])
-
-  const rows = useMemo(
-    () => buildConfChampBoard(dynasty, year, week, confTeams),
-    [dynasty, year, week, confTeams]
-  )
-
-  if (conferences.length === 0) {
-    return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">No conference data available.</p>
-  }
-
-  return (
-    <div className="px-4 py-4">
-      {/* Conference filter tabs */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {conferences.map(c => (
-          <button
-            key={c}
-            onClick={() => setActiveConf(c)}
-            className={`px-3 py-1 rounded-sm text-xs font-semibold uppercase tracking-wider transition-colors ${
-              c === conf
-                ? 'text-txt-primary bg-surface-3'
-                : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
-            }`}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
-
-      <OddsBoard
-        title={`${conf} Championship ${year}`}
-        rows={rows}
-        recordLabel={r => `${r.conf?.wins ?? 0}-${r.conf?.losses ?? 0} conf`}
-      />
-    </div>
-  )
-}
-
-// ─── Sub-panel: Win Totals ────────────────────────────────────────────────────
-
-function WinTotalsPanel({ dynasty, game }) {
-  const year  = game?.year
-  const teams = dynasty?.teams || {}
-  const [confFilter, setConfFilter] = useState('ALL')
-
-  const allConfs = useMemo(() => {
-    const confs = new Set()
-    Object.values(teams).forEach(t => {
-      try { const c = getTeamConference(t.abbr); if (c) confs.add(c) } catch { /* skip */ }
-    })
-    return ['ALL', ...Array.from(confs).sort()]
-  }, [teams])
-
-  const rows = useMemo(() =>
-    Object.keys(teams)
-      .map(Number)
-      .filter(tid => teams[tid]?.abbr && !isFCSPlaceholderAbbr(teams[tid].abbr))
-      .map(tid => ({ tid, ...calcWinTotal(dynasty, tid, year) }))
-      .sort((a, b) => b.total - a.total || a.tid - b.tid),
-    [dynasty, year, teams]
-  )
-
-  return (
-    <div className="px-4 py-4">
-      {allConfs.length > 1 && (
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {allConfs.map(c => (
-            <button
-              key={c}
-              onClick={() => setConfFilter(c)}
-              className={`px-3 py-1 rounded-sm text-xs font-semibold uppercase tracking-wider transition-colors ${
-                confFilter === c
-                  ? 'text-txt-primary bg-surface-3'
-                  : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {rows.map(r => {
-          let show = confFilter === 'ALL'
-          if (!show) {
-            try { show = getTeamConference(teams[r.tid]?.abbr) === confFilter }
-            catch { show = true }
-          }
-          if (!show) return null
-
-          const overFav = r.overML < r.underML
-          return (
-            <div key={r.tid} className="bg-surface-2 rounded-lg px-4 py-3">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <span className="text-txt-primary font-semibold text-sm">{teams[r.tid]?.abbr}</span>
-                  {r.overall && (
-                    <span className="ml-2 text-txt-muted text-xs">OVR {r.overall}</span>
-                  )}
-                  <span className="ml-2 text-txt-tertiary text-xs">{r.wins}-{r.losses}</span>
-                </div>
-                <div className="flex items-center gap-3 text-xs whitespace-nowrap">
-                  <span className="text-txt-muted">O/U {r.total}</span>
-                  <span className={overFav ? 'text-blue-400 font-bold' : 'text-txt-secondary'}>
-                    O {fmt(r.overML)}
-                  </span>
-                  <span className={!overFav ? 'text-blue-400 font-bold' : 'text-txt-secondary'}>
-                    U {fmt(r.underML)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function getTeamName(dynasty, tid) {
-  const t = dynasty.teams?.[tid] || dynasty.teams?.[String(tid)];
-  return t?.name || getTeamAbbr(dynasty, tid);
-}
-
-function getTeamLogo(dynasty, tid) {
-  const t = dynasty.teams?.[tid] || dynasty.teams?.[String(tid)];
-  return t?.logo || '';
-}
-
-function buildMatchup(dynasty, g, year, week, normCtx) {
-  const tid1      = Number(g.team1Tid);
-  const tid2      = Number(g.team2Tid);
-  const isNeutral = g.homeTeamTid == null;
-  const homeTid   = g.homeTeamTid != null ? Number(g.homeTeamTid) : tid1;
-  const awayTid   = homeTid === tid1 ? tid2 : tid1;
-
-  const spreadVal = calcNormalizedSpread(
-    calcPowerScore(dynasty, homeTid, year, week),
-    calcPowerScore(dynasty, awayTid, year, week),
-    normCtx, isNeutral,
-  );
-  const absSp = Math.abs(spreadVal);
-  const { favML, dogML } = spreadToML(absSp);
-  const homeFav = spreadVal > 0;
-
-  const homeSpreadDisplay = spreadVal === 0 ? 'PK' : homeFav ? fmt(-absSp) : fmt(absSp);
-  const awaySpreadDisplay = spreadVal === 0 ? 'PK' : homeFav ? fmt(absSp) : fmt(-absSp);
-  const homeML = homeFav ? favML : dogML;
-  const awayML = homeFav ? dogML : favML;
-  const totalData = calcTotal(dynasty, homeTid, awayTid, year, week);
-
-  const homeScore = Number(homeTid === tid1 ? g.team1Score : g.team2Score);
-  const awayScore = Number(awayTid === tid1 ? g.team1Score : g.team2Score);
+  const homeScore = Number(homeTid === tid1 ? g.team1Score : g.team2Score)
+  const awayScore = Number(awayTid === tid1 ? g.team1Score : g.team2Score)
   const isPlayed = (g.isPlayed || Number(g.team1Score) > 0 || Number(g.team2Score) > 0)
-    && Number.isFinite(homeScore) && Number.isFinite(awayScore);
+    && Number.isFinite(homeScore) && Number.isFinite(awayScore)
 
-  let result = null;
+  let result = null
   if (isPlayed) {
-    const margin = homeScore - awayScore;
-    const cover = margin + (homeFav ? -absSp : absSp);
-    const combined = homeScore + awayScore;
+    const margin = homeScore - awayScore
+    const cover = margin + (homeFav ? -absSp : absSp)
+    const combined = homeScore + awayScore
     result = {
       spread: cover > 0 ? 'home' : cover < 0 ? 'away' : 'push',
       ml: margin > 0 ? 'home' : margin < 0 ? 'away' : 'push',
       total: combined > totalData.total ? 'over' : combined < totalData.total ? 'under' : 'push',
-    };
+    }
   }
 
   return {
@@ -1087,15 +1005,19 @@ function buildMatchup(dynasty, g, year, week, normCtx) {
     homeSpreadDisplay, awaySpreadDisplay,
     homeFav, awayFav: !homeFav && spreadVal !== 0,
     homeML, awayML, totalData,
-  };
+  }
 }
 
+// One odds box. Green-tinted + bold when this is the side that hit; the favorite
+// otherwise gets primary text, the dog muted.
 function OddsCell({ value, vig, hit }) {
   return (
     <div
       className="flex flex-col items-center justify-center py-2 border-l border-surface-4"
       style={hit ? { background: 'color-mix(in srgb, var(--accent-success) 20%, transparent)' } : undefined}
     >
+      {/* All odds render at the same weight/brightness — only a winning bet
+          (hit) turns green. The favorite is NOT emphasized over the dog. */}
       <div
         className="tabular-nums text-xs"
         style={hit
@@ -1106,7 +1028,7 @@ function OddsCell({ value, vig, hit }) {
       </div>
       {vig != null && <div className="text-txt-muted text-[10px] tabular-nums">{vig}</div>}
     </div>
-  );
+  )
 }
 
 function LinesHeader() {
@@ -1117,7 +1039,7 @@ function LinesHeader() {
       <div className="text-center text-[10px] font-semibold uppercase tracking-wide py-1.5 border-l border-surface-4">ML</div>
       <div className="text-center text-[10px] font-semibold uppercase tracking-wide py-1.5 border-l border-surface-4">Total</div>
     </div>
-  );
+  )
 }
 
 function TeamRow({ logo, name, score, isPlayed, isWinner, fav, spread, ml, ou, total, vigOver, vigUnder, spreadHit, mlHit, totalHit, top }) {
@@ -1139,11 +1061,15 @@ function TeamRow({ logo, name, score, isPlayed, isWinner, fav, spread, ml, ou, t
       <OddsCell value={fmt(ml)} hit={mlHit} />
       <OddsCell value={`${ou} ${total}`} vig={ou === 'O' ? vigOver : vigUnder} hit={totalHit} />
     </div>
-  );
+  )
 }
 
+// The two team rows for one matchup. Each market (spread / ML / total) lights up
+// independently for the side that hit it. `compact` uses the shorter SCHOOL name
+// (e.g. "Western Kentucky" instead of "Western Kentucky Hilltoppers") for the
+// multi-column grid.
 function MatchupRows({ m, compact }) {
-  const r = m.result;
+  const r = m.result
   return (
     <div>
       <TeamRow
@@ -1159,26 +1085,364 @@ function MatchupRows({ m, compact }) {
         spreadHit={r?.spread === 'home'} mlHit={r?.ml === 'home'} totalHit={r?.total === 'under'}
       />
     </div>
-  );
+  )
 }
 
+// ─── Sub-panel: Game Lines ────────────────────────────────────────────────────
+
+function GameLinesPanel({ dynasty, game, pathPrefix, gameFilter }) {
+  const year = game?.year
+  const week = game?.week
+
+  const matchups = useMemo(() => {
+    if (!dynasty?.games || week == null) return []
+    // SRS-adjusted power map (strength-of-schedule) built once for the week and
+    // fed into both the normalization context and every spread.
+    const powerMap = buildSrsPowerMap(dynasty, year, week)
+    const normCtx = buildNormSpreadContext(dynasty, year, week, powerMap)
+    const filtered = dynasty.games.filter(g => {
+      if (Number(g.year) !== Number(year)) return false
+      if (g.week == null || Number(g.week) !== Number(week)) return false
+      // FCS games are shown too (matching the Scores tab, which lists every
+      // game). The line for an FCS placeholder is rough — it's an anonymous
+      // regional bucket with no real rating — but the game itself, its score,
+      // and its result all display, so users see their full slate.
+      // Page-level filter (all / top25 / rivalries / conference) — same as Scores.
+      if (gameFilter && !gameFilter(g)) return false
+      return true
+    })
+
+    // Collapse duplicate matchups (same week + tid-pair). A schedule saved twice
+    // can leave two records for the same game, which rendered as two identical
+    // line cards. Two FBS teams never play twice in one week, so keep the
+    // "most played" copy (a real score / isPlayed beats a 0-0 placeholder).
+    // Mirrors the dedup WeeklyScores already applies to its gamesByWeek grouping.
+    const pairKey = (g) => {
+      const a = Number(g.team1Tid), b = Number(g.team2Tid)
+      return `${Math.min(a, b)}-${Math.max(a, b)}`
+    }
+    const playedRank = (g) => {
+      const t1 = Number(g.team1Score), t2 = Number(g.team2Score)
+      const scored = (Number.isFinite(t1) && t1 > 0) || (Number.isFinite(t2) && t2 > 0)
+      return (g.isPlayed ? 2 : 0) + (scored ? 1 : 0)
+    }
+    const byPair = new Map()
+    for (const g of filtered) {
+      const k = pairKey(g)
+      const prev = byPair.get(k)
+      if (!prev || playedRank(g) > playedRank(prev)) byPair.set(k, g)
+    }
+
+    return Array.from(byPair.values()).map(g => buildMatchup(dynasty, g, year, week, normCtx, powerMap))
+  }, [dynasty, year, week, gameFilter])
+
+  if (week == null) {
+    return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">Game lines are available for regular season games only.</p>
+  }
+  if (matchups.length === 0) {
+    return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">No matchups found for Week {week}.</p>
+  }
+
+  return (
+    <div className="px-2 sm:px-3 pb-3 pt-2">
+      {/* Responsive multi-column grid — each card is self-contained (its own
+          Spread/ML/Total header) so it reads correctly in any column. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2">
+        {matchups.map(m => {
+          const card = (
+            <div className="rounded-lg border border-surface-4 overflow-hidden bg-surface-1 hover:bg-surface-2/50 transition-colors shadow-sm h-full">
+              <LinesHeader />
+              <MatchupRows m={m} compact />
+            </div>
+          )
+          return pathPrefix && m.id
+            ? <Link key={m.id} to={`${pathPrefix}/game/${m.id}`} className="block">{card}</Link>
+            : <div key={m.id}>{card}</div>
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Shared odds row list ─────────────────────────────────────────────────────
+
+// One futures row — logo + Team Name + record → odds, matching the Game Lines
+// card style. Linkable to the team's page.
+// One futures row in the Top-25 leaderboard treatment: full team-color
+// background, logo in a white circle, school name in the contrast color, then
+// record + odds on the right. Linkable to the team page.
+function FutureRow({ row, dynasty, year, pathPrefix, rank, record, oddsFor, top }) {
+  const tid     = row.tid
+  const teams   = dynasty?.teams
+  const mascot  = getTeamName(dynasty, tid)
+  const school  = getSchoolName(tid, teams) || mascot
+  const logo    = getTeamLogo(dynasty, tid)
+  const colors  = (mascot ? getTeamColors(mascot, teams) : null) || { primary: '#3a3d47' }
+  const primary = colors.primary || '#3a3d47'
+  const txt     = getContrastTextColor(primary, colors.secondary)
+
+  const inner = (
+    <div
+      className="group relative flex items-center gap-3 px-3 sm:px-4 py-2.5 overflow-hidden transition-all hover:brightness-110"
+      style={{
+        borderTop: top ? 'none' : '1px solid rgba(0,0,0,0.3)',
+        backgroundColor: primary,
+        backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)',
+      }}
+    >
+      {rank != null && (
+        <span className="w-5 text-right font-display font-black tabular-nums flex-shrink-0 leading-none"
+          style={{ color: txt, opacity: 0.8, fontSize: 15, textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>{rank}</span>
+      )}
+      <div className="rounded-full bg-white flex items-center justify-center p-1 flex-shrink-0 shadow-sm" style={{ width: 34, height: 34 }}>
+        {logo
+          ? <img src={logo} alt="" className="w-full h-full object-contain" />
+          : <span className="font-display font-black text-xs" style={{ color: primary }}>{(getTeamAbbr(dynasty, tid) || '?').charAt(0)}</span>}
+      </div>
+      <span className="flex-1 min-w-0 truncate font-display font-bold uppercase tracking-tight leading-none"
+        style={{ color: txt, fontSize: '0.95rem', letterSpacing: '0.01em', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{school}</span>
+      {record && (
+        <span className="tabular-nums flex-shrink-0 font-display font-semibold"
+          style={{ color: txt, opacity: 0.85, fontSize: 12, textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>{record}</span>
+      )}
+      <span className="flex-shrink-0 pl-1">{oddsFor(row, txt)}</span>
+    </div>
+  )
+  return pathPrefix
+    ? <Link to={`${pathPrefix}/team/${tid}/${year}`} className="block">{inner}</Link>
+    : inner
+}
+
+function FuturesList({ rows, dynasty, year, pathPrefix, ranked = true, recordFor, oddsFor }) {
+  if (!rows.length) {
+    return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">No team data available.</p>
+  }
+  return (
+    <div className="rounded-xl overflow-hidden border border-surface-4 shadow-sm">
+      {rows.map((r, i) => (
+        <FutureRow
+          key={r.tid}
+          row={r}
+          dynasty={dynasty}
+          year={year}
+          pathPrefix={pathPrefix}
+          rank={ranked ? i + 1 : null}
+          record={recordFor ? recordFor(r) : null}
+          oddsFor={oddsFor}
+          top={i === 0}
+        />
+      ))}
+    </div>
+  )
+}
+
+// Futures price (e.g. +1100) drawn in the row's contrast color, bold.
+function championOdds(odds, txt) {
+  if (odds >= 100000) return <span className="font-display text-[11px] font-bold" style={{ color: txt, opacity: 0.6 }}>ELIM</span>
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-md px-3 py-1.5 font-display tabular-nums text-sm font-black"
+      style={{ color: txt, minWidth: 66, background: 'rgba(0,0,0,0.26)', border: '1px solid rgba(255,255,255,0.16)', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+    >
+      {fmt(odds)}
+    </span>
+  )
+}
+
+// Conference sub-filter pills (shown only when the page-level filter is All FBS).
+function ConfPills({ confs, active, onPick }) {
+  return (
+    <div className="flex flex-wrap gap-1.5 mb-3">
+      {confs.map(c => (
+        <button
+          key={c}
+          onClick={() => onPick(c)}
+          className={`px-2.5 py-1 rounded text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+            c === active ? 'text-txt-primary bg-surface-3' : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'
+          }`}
+        >
+          {c}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ─── Sub-panel: National Championship ────────────────────────────────────────
+
+function NatlChampPanel({ dynasty, game, pathPrefix, teamFilter }) {
+  const year = game?.year
+  const week = game?.week ?? 17
+
+  const rows = useMemo(() => {
+    let r = buildNatlChampBoard(dynasty, year, week)
+    if (teamFilter) r = r.filter(x => teamFilter(x.tid))
+    return r
+  }, [dynasty, year, week, teamFilter])
+
+  return (
+    <div className="px-2 sm:px-3 py-3">
+      <FuturesList
+        rows={rows} dynasty={dynasty} year={year} pathPrefix={pathPrefix}
+        recordFor={r => recordStr(r.stats, r.conf)}
+        oddsFor={(r, txt) => championOdds(r.odds, txt)}
+      />
+    </div>
+  )
+}
+
+// ─── Sub-panel: Conference Championship ──────────────────────────────────────
+
+// Independents don't play for a conference title, so they have no champ board.
+export function isChampConference(c) {
+  return !!c && !/independ/i.test(String(c))
+}
+
+function ConfChampPanel({ dynasty, game, pathPrefix, customConfs, controlledConf }) {
+  const year  = game?.year
+  const week  = game?.week ?? 17
+  const teams = dynasty?.teams || {}
+
+  const conferences = useMemo(() => {
+    const confSet = new Set()
+    Object.keys(teams).forEach(tid => {
+      const abbr = teams[tid]?.abbr
+      if (!abbr || isFCSPlaceholderAbbr(abbr)) return
+      const c = teamConf(dynasty, tid, customConfs)
+      if (c && isChampConference(c)) confSet.add(c)
+    })
+    return Array.from(confSet).sort()
+  }, [dynasty, teams, customConfs])
+
+  const [activeConf, setActiveConf] = useState('')
+  // The conference comes from the page header (controlledConf); fall back to the
+  // in-panel pills only if the parent doesn't drive it.
+  const conf = controlledConf
+    || (conferences.includes(activeConf) ? activeConf : (conferences[0] || ''))
+  const showPills = !controlledConf
+
+  const confTeams = useMemo(() => {
+    if (!conf) return []
+    return Object.keys(teams).map(Number)
+      .filter(tid => {
+        const abbr = teams[tid]?.abbr
+        if (!abbr || isFCSPlaceholderAbbr(abbr)) return false
+        return teamConf(dynasty, tid, customConfs) === conf
+      })
+      .map(tid => teams[tid]?.abbr).filter(Boolean)
+  }, [dynasty, conf, teams, customConfs])
+
+  const rows = useMemo(
+    () => buildConfChampBoard(dynasty, year, week, confTeams),
+    [dynasty, year, week, confTeams]
+  )
+
+  if (conferences.length === 0) {
+    return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">No conference data available.</p>
+  }
+  // Page filter set to Independent (or similar): there's no championship to price.
+  if (!isChampConference(conf)) {
+    return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">Independents don&apos;t play for a conference championship.</p>
+  }
+
+  return (
+    <div className="px-2 sm:px-3 py-3">
+      {showPills && <ConfPills confs={conferences} active={conf} onPick={setActiveConf} />}
+      <FuturesList
+        rows={rows} dynasty={dynasty} year={year} pathPrefix={pathPrefix}
+        recordFor={r => recordStr(r.stats, r.conf)}
+        oddsFor={(r, txt) => championOdds(r.odds, txt)}
+      />
+    </div>
+  )
+}
+
+// ─── Sub-panel: Win Totals ────────────────────────────────────────────────────
+
+function WinTotalsPanel({ dynasty, game, pathPrefix, customConfs, teamFilter, controlledConf }) {
+  const year  = game?.year
+  const teams = dynasty?.teams || {}
+  const [internalConf, setInternalConf] = useState('ALL')
+  // Conference comes from the page header (controlledConf, with an ALL option);
+  // fall back to in-panel pills only if the parent doesn't drive it.
+  const activeConf = controlledConf || internalConf
+
+  const allConfs = useMemo(() => {
+    const confs = new Set()
+    Object.keys(teams).forEach(tid => {
+      const c = teamConf(dynasty, tid, customConfs)
+      if (c) confs.add(c)
+    })
+    return ['ALL', ...Array.from(confs).sort()]
+  }, [dynasty, teams, customConfs])
+
+  const rows = useMemo(() => {
+    const powerMap = buildSrsPowerMap(dynasty, year, undefined)
+    return Object.keys(teams).map(Number)
+      .filter(tid => teams[tid]?.abbr && !isFCSPlaceholderAbbr(teams[tid].abbr))
+      .filter(tid => activeConf === 'ALL' || teamConf(dynasty, tid, customConfs) === activeConf)
+      .filter(tid => !teamFilter || teamFilter(tid))
+      .map(tid => ({ tid, ...calcWinTotal(dynasty, tid, year, undefined, powerMap), conf: calcConfStats(dynasty, tid, year) }))
+      .sort((a, b) => b.total - a.total || a.tid - b.tid)
+  }, [dynasty, year, teams, activeConf, customConfs, teamFilter])
+
+  return (
+    <div className="px-2 sm:px-3 py-3">
+      {!controlledConf && allConfs.length > 1 && (
+        <ConfPills confs={allConfs} active={activeConf} onPick={setInternalConf} />
+      )}
+      <FuturesList
+        ranked={false}
+        rows={rows} dynasty={dynasty} year={year} pathPrefix={pathPrefix}
+        recordFor={r => recordStr({ wins: r.wins, losses: r.losses }, r.conf)}
+        oddsFor={(r, txt) => {
+          const overFav = r.overML < r.underML
+          // Two stacked O / U bet buttons (favored side emphasized), like the
+          // Game Lines total cell — readable as pressable odds boxes.
+          const Box = ({ label, ml, fav }) => (
+            <span
+              className="flex items-baseline justify-between gap-2 rounded-md px-2.5 py-1 tabular-nums whitespace-nowrap"
+              style={{ color: txt, width: 108, background: `rgba(0,0,0,${fav ? 0.34 : 0.2})`, border: `1px solid rgba(255,255,255,${fav ? 0.26 : 0.12})`, textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+            >
+              <span className="font-display font-bold text-xs">{label} {r.total}</span>
+              <span className="font-display font-black text-xs" style={{ opacity: fav ? 1 : 0.85 }}>{fmt(ml)}</span>
+            </span>
+          )
+          return (
+            <span className="flex flex-col gap-1 items-end">
+              <Box label="O" ml={r.overML} fav={overFav} />
+              <Box label="U" ml={r.underML} fav={!overFav} />
+            </span>
+          )
+        }}
+      />
+    </div>
+  )
+}
+
+// ─── Single-game odds (used on the Game page) ────────────────────────────────
+// Shows ONLY this game's line — spread, moneyline, total. The line is computed
+// deterministically from data through the game's own week (upToWeek), so a
+// resulted game always reflects its true pre-game line with no stored state.
+// Once the game is played it highlights which side hit in each market.
 export function GameOdds({ dynasty, game }) {
-  const year = game?.year;
-  const week = game?.week;
+  const year = game?.year
+  const week = game?.week
 
   const m = useMemo(() => {
-    if (!dynasty || !game || week == null) return null;
-    const normCtx = buildNormSpreadContext(dynasty, year, week);
-    return buildMatchup(dynasty, game, year, week, normCtx);
-  }, [dynasty, game?.id, game?.team1Tid, game?.team2Tid, game?.homeTeamTid, game?.team1Score, game?.team2Score, year, week]);
+    if (!dynasty || !game || week == null) return null
+    const powerMap = buildSrsPowerMap(dynasty, year, week)
+    const normCtx = buildNormSpreadContext(dynasty, year, week, powerMap)
+    return buildMatchup(dynasty, game, year, week, normCtx, powerMap)
+  }, [dynasty, game?.id, game?.team1Tid, game?.team2Tid, game?.homeTeamTid, game?.team1Score, game?.team2Score, game?.team1Overall, game?.team2Overall, game?.opponentOverall, year, week])
 
-  if (!dynasty || !game) return null;
+  if (!dynasty || !game) return null
   if (week == null || !m) {
     return (
       <div className="max-w-lg mx-auto rounded-xl border border-surface-4 overflow-hidden p-6 text-center text-sm text-txt-tertiary" style={{ background: 'var(--surface-1)' }}>
         Betting lines are available for regular season games only.
       </div>
-    );
+    )
   }
 
   return (
@@ -1186,89 +1450,109 @@ export function GameOdds({ dynasty, game }) {
       <LinesHeader />
       <MatchupRows m={m} />
     </div>
-  );
+  )
 }
 
-export function isChampConference(c) {
-  const CHAMP_CONFS = ['SEC', 'Big Ten', 'ACC', 'Big 12', 'Pac-12', 'AAC', 'Mountain West', 'Sun Belt', 'MAC', 'CUSA', 'C-USA', 'MEAC', 'SWAC', 'CAA', 'MVFC', 'Big South', 'OVC'];
-  return CHAMP_CONFS.includes(c);
-}
+// ─── Root component ───────────────────────────────────────────────────────────
 
 export const SPORTSBOOK_TABS = [
   { value: 'lines',        label: 'Game Lines' },
   { value: 'championship', label: 'Natl Championship' },
   { value: 'cfp',          label: 'Conf. Champ' },
   { value: 'wintotals',    label: 'Win Totals' },
-];
+]
 
-// ─── Root component ───────────────────────────────────────────────────────────
+export default function SportsbookPanel({ dynasty, game, pathPrefix, hideHeader = false, subTab, onSubTabChange, gameFilter = null, teamFilter = null, confChampConf = null, winTotalConf = null }) {
+  const [internalTab, setInternalTab] = useState('lines')
+  const [copied, setCopied] = useState(false)
 
-export default function SportsbookPanel({ dynasty, game }) {
-  const [sbTab, setSbTab] = useState('lines')
-  const [showDebug, setShowDebug] = useState(false)
+  // Resolve custom conferences once for all sub-panels + the page-level filter.
+  const customConfs = useMemo(() => {
+    try { return getCustomConferencesForYear(dynasty, game?.year) }
+    catch { return null }
+  }, [dynasty, game?.year])
+
+  // Controlled mode: the parent (e.g. Around the Country) renders the sub-tabs
+  // itself — as a second row under its own header — and drives the selection.
+  const controlled = subTab != null
+  const sbTab = controlled ? subTab : internalTab
+  const setSbTab = controlled ? (onSubTabChange || (() => {})) : setInternalTab
 
   if (!dynasty || !game) return null
+
+  const copyDebug = async () => {
+    try {
+      await navigator.clipboard.writeText(buildDebugText(dynasty, game))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard blocked (rare) — fall back to a prompt the user can copy from.
+      window.prompt('Copy the sportsbook debug output:', buildDebugText(dynasty, game))
+    }
+  }
 
   const year       = game.year
   const leagueName = dynasty.leagueName || 'CFB'
 
-  const tabs = [
-    { value: 'lines',        label: 'Game Lines' },
-    { value: 'championship', label: 'Natl Championship' },
-    { value: 'cfp',          label: 'Conf. Champ' },
-    { value: 'wintotals',    label: 'Win Totals' },
-  ]
+  const tabs = SPORTSBOOK_TABS
 
   return (
-    <div className="bg-surface-1 rounded-xl overflow-hidden shadow-lg mt-4">
-      {/* Header */}
-      <div
-        className="px-4 py-3 flex items-center justify-between border-b border-surface-4"
-        style={{ background: 'linear-gradient(135deg, #1a2744 0%, #111827 100%)' }}
-      >
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-400">FanDuel Sportsbook</div>
-          <div className="text-txt-muted text-[10px]">
-            {leagueName} · {year} Season · Week {game.week ?? 'Post'}
+    <div
+      className={`${sbTab === 'lines' ? 'w-full' : 'max-w-lg'} mx-auto ${hideHeader ? 'overflow-hidden' : 'mt-4 rounded-xl border border-surface-4 overflow-hidden'}`}
+      style={hideHeader ? undefined : { background: 'var(--surface-1)' }}
+    >
+      {/* Header — hidden when embedded (e.g. the Around the Country page, where
+          the sub-tabs read as a second row under that page's own tabs). */}
+      {!hideHeader && (
+        <div className="px-4 py-3 flex items-center justify-between gap-2 border-b border-surface-4">
+          <div className="min-w-0">
+            <h2 className="font-bold text-txt-primary m-0 text-sm">Sportsbook</h2>
+            <p className="text-txt-tertiary text-xs mt-0.5 m-0">
+              {leagueName} · {year} Season · Week {game.week ?? 'Post'}
+            </p>
           </div>
+          {/* Dev-only: copies a full step-by-step breakdown of how this game's
+              spread / ML / total / futures are computed. */}
+          {import.meta.env.DEV && game?.id && (
+            <button
+              onClick={copyDebug}
+              className="text-[10px] px-2 py-1 rounded border border-surface-4 text-txt-muted hover:text-txt-secondary transition-colors"
+              title="Copy how this game's odds are computed"
+            >
+              {copied ? 'Copied' : 'Copy Debug'}
+            </button>
+          )}
         </div>
-        <button
-          onClick={() => setShowDebug(v => !v)}
-          className={`text-[10px] px-2 py-1 rounded border transition-colors ${
-            showDebug
-              ? 'border-yellow-500/60 text-yellow-400 bg-yellow-900/20'
-              : 'border-surface-4 text-txt-muted hover:text-txt-secondary'
-          }`}
-        >
-          {showDebug ? 'Hide Debug' : 'Debug'}
-        </button>
-      </div>
+      )}
 
-      {/* Sub-tabs */}
-      <div className="flex items-center gap-1 overflow-x-auto no-scrollbar border-b border-surface-4">
-        {tabs.map(tab => (
-          <button
-            key={tab.value}
-            onClick={() => setSbTab(tab.value)}
-            className={`flex-1 sm:flex-none px-3 py-2.5 text-xs font-medium transition-colors whitespace-nowrap ${
-              sbTab === tab.value
-                ? 'text-txt-primary border-b-2 border-blue-500 bg-surface-2'
-                : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-2/50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Debug panel */}
-      {showDebug && <DebugPanel dynasty={dynasty} game={game} />}
+      {/* Sub-tabs — only rendered here when NOT controlled by a parent header. */}
+      {!controlled && (
+        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-surface-4">
+          {tabs.map(tab => {
+            const active = sbTab === tab.value
+            return (
+              <button
+                key={tab.value}
+                onClick={() => setSbTab(tab.value)}
+                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors whitespace-nowrap border-b-2 ${
+                  active
+                    ? 'text-txt-primary bg-surface-2'
+                    : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-2/50 border-transparent'
+                }`}
+                style={active ? { borderBottomColor: 'var(--text-primary)' } : undefined}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Content */}
-      {sbTab === 'lines'        && <GameLinesPanel   dynasty={dynasty} game={game} />}
-      {sbTab === 'championship' && <NatlChampPanel   dynasty={dynasty} game={game} />}
-      {sbTab === 'cfp'          && <ConfChampPanel   dynasty={dynasty} game={game} />}
-      {sbTab === 'wintotals'    && <WinTotalsPanel   dynasty={dynasty} game={game} />}
+      {sbTab === 'lines'        && <GameLinesPanel   dynasty={dynasty} game={game} pathPrefix={pathPrefix} gameFilter={gameFilter} />}
+      {sbTab === 'championship' && <NatlChampPanel   dynasty={dynasty} game={game} pathPrefix={pathPrefix} teamFilter={teamFilter} />}
+      {sbTab === 'cfp'          && <ConfChampPanel   dynasty={dynasty} game={game} pathPrefix={pathPrefix} customConfs={customConfs} controlledConf={confChampConf} />}
+      {sbTab === 'wintotals'    && <WinTotalsPanel   dynasty={dynasty} game={game} pathPrefix={pathPrefix} customConfs={customConfs} teamFilter={teamFilter} controlledConf={winTotalConf} />}
 
       {/* Footer */}
       <div className="px-4 py-2 border-t border-surface-4 text-[10px] text-txt-muted text-center">

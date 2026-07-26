@@ -1,8 +1,8 @@
 // Archetype -> scheme fit weights, keyed by each real in-game player
 // archetype (player.archetype) against the canonical CFB27 scheme list.
-// This is deliberately separate from schemes.js's SCHEME_ATTRS (an
-// attribute-weighting table used only by PositionBattles) — Scheme Builder
-// scores fit by play-style archetype, not raw ratings.
+// This is deliberately separate from schemes.js's SCHEME_ATTRS (a raw
+// attribute-weighting table) — Scheme Builder scores fit by play-style
+// archetype, not raw ratings.
 //
 // Scale: 0-3 per archetype per position ("3" = ideal fit, "0" = poor fit).
 // Archetypes not listed for a given scheme/position default to a neutral 1

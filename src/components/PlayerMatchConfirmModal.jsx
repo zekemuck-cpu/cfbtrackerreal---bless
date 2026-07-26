@@ -109,8 +109,8 @@ const getMascotName = (abbr, teamsData = null) => {
     'UH': 'Houston Cougars', 'UL': 'Lafayette Ragin\' Cajuns', 'UM': 'Miami Hurricanes',
     'UMD': 'Maryland Terrapins', 'UT': 'Tennessee Volunteers', 'VAN': 'Vanderbilt Commodores',
     // FCS teams
-    'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
-    'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
+    'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
+    'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
   }
   return mascotMap[abbr] || null
 }
@@ -203,10 +203,12 @@ export default function PlayerMatchConfirmModal({
             style={{ backgroundColor: 'var(--surface-3)', border: `1px solid ${'var(--text-primary)'}30` }}
           >
             <div
-              className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0"
-              style={{ backgroundColor: 'var(--text-primary)', color: primaryText }}
+              className="w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 overflow-hidden"
+              style={{ backgroundColor: oldTeamLogo ? '#ffffff' : 'var(--text-primary)', color: primaryText }}
             >
-              {player.name?.charAt(0) || '?'}
+              {oldTeamLogo
+                ? <img src={oldTeamLogo} alt="" className="w-full h-full object-contain p-1" />
+                : (player.name?.charAt(0) || '?')}
             </div>
             <div>
               <div className="font-bold text-base text-txt-primary">{player.name}</div>

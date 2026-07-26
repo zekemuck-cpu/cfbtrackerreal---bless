@@ -13,6 +13,7 @@
 // the in-game card).
 import { getTidFromTeamName } from './teamRegistry'
 import UNIQUE_PORTRAIT_IDS from './cfb27UniquePortraitIds.json'
+import { calculateRecruitingClassScore } from '../utils/recruitingScore'
 
 // Static manifest of the numeric ids that actually have a file in
 // public/cfb27-portraits/unique/ (generated from that folder's own listing —
@@ -165,6 +166,23 @@ export function mapClass(schoolYear, redshirtStatus) {
   return redshirtStatus === 'Previous' ? `RS ${base}` : base
 }
 
+// Recruit.Class (a raw save field on the Recruit row, not the same as a
+// signed Player's SchoolYear) — verified against a real save: exactly 4
+// distinct values exist, 'HighSchool' (the overwhelming majority) plus 3
+// junior-college variants. Matches the in-game recruit detail screen's own
+// "JC (JR)"/"JC (SO)"/"JC (SR)" class label exactly (JuniorCollege_Senior is
+// a rare case — 1 of 4,101 recruits in the save checked — but still mapped
+// for completeness). Returns null for 'HighSchool' or any unrecognized
+// value — callers treat null as "not a JUCO recruit".
+const JUCO_CLASS_LABELS = {
+  JuniorCollege_Sophomore: 'JC (SO)',
+  JuniorCollege_Junior: 'JC (JR)',
+  JuniorCollege_Senior: 'JC (SR)',
+}
+export function mapRecruitClassLabel(rawRecruitClass) {
+  return JUCO_CLASS_LABELS[rawRecruitClass] || null
+}
+
 // Raw height is total inches (verified exact, e.g. 75 -> 6'3").
 export function mapHeight(rawInches) {
   if (!rawInches || !Number.isFinite(rawInches)) return ''
@@ -183,29 +201,28 @@ export function mapWeight(rawWeight) {
   return rawWeight + WEIGHT_OFFSET
 }
 
-// Real in-game headshots, resolved from GenericHeadAssetName (falling back to
-// PLYR_PORTRAIT) against the bundled portrait library (public/cfb27-portraits/
-// — extracted from the game's own assets by the CFB27 Recruit Class Generator
-// mod tool; verified 98.8%+ hit rate across the full real roster (16,257
-// players), both real-player and procedurally-generated heads. The residual
-// gap is a genuine, isolated hole in the third-party library itself (a
-// handful of specific ids missing a file even in otherwise-dense id ranges,
-// confirmed against the tool's own original source folder) — those players
-// simply get no photo (same as any player without one; Player.jsx already
-// hides a broken/missing image gracefully). Two naming conventions:
+// Real in-game headshots, resolved from GenericHeadAssetName against the
+// bundled portrait library (public/cfb27-portraits/ — extracted from the
+// game's own assets by the CFB27 Recruit Class Generator mod tool). Two
+// naming conventions:
 //   "Unique_SmithJeremiah_8726"        -> portraits/unique/8726.webp
 //   "Generic_0001_P_T0000_D_1_1"       -> portraits/generic/1.webp
 //
 // Must be an ABSOLUTE url: player photos are displayed through wsrv.nl (an
 // external resize proxy, see src/utils/imageProxy.js), which fetches the
 // URL itself and can't resolve a path relative to this app's origin.
+//
 // GenericHeadAssetName's own trailing number is missing from the bundled
-// library for ~9% of Unique_ (real-player) rows — the save separately stores
-// a second, independent numeric head id (PLYR_PORTRAIT) for the same
-// portrait, and checking it against the library resolves ~90% of those
-// misses (verified against a real 16.5k-player save: 90.9% -> 98.8%
-// coverage). Generic_ (procedurally-generated) rows already hit 100% on the
-// primary id alone, so no fallback is needed there.
+// library for ~9% of Unique_ (real-player) rows. A second, independent
+// numeric head id also exists on the save (PLYR_PORTRAIT) and checking it
+// against the library resolves most of those misses — but verified
+// concretely on a real player (Kayden Dixon-Wyatt, USC WR) that this
+// fallback id is NOT reliably "the same portrait": it resolved to a real
+// file, but a different person's face. Deliberately NOT used here anymore —
+// showing no photo (Player.jsx already hides a broken/missing image
+// gracefully, falling back to a monogram) is preferable to risking a
+// confidently-wrong face for a real player. Generic_ (procedurally-
+// generated) rows already hit 100% on the primary id alone regardless.
 export function mapPortraitUrl(genericHeadAssetName, portraitId) {
   if (!genericHeadAssetName) return ''
   if (typeof window === 'undefined') return ''
@@ -216,8 +233,6 @@ export function mapPortraitUrl(genericHeadAssetName, portraitId) {
     const n = parts[parts.length - 1]
     if (/^[0-9]+$/.test(n) && UNIQUE_PORTRAIT_ID_SET.has(Number(n))) {
       relPath = `/cfb27-portraits/unique/${n}.webp`
-    } else if (Number.isFinite(portraitId) && UNIQUE_PORTRAIT_ID_SET.has(portraitId)) {
-      relPath = `/cfb27-portraits/unique/${portraitId}.webp`
     }
   } else if (genericHeadAssetName.startsWith('Generic_')) {
     const parts = genericHeadAssetName.split('_')
@@ -248,6 +263,27 @@ function isValidRow(row) {
  * @param {number} opts.tid - the resolved team id this player belongs to
  * @returns {object} app-schema player object
  */
+// Best-effort humanizer for the save's PascalCase injury-type enum (e.g.
+// 'LegQuadTear' -> 'Quad Tear', 'AnkleDislocatedSeveralGames' -> 'Ankle
+// Dislocated'). Verified end-to-end against exactly one real example
+// (LegQuadTear -> the in-game "Quad Tear" label, John Walker/Ohio State) —
+// the leading "Leg" is dropped there because it's redundant with the more
+// specific "Quad" that follows; other body-part prefixes (Hip/Shoulder/
+// Ankle/Hand/Foot/Rib/Knee) are NOT verified to behave the same way and are
+// left in place, so this may not match EA's exact curated text for every
+// injury type. Trailing severity-tier words are stripped since they
+// duplicate the separate InjurySeverity field, not the injury's name.
+const INJURY_SEVERITY_SUFFIXES = ['SeveralGames', 'CoupleGames']
+export function mapInjuryType(rawType) {
+  if (!rawType || rawType === 'Invalid_') return null
+  let s = String(rawType)
+  for (const suffix of INJURY_SEVERITY_SUFFIXES) {
+    if (s.endsWith(suffix)) { s = s.slice(0, -suffix.length); break }
+  }
+  if (s.startsWith('Leg') && s.length > 3) s = s.slice(3)
+  return s.replace(/([a-z])([A-Z])/g, '$1 $2').trim()
+}
+
 export function mapExtractedRowToAppPlayer(row, { year, pid, tid }) {
   const position = mapPosition(row.position)
   const devTrait = row.dev_trait || 'Normal'
@@ -272,6 +308,9 @@ export function mapExtractedRowToAppPlayer(row, { year, pid, tid }) {
     state: mapState(row.home_state),
     pictureUrl: mapPortraitUrl(row.generic_head_asset_name, Number(row.portrait_id)),
     isCaptain: Boolean(row.is_captain),
+    isInjured: Boolean(row.is_injured),
+    injuryType: row.is_injured ? mapInjuryType(row.injury_type) : null,
+    injuryLength: row.is_injured && Number.isFinite(row.injury_length) ? row.injury_length : null,
     ...(Array.isArray(row.abilities) && row.abilities.length ? { abilities: row.abilities } : {}),
 
     pid,
@@ -390,19 +429,15 @@ export function mapTeamRatings(rawTeamRatings, rawTeamId) {
  * `dynasty.coachingStaff` shape (hcName/ocName/dcName) — same user-team-only
  * scope as mapTeamRatings.
  *
- * Also resolves each role's headshot via the same GenericHeadAssetName/
- * Portrait pair used for player portraits — but ONLY for "Generic_"
- * (procedural, non-named) coaches. Generic heads are a small fixed template
- * pool (5040 faces) the game reuses for ANY procedural character regardless
- * of role, so the bundled library covers them fully (verified against a real
- * save: 132/132 Generic_ coaches resolve to a real file). "Unique_"
- * (real-likeness, e.g. an actual named HC) coaches are deliberately left
- * without a photo instead — the bundled library was built exclusively from
- * player save data (verified: its 8,907-name source list has zero coach
- * entries), so a real coach's id just happens to collide with an unrelated
- * player's face rather than resolving to their own. Showing nothing (falls
- * back to the team logo / Add Photo prompt) beats confidently showing the
- * wrong person.
+ * Deliberately does NOT resolve a headshot for any role. An earlier version
+ * pulled the "Generic_" procedural coach's head through the same bundled
+ * portrait library used for player photos (reasoning that the 5040-face
+ * generic template pool is shared across all procedural characters
+ * regardless of role) — but in practice this produced a wrong-looking face
+ * for real users often enough that it was pulled entirely (user report,
+ * 2026-07-25: "the coach heads we currently use... are all incorrect").
+ * No photo (falls back to the team logo / Add Photo prompt) beats a
+ * confidently-wrong one; users can upload their own via Coach Career.
  *
  * @param {object} rawCoachingStaff - the parse endpoint's `coachingStaff` map
  * @param {number} rawTeamId
@@ -410,17 +445,153 @@ export function mapTeamRatings(rawTeamRatings, rawTeamId) {
 export function mapCoachingStaff(rawCoachingStaff, rawTeamId) {
   const c = rawCoachingStaff && rawCoachingStaff[rawTeamId]
   if (!c) return null
-  const pic = (role) => {
-    if (!role?.generic_head_asset_name?.startsWith('Generic_')) return ''
-    return mapPortraitUrl(role.generic_head_asset_name, role.portrait_id)
-  }
   return {
     hcName: c.headCoach?.name || null,
-    hcPictureUrl: pic(c.headCoach),
+    hcPictureUrl: '',
     ocName: c.offensiveCoordinator?.name || null,
-    ocPictureUrl: pic(c.offensiveCoordinator),
+    ocPictureUrl: '',
     dcName: c.defensiveCoordinator?.name || null,
-    dcPictureUrl: pic(c.defensiveCoordinator),
+    dcPictureUrl: '',
+  }
+}
+
+/**
+ * A team's whole-league recruiting-class stats, for the "Top Classes"
+ * national leaderboard — NOT the user's own detailed per-recruit board
+ * (that stays exactly as-is, via reconcileRecruitingBoard in
+ * cfb27SaveSync.js). Reuses calculateRecruitingClassScore
+ * (src/utils/recruitingScore.js) verbatim — that function is team-agnostic
+ * and already proven (used for the user's own class today) to reproduce
+ * the in-game class score, so no new formula is introduced here.
+ *
+ * @param {{stars:number, nationalRank:number|null}[]|undefined} recruits - parsed.leagueRecruitingClasses[rawTeamId]
+ * @param {{national:number|null, conference:number|null}|undefined} topClassRank - parsed.topClassRanks[rawTeamId]
+ */
+export function mapTeamRecruitingClass(recruits, topClassRank) {
+  if (!recruits && !topClassRank) return null
+  // stars comes through as the save's raw enum ("FOUR_STAR", etc.), same as
+  // every other recruit-star value in this pipeline — mapStars() converts
+  // it to a 1-5 number before scoring/counting.
+  const list = (recruits || []).map((r) => ({
+    stars: mapStars(r?.stars),
+    nationalRank: r?.nationalRank ?? null,
+    nilCompensation: Number(r?.nilCompensation) || 0,
+  }))
+  const stats = { total: list.length, fiveStars: 0, fourStars: 0, threeStars: 0, twoStars: 0, oneStars: 0, totalNil: 0, score: calculateRecruitingClassScore(list) }
+  for (const r of list) {
+    const s = Number(r.stars) || 0
+    if (s === 5) stats.fiveStars++
+    else if (s === 4) stats.fourStars++
+    else if (s === 3) stats.threeStars++
+    else if (s === 2) stats.twoStars++
+    else if (s === 1) stats.oneStars++
+    stats.totalNil += r.nilCompensation
+  }
+  return {
+    recruitingClassRank: topClassRank?.national ?? null,
+    recruitingClassConferenceRank: topClassRank?.conference ?? null,
+    recruitingClassStats: stats,
+  }
+}
+
+/**
+ * One Player of the Week honoree -> app shape. rawEntry is one of
+ * parsed.playerAwards.national[week][side] /
+ * parsed.playerAwards.conference[week][confName][side].
+ */
+export function mapPlayerOfWeekEntry(rawEntry, rawTeamIdMap) {
+  if (!rawEntry) return null
+  const tid = rawEntry.team_id != null ? rawTeamIdMap.get(Number(rawEntry.team_id)) : null
+  return {
+    firstName: rawEntry.first_name || '',
+    lastName: rawEntry.last_name || '',
+    name: `${rawEntry.first_name || ''} ${rawEntry.last_name || ''}`.trim(),
+    position: mapPosition(rawEntry.position),
+    jerseyNumber: Number.isFinite(rawEntry.jersey) ? String(rawEntry.jersey) : '',
+    tid: tid ?? null,
+    pictureUrl: mapPortraitUrl(rawEntry.generic_head_asset_name, rawEntry.portrait_id),
+  }
+}
+
+/** One Heisman Watch entry -> app shape. rawEntry is one of parsed.heismanWatch. */
+export function mapHeismanEntry(rawEntry, rawTeamIdMap) {
+  if (!rawEntry) return null
+  const tid = rawEntry.team_id != null ? rawTeamIdMap.get(Number(rawEntry.team_id)) : null
+  return {
+    rank: rawEntry.rank,
+    prevRank: rawEntry.prev_rank ?? null,
+    firstName: rawEntry.first_name || '',
+    lastName: rawEntry.last_name || '',
+    name: `${rawEntry.first_name || ''} ${rawEntry.last_name || ''}`.trim(),
+    position: mapPosition(rawEntry.position),
+    tid: tid ?? null,
+    pictureUrl: mapPortraitUrl(rawEntry.generic_head_asset_name, rawEntry.portrait_id),
+  }
+}
+
+/**
+ * One National All-American / All-Conference entry -> the shape
+ * AllAmericans.jsx/AllConference.jsx already read from
+ * dynasty.allAmericansByYear[year].allAmericans/.allConference
+ * ({player, position, class, school, schoolTid, designation}).
+ */
+export function mapHonorEntry(rawEntry, rawTeamIdMap, dynastyTeams) {
+  if (!rawEntry) return null
+  const tid = rawEntry.team_id != null ? rawTeamIdMap.get(Number(rawEntry.team_id)) : null
+  const school = tid != null ? (dynastyTeams?.[tid]?.abbr ?? null) : null
+  return {
+    player: `${rawEntry.first_name || ''} ${rawEntry.last_name || ''}`.trim(),
+    position: mapPosition(rawEntry.position),
+    class: mapClass(rawEntry.year, rawEntry.redshirt),
+    school,
+    schoolTid: tid ?? null,
+    designation: rawEntry.designation,
+  }
+}
+
+/**
+ * One named season award (Heisman, Maxwell, etc.) -> the per-award entry
+ * shape Awards.jsx already reads from dynasty.awardsByYear[year][awardKey]
+ * ({player, position, team}).
+ */
+export function mapAwardEntry(rawEntry, rawTeamIdMap, dynastyTeams) {
+  if (!rawEntry) return null
+  const tid = rawEntry.team_id != null ? rawTeamIdMap.get(Number(rawEntry.team_id)) : null
+  const team = tid != null ? (dynastyTeams?.[tid]?.abbr ?? null) : null
+  return {
+    player: `${rawEntry.first_name || ''} ${rawEntry.last_name || ''}`.trim(),
+    position: mapPosition(rawEntry.position),
+    team,
+  }
+}
+
+const COACH_OFFER_POSITION_LABEL = {
+  HeadCoach: 'Head Coach',
+  OffensiveCoordinator: 'Offensive Coordinator',
+  DefensiveCoordinator: 'Defensive Coordinator',
+}
+
+/**
+ * One pending job offer from another school for the user's OWN coach
+ * (extractPlayers.cjs's buildCoachOffers — JobOpening.ContractOfferList ->
+ * StaffPersonContractOffer, filtered to entries whose StaffPerson ref is the
+ * user's own coach row). Purely a "what's happening right now" display —
+ * never merged/gap-filled against a prior sync's list, since an offer that's
+ * gone in the save (declined/expired/resolved) should just disappear here
+ * too, not linger.
+ */
+export function mapCoachOffer(raw, rawTeamIdMap, dynastyTeams) {
+  if (!raw) return null
+  const tid = raw.rawTid != null ? rawTeamIdMap.get(Number(raw.rawTid)) : null
+  const teamAbbr = tid != null ? (dynastyTeams?.[tid]?.abbr ?? null) : null
+  return {
+    tid: tid ?? null,
+    teamAbbr,
+    position: COACH_OFFER_POSITION_LABEL[raw.position] || raw.position || null,
+    status: raw.status || null,
+    offeredPoints: raw.offeredPoints ?? null,
+    expectedPoints: raw.expectedPoints ?? null,
+    length: raw.length ?? null,
   }
 }
 
@@ -462,6 +633,27 @@ export function mapConferences(rawConferences, rawTeamIdMap, dynastyTeams) {
  * @param {number} userAppTid - the app tid the user is playing as
  * @param {object} dynastyTeams
  */
+// The save's own generic-schedule-filler opponents (TeamIndex 255, see
+// mapScheduleForTeam below) — EA's 5 real directional placeholder schools.
+// The app ALREADY tracks these as real teams at fixed tids 137-141 (see
+// TEAMS in teamRegistry.js / migrateFCSFiveTeams in DynastyContext.jsx),
+// each with its own abbr/name/logo, and dynasty.teams is seeded with all
+// 5 by default. Resolving to that real tid (instead of leaving
+// opponentTid null, the previous approach) is what's REQUIRED for the
+// game to render at all in tid-based views (Team View schedule,
+// Dashboard schedule widget) — those do a tid lookup against
+// dynasty.teams and silently drop the whole row when the tid is null,
+// not just the logo. Confirmed against a real save: North Texas's Week 4
+// FCS opponent was missing entirely from both schedule views until this
+// tid mapping was added.
+export const FCS_FILLER_NAME_TO_TID = {
+  'FCS East': 137,
+  'FCS Midwest': 138,
+  'FCS Northwest': 139,
+  'FCS West': 140,
+  'FCS Southeast': 141,
+}
+
 export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTeams) {
   const userAbbr = dynastyTeams?.[userAppTid]?.abbr
   const out = []
@@ -474,6 +666,32 @@ export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTe
 
     const isHome = homeAppTid === userAppTid
     const opponentAppTid = isHome ? awayAppTid : homeAppTid
+    const rawOpponentId = isHome ? g.awayTeamId : g.homeTeamId
+
+    // A generic, permanently-untracked opponent (e.g. "FCS West"/"FCS
+    // East") — the save's own TeamIndex 255 sentinel, but a REAL, fixed
+    // schedule slot, not a still-resolving placeholder like a postseason
+    // bye slot. Dropping it (the old behavior) silently undercounted a
+    // real team's full season — confirmed against a real save: North
+    // Texas's Week 4 game is exactly this case, and got excluded entirely,
+    // showing 11/12 games instead of 12/12. Kept with a plain name and no
+    // real tid (nothing to link/show a logo for) rather than dropped.
+    if (rawOpponentId === 255) {
+      const rawOpponentName = isHome ? g.awayTeam : g.homeTeam
+      if (!rawOpponentName) continue
+      const fcsTid = FCS_FILLER_NAME_TO_TID[rawOpponentName] || null
+      const fcsAbbr = fcsTid != null ? (dynastyTeams?.[fcsTid]?.abbr || null) : null
+      out.push({
+        week: g.week,
+        userTeam: userAbbr,
+        userTeamTid: userAppTid,
+        opponent: fcsAbbr || rawOpponentName,
+        opponentTid: fcsTid,
+        location: isHome ? 'home' : 'away',
+      })
+      continue
+    }
+
     if (opponentAppTid == null) continue
     const opponentAbbr = dynastyTeams?.[opponentAppTid]?.abbr
     if (!opponentAbbr) continue
@@ -522,8 +740,7 @@ export function mapPreseasonTop25(rawTeamRankings, rawTeamIdMap, dynastyTeams) {
 // 'RegularSeason' in both. `stage` looks like a different, unrelated
 // concept (possibly reused from the game's own NFL-mode naming), not a
 // second copy of the phase. 'preseason' remains the safe fallback for any
-// weekType this hasn't been checked against yet (conference championship/
-// bowl/CFP/offseason — only PreSeason and RegularSeason are confirmed).
+// weekType this hasn't been checked against yet.
 const PHASE_MAP = {
   PreSeason: 'preseason',
   RegularSeason: 'regular_season',
@@ -534,18 +751,142 @@ const PHASE_MAP = {
   OffSeason: 'offseason',
 }
 
+// Prefix fallback for numbered variants of a known category — CONFIRMED
+// against a real save that CurrentWeekType is "BowlSeason1"/"BowlSeason2"/
+// "BowlSeason3" (NOT a bare "BowlSeason"), which the exact-match PHASE_MAP
+// above silently missed, falling back to 'preseason' — the exact bug that
+// left a synced dynasty frozen at its last regular-season week/phase even
+// after the save had moved into bowl season (the sync logic saw "preseason"
+// as EARLIER than its last known phase and refused to move backwards).
+// Ordered longest-prefix-first so "NationalChampionship" (which itself
+// starts with nothing else here) and "ConferenceChampionship" never
+// collide. Any future numbered variant of a known category self-heals
+// through this instead of needing another one-off exact-match fix.
+const PHASE_PREFIXES = [
+  ['NationalChampionship', 'postseason'],
+  ['ConferenceChampionship', 'conference_championship'],
+  ['BowlSeason', 'postseason'],
+  ['PostSeason', 'postseason'],
+  ['RegularSeason', 'regular_season'],
+  ['PreSeason', 'preseason'],
+  ['OffSeason', 'offseason'],
+]
+
+function mapWeekTypeToPhase(weekType) {
+  if (!weekType) return 'preseason'
+  if (PHASE_MAP[weekType]) return PHASE_MAP[weekType]
+  const match = PHASE_PREFIXES.find(([prefix]) => weekType.startsWith(prefix))
+  return match ? match[1] : 'preseason'
+}
+
 /**
  * The save's current year/week/phase, for auto-detecting a PC-imported
  * dynasty's Starting Year/currentWeek/currentPhase instead of asking the
  * user to pick them.
  *
- * @param {object} rawSeason - `season` from the parse endpoint ({year, week, weekType, stage})
+ * @param {object} rawSeason - `season` from the parse endpoint ({year, week,
+ *   weekType, stage, regularSeasonLastWeek, conferenceChampionshipWeek})
  */
 export function mapSeasonInfo(rawSeason) {
   if (!rawSeason || !Number.isFinite(rawSeason.year)) return null
+  const phase = mapWeekTypeToPhase(rawSeason.weekType)
+  const rawWeek = Number.isFinite(rawSeason.week) ? rawSeason.week : 0
+
+  // CurrentWeek is ONE CONTINUOUS COUNT across the whole season (verified
+  // up to 21 in a real save — RegularSeason 1-15, ConferenceChampionship at
+  // 16, BowlSeason1/2/3 at 17-19+) — but the app's own week/phase engine
+  // (computeCfb27SyncSeasonAdvance / advanceWeek) expects a PHASE-RELATIVE
+  // week instead (conference championship is always week 1; postseason
+  // counts 1-4/5 from the start of bowl season), or it can never actually
+  // reach the target and the sync silently stalls. Converted using the
+  // save's own boundary markers rather than a hardcoded offset, so this
+  // stays correct even if a save's regular-season length ever differs from
+  // this year's default (15 weeks + week-16 CCG).
+  let week = rawWeek
+  if (rawSeason.conferenceChampionshipWeek != null) {
+    if (phase === 'conference_championship') {
+      week = rawWeek - rawSeason.conferenceChampionshipWeek + 1
+    } else if (phase === 'postseason') {
+      week = rawWeek - rawSeason.conferenceChampionshipWeek
+    }
+  }
+
   return {
     year: rawSeason.year,
-    week: Number.isFinite(rawSeason.week) ? rawSeason.week : 0,
-    phase: PHASE_MAP[rawSeason.weekType] || 'preseason',
+    week: week > 0 ? week : rawWeek,
+    phase,
+  }
+}
+
+// Rivalry.FirstYearPlayed is an offset from 1869 (the year of the first-ever
+// college football game — a fitting epoch for EA to have picked), NOT a
+// literal year. Verified against a real save: Ohio State/Michigan "The Game"
+// raw value 28 -> 1897 (the real first meeting's year); Iron Bowl raw 24 ->
+// 1893; Clemson/Florida State raw 101 -> 1970 — all exact real-world matches.
+const RIVALRY_YEAR_EPOCH = 1869
+
+/**
+ * One team's real rivals -> app shape. rawRivals is
+ * parsed.leagueRivalries[rawTid] (a list of { rivalRawTid, name, formedYear }
+ * for that team, already resolved by buildLeagueRivalries).
+ *
+ * @returns {{ rivalTid: number, name: string|null, formedYear: number|null }[]}
+ */
+export function mapLeagueRivalries(rawRivals, rawTeamIdMap) {
+  if (!Array.isArray(rawRivals)) return []
+  return rawRivals
+    .map((r) => {
+      const rivalTid = rawTeamIdMap.get(Number(r.rivalRawTid))
+      if (rivalTid == null) return null
+      return {
+        rivalTid,
+        name: r.name || null,
+        formedYear: Number.isFinite(r.formedYear) ? RIVALRY_YEAR_EPOCH + r.formedYear : null,
+      }
+    })
+    .filter(Boolean)
+}
+
+// PLYR_DRAFTROUND is a 6-bit field: 0-6 map to real rounds 1st-7th, 63
+// (all-1s) is the "not drafted / not yet drafted this cycle" sentinel — same
+// convention as the TeamIndex 255 sentinel used elsewhere in this pipeline.
+const DRAFT_ROUND_LABELS = ['1st Round', '2nd Round', '3rd Round', '4th Round', '5th Round', '6th Round', '7th Round']
+
+export function mapDraftRound(rawRound) {
+  const n = Number(rawRound)
+  if (!Number.isFinite(n) || n < 0 || n > 6) return null
+  return DRAFT_ROUND_LABELS[n]
+}
+
+// EA's own program/school grade fields, displayed as-is (no invented
+// formula) — camelCased from the save's raw field names.
+export function mapSchoolGrades(raw) {
+  if (!raw) return null
+  return {
+    academicPrestigeGrade: raw.AcademicPrestigeGrade ?? null,
+    athleticFacilitiesGrade: raw.AthleticFacilitiesGrade ?? null,
+    athleticFacilitiesScore: raw.AthleticFacilitiesScore ?? null,
+    brandExposureGrade: raw.BrandExposureGrade ?? null,
+    campusLifestyleGrade: raw.CampusLifestyleGrade ?? null,
+    championshipContenderGrade: raw.ChampionshipContenderGrade ?? null,
+    championshipContenderCurrentYearRank: raw.ChampionshipContenderCurrentYearRank ?? null,
+    championshipContenderYearPlus1Rank: raw.ChampionshipContenderYearPlus1Rank ?? null,
+    championshipContenderYearPlus2Rank: raw.ChampionshipContenderYearPlus2Rank ?? null,
+    championshipContenderYearPlus3Rank: raw.ChampionshipContenderYearPlus3Rank ?? null,
+    coachPrestigeGrade: raw.CoachPrestigeGrade ?? null,
+    coachStabilityGrade: raw.CoachStabilityGrade ?? null,
+    conferencePrestigeGrade: raw.ConferencePrestigeGrade ?? null,
+    programTraditionGrade: raw.ProgramTraditionGrade ?? null,
+    stadiumAtmosphereGrade: raw.StadiumAtmosphereGrade ?? null,
+    proPotentialGradeDB: raw.ProPotentialGradeDB ?? null,
+    proPotentialGradeDL: raw.ProPotentialGradeDL ?? null,
+    proPotentialGradeK: raw.ProPotentialGradeK ?? null,
+    proPotentialGradeLB: raw.ProPotentialGradeLB ?? null,
+    proPotentialGradeOL: raw.ProPotentialGradeOL ?? null,
+    proPotentialGradeP: raw.ProPotentialGradeP ?? null,
+    proPotentialGradeQB: raw.ProPotentialGradeQB ?? null,
+    proPotentialGradeRB: raw.ProPotentialGradeRB ?? null,
+    proPotentialGradeTE: raw.ProPotentialGradeTE ?? null,
+    proPotentialGradeWR: raw.ProPotentialGradeWR ?? null,
   }
 }

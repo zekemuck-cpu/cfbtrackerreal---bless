@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { isOpenTarget } from '../../utils/recruitingTargets'
 import { useDynasty } from '../../context/DynastyContext'
@@ -78,8 +78,8 @@ const getMascotName = (abbr, teamsData = null) => {
     'GAST': 'Georgia State Panthers', 'OKLA': 'Oklahoma Sooners', 'RUT': 'Rutgers Scarlet Knights',
     'SAM': 'Sam Houston State Bearkats', 'TUL': 'Tulane Green Wave', 'TXTECH': 'Texas Tech Red Raiders',
     'UF': 'Florida Gators', 'UM': 'Miami Hurricanes',
-    'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
-    'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
+    'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
+    'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
   }
   return mascotMap[abbr] || null
 }
@@ -106,7 +106,13 @@ export default function AllAmericans() {
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('first')
   const [showEditModal, setShowEditModal] = useState(false)
+  // Explicit "view the preseason predictions" toggle — separate from the
+  // automatic fallback below, so a year with real final honors can still be
+  // compared against what was predicted. Resets to false on year change so
+  // switching years doesn't carry over a stale toggle.
+  const [viewPreseason, setViewPreseason] = useState(false)
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
+  useEffect(() => { setViewPreseason(false) }, [urlYear])
 
   if (!currentDynasty) return null
 
@@ -122,7 +128,9 @@ export default function AllAmericans() {
   // An explicit URL year always wins.
   const yearHasData = (y) => {
     const d = allAmericansByYear[y] || allAmericansByYear[String(y)]
-    return !!d && Array.isArray(d.allAmericans) && d.allAmericans.length > 0
+    if (!d) return false
+    if (Array.isArray(d.allAmericans) && d.allAmericans.length > 0) return true
+    return Array.isArray(d.allAmericansPreseason) && d.allAmericansPreseason.length > 0
   }
   const mostRecentYearWithData = availableYears.find(yearHasData) || null
   const isFirstSeason = Number(currentDynasty.currentYear) <= Number(currentDynasty.startYear)
@@ -131,7 +139,17 @@ export default function AllAmericans() {
     : (mostRecentYearWithData
         ?? (isFirstSeason ? currentDynasty.currentYear : currentDynasty.currentYear - 1))
   const yearData = allAmericansByYear[displayYear] || {}
-  const allAmericans = yearData.allAmericans || []
+  const finalAllAmericans = yearData.allAmericans || []
+  // Preseason 1st/2nd Team predictions (synced the same way as final
+  // honors, see cfb27SaveSync.js). Final honors always take precedence —
+  // shown automatically the moment they exist for this year — but the
+  // preseason picks stay available behind an explicit toggle so they can
+  // still be compared against the real end-of-season teams afterward.
+  const preseasonAllAmericans = yearData.allAmericansPreseason || []
+  const hasFinalAllAmericans = finalAllAmericans.length > 0
+  const hasPreseasonAllAmericans = preseasonAllAmericans.length > 0
+  const isPreseasonView = viewPreseason || (!hasFinalAllAmericans && hasPreseasonAllAmericans)
+  const allAmericans = isPreseasonView ? preseasonAllAmericans : finalAllAmericans
 
   const handleYearChange = (year) => {
     navigate(`${pathPrefix}/all-americans/${year}`)
@@ -435,12 +453,15 @@ export default function AllAmericans() {
     <div className="space-y-6">
       <PageHero
         title={
-          <TitleWithYear
-            year={displayYear}
-            years={availableYears}
-            onChange={handleYearChange}
-            label="All-Americans"
-          />
+          <span className="inline-flex items-center gap-2" style={{ fontSize: 'var(--text-display-lg)' }}>
+            <img src="/badges/all-american.png" alt="" className="w-auto shrink-0" style={{ height: '1em' }} />
+            <TitleWithYear
+              year={displayYear}
+              years={availableYears}
+              onChange={handleYearChange}
+              label="All-Americans"
+            />
+          </span>
         }
         actions={heroActions}
         tabs={hasAnyPlayers ? [
@@ -451,6 +472,31 @@ export default function AllAmericans() {
         activeTab={filter}
         onTabChange={setFilter}
       />
+
+      {hasAnyPlayers && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant={isPreseasonView ? 'warning' : 'default'}>
+            {isPreseasonView ? 'Preseason All-Americans' : 'All-Americans'}
+          </Badge>
+          {isPreseasonView && (
+            <span className="text-xs text-txt-tertiary">
+              {hasFinalAllAmericans
+                ? 'Predicted teams from before the season started.'
+                : "Predicted teams — replaced automatically once the season's final honors are announced."}
+            </span>
+          )}
+          {isPreseasonView && hasFinalAllAmericans && (
+            <Button variant="secondary" size="sm" onClick={() => setViewPreseason(false)}>
+              Back to Final Teams
+            </Button>
+          )}
+          {!isPreseasonView && hasFinalAllAmericans && hasPreseasonAllAmericans && (
+            <Button variant="secondary" size="sm" onClick={() => setViewPreseason(true)}>
+              Compare to Preseason Picks
+            </Button>
+          )}
+        </div>
+      )}
 
       {!hasAnyPlayers ? (
         <Card>

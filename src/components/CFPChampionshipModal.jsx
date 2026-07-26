@@ -59,8 +59,8 @@ const mascotMap = {
   'TTU': 'Texas Tech Red Raiders', 'TULN': 'Tulane Green Wave', 'UH': 'Houston Cougars',
   'UL': 'Lafayette Ragin\' Cajuns', 'UT': 'Tennessee Volunteers',
   // FCS teams
-  'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
-  'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
+  'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
+  'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
 }
 
 const TROPHY_URL = 'https://i.imgur.com/3goz1NK.png'

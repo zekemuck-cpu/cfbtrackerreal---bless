@@ -67,8 +67,8 @@ const mascotMap = {
   'TTU': 'Texas Tech Red Raiders', 'TULN': 'Tulane Green Wave', 'UH': 'Houston Cougars',
   'UL': 'Lafayette Ragin\' Cajuns', 'UT': 'Tennessee Volunteers',
   // FCS teams
-  'FCSE': 'FCS East Judicials', 'FCSM': 'FCS Midwest Rebels',
-  'FCSN': 'FCS Northwest Stallions', 'FCSW': 'FCS West Titans'
+  'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
+  'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
 }
 
 // Map abbreviations to short team names (without mascot)

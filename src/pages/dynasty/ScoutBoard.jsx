@@ -1,11 +1,11 @@
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Card, EmptyState, Button } from '../../components/ui'
+import { Card, EmptyState } from '../../components/ui'
 import { useDynasty } from '../../context/DynastyContext'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { getTargetStatus } from '../../utils/recruitingTargets'
 import { getScoutScoresFor, headlinePercentile, predictRecruitOverall } from '../../utils/scoutScore'
-import { POSITION_FILTER_OPTIONS, matchesPositionFilter } from '../../utils/recruitFilters'
+import { matchesPositionFilter } from '../../utils/recruitFilters'
 import { GradeReportContent, getGradeTier, DevTraitPill } from '../../components/PlayerDatabase'
 import { computeScore } from '../../components/archetypeWeights'
 import { buildRevealedPool } from '../../utils/devTraitLearning'
@@ -15,6 +15,8 @@ import ClearAllTargetsModal from '../../components/ClearAllTargetsModal'
 import { shapeTargetForDatabase, positionBucket } from '../../utils/recruitAttributes'
 import { useToast } from '../../components/ui/Toast'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
+import nilBadge from '../../assets/nilBadge.png'
+import scoutedBadge from '../../assets/scoutedBadge.png'
 
 // Scout Board (the Targets tab): tracked recruiting targets. Each compact
 // row shows name, stars, ranks, and a grade + composite score (local Scout
@@ -23,6 +25,18 @@ import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 // the same scouting report used in the Recruiting Database (GradeReportContent).
 
 const STAR = (n) => '★'.repeat(Math.max(0, Math.min(5, Number(n) || 0)))
+
+// Display labels for `p.commitmentTier` (see cfb27SaveSync.js's
+// reconcileRecruitingBoard for the full funnel this mirrors: Open -> Top5 ->
+// Top3 -> Battle -> SoftCommitted -> HardCommitted -> Signed).
+const TIER_LABEL = {
+  Open: 'Open',
+  Top5: 'Top 5',
+  Top3: 'Top 3',
+  Battle: 'Battle',
+  SoftCommitted: 'Verbally Committed',
+  HardCommitted: 'Hard Committed',
+}
 
 const Chevron = ({ open }) => (
   <svg
@@ -53,6 +67,16 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
   if (p.nationalRank) ranks.push({ v: p.nationalRank, l: 'National' })
   if (p.stateRank && p.state) ranks.push({ v: p.stateRank, l: p.state })
   if (p.positionRank) ranks.push({ v: p.positionRank, l: p.rawPosition || p.position || 'Position' })
+  // Where the user's own team currently ranks in THIS recruit's interest
+  // list — the in-game "Int: 6th" label — synced from CFB27 saves only.
+  // Rendered separately below (after the tier pill), not bundled into
+  // `ranks`, per explicit placement request. Always shown (falls back to
+  // "-" when there's no interest data at all) rather than only appearing
+  // when a rank is known — see cfb27SaveSync.js's reconcileRecruitingBoard
+  // for why `interestRank` itself is already floored to the bottom of the
+  // recruit's tracked list rather than staying blank whenever the user's
+  // team isn't literally one of the 10 tracked schools.
+  const intRank = p.interestRank ?? null
 
   const pct = scoutResult?.ok ? headlinePercentile(scoutResult.data) : null
   const proj = predictRecruitOverall(p)
@@ -103,10 +127,20 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
           {rank}
         </span>
 
-        <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border" style={{ backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-4)' }}>
-          {p.pictureUrl
-            ? <img src={proxyImageUrl(p.pictureUrl, 200)} alt="" className="w-full h-full object-cover" />
-            : <span className={`font-black uppercase text-txt-secondary ${(p.rawPosition || p.position || 'ATH').length > 3 ? 'text-[8px]' : 'text-[10px]'}`} style={{ letterSpacing: '0.04em' }}>{p.rawPosition || p.position || 'ATH'}</span>}
+        <div className="relative flex-shrink-0 w-9 h-9">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border" style={{ backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-4)' }}>
+            {p.pictureUrl
+              ? <img src={proxyImageUrl(p.pictureUrl, 200)} alt="" className="w-full h-full object-cover" />
+              : <span className={`font-black uppercase text-txt-secondary ${(p.rawPosition || p.position || 'ATH').length > 3 ? 'text-[8px]' : 'text-[10px]'}`} style={{ letterSpacing: '0.04em' }}>{p.rawPosition || p.position || 'ATH'}</span>}
+          </div>
+          {p.scoutedFully && (
+            <img
+              src={scoutedBadge}
+              alt="Fully scouted"
+              title="Fully scouted — all attributes revealed"
+              className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full"
+            />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -124,6 +158,12 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
               <GemBustIcon type={p.gemBust} />
             </span>
             {Number(p.stars) > 0 && <span className="text-[10px] flex-shrink-0 tracking-tight" style={{ color: 'var(--accent-warning)' }}>{STAR(p.stars)}</span>}
+            {!committed && !lost && p.nilOffered > 0 && (
+              <span className="inline-flex items-center gap-1 normal-case font-bold text-txt-secondary flex-shrink-0" style={{ fontSize: '14px' }}>
+                <img src={nilBadge} alt="NIL" className="flex-shrink-0" style={{ width: '14px', height: '14px' }} />
+                {p.nilOffered}
+              </span>
+            )}
             {committed && <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide flex-shrink-0">· Committed</span>}
             {lost && (
               <span className="inline-flex items-center gap-1 flex-shrink-0">
@@ -141,15 +181,37 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
             {removed && (
               <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider text-slate-500 border border-slate-700 bg-slate-900 flex-shrink-0">Removed</span>
             )}
+            {!committed && !lost && p.lockedOut && (
+              <span className="text-[9px] font-bold uppercase tracking-wide flex-shrink-0" style={{ color: 'var(--accent-error)' }} title="This recruit has narrowed their list and your team didn't make the cut">
+                · Locked Out
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-x-2.5 sm:gap-x-3 gap-y-0.5 mt-1 text-[9px] sm:text-[11px] tabular-nums" style={{ letterSpacing: '0.3px' }}>
             <span className="uppercase text-txt-secondary font-semibold">{p.rawPosition || p.position || 'ATH'}</span>
+            {p.jucoClassLabel && (
+              <span className="uppercase font-bold" style={{ color: 'var(--accent-warning)' }}>{p.jucoClassLabel}</span>
+            )}
             {ranks.map((rk) => (
               <span key={rk.l} className="inline-flex items-baseline gap-1 normal-case">
                 <span className="font-bold text-txt-secondary">#{rk.v}</span>
                 <span className="text-txt-tertiary uppercase">{rk.l}</span>
               </span>
             ))}
+            {!committed && !lost && p.commitmentTier && (
+              <span
+                className="px-1.5 py-0.5 rounded border font-black uppercase tracking-wide normal-case"
+                style={p.lockedOut
+                  ? { color: 'var(--accent-error)', borderColor: 'var(--accent-error)' }
+                  : { color: 'var(--text-primary)', borderColor: 'var(--text-primary)' }}
+              >
+                {TIER_LABEL[p.commitmentTier] || p.commitmentTier}
+              </span>
+            )}
+            <span className="inline-flex items-baseline gap-1 normal-case">
+              <span className="font-bold text-txt-secondary">{intRank != null ? `#${intRank}` : '-'}</span>
+              <span className="text-txt-tertiary uppercase">Int</span>
+            </span>
             {p.devTrait && <DevTraitPill devTrait={p.devTrait} />}
           </div>
         </div>
@@ -232,7 +294,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
 
 const SORT_OPTIONS = ['scoutscore', 'national', 'priority']
 
-export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', onPositionFilterChange = null, viewingOwnTeam = true, onResolveTargets = null, resolveCount = 0, scoutStaffEnabled = false }) {
+export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', viewingOwnTeam = true, scoutStaffEnabled = false, boardActionsRef = null, onBoardReady = null }) {
   const { updateDynasty, updateRecruitingDatabasePlayers, isViewOnly } = useDynasty()
   const { toast } = useToast()
   const canEdit = viewingOwnTeam && !isViewOnly
@@ -466,6 +528,21 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
   const removedRanked = useMemo(() => ranked.filter((r) => r.p.boardRemoved), [ranked])
   const openTargetCount = useMemo(() => targets.filter((t) => t.status === 'open').length, [targets])
 
+  // The Big Board's toolbar (title/count/sort/Clear All) now renders inside
+  // Recruiting.jsx's own hero section so it's the exact same DOM element as
+  // Commitments' toolbar (no separate card/texture = no seam at the
+  // attachment point). This ref exposes the actions Recruiting.jsx's buttons
+  // need to trigger, and the effect below keeps it informed of live counts —
+  // assigned directly in the render body (not an effect) so it's always
+  // fresh, matching the analysisActionsRef pattern used elsewhere.
+  if (boardActionsRef) {
+    boardActionsRef.current.setSortBy = changeSortBy
+    boardActionsRef.current.openClearAll = () => setShowClearAll(true)
+  }
+  useEffect(() => {
+    onBoardReady?.({ total: targets.length, openCount: openTargetCount, sortBy })
+  }, [targets.length, openTargetCount, sortBy])
+
   if (targets.length === 0) {
     return (
       <Card>
@@ -481,58 +558,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
 
   return (
     <div className="space-y-4">
-      <section className="media-card overflow-hidden">
-        <div className="px-3 sm:px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: 'var(--surface-4)' }}>
-          <h3 className="font-display font-black uppercase leading-none text-txt-primary flex-shrink-0 whitespace-nowrap" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Big Board</h3>
-          <div className="flex items-center gap-1.5 flex-1 min-w-0 justify-end">
-            {onPositionFilterChange && (
-              <label className="flex items-center gap-1.5 text-[11px] text-txt-tertiary min-w-0 flex-1 max-w-[7.5rem]">
-                <span className="uppercase tracking-wide hidden sm:inline flex-shrink-0">Pos</span>
-                <select
-                  value={positionFilter}
-                  onChange={(e) => onPositionFilterChange(e.target.value)}
-                  title="Filter by position"
-                  className="w-full min-w-0 text-[11px] bg-surface-2 border border-surface-4 rounded-md px-1.5 py-1 text-txt-secondary hover:text-txt-primary focus:outline-none focus:border-surface-5"
-                >
-                  {POSITION_FILTER_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <label className="flex items-center gap-1.5 text-[11px] text-txt-tertiary min-w-0 flex-1 max-w-[7.5rem]">
-              <span className="uppercase tracking-wide hidden sm:inline flex-shrink-0">Sort</span>
-              <select
-                value={sortBy}
-                onChange={(e) => changeSortBy(e.target.value)}
-                title="Sort targets"
-                className="w-full min-w-0 text-[11px] bg-surface-2 border border-surface-4 rounded-md px-1.5 py-1 text-txt-secondary hover:text-txt-primary focus:outline-none focus:border-surface-5"
-              >
-                <option value="scoutscore">{scoutStaffEnabled ? 'Scout Grade' : 'ScoutScore'}</option>
-                <option value="national">National Rank</option>
-                <option value="priority">My Priority</option>
-              </select>
-            </label>
-            {onResolveTargets && (
-              <Button variant="secondary" size="sm" className="flex-shrink-0 whitespace-nowrap !px-2.5" onClick={onResolveTargets}>
-                <span className="sm:hidden">Commits ({resolveCount})</span>
-                <span className="hidden sm:inline">New commits? ({resolveCount})</span>
-              </Button>
-            )}
-            {canEdit && (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="flex-shrink-0 whitespace-nowrap !px-2.5"
-                onClick={() => setShowClearAll(true)}
-                disabled={openTargetCount === 0}
-                title={openTargetCount === 0 ? 'No open targets to clear' : 'Clear all open targets'}
-              >
-                Clear All
-              </Button>
-            )}
-          </div>
-        </div>
+      <section className="card overflow-hidden">
         <div>
           {activeRanked.length === 0 ? (
             <div className="px-4 sm:px-5 py-8 text-center text-sm text-txt-tertiary">No targets at this position.</div>

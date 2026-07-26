@@ -1152,6 +1152,12 @@ export default function PlayerEdit() {
                     alt={player.name}
                     className="w-full h-full object-cover group-hover:opacity-70 transition-opacity"
                   />
+                ) : teamLogo ? (
+                  <img
+                    src={teamLogo}
+                    alt=""
+                    className="w-full h-full object-contain p-2 group-hover:opacity-70 transition-opacity"
+                  />
                 ) : (
                   <span
                     className="text-2xl font-bold text-txt-tertiary"

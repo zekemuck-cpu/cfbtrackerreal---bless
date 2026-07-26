@@ -143,10 +143,12 @@ export default function ReturningPlayerConfirmModal({
             </div>
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0"
-                style={{ backgroundColor: 'var(--text-primary)', color: primaryText }}
+                className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden"
+                style={{ backgroundColor: teamLogo ? '#ffffff' : 'var(--text-primary)', color: primaryText }}
               >
-                {recruit.name?.charAt(0) || '?'}
+                {teamLogo
+                  ? <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
+                  : (recruit.name?.charAt(0) || '?')}
               </div>
               <div>
                 <div className="font-bold text-txt-primary">{recruit.name}</div>
