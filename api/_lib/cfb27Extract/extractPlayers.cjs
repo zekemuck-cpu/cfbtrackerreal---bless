@@ -989,9 +989,73 @@ async function buildLeagueSchoolGrades(save, teamTable) {
 }
 
 /**
+ * Whole-league recruit NIL offers, keyed by (rawTeamId, recruit's own
+ * NationalRank) so buildLeagueRecruitingClasses can look up the specific
+ * offer from a recruit's ACTUALLY COMMITTED team — a recruit stays on every
+ * OTHER school's board too (see buildRecruitingBoard's header comment),
+ * each with its own separate, often-stale offer, so this has to be scoped
+ * per-team rather than "the first offer found for this recruit anywhere."
+ *
+ * Player.CurrentNILCompensation (tried first) is uniformly 0 for every
+ * recruit regardless of team/stage — confirmed against a real save, not a
+ * mapping bug, that field just isn't what's populated. The real per-team
+ * NIL offer lives on Team.RecruitingBoard -> RecruitingBoard.Recruits (a
+ * "RecruitTarget[]" array-table row, exposing RecruitTarget0.. sub-fields —
+ * same representation as Conference.TeamSlots's Team0.. buildConferences
+ * already reads) -> each RecruitTarget's own CurrentNILOffer. Confirmed via
+ * a real save: RecruitTarget is a genuine whole-league table (4,272
+ * non-empty rows, real values like 20/10/0 varying with ScholarshipStatus),
+ * not just the human's own board (UserRecruitTarget is a separate,
+ * additionally-fielded variant scoped to the human specifically).
+ *
+ * @returns {Map<string, number>} `${rawTid}::${nationalRank}` -> CurrentNILOffer
+ */
+async function buildRecruitTeamNilOffers(save, teamTable) {
+  const offers = new Map();
+  if (!teamTable) return offers;
+
+  for (const teamRec of teamTable.records) {
+    if (!teamRec || teamRec.isEmpty) continue;
+    const rawTid = Number(readCell(teamRec, 'TeamIndex'));
+    if (!Number.isFinite(rawTid) || rawTid === 255) continue;
+
+    const boardRow = await resolveRef(save, readCell(teamRec, 'RecruitingBoard'));
+    if (!boardRow || boardRow.isEmpty) continue;
+    const arrRow = await resolveRef(save, readCell(boardRow, 'Recruits'));
+    if (!arrRow) continue;
+
+    // Fixed numbered sub-fields, not a discoverable-length array (same
+    // pattern as buildConferences' Team0..23) — 60 gives real boards
+    // (per-team target caps seen in-game around 30-35) generous headroom;
+    // slots beyond the real count simply read null.
+    for (let i = 0; i < 60; i += 1) {
+      let targetRef;
+      try {
+        targetRef = arrRow[`RecruitTarget${i}`];
+      } catch (err) {
+        continue;
+      }
+      if (targetRef == null) continue;
+      const targetRec = await resolveRef(save, targetRef);
+      if (!targetRec || targetRec.isEmpty) continue;
+
+      const nilOffer = Number(readCell(targetRec, 'CurrentNILOffer')) || 0;
+      const recruitRow = await resolveRef(save, readCell(targetRec, 'Recruit'));
+      if (!recruitRow || recruitRow.isEmpty) continue;
+      const nationalRank = Number(readCell(recruitRow, 'NationalRank'));
+      if (!Number.isFinite(nationalRank)) continue;
+
+      offers.set(`${rawTid}::${nationalRank}`, nilOffer);
+    }
+  }
+
+  return offers;
+}
+
+/**
  * @returns {Map<number, {stars:number, nationalRank:number|null, nilCompensation:number}[]>} rawTeamId -> recruit list
  */
-async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker) {
+async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers) {
   const byTeam = new Map();
   if (!recruitRecords || !recruitRecords.length) return byTeam;
 
@@ -1035,13 +1099,14 @@ async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPic
     const F = playerFieldPicker;
     const stars = (playerRec && !playerRec.isEmpty && F.stars) ? readCell(playerRec, F.stars) : null;
     const nationalRank = Number(readCell(recruitRec, 'NationalRank')) || null;
-    // Player.CurrentNILCompensation — a real field directly on the recruit's
-    // own Player row (not scoped to the human user's board the way
-    // UserRecruitTarget.CurrentNILOffer is), matching the in-game Top
-    // Classes screen's per-team "Total NIL Committed" column, which sums
-    // every recruit's NIL regardless of which team they're committing to.
-    const nilCompensation = (playerRec && !playerRec.isEmpty)
-      ? Number(readCell(playerRec, 'CurrentNILCompensation')) || 0
+    // Real per-team NIL offer — see buildRecruitTeamNilOffers' header
+    // comment for why this, not Player.CurrentNILCompensation (always 0),
+    // is the real source. Keyed by this recruit's own committed team
+    // (rawTid, already resolved above) + national rank, so a stale offer
+    // still sitting on some OTHER team's board for this same recruit is
+    // never picked up by mistake.
+    const nilCompensation = nationalRank != null
+      ? (recruitNilOffers?.get(`${rawTid}::${nationalRank}`) ?? 0)
       : 0;
 
     if (!byTeam.has(rawTid)) byTeam.set(rawTid, []);
@@ -1619,9 +1684,20 @@ function buildPlayerRows(table, teamNames, opts, fieldPicker) {
     const teamName = (teamInfo && teamInfo.name) || (catalogTeam ? catalogTeam.name : null);
     const teamNick = teamInfo ? teamInfo.nick : null;
 
+    const _assetNameVal = F.assetName ? readCell(rec, F.assetName) : null;
+    const _genericHeadVal = F.genericHeadAssetName ? readCell(rec, F.genericHeadAssetName) : null;
+    // TEMP DIAGNOSTIC — checking a new community image pack's filename
+    // format against the save's real raw asset-name values. Remove once
+    // resolved.
+    if (!global.__portraitDebugCount) global.__portraitDebugCount = 0;
+    if (global.__portraitDebugCount < 15 && (_assetNameVal || _genericHeadVal)) {
+      global.__portraitDebugCount++;
+      console.log('[PORTRAIT DEBUG]', JSON.stringify({ asset_name: _assetNameVal, generic_head_asset_name: _genericHeadVal, portrait_id: F.portraitId ? Number(readCell(rec, F.portraitId)) : null }));
+    }
+
     rows.push({
-      asset_name: F.assetName ? readCell(rec, F.assetName) : null,
-      generic_head_asset_name: F.genericHeadAssetName ? readCell(rec, F.genericHeadAssetName) : null,
+      asset_name: _assetNameVal,
+      generic_head_asset_name: _genericHeadVal,
       portrait_id: F.portraitId ? Number(readCell(rec, F.portraitId)) : null,
       first_name: F.first ? readCell(rec, F.first) : null,
       last_name: F.last ? readCell(rec, F.last) : null,
@@ -1682,7 +1758,18 @@ async function extractFullSave(filePath, opts = {}) {
   const recruitingBoard = await buildRecruitingBoard(save, playerFieldPicker, presentRatings);
 
   const recruitRecords = await getAllTableRecords(save, 'Recruit');
-  const leagueRecruitingClasses = await buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker);
+  // New/less-tested traversal (Team -> RecruitingBoard -> 60 possible
+  // RecruitTarget slots, across every team) — degrade to "no NIL data"
+  // rather than failing the whole sync (ratings/schedule/recruiting
+  // counts/etc.) if something about this specific chain breaks on a save
+  // shaped differently than the one this was verified against.
+  let recruitNilOffers = new Map();
+  try {
+    recruitNilOffers = await buildRecruitTeamNilOffers(save, teamTable);
+  } catch (err) {
+    console.error('buildRecruitTeamNilOffers failed, continuing without NIL data:', err.message);
+  }
+  const leagueRecruitingClasses = await buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers);
 
   const leagueRivalries = await buildLeagueRivalries(save, teamTable);
   const leagueSchoolGrades = await buildLeagueSchoolGrades(save, teamTable);

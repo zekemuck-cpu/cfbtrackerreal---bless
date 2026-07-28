@@ -7,6 +7,7 @@ import { getTeamConference } from '../../data/conferenceTeams'
 import { getAbbrFromTid } from '../../data/teamRegistry'
 import { formatRecruitingClassScore } from '../../utils/recruitingScore'
 import { PageHero, Card, EmptyState, TitleWithYear } from '../../components/ui'
+import nilBadge from '../../assets/nilBadge.png'
 
 const STAR_COLS = [
   { key: 'fiveStars', label: '5★' },
@@ -79,6 +80,10 @@ export function TopClassesBody({ dynasty, year, pathPrefix }) {
         <span className="font-semibold text-sm text-txt-primary truncate">{r.name}</span>
       </span>
       <span className="w-10 text-center text-sm font-bold tabular-nums text-txt-secondary flex-shrink-0">{r.stats.total}</span>
+      <span className="w-20 flex items-center justify-center gap-1 text-xs font-semibold tabular-nums text-txt-secondary flex-shrink-0 hidden sm:flex">
+        <img src={nilBadge} alt="NIL" className="flex-shrink-0" style={{ width: '13px', height: '13px' }} />
+        {(r.stats.totalNil || 0).toLocaleString()}
+      </span>
       {STAR_COLS.map((c) => (
         <span key={c.key} className="w-9 text-center text-xs tabular-nums text-txt-tertiary flex-shrink-0 hidden sm:inline">
           {r.stats[c.key] || 0}
@@ -96,6 +101,7 @@ export function TopClassesBody({ dynasty, year, pathPrefix }) {
       <span className="w-8 flex-shrink-0" />
       <span className="flex-1">Team</span>
       <span className="w-10 text-center flex-shrink-0">Total</span>
+      <span className="w-20 text-center flex-shrink-0 hidden sm:inline">NIL</span>
       {STAR_COLS.map((c) => (
         <span key={c.key} className="w-9 text-center flex-shrink-0 hidden sm:inline">{c.label}</span>
       ))}
