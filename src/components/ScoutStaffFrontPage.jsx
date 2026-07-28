@@ -1293,7 +1293,7 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
                         <p className={`font-display text-2xl font-black leading-none ${projRoster > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}>
                           {projRoster}<span className="text-sm text-txt-muted">/85</span>
                         </p>
-                        <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Proj. Roster</p>
+                        <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">{currentYear ? `Proj. ${currentYear + 1} Roster` : 'Proj. Roster'}</p>
                       </div>
                     )}
                   </div>

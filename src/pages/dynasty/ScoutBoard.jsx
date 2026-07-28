@@ -15,6 +15,7 @@ import ClearAllTargetsModal from '../../components/ClearAllTargetsModal'
 import { shapeTargetForDatabase, positionBucket } from '../../utils/recruitAttributes'
 import { useToast } from '../../components/ui/Toast'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
+import { getEditionKey } from '../../editions'
 import nilBadge from '../../assets/nilBadge.png'
 import scoutedBadge from '../../assets/scoutedBadge.png'
 
@@ -54,12 +55,21 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
   const open = isOpen
   const lost = status === 'committed_elsewhere'
   const committed = status === 'committed_us'
-  const removed = !!p.boardRemoved
+  // A SoftCommitted (verbal) commit elsewhere is still reversible — worth
+  // distinguishing from a Hard/Signed commit, same "Verbal" language used
+  // on the Commitments tab's own tag (RecruitCard.jsx).
+  const lostIsVerbal = lost && p.commitmentTier === 'SoftCommitted'
+  // The sync flags a commit-to-us boardRemoved (see reconcileRecruitingBoard)
+  // so it drops out of the Removed section, not so it reads as "removed" —
+  // that treatment (dimmed opacity, "Removed" pill, restore button) is only
+  // for genuinely removed/still-open targets.
+  const removed = !!p.boardRemoved && !committed
   // Which school actually landed this recruit — resolved from the same
   // commitmentTid the "Lost" status itself is computed from, so the logo
-  // always matches (never guessed from name text).
-  const lostTeamName = lost && p.commitmentTid != null ? getMascotName(p.commitmentTid, dynastyTeams) : null
-  const lostTeamLogo = lost && p.commitmentTid != null ? getTeamLogoByTid(p.commitmentTid, dynastyTeams) : null
+  // always matches (never guessed from name text). Reused for `committed`
+  // too (commitmentTid === userTid there), so it's always our own team's logo.
+  const landedTeamName = (lost || committed) && p.commitmentTid != null ? getMascotName(p.commitmentTid, dynastyTeams) : null
+  const landedTeamLogo = (lost || committed) && p.commitmentTid != null ? getTeamLogoByTid(p.commitmentTid, dynastyTeams) : null
 
   // National/state/position rank now live in the always-visible row itself
   // (alongside position); archetype + Proj Ovr stay in the expanded dropdown.
@@ -80,6 +90,14 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
 
   const pct = scoutResult?.ok ? headlinePercentile(scoutResult.data) : null
   const proj = predictRecruitOverall(p)
+
+  // A recruit's pictureUrl is resolved once at sync time and cached on the
+  // player record — it's never re-derived once the recruit falls off the
+  // save's tracked board (signed elsewhere, no longer synced), so a later
+  // portrait-asset rename/migration can leave a stale link pointing at a
+  // file that no longer exists. Falls back to the position-abbreviation
+  // placeholder instead of a blank broken image.
+  const [imgError, setImgError] = useState(false)
 
   // Dragging is only meaningful for the collapsed row — once expanded, the
   // row is tall and full of its own interactive content (the embedded grade
@@ -107,7 +125,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
       className={canDrag ? 'cursor-grab active:cursor-grabbing' : undefined}
       style={{
         borderTop: isDragOver ? '2px solid #60a5fa' : rank > 1 ? '1px solid var(--surface-4)' : 'none',
-        opacity: lost ? 0.55 : removed ? 0.4 : 1,
+        opacity: committed ? 1 : lost ? 0.55 : removed ? 0.4 : 1,
       }}
     >
       <div
@@ -129,8 +147,8 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
 
         <div className="relative flex-shrink-0 w-9 h-9">
           <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border" style={{ backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-4)' }}>
-            {p.pictureUrl
-              ? <img src={proxyImageUrl(p.pictureUrl, 200)} alt="" className="w-full h-full object-cover" />
+            {p.pictureUrl && !imgError
+              ? <img src={proxyImageUrl(p.pictureUrl, 200)} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
               : <span className={`font-black uppercase text-txt-secondary ${(p.rawPosition || p.position || 'ATH').length > 3 ? 'text-[8px]' : 'text-[10px]'}`} style={{ letterSpacing: '0.04em' }}>{p.rawPosition || p.position || 'ATH'}</span>}
           </div>
           {p.scoutedFully && (
@@ -164,15 +182,27 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
                 {p.nilOffered}
               </span>
             )}
-            {committed && <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide flex-shrink-0">· Committed</span>}
+            {committed && (
+              <span className="inline-flex items-center gap-1 flex-shrink-0">
+                <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide">· Committed</span>
+                {landedTeamLogo && (
+                  <img
+                    src={landedTeamLogo}
+                    alt={landedTeamName || 'Committed'}
+                    title={landedTeamName ? `Committed to ${landedTeamName}` : undefined}
+                    className="w-4 h-4 object-contain flex-shrink-0"
+                  />
+                )}
+              </span>
+            )}
             {lost && (
               <span className="inline-flex items-center gap-1 flex-shrink-0">
-                <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide">· Lost</span>
-                {lostTeamLogo && (
+                <span className="text-[9px] font-bold uppercase text-txt-tertiary tracking-wide">{lostIsVerbal ? '· Verbal' : '· Lost'}</span>
+                {landedTeamLogo && (
                   <img
-                    src={lostTeamLogo}
-                    alt={lostTeamName || 'Committed elsewhere'}
-                    title={lostTeamName ? `Committed to ${lostTeamName}` : undefined}
+                    src={landedTeamLogo}
+                    alt={landedTeamName || 'Committed elsewhere'}
+                    title={landedTeamName ? `${lostIsVerbal ? 'Verbally committed to' : 'Committed to'} ${landedTeamName}` : undefined}
                     className="w-4 h-4 object-contain flex-shrink-0"
                   />
                 )}
@@ -230,7 +260,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
           ) : <span className="text-txt-muted" style={{ fontSize: '1.35rem' }}>—</span>}
         </div>
 
-        {canEdit && onToggleRemove && (
+        {canEdit && onToggleRemove && !committed && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onToggleRemove(p) }}
@@ -249,7 +279,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
           </button>
         )}
 
-        {canEdit && onHide && (
+        {canEdit && onHide && !committed && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onHide(p) }}
@@ -294,7 +324,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
 
 const SORT_OPTIONS = ['scoutscore', 'national', 'priority']
 
-export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', viewingOwnTeam = true, scoutStaffEnabled = false, boardActionsRef = null, onBoardReady = null }) {
+export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positionFilter = 'all', recruitTypeFilter = 'both', viewingOwnTeam = true, scoutStaffEnabled = false, boardActionsRef = null, onBoardReady = null }) {
   const { updateDynasty, updateRecruitingDatabasePlayers, isViewOnly } = useDynasty()
   const { toast } = useToast()
   const canEdit = viewingOwnTeam && !isViewOnly
@@ -402,7 +432,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
   // — otherwise a Target's grade can't find its own comps under a mismatched
   // key, even when they exist. rawPosition keeps today's specific-position
   // display (badges, rank labels) unchanged.
-  const targets = useMemo(() => {
+  const targetsBeforeTypeFilter = useMemo(() => {
     if (!viewingOwnTeam) return []
     const hiddenPids = new Set((dynasty?.recruitingBoardHiddenPids || []).map(String))
     const out = []
@@ -413,17 +443,20 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
       // below still sees this recruit exactly as before.
       if (hiddenPids.has(String(p.pid))) continue
       const status = getTargetStatus(p, userTid)
-      // Once committed to US, this recruit's home is the Commitments tab —
-      // showing them here too (active board OR Removed) is exactly the
-      // clutter the user asked to eliminate. Commitments reads the separate
-      // recruitingCommitments ledger, not isTarget/boardRemoved, so nothing
-      // is lost by dropping them from this page entirely.
-      if (status === 'committed_us') continue
       const bucketed = { ...p, rawPosition: p.position, position: positionBucket(p.position) }
       out.push({ p: bucketed, status })
     }
     return out
   }, [dynasty?.players, dynasty?.recruitingBoardHiddenPids, yearN, userTid, viewingOwnTeam])
+
+  // Both / High School / Portal — mirrors Recruiting.jsx's Commitments tab
+  // toggle exactly (same `p.previousTeam` truthy/falsy test), so "Portal"
+  // means the same thing on both tabs.
+  const targets = useMemo(() => {
+    if (recruitTypeFilter === 'hs') return targetsBeforeTypeFilter.filter((t) => !t.p.previousTeam)
+    if (recruitTypeFilter === 'portal') return targetsBeforeTypeFilter.filter((t) => !!t.p.previousTeam)
+    return targetsBeforeTypeFilter
+  }, [targetsBeforeTypeFilter, recruitTypeFilter])
 
   // Grading comp pool — every recruit the Recruiting Database itself grades
   // against (real Targets across every class year, bucketed the same way,
@@ -462,19 +495,22 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
   // Skipped entirely when Scout Staff is enabled — we use local scores instead.
   const [scores, setScores] = useState(() => new Map())
   const [scoring, setScoring] = useState(false)
+  // A CFB27 dynasty's recruits get benchmarked against MaxPlaysCFB's CFB27
+  // cohort instead of the cfb26 default — see utils/scoutScore.js.
+  const scoutScoreGame = getEditionKey(dynasty) === 'cfb27' ? 'cfb27' : 'cfb26'
 
   useEffect(() => {
     if (scoutStaffEnabled) return
     let alive = true
     if (targets.length === 0) { setScores(new Map()); return }
     setScoring(true)
-    getScoutScoresFor(targets.map((t) => t.p)).then((map) => {
+    getScoutScoresFor(targets.map((t) => ({ ...t.p, sourceGame: scoutScoreGame }))).then((map) => {
       if (!alive) return
       setScores(map)
       setScoring(false)
     })
     return () => { alive = false }
-  }, [targets, scoutStaffEnabled])
+  }, [targets, scoutStaffEnabled, scoutScoreGame])
 
   // Rank by the chosen sort (committed-elsewhere always sink to the bottom),
   // filtered by the active position dropdown.
@@ -524,8 +560,12 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     return rows
   }, [targets, scores, localScores, scoutStaffEnabled, sortBy, positionFilter, priorityOrder])
 
-  const activeRanked = useMemo(() => ranked.filter((r) => !r.p.boardRemoved), [ranked])
-  const removedRanked = useMemo(() => ranked.filter((r) => r.p.boardRemoved), [ranked])
+  // A commit to OUR OWN team stays visible on the active Big Board (with the
+  // user's team logo, see Row's `committed` branch) even though the sync
+  // flags it boardRemoved — that flag exists to sink recruits committed
+  // elsewhere or manually removed, not to hide our own commits.
+  const activeRanked = useMemo(() => ranked.filter((r) => !r.p.boardRemoved || r.status === 'committed_us'), [ranked])
+  const removedRanked = useMemo(() => ranked.filter((r) => r.p.boardRemoved && r.status !== 'committed_us'), [ranked])
   const openTargetCount = useMemo(() => targets.filter((t) => t.status === 'open').length, [targets])
 
   // The Big Board's toolbar (title/count/sort/Clear All) now renders inside
@@ -540,17 +580,34 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     boardActionsRef.current.openClearAll = () => setShowClearAll(true)
   }
   useEffect(() => {
-    onBoardReady?.({ total: targets.length, openCount: openTargetCount, sortBy })
-  }, [targets.length, openTargetCount, sortBy])
+    onBoardReady?.({
+      total: targets.length,
+      openCount: openTargetCount,
+      sortBy,
+      bothCount: targetsBeforeTypeFilter.length,
+      hsCount: targetsBeforeTypeFilter.filter((t) => !t.p.previousTeam).length,
+      portalCount: targetsBeforeTypeFilter.filter((t) => !!t.p.previousTeam).length,
+    })
+  }, [targets.length, openTargetCount, sortBy, targetsBeforeTypeFilter])
 
   if (targets.length === 0) {
+    // Distinguish "nothing tracked at all" from "nothing of the type the
+    // view toggle is currently showing" — the latter shouldn't tell the
+    // user to go add targets they may well already have.
+    const noneAtAll = targetsBeforeTypeFilter.length === 0
     return (
       <Card>
         <EmptyState
-          title={viewingOwnTeam ? 'No Targets to Scout' : 'Another team’s recruiting class'}
-          message={viewingOwnTeam
-            ? `Track prospects via the recruiting sheet (set their Commitment to “Uncommitted” and fill in attributes), and they'll be ranked here by ${scoutStaffEnabled ? 'your Staff' : 'ScoutScore'}.`
-            : 'Targets are your own team\'s board. Switch back to your team\'s recruiting page to see them.'}
+          title={!viewingOwnTeam
+            ? 'Another team’s recruiting class'
+            : noneAtAll
+              ? 'No Targets to Scout'
+              : recruitTypeFilter === 'portal' ? 'No Transfer Portal Targets' : 'No High School Targets'}
+          message={!viewingOwnTeam
+            ? 'Targets are your own team\'s board. Switch back to your team\'s recruiting page to see them.'
+            : noneAtAll
+              ? `Track prospects via the recruiting sheet (set their Commitment to “Uncommitted” and fill in attributes), and they'll be ranked here by ${scoutStaffEnabled ? 'your Staff' : 'ScoutScore'}.`
+              : 'Switch the view toggle back to “Both” to see the rest of your board.'}
         />
       </Card>
     )

@@ -20,6 +20,7 @@ import {
   getCoachNameForUid,
   getMemberPhoto,
   setMemberPhotoValue,
+  setMemberLabelValue,
   canManageMembers,
   getRole,
   ROLE_COMMISH,
@@ -27,6 +28,18 @@ import {
 } from '../../data/leagueModel'
 import ImageUpload from '../../components/ImageUpload'
 import { proxyImageUrl } from '../../utils/imageProxy'
+import { mapCoachPortraitUrl } from '../../data/cfb27SaveImport'
+import UNIQUE_COACH_PORTRAIT_IDS from '../../data/cfb27UniqueCoachPortraitIds.json'
+import GENERIC_COACH_PORTRAIT_KEYS from '../../data/cfb27GenericCoachPortraitKeys.json'
+
+// Every coach portrait in the bundled library, as plain relative paths —
+// lets the user browse/pick ANY headshot (not just the one auto-matched to
+// their own in-game coach), same bundled pack the auto-match already uses.
+const ALL_COACH_PORTRAITS = [
+  ...UNIQUE_COACH_PORTRAIT_IDS.map((id) => `/cfb27-portraits/coach-unique/${id}.webp`),
+  ...GENERIC_COACH_PORTRAIT_KEYS.map((key) => `/cfb27-portraits/coach-generic/${key}.webp`),
+]
+import { isPcAutoDynasty } from '../../editions'
 import {
   PageHero,
   EmptyState,
@@ -76,6 +89,10 @@ export default function CoachCareer() {
   const [showPhotoModal, setShowPhotoModal] = useState(false)
   const [photoDraft, setPhotoDraft] = useState('')
   const [savingPhoto, setSavingPhoto] = useState(false)
+  const [showNameModal, setShowNameModal] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
+  const [savingName, setSavingName] = useState(false)
+  const [showPortraitGallery, setShowPortraitGallery] = useState(false)
 
   // The career being viewed. Defaults to the logged-in user; the
   // inline picker below lets any signed-in viewer flip to another
@@ -133,7 +150,15 @@ export default function CoachCareer() {
     : (user?.uid || currentDynasty.userId)
 
   const selectedOption = userOptions.find(o => o.uid === effectiveSelectedUid) || null
-  const selectedDisplayName = selectedOption?.label || 'Coach'
+  // Before falling all the way back to the generic "Coach" placeholder, try
+  // the real in-game coach name synced from the save (dynasty.userCoachPortrait,
+  // see cfb27SaveSync.js) — same scoping as the portrait fallback below (only
+  // for your OWN career on a CFB27 PC dynasty; there's no synced signal for
+  // which save-file coach corresponds to a teammate's uid in a co-op dynasty).
+  const inGameCoachName = (isPcAutoDynasty(currentDynasty) && user?.uid === effectiveSelectedUid)
+    ? (currentDynasty.userCoachPortrait?.name || null)
+    : null
+  const selectedDisplayName = selectedOption?.label || inGameCoachName || 'Coach'
 
   // Resolve a uid's tids for a given year. memberTeamHistory[uid] is
   // the SINGLE SOURCE OF TRUTH whenever it exists at all — even if a
@@ -608,8 +633,27 @@ export default function CoachCareer() {
 
   // Coach photo for the career being viewed. Stored per-uid in
   // memberPhotos, same shape as memberLabels. You can edit your own
-  // photo; commish/co-commish can edit anyone's.
-  const coachPhotoUrl = getMemberPhoto(currentDynasty, effectiveSelectedUid)
+  // photo; commish/co-commish can edit anyone's. A manually-set photo
+  // always wins; otherwise, when viewing your OWN career on a CFB27 PC
+  // dynasty, fall back to your actual in-game coach's real headshot.
+  // Sourced from dynasty.userCoachPortrait (cfb27SaveSync.js), which reads
+  // the Coach row flagged IsUserControlled directly — NOT looked up through
+  // teams[tid]'s coachingStaff map by team+position, which can point at a
+  // different coach entirely (verified against a real save: a team's
+  // "headCoach" position slot held someone else, not the row actually
+  // flagged as the human). Not attempted for a teammate's career in a co-op
+  // dynasty — there's no synced signal for which save-file coach
+  // corresponds to which OTHER member's uid, only which one is "the
+  // currently-controlling human."
+  const manualCoachPhotoUrl = getMemberPhoto(currentDynasty, effectiveSelectedUid)
+  const inGameCoachPhotoUrl = (() => {
+    if (manualCoachPhotoUrl) return null
+    if (!isPcAutoDynasty(currentDynasty)) return null
+    if (!user?.uid || effectiveSelectedUid !== user.uid) return null
+    const assetName = currentDynasty.userCoachPortrait?.genericHeadAssetName
+    return assetName ? (mapCoachPortraitUrl(assetName) || null) : null
+  })()
+  const coachPhotoUrl = manualCoachPhotoUrl || inGameCoachPhotoUrl
   const canEditPhoto = !!user?.uid && (
     user.uid === effectiveSelectedUid || canManageMembers(currentDynasty, user.uid)
   )
@@ -631,6 +675,30 @@ export default function CoachCareer() {
       alert('Could not save the coach photo. Please try again.')
     } finally {
       setSavingPhoto(false)
+    }
+  }
+
+  const openNameModal = () => {
+    // Pre-fill with your real synced in-game name as a starting point when
+    // you've never set a manual label — same fallback used for the display
+    // name itself, so the edit box isn't just an empty field under a name
+    // that's clearly already known.
+    setNameDraft(getMemberLabel(currentDynasty, effectiveSelectedUid) || inGameCoachName || '')
+    setShowNameModal(true)
+  }
+
+  const saveName = async () => {
+    if (savingName) return
+    setSavingName(true)
+    try {
+      const next = setMemberLabelValue(currentDynasty, effectiveSelectedUid, nameDraft)
+      await updateDynasty(currentDynasty.id, { memberLabels: next })
+      setShowNameModal(false)
+    } catch (err) {
+      console.error('Failed to save coach name', err)
+      alert('Could not save the coach name. Please try again.')
+    } finally {
+      setSavingName(false)
     }
   }
 
@@ -703,7 +771,12 @@ export default function CoachCareer() {
             <div className="min-w-0">
               <div className="flex items-center gap-3 flex-wrap">
                 <h1
-                  className="m-0 text-txt-primary leading-[0.9] uppercase break-words"
+                  onClick={canEditPhoto ? openNameModal : undefined}
+                  role={canEditPhoto ? 'button' : undefined}
+                  tabIndex={canEditPhoto ? 0 : undefined}
+                  onKeyDown={canEditPhoto ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openNameModal() } } : undefined}
+                  aria-label={canEditPhoto ? 'Edit coach name' : undefined}
+                  className={`m-0 text-txt-primary leading-[0.9] uppercase break-words ${canEditPhoto ? 'cursor-pointer hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-1 focus-visible:ring-text-primary rounded' : ''}`}
                   style={{
                     fontFamily: "'Bebas Neue', sans-serif",
                     fontSize: 'clamp(2rem, 4.5vw, 3.25rem)',
@@ -712,20 +785,6 @@ export default function CoachCareer() {
                 >
                   {selectedDisplayName}
                 </h1>
-                <button
-                  onClick={() => navigate(`${pathPrefix}/coach-build`)}
-                  className="px-2.5 py-1 rounded text-xs font-semibold uppercase transition-colors hover:border-surface-5 hover:text-txt-primary"
-                  style={{
-                    letterSpacing: '1.5px',
-                    color: 'var(--text-secondary)',
-                    border: '1px solid var(--surface-4)',
-                    backgroundColor: 'var(--surface-2)',
-                    flexShrink: 0,
-                    alignSelf: 'center',
-                  }}
-                >
-                  Coach Builder
-                </button>
               </div>
               <div
                 className="label-xs text-txt-tertiary mt-1.5 tabular-nums"
@@ -1341,10 +1400,124 @@ export default function CoachCareer() {
           </div>
         }
       >
-        <ImageUpload
-          value={photoDraft}
-          onChange={(url) => setPhotoDraft(url || '')}
-          placeholder="Upload or paste a coach photo"
+        <div className="space-y-3">
+          {inGameCoachPhotoUrl && (
+            <div>
+              <div className="label-xs text-txt-tertiary mb-1.5" style={{ letterSpacing: '1.5px' }}>
+                Your CFB27 Coach Portrait
+              </div>
+              <button
+                type="button"
+                onClick={() => setPhotoDraft(inGameCoachPhotoUrl)}
+                className="flex items-center gap-3 w-full p-2 rounded-lg border text-left transition-colors hover:bg-surface-2"
+                style={{ borderColor: photoDraft === inGameCoachPhotoUrl ? 'var(--text-primary)' : 'var(--surface-4)' }}
+              >
+                <img
+                  src={proxyImageUrl(inGameCoachPhotoUrl, 120)}
+                  alt="Your CFB27 coach portrait"
+                  className="w-12 h-12 rounded-md object-cover flex-shrink-0"
+                />
+                <span className="text-sm text-txt-secondary">
+                  {currentDynasty.userCoachPortrait?.name || 'Use this real in-game headshot'}
+                </span>
+                {photoDraft === inGameCoachPhotoUrl && (
+                  <span className="ml-auto text-xs font-semibold uppercase text-txt-primary flex-shrink-0">Selected</span>
+                )}
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowPortraitGallery(true)}
+            className="w-full text-sm px-3 py-2 rounded-md border border-surface-4 text-txt-secondary hover:bg-surface-2 hover:text-txt-primary transition-colors"
+          >
+            Browse All Coach Portraits ({ALL_COACH_PORTRAITS.length})
+          </button>
+          <div className="label-xs text-txt-tertiary text-center my-2" style={{ letterSpacing: '1.5px' }}>
+            — or —
+          </div>
+          <ImageUpload
+            value={photoDraft}
+            onChange={(url) => setPhotoDraft(url || '')}
+            placeholder="Upload or paste a custom coach photo"
+          />
+        </div>
+      </Modal>
+
+      {/* Coach portrait gallery — every headshot in the bundled CFB27
+          portrait library (real coaches + generated ones), so you can pick
+          any look, not just the one auto-matched to your own save. */}
+      <Modal
+        isOpen={showPortraitGallery}
+        onClose={() => setShowPortraitGallery(false)}
+        title="Choose a Coach Portrait"
+        size="lg"
+      >
+        <div
+          className="grid gap-2 overflow-y-auto"
+          style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))', maxHeight: '65vh' }}
+        >
+          {ALL_COACH_PORTRAITS.map((path) => {
+            const isSelected = photoDraft === `${window.location.origin}${path}`
+            return (
+              <button
+                key={path}
+                type="button"
+                onClick={() => {
+                  setPhotoDraft(`${window.location.origin}${path}`)
+                  setShowPortraitGallery(false)
+                }}
+                className="aspect-square rounded-md overflow-hidden border-2 transition-colors"
+                style={{ borderColor: isSelected ? 'var(--text-primary)' : 'transparent' }}
+              >
+                <img
+                  src={proxyImageUrl(`${window.location.origin}${path}`, 120)}
+                  alt=""
+                  loading="lazy"
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            )
+          })}
+        </div>
+      </Modal>
+
+      {/* Coach name editor — sets dynasty.memberLabels[uid] (leagueModel.js),
+          the same "your display name" store used everywhere else a member's
+          name shows up. */}
+      <Modal
+        isOpen={showNameModal}
+        onClose={() => setShowNameModal(false)}
+        title="Edit Coach Name"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNameModal(false)}
+              className="text-sm px-3 py-1.5 rounded-md border border-surface-4 text-txt-secondary hover:bg-surface-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveName}
+              disabled={savingName}
+              className="text-sm px-3 py-1.5 rounded-md bg-surface-5 text-txt-primary font-semibold disabled:opacity-60"
+            >
+              {savingName ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        }
+      >
+        <input
+          type="text"
+          value={nameDraft}
+          onChange={(e) => setNameDraft(e.target.value)}
+          placeholder="Coach name"
+          maxLength={40}
+          autoFocus
+          className="w-full px-3 py-2 rounded-md border border-surface-4 bg-surface-1 text-txt-primary text-sm focus:outline-none focus:border-surface-5"
         />
       </Modal>
     </div>

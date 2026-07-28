@@ -335,6 +335,11 @@ function buildCoachingStaff(coachTable) {
       // Same GenericHeadAssetName/Portrait pair used for player portraits
       // (mapPortraitUrl's primary id + fallback id) — the Coach table carries
       // its own independent value for each, verified against a real save.
+      // NOTE: this is whichever coach the save currently has SLOTTED into
+      // this position for this team — not necessarily the human-controlled
+      // one (confirmed on a real save these can differ). For "is this coach
+      // actually me," use buildUserCoachInfo's IsUserControlled-flagged row
+      // instead of cross-referencing this map by team+position.
       generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
       portrait_id: Number(readCell(rec, 'Portrait')) || null,
     };
@@ -376,7 +381,25 @@ function buildUserCoachInfo(coachTable) {
     // Row POSITION within coachTable (not a field value) — Coach has no
     // separate stable id column, so this is the same identity buildCoachOffers
     // matches StaffPersonContractOffer.StaffPerson refs against.
-    return { rawTid, position, coachRowIndex: i };
+    //
+    // Portrait fields pulled from THIS specific row (not cross-referenced by
+    // team+position through buildCoachingStaff) — verified against a real
+    // save that those two lookups can disagree: TeamIndex 79's "headCoach"
+    // position slot held a different coach (Sean Lewis) than the row
+    // actually flagged IsUserControlled (the real human's own coach,
+    // presumably mid-succession or otherwise not the same row). The
+    // IsUserControlled flag is the only reliable way to identify the
+    // specific coach that's really you.
+    const first = readCell(rec, 'FirstName') || '';
+    const last = readCell(rec, 'LastName') || '';
+    return {
+      rawTid,
+      position,
+      coachRowIndex: i,
+      name: `${first} ${last}`.trim() || null,
+      generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
+      portrait_id: Number(readCell(rec, 'Portrait')) || null,
+    };
   }
   return null;
 }
@@ -1116,6 +1139,69 @@ async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPic
   return byTeam;
 }
 
+/**
+ * Whole-league recruit "photo directory" — name + portrait fields + a few
+ * corroborating fields (height/hometown/state), for EVERY recruit still in
+ * the national Recruit table, regardless of whether they're on the user's
+ * own UserRecruitTarget board. A recruit dropped from the user's board
+ * (removed, no longer among their tracked targets) does NOT mean the recruit
+ * stopped existing in the save — they're still a live Recruit row, just no
+ * longer one the user is personally tracking. Without this, a target
+ * record's cached pictureUrl (resolved once at whatever sync first tracked
+ * them) can never be refreshed again once they fall off the user's board,
+ * even though the save still has perfectly good, current portrait data for
+ * them. Deliberately lightweight (no attributes/ratings/archetype) — this
+ * exists purely to let the client re-derive a fresh pictureUrl, not to
+ * re-scout the recruit.
+ *
+ * No RecruitStage filter — an still-open, uncommitted recruit is just as
+ * "real" here as a committed one; excluding them would defeat the purpose
+ * for a recruit who's simply still being recruited by other schools.
+ *
+ * Grouped by normalized name (not deduped to one entry) since recruit names
+ * collide across ~4870 rows — same collision-safety pattern already used
+ * for cfb27AssetName matching elsewhere in this file. Callers disambiguate
+ * using the corroborating fields, mirroring cfb27SaveSync.js's own
+ * isPlausibleRecruitLink.
+ *
+ * @param {object} save
+ * @param {object[]} recruitRecords - from getAllTableRecords(save, 'Recruit'), already fetched by the caller
+ * @param {object} playerFieldPicker
+ * @returns {Object<string, object[]>} normalized "first last" name -> candidate array
+ */
+async function buildLeagueRecruitDirectory(save, recruitRecords, playerFieldPicker) {
+  const byName = new Map();
+  if (!recruitRecords || !recruitRecords.length) return {};
+
+  const F = playerFieldPicker;
+  for (const recruitRec of recruitRecords) {
+    if (!recruitRec || recruitRec.isEmpty) continue;
+    const playerRec = await resolveRef(save, readCell(recruitRec, 'Player'));
+    if (!playerRec || playerRec.isEmpty) continue;
+
+    const firstName = F.first ? readCell(playerRec, F.first) : null;
+    const lastName = F.last ? readCell(playerRec, F.last) : null;
+    const name = `${firstName || ''} ${lastName || ''}`.trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+
+    const entry = {
+      first_name: firstName,
+      last_name: lastName,
+      height: F.height ? Number(readCell(playerRec, F.height)) : null,
+      weight: F.weight ? Number(readCell(playerRec, F.weight)) : null,
+      hometown: F.home ? readCell(playerRec, F.home) : null,
+      home_state: F.homeState ? readCell(playerRec, F.homeState) : null,
+      generic_head_asset_name: F.genericHeadAssetName ? readCell(playerRec, F.genericHeadAssetName) : null,
+      portrait_id: F.portraitId ? Number(readCell(playerRec, F.portraitId)) : null,
+    };
+    if (!byName.has(key)) byName.set(key, []);
+    byName.get(key).push(entry);
+  }
+
+  return Object.fromEntries(byName);
+}
+
 // AwardType -> { side, scope } for the 4 weekly Player of the Week variants
 // found in the save's PlayerAward table (national + per-conference, offense
 // + defense). Every other AwardType in that table (All-American ballots,
@@ -1684,20 +1770,9 @@ function buildPlayerRows(table, teamNames, opts, fieldPicker) {
     const teamName = (teamInfo && teamInfo.name) || (catalogTeam ? catalogTeam.name : null);
     const teamNick = teamInfo ? teamInfo.nick : null;
 
-    const _assetNameVal = F.assetName ? readCell(rec, F.assetName) : null;
-    const _genericHeadVal = F.genericHeadAssetName ? readCell(rec, F.genericHeadAssetName) : null;
-    // TEMP DIAGNOSTIC — checking a new community image pack's filename
-    // format against the save's real raw asset-name values. Remove once
-    // resolved.
-    if (!global.__portraitDebugCount) global.__portraitDebugCount = 0;
-    if (global.__portraitDebugCount < 15 && (_assetNameVal || _genericHeadVal)) {
-      global.__portraitDebugCount++;
-      console.log('[PORTRAIT DEBUG]', JSON.stringify({ asset_name: _assetNameVal, generic_head_asset_name: _genericHeadVal, portrait_id: F.portraitId ? Number(readCell(rec, F.portraitId)) : null }));
-    }
-
     rows.push({
-      asset_name: _assetNameVal,
-      generic_head_asset_name: _genericHeadVal,
+      asset_name: F.assetName ? readCell(rec, F.assetName) : null,
+      generic_head_asset_name: F.genericHeadAssetName ? readCell(rec, F.genericHeadAssetName) : null,
       portrait_id: F.portraitId ? Number(readCell(rec, F.portraitId)) : null,
       first_name: F.first ? readCell(rec, F.first) : null,
       last_name: F.last ? readCell(rec, F.last) : null,
@@ -1770,6 +1845,7 @@ async function extractFullSave(filePath, opts = {}) {
     console.error('buildRecruitTeamNilOffers failed, continuing without NIL data:', err.message);
   }
   const leagueRecruitingClasses = await buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers);
+  const leagueRecruitDirectory = await buildLeagueRecruitDirectory(save, recruitRecords, playerFieldPicker);
 
   const leagueRivalries = await buildLeagueRivalries(save, teamTable);
   const leagueSchoolGrades = await buildLeagueSchoolGrades(save, teamTable);
@@ -1822,6 +1898,7 @@ async function extractFullSave(filePath, opts = {}) {
     games,
     recruitingBoard,
     leagueRecruitingClasses: Object.fromEntries(leagueRecruitingClasses),
+    leagueRecruitDirectory,
     leagueRivalries: Object.fromEntries(leagueRivalries),
     leagueSchoolGrades: Object.fromEntries(leagueSchoolGrades),
     playerAwards,

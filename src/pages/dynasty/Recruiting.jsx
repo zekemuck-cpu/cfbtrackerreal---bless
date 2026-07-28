@@ -192,7 +192,7 @@ export default function Recruiting() {
   // boardActionsRef lets these buttons trigger ScoutBoard's own local state
   // (Clear All modal, sort change) without lifting all of it up. Same
   // pattern as ScoutStaff.jsx's analysisActionsRef.
-  const [boardStats, setBoardStats] = useState({ total: 0, openCount: 0, sortBy: 'scoutscore' })
+  const [boardStats, setBoardStats] = useState({ total: 0, openCount: 0, sortBy: 'scoutscore', bothCount: 0, hsCount: 0, portalCount: 0 })
   const boardActionsRef = useRef({})
   // Same bridge for Outlook/Database/Thresholds/Scouting Needs — each of
   // those lives inside <ScoutStaff>, which forwards this single ref/callback
@@ -1417,6 +1417,30 @@ export default function Recruiting() {
             <span className="font-display font-black uppercase" style={{ fontSize: '14px', letterSpacing: '0.02em' }}>Big Board</span>
             <span className="label-xs text-txt-tertiary" style={{ letterSpacing: '1.5px' }}>{boardStats.total} Recruits</span>
           </div>
+
+          {/* View toggle — same Both/High School/Portal split as the
+              Commitments tab, same `previousTeam` truthy/falsy test. */}
+          {hasHSandPortal && (
+            <div className="flex items-center gap-1 px-3 sm:px-4 py-3 flex-shrink-0">
+              {VIEW_MODE_OPTIONS.map(opt => {
+                const active = viewMode === opt.value
+                const count = opt.value === 'both' ? boardStats.bothCount : opt.value === 'hs' ? boardStats.hsCount : boardStats.portalCount
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setViewMode(opt.value)}
+                    className={`px-2.5 py-1 rounded-sm text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+                      active ? '' : 'hover:bg-white/10'
+                    }`}
+                    style={active ? { backgroundColor: teamBgText, color: teamAccent } : undefined}
+                  >
+                    {opt.label} <span className="tabular opacity-70">{count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 px-3 sm:px-4 py-3 flex-shrink-0">
             <span className="label-xs text-txt-tertiary hidden sm:inline" style={{ letterSpacing: '1.5px' }}>Pos</span>
             <Select
@@ -1662,6 +1686,7 @@ export default function Recruiting() {
           userTid={selectedTid}
           pathPrefix={pathPrefix}
           positionFilter={positionFilter}
+          recruitTypeFilter={viewMode}
           viewingOwnTeam={isOwnTeam}
           scoutStaffEnabled={!!currentDynasty?.scoutStaffEnabled}
           boardActionsRef={boardActionsRef}

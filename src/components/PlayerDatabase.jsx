@@ -17,6 +17,8 @@ import RecruitingDatabaseBatchEditModal from './RecruitingDatabaseBatchEditModal
 import { downloadRecruitingDatabaseJson, computeRecentRanks, reorderByRecentRank } from '../utils/recruitingDatabasePool';
 import { getContrastTextColor } from '../utils/colorUtils';
 import { Modal } from './ui';
+import ScoutScorePanel from './ScoutScorePanel';
+import { getEditionKey } from '../editions';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
 // FIRST rendered line — whether that line ends up being the whole name (short
@@ -531,6 +533,16 @@ function generateQuote(player) {
 // shared verbatim by both the Targets board and the Recruiting Database,
 // each embedding it inline in a per-row dropdown instead of a modal.
 export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, pool = null, wide = false }) {
+  // The MaxPlaysCFB ScoutScore section below is CFB27-only by request — the
+  // manual/CFB26 tracker keeps its existing behavior unchanged (it already
+  // has its own ScoutScore surface on the Player page, untouched here).
+  // Edition-based (not PC-only) — a Console CFB27 dynasty's manually-entered
+  // recruits are just as real a CFB27 recruit as a PC-synced one.
+  // Also suppressed entirely when Scout Staff is enabled — that's this
+  // dynasty's chosen alternative to MaxPlaysCFB, so it shouldn't also show
+  // up here once they've opted into their own grading system instead.
+  const { currentDynasty } = useDynasty();
+  const showScoutScore = getEditionKey(currentDynasty) === 'cfb27' && !currentDynasty?.scoutStaffEnabled;
   // A Recruiting Database entry always has attributes filled in, but a fresh
   // Targets recruit can genuinely have attributes: null (not scouted yet) —
   // normalize once here so every helper below (calcWeightedAvg,
@@ -789,6 +801,21 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
             </section>
           );
 
+          // A second, independent reference alongside the Score Breakdown
+          // above — that one is this app's own comp-based grade; this is
+          // MaxPlaysCFB's separately-modeled ScoutScore benchmark. Shown
+          // side by side deliberately (not merged into one number) so they
+          // can disagree without either being "wrong" — see Player.jsx's
+          // own ScoutScore card for the same panel used the same way.
+          const scoutScoreEl = showScoutScore ? (
+            <section>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">MaxPlaysCFB ScoutScore</h3>
+              <div className="bg-surface-3 border border-surface-4 rounded-lg p-3">
+                <ScoutScorePanel recruit={player} collapsible />
+              </div>
+            </section>
+          ) : null;
+
           return (
             <div className={wide ? 'p-4 space-y-3' : 'p-5 space-y-5'}>
               {(() => {
@@ -822,13 +849,17 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
 
               {wide ? (
                 <div className="grid lg:grid-cols-2 gap-4 items-stretch">
-                  {scoreBreakdownEl}
+                  <div className="flex flex-col gap-3">
+                    {scoreBreakdownEl}
+                    {scoutScoreEl}
+                  </div>
                   {attributesEl}
                 </div>
               ) : (
                 <>
                   {scoreBreakdownEl}
                   {attributesEl}
+                  {scoutScoreEl}
                 </>
               )}
 

@@ -958,13 +958,33 @@ export default function DynastyRecords() {
                     return (
                       <div key={rowKey}>
                         <div
-                          className={`av-row relative flex items-center gap-3 sm:gap-3.5 cursor-pointer ${isExpanded ? 'av-row--open' : ''}`}
+                          className={`av-row relative flex items-center gap-3 sm:gap-3.5 cursor-pointer overflow-hidden ${isExpanded ? 'av-row--open' : ''}`}
                           style={{
                             padding: isFirst ? '15px 20px' : (isTop3 ? '12px 20px' : '10px 20px'),
                             borderTop: displayIdx > 0 ? '1px solid var(--surface-4)' : 'none',
                           }}
                           onClick={() => setExpandedRowKey(isExpanded ? null : rowKey)}
                         >
+                          {/* Team logo watermark — same treatment as the other
+                              leaderboard categories' rows. */}
+                          {entry.teamLogo && (
+                            <img
+                              src={entry.teamLogo}
+                              alt=""
+                              aria-hidden="true"
+                              className="absolute pointer-events-none select-none"
+                              style={{
+                                top: '50%',
+                                right: isFirst ? '-18px' : isTop3 ? '-14px' : '-10px',
+                                transform: 'translateY(-50%)',
+                                width: isFirst ? '92px' : isTop3 ? '72px' : '56px',
+                                height: isFirst ? '92px' : isTop3 ? '72px' : '56px',
+                                objectFit: 'contain',
+                                opacity: 0.2,
+                                zIndex: -1,
+                              }}
+                            />
+                          )}
                           <div className="text-right tabular flex-shrink-0" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isFirst ? '1.65rem' : isTop3 ? '1.3rem' : '1rem', fontWeight: isFirst ? 900 : isTop3 ? 800 : 600, letterSpacing: '0.5px', lineHeight: 1, width: '2.25rem', color: avRankColor(rank) }}>{rank}</div>
                           {/* Avatar with a small team-logo badge tucked in the
                               corner — the on-air headshot + helmet treatment. */}
@@ -1091,13 +1111,36 @@ export default function DynastyRecords() {
                       return (
                         <div
                           key={mode === 'career' ? entry.pid : `${entry.pid}-${entry.year}`}
-                          className="relative flex items-center gap-3 transition-colors"
+                          className="relative flex items-center gap-3 transition-colors overflow-hidden"
                           style={{
                             padding: isFirst ? '14px 16px' : '8px 16px',
                             borderTop: idx === 0 ? 'none' : '1px solid var(--surface-4)',
                             backgroundColor: 'transparent'
                           }}
                         >
+                          {/* Team logo watermark — large, faded, bleeding off
+                              the right edge so you can tell a player's team
+                              at a glance without it competing with the name
+                              or value. Negative z-index keeps it behind the
+                              row's own (unpositioned) content. */}
+                          {entry.teamLogo && (
+                            <img
+                              src={entry.teamLogo}
+                              alt=""
+                              aria-hidden="true"
+                              className="absolute pointer-events-none select-none"
+                              style={{
+                                top: '50%',
+                                right: isFirst ? '-18px' : '-14px',
+                                transform: 'translateY(-50%)',
+                                width: isFirst ? '92px' : '68px',
+                                height: isFirst ? '92px' : '68px',
+                                objectFit: 'contain',
+                                opacity: 0.2,
+                                zIndex: -1,
+                              }}
+                            />
+                          )}
                           <div
                             className="text-right tabular flex-shrink-0"
                             style={{
@@ -1113,24 +1156,32 @@ export default function DynastyRecords() {
                             {rank}
                           </div>
 
-                          {entry.pictureUrl ? (
-                            <LeaderboardAvatar
-                              src={proxyImageUrl(entry.pictureUrl, 300)}
-                              className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0 transition-all`}
-                              style={{ border: '1px solid var(--surface-4)' }}
-                              fallback={entry.teamLogo
-                                ? <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-10 h-10' : 'w-7 h-7'} object-contain flex-shrink-0`} />
-                                : <div className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />}
-                            />
-                          ) : entry.teamLogo ? (
-                            <img
-                              src={entry.teamLogo}
-                              alt=""
-                              className={`${isFirst ? 'w-10 h-10' : 'w-7 h-7'} object-contain flex-shrink-0`}
-                            />
-                          ) : (
-                            <div className={`${isFirst ? 'w-11 h-11' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />
-                          )}
+                          <div className={`relative flex-shrink-0 ${isFirst ? 'w-11 h-11' : 'w-8 h-8'}`}>
+                            {entry.pictureUrl ? (
+                              <LeaderboardAvatar
+                                src={proxyImageUrl(entry.pictureUrl, 300)}
+                                className="w-full h-full rounded-full object-cover transition-all"
+                                style={{ border: '1px solid var(--surface-4)' }}
+                                fallback={entry.teamLogo
+                                  ? <img src={entry.teamLogo} alt="" className="w-full h-full object-contain" />
+                                  : <div className="w-full h-full rounded-full bg-surface-4" />}
+                              />
+                            ) : entry.teamLogo ? (
+                              <img src={entry.teamLogo} alt="" className="w-full h-full object-contain" />
+                            ) : (
+                              <div className="w-full h-full rounded-full bg-surface-4" />
+                            )}
+                            {/* Small team-logo badge tucked in the corner —
+                                same treatment as the AV leaderboard's avatars. */}
+                            {entry.pictureUrl && entry.teamLogo && (
+                              <img
+                                src={entry.teamLogo}
+                                alt=""
+                                className={`absolute -bottom-0.5 -right-0.5 object-contain rounded-full ${isFirst ? 'w-5 h-5' : 'w-4 h-4'}`}
+                                style={{ backgroundColor: 'var(--surface-1)', padding: '1px', boxShadow: '0 0 0 1px var(--surface-4)' }}
+                              />
+                            )}
+                          </div>
 
                           <div className="flex-1 min-w-0">
                             <Link
@@ -1362,7 +1413,7 @@ export default function DynastyRecords() {
                       return (
                         <div key={rowKey}>
                           <div
-                            className="relative flex items-center gap-3 px-6 transition-colors"
+                            className="relative flex items-center gap-3 px-6 transition-colors overflow-hidden"
                             style={{
                               padding: isFirst ? '14px 24px' : (isTop3 ? '10px 24px' : '8px 24px'),
                               borderTop: displayIdx > 0 ? '1px solid var(--surface-4)' : 'none',
@@ -1371,6 +1422,26 @@ export default function DynastyRecords() {
                             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-3)' }}
                             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
                           >
+                            {/* Team logo watermark — see the card-view rows
+                                above for why this is negative-z-index. */}
+                            {entry.teamLogo && (
+                              <img
+                                src={entry.teamLogo}
+                                alt=""
+                                aria-hidden="true"
+                                className="absolute pointer-events-none select-none"
+                                style={{
+                                  top: '50%',
+                                  right: isFirst ? '-18px' : isTop3 ? '-14px' : '-10px',
+                                  transform: 'translateY(-50%)',
+                                  width: isFirst ? '92px' : isTop3 ? '72px' : '56px',
+                                  height: isFirst ? '92px' : isTop3 ? '72px' : '56px',
+                                  objectFit: 'contain',
+                                  opacity: 0.2,
+                                  zIndex: -1,
+                                }}
+                              />
+                            )}
                             <div
                               className="text-right tabular flex-shrink-0"
                               style={{
@@ -1386,24 +1457,36 @@ export default function DynastyRecords() {
                               {rank}
                             </div>
 
-                            {entry.pictureUrl ? (
-                              <LeaderboardAvatar
-                                src={proxyImageUrl(entry.pictureUrl, 300)}
-                                className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`}
-                                style={{
-                                  border: isFirst
-                                    ? '1.5px solid var(--accent-warning)'
-                                    : '1px solid var(--surface-4)',
-                                }}
-                                fallback={entry.teamLogo
-                                  ? <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-9 h-9' : 'w-7 h-7'} object-contain flex-shrink-0`} />
-                                  : <div className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />}
-                              />
-                            ) : entry.teamLogo ? (
-                              <img src={entry.teamLogo} alt="" className={`${isFirst ? 'w-9 h-9' : 'w-7 h-7'} object-contain flex-shrink-0`} />
-                            ) : (
-                              <div className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />
-                            )}
+                            <div className={`relative flex-shrink-0 ${isFirst ? 'w-10 h-10' : 'w-8 h-8'}`}>
+                              {entry.pictureUrl ? (
+                                <LeaderboardAvatar
+                                  src={proxyImageUrl(entry.pictureUrl, 300)}
+                                  className="w-full h-full rounded-full object-cover"
+                                  style={{
+                                    border: isFirst
+                                      ? '1.5px solid var(--accent-warning)'
+                                      : '1px solid var(--surface-4)',
+                                  }}
+                                  fallback={entry.teamLogo
+                                    ? <img src={entry.teamLogo} alt="" className="w-full h-full object-contain" />
+                                    : <div className="w-full h-full rounded-full bg-surface-4" />}
+                                />
+                              ) : entry.teamLogo ? (
+                                <img src={entry.teamLogo} alt="" className="w-full h-full object-contain" />
+                              ) : (
+                                <div className="w-full h-full rounded-full bg-surface-4" />
+                              )}
+                              {/* Small team-logo badge tucked in the corner —
+                                  same treatment as the AV leaderboard's avatars. */}
+                              {entry.pictureUrl && entry.teamLogo && (
+                                <img
+                                  src={entry.teamLogo}
+                                  alt=""
+                                  className={`absolute -bottom-0.5 -right-0.5 object-contain rounded-full ${isFirst ? 'w-4 h-4' : 'w-3.5 h-3.5'}`}
+                                  style={{ backgroundColor: 'var(--surface-1)', padding: '1px', boxShadow: '0 0 0 1px var(--surface-4)' }}
+                                />
+                              )}
+                            </div>
 
                             <div className="flex-1 min-w-0">
                               <Link

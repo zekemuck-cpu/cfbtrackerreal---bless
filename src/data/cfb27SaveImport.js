@@ -13,15 +13,21 @@
 // the in-game card).
 import { getTidFromTeamName } from './teamRegistry'
 import UNIQUE_PORTRAIT_IDS from './cfb27UniquePortraitIds.json'
+import GENERIC_PORTRAIT_KEYS from './cfb27GenericPortraitKeys.json'
+import UNIQUE_COACH_PORTRAIT_IDS from './cfb27UniqueCoachPortraitIds.json'
+import GENERIC_COACH_PORTRAIT_KEYS from './cfb27GenericCoachPortraitKeys.json'
 import { calculateRecruitingClassScore } from '../utils/recruitingScore'
 
-// Static manifest of the numeric ids that actually have a file in
-// public/cfb27-portraits/unique/ (generated from that folder's own listing —
-// regenerate by re-running the script that built cfb27UniquePortraitIds.json
-// if the bundled portrait library is ever re-scraped). Used by mapPortraitUrl
-// to fall back to PLYR_PORTRAIT when GenericHeadAssetName's own number has no
-// file — see that function's comment for why both ids exist.
+// Static manifests of what actually has a file in public/cfb27-portraits/ —
+// generated from that folder's own listing (regenerate by re-running the
+// migration script if the bundled portrait library is ever re-scraped/
+// updated). Used by mapPortraitUrl/mapCoachPortraitUrl so a missing file
+// returns '' (Player.jsx already hides a broken/missing image gracefully)
+// instead of a URL that 404s.
 const UNIQUE_PORTRAIT_ID_SET = new Set(UNIQUE_PORTRAIT_IDS)
+const GENERIC_PORTRAIT_KEY_SET = new Set(GENERIC_PORTRAIT_KEYS)
+const UNIQUE_COACH_PORTRAIT_ID_SET = new Set(UNIQUE_COACH_PORTRAIT_IDS)
+const GENERIC_COACH_PORTRAIT_KEY_SET = new Set(GENERIC_COACH_PORTRAIT_KEYS)
 
 // Save uses side-specific/alternate codes where the app's roster vocabulary
 // (RosterEntryModal.jsx's AI-prompt spec) uses a slightly different set.
@@ -202,27 +208,36 @@ export function mapWeight(rawWeight) {
 }
 
 // Real in-game headshots, resolved from GenericHeadAssetName against the
-// bundled portrait library (public/cfb27-portraits/ — extracted from the
-// game's own assets by the CFB27 Recruit Class Generator mod tool). Two
-// naming conventions:
-//   "Unique_SmithJeremiah_8726"        -> portraits/unique/8726.webp
-//   "Generic_0001_P_T0000_D_1_1"       -> portraits/generic/1.webp
+// bundled portrait library (public/cfb27-portraits/ — a community image
+// pack, "CFB Dynasty Hub Image Data", covering both real (Unique_) and
+// procedurally-generated (Generic_) players; refreshed 2026-07-27, replacing
+// an earlier, smaller scrape). Two naming conventions, verified directly
+// against real save values:
+//   "Unique_SmithJeremiah_8726"   -> portraits/unique/8726.webp (trailing
+//     number only — the save occasionally truncates a long name with a
+//     literal trailing "-" the bundled files don't carry, so matching by
+//     name would miss real hits; the number alone is exact and sufficient).
+//   "Generic_0877_P_T0042_H_6_3"  -> portraits/generic/0877_P_T0042_H_6_3.webp
+//     (the FULL string after "Generic_", verbatim — this is a specific
+//     look, not just a template id; matching only the leading id would
+//     silently ignore the team/tone/variation detail baked into the rest
+//     of the name).
 //
 // Must be an ABSOLUTE url: player photos are displayed through wsrv.nl (an
 // external resize proxy, see src/utils/imageProxy.js), which fetches the
 // URL itself and can't resolve a path relative to this app's origin.
 //
 // GenericHeadAssetName's own trailing number is missing from the bundled
-// library for ~9% of Unique_ (real-player) rows. A second, independent
-// numeric head id also exists on the save (PLYR_PORTRAIT) and checking it
-// against the library resolves most of those misses — but verified
-// concretely on a real player (Kayden Dixon-Wyatt, USC WR) that this
-// fallback id is NOT reliably "the same portrait": it resolved to a real
-// file, but a different person's face. Deliberately NOT used here anymore —
+// library for a small fraction of Unique_ (real-player) rows. A second,
+// independent numeric head id also exists on the save (PLYR_PORTRAIT) and
+// checking it against the library resolves most of those misses — but
+// verified concretely on a real player (Kayden Dixon-Wyatt, USC WR) that
+// this fallback id is NOT reliably "the same portrait": it resolved to a
+// real file, but a different person's face. Deliberately NOT used here —
 // showing no photo (Player.jsx already hides a broken/missing image
 // gracefully, falling back to a monogram) is preferable to risking a
 // confidently-wrong face for a real player. Generic_ (procedurally-
-// generated) rows already hit 100% on the primary id alone regardless.
+// generated) rows hit 100% on the exact key alone regardless.
 export function mapPortraitUrl(genericHeadAssetName, portraitId) {
   if (!genericHeadAssetName) return ''
   if (typeof window === 'undefined') return ''
@@ -235,9 +250,37 @@ export function mapPortraitUrl(genericHeadAssetName, portraitId) {
       relPath = `/cfb27-portraits/unique/${n}.webp`
     }
   } else if (genericHeadAssetName.startsWith('Generic_')) {
+    const key = genericHeadAssetName.slice('Generic_'.length)
+    if (GENERIC_PORTRAIT_KEY_SET.has(key)) {
+      relPath = `/cfb27-portraits/generic/${key}.webp`
+    }
+  }
+  return relPath ? `${window.location.origin}${relPath}` : ''
+}
+
+// Coach counterpart to mapPortraitUrl — same two-branch scheme, same bundled
+// pack, separate manifests/folders (coach-unique/coach-generic) since coach
+// asset ids are a completely separate id space from player ones. Not yet
+// wired into any UI (ScoutStaffFrontPage currently uses AI-generated coach
+// art instead) — this just makes the real headshot resolvable from
+// Coach.GenericHeadAssetName (already extracted, see extractPlayers.cjs's
+// buildCoachingStaff) whenever/wherever it's wanted.
+export function mapCoachPortraitUrl(genericHeadAssetName) {
+  if (!genericHeadAssetName) return ''
+  if (typeof window === 'undefined') return ''
+
+  let relPath = null
+  if (genericHeadAssetName.startsWith('Unique_')) {
     const parts = genericHeadAssetName.split('_')
-    const n = parseInt(parts[1], 10)
-    if (Number.isFinite(n)) relPath = `/cfb27-portraits/generic/${n}.webp`
+    const n = parts[parts.length - 1]
+    if (/^[0-9]+$/.test(n) && UNIQUE_COACH_PORTRAIT_ID_SET.has(Number(n))) {
+      relPath = `/cfb27-portraits/coach-unique/${n}.webp`
+    }
+  } else if (genericHeadAssetName.startsWith('Generic_')) {
+    const key = genericHeadAssetName.slice('Generic_'.length)
+    if (GENERIC_COACH_PORTRAIT_KEY_SET.has(key)) {
+      relPath = `/cfb27-portraits/coach-generic/${key}.webp`
+    }
   }
   return relPath ? `${window.location.origin}${relPath}` : ''
 }

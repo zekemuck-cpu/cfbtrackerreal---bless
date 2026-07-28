@@ -8210,6 +8210,14 @@ export function DynastyProvider({ children }) {
       plan.mergedTeams = clearPendingUserTeam(plan.mergedTeams || dynasty.teams)
     }
 
+    // The human's own real coach portrait — read directly off the
+    // IsUserControlled row (see cfb27SaveSync.js's userCoachPortrait
+    // comment for why this can't be looked up through teams[tid]'s
+    // coachingStaff map instead). Only written when present so a sync that
+    // for some reason can't resolve it doesn't blow away a previously-good
+    // value.
+    const userCoachPortraitUpdate = plan.userCoachPortrait ? { userCoachPortrait: plan.userCoachPortrait } : {}
+
     // Coach Carousel — plan.coachOffersUpdate is always the CURRENT live
     // list from this sync (see cfb27SaveSync.js), so it's a full replace,
     // never merged with what was there before: an offer that's since
@@ -8234,7 +8242,7 @@ export function DynastyProvider({ children }) {
       // on the games unread and every stats page stays empty.
       const mergedPlayers = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
 
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...coachOffersUpdate })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...coachOffersUpdate })
     } else {
       // Same recompute as the local branch, but diffed against freshPlayers
       // (not written wholesale — a cloud dynasty can have thousands of
@@ -8278,7 +8286,7 @@ export function DynastyProvider({ children }) {
       if (createsWithStats.length || plan.toUpdatePatches.length || plan.departurePatches.length || statsPatches.length) {
         await syncPlayersToSubcollection(dynastyId, createsWithStats, [...plan.toUpdatePatches, ...plan.departurePatches, ...statsPatches])
       }
-      await updateDynasty(dynastyId, { teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...coachOffersUpdate }, { skipPlayersSubcollection: true })
+      await updateDynasty(dynastyId, { teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...coachOffersUpdate }, { skipPlayersSubcollection: true })
     }
 
     return {

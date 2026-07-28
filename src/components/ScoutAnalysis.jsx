@@ -2375,7 +2375,7 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
                       <p className={`font-display text-2xl font-black leading-none ${(returning + (rosterCapacity.committed ?? 0) + totalHs + totalPortal) > 85 ? 'text-red-400' : 'text-txt-tertiary'}`}>
                         {returning + (rosterCapacity.committed ?? 0) + totalHs + totalPortal}<span className="text-sm text-txt-muted">/85</span>
                       </p>
-                      <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">Proj. Roster</p>
+                      <p className="label-xs text-txt-tertiary mt-1 whitespace-nowrap">{dynasty?.currentYear ? `Proj. ${dynasty.currentYear + 1} Roster` : 'Proj. Roster'}</p>
                     </div>
                   </div>
                 );

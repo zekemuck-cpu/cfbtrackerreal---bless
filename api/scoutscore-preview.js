@@ -45,6 +45,11 @@ function buildUpstreamBody(b) {
     attributes,
     usedImageUpload: false,
     confirmedOutlierKeys: [],
+    // Which recruit cohort to benchmark against — "cfb26" (the default) or
+    // "cfb27". Verified directly against MaxPlaysCFB's own frontend request
+    // payload; their upstream API silently ignores an unrecognized/missing
+    // value and falls back to cfb26, so this is safe to always include.
+    sourceGame: b?.sourceGame === 'cfb27' ? 'cfb27' : 'cfb26',
   };
 }
 

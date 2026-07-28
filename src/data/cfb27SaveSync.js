@@ -478,13 +478,53 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
 // `scholarship_status` — verified against a real 6-recruit board that
 // ScholarshipStatus reads 'None' for every row regardless of actual
 // commitment, while RecruitStage correctly matches the in-game "Committed"
-// label (HardCommitted/Signed) vs. still-deciding (Top10/Top5/Top3/Battle/
-// SoftCommitted). SoftCommitted is treated as still-open/pursuing, not
-// committed — it's a verbal lean the recruit can still walk back before
-// HardCommitted, and the in-game UI doesn't move it to the Commitments list
-// either.
+// label. SoftCommitted (a verbal commitment) DOES count as committed here —
+// an earlier version of this function treated it as still-open/pursuing,
+// on the unverified assumption that the in-game Commitments list doesn't
+// include it until HardCommitted. That assumption was wrong: directly
+// verified against a real save's Top Classes screen (a team's own commit
+// count/total NIL only matched the in-game number once SoftCommitted rows
+// were included — see buildLeagueRecruitingClasses in extractPlayers.cjs
+// for the same fix on the whole-league side). A verbal commit really is a
+// commitment in-game, just a more reversible one than Hard/Signed — see
+// `commitmentTier` on the returned fields below for telling the two apart
+// in the UI (e.g. a "Verbal" tag for SoftCommitted specifically).
 function classifyRecruitStage(raw) {
-  return raw === 'HardCommitted' || raw === 'Signed' ? 'committed' : 'open'
+  return raw === 'SoftCommitted' || raw === 'HardCommitted' || raw === 'Signed' ? 'committed' : 'open'
+}
+
+// Picks the best-corroborated candidate for a name-collision-prone lookup
+// (recruit names collide across ~4870 rows) against an existing target's own
+// recorded height/hometown/state/weight — same corroborating fields
+// isPlausibleRecruitLink uses, minus the year-gap check (not applicable
+// here: this is a same-cycle "refresh this recruit's photo" lookup, not a
+// recruit-to-signed-player identity link). A hard mismatch on any field
+// both sides actually have disqualifies the candidate; among the survivors,
+// the one matching the most fields wins. When nothing distinguishes several
+// same-named candidates (no corroborating data on file for this recruit
+// yet), falls back to the first one — a same-name guess for a cosmetic
+// photo refresh is an acceptable risk here, never touches anything else.
+function bestDirectoryMatch(candidates, target) {
+  if (!candidates || !candidates.length) return null
+  let best = null
+  let bestScore = -1
+  for (const c of candidates) {
+    const cHeight = mapHeight(c.height)
+    if (target.height && cHeight && target.height !== cHeight) continue
+    const cState = mapState(c.home_state)
+    if (target.state && cState && target.state !== cState) continue
+    const cHometown = (c.hometown || '').trim().toLowerCase()
+    const targetHometown = (target.hometown || '').trim().toLowerCase()
+    if (targetHometown && cHometown && targetHometown !== cHometown) continue
+    if (target.weight != null && c.weight != null && Math.abs(target.weight - mapWeight(c.weight)) > 25) continue
+
+    let score = 0
+    if (target.height && cHeight && target.height === cHeight) score++
+    if (target.state && cState && target.state === cState) score++
+    if (targetHometown && cHometown && targetHometown === cHometown) score++
+    if (score > bestScore) { bestScore = score; best = c }
+  }
+  return best
 }
 
 /**
@@ -510,8 +550,13 @@ function classifyRecruitStage(raw) {
  * @param {Map<number, number>} opts.rawTeamIdMap - from buildRawTeamIdMap. A row's
  *   `committed_team_id` is the save's OWN raw team id space, resolved through this
  *   the same way every other cross-team reference in this file is.
+ * @param {Object<string, object[]>} [opts.leagueRecruitDirectory] - from
+ *   extractPlayers.cjs's buildLeagueRecruitDirectory. Whole-league (not just
+ *   the user's board) name -> candidate array, used to refresh pictureUrl for
+ *   a target that's fallen off the user's own board — see the prune step
+ *   below for why that's otherwise a permanently-stale photo.
  */
-export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid, year, rawTeamIdMap }) {
+export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid, year, rawTeamIdMap, leagueRecruitDirectory }) {
   const existingByAssetName = new Map()
   const existingByName = new Map()
   for (const p of existingPlayers) {
@@ -806,6 +851,9 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
         archetype, stars: fields.stars, devTrait: fields.devTrait, gemBust: fields.gemBust,
         nationalRank: fields.nationalRank, stateRank: fields.stateRank, positionRank: fields.positionRank,
         height: fields.height, weight: fields.weight, hometown: fields.hometown, state: fields.state,
+        // SoftCommitted vs. HardCommitted/Signed — lets the Commitments tab
+        // show a "Verbal" tag for the still-reversible SoftCommitted stage.
+        commitmentTier: fields.commitmentTier,
       })
     }
   }
@@ -828,13 +876,37 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
     if (name) seenKeys.add(`n:${name.toLowerCase().trim()}`)
   }
   for (const p of existingPlayers) {
-    if (!p.isTarget || p.boardRemoved) continue
+    if (!p.isTarget) continue
     if (p.targetYear !== year) continue
     if (p.cfb27AssetName === undefined) continue
     const stillOnBoard = (p.cfb27AssetName && seenKeys.has(`a:${p.cfb27AssetName}`))
       || (p.name && seenKeys.has(`n:${p.name.toLowerCase().trim()}`))
-    if (!stillOnBoard) {
-      toUpdate.push({ pid: p.pid, patch: { boardRemoved: true }, name: p.name })
+    // Still on the user's own board this sync — already got a fresh
+    // pictureUrl (and everything else) from the main row loop above.
+    if (stillOnBoard) continue
+
+    const patch = {}
+    if (!p.boardRemoved) patch.boardRemoved = true
+
+    // Off the user's own board doesn't mean gone from the save — they're
+    // very likely still a live Recruit row (committed elsewhere, or just
+    // still being recruited by other schools), so their photo can still be
+    // refreshed from the whole-league directory even though the per-row
+    // board loop above never sees them anymore. Without this, a target's
+    // pictureUrl (cached once, whenever it was first tracked) can never be
+    // corrected again once it falls off the board — including recovering
+    // from a stale link left by a portrait-asset rename/migration.
+    if (p.name && leagueRecruitDirectory) {
+      const candidates = leagueRecruitDirectory[p.name.toLowerCase().trim()]
+      const match = bestDirectoryMatch(candidates, p)
+      if (match) {
+        const freshUrl = mapPortraitUrl(match.generic_head_asset_name, Number(match.portrait_id))
+        if (freshUrl && freshUrl !== p.pictureUrl) patch.pictureUrl = freshUrl
+      }
+    }
+
+    if (Object.keys(patch).length > 0) {
+      toUpdate.push({ pid: p.pid, patch, name: p.name })
     }
   }
 
@@ -1359,6 +1431,7 @@ export function buildSyncPlan(dynasty, parsed) {
     userTid,
     year, // the recruiting CLASS year — see reconcileRecruitingBoard's param comment for why NOT +1
     rawTeamIdMap,
+    leagueRecruitDirectory: parsed.leagueRecruitDirectory,
   })
 
   // Assign sequential pids to every brand-new record (roster arrivals +
@@ -1786,6 +1859,20 @@ export function buildSyncPlan(dynasty, parsed) {
   // after a correct re-sync, since "no mismatch this time" and "never had
   // one" produce the exact same (null) userJobChange otherwise.
   let userJobChangeResolved = false
+  // The human's own real headshot — read directly off the SAME
+  // IsUserControlled row used for job-change detection above, not
+  // cross-referenced through mergedTeams' byTeam+position coaching staff
+  // map. Verified against a real save those two can disagree (a team's
+  // "headCoach" position slot held a different coach than the row actually
+  // flagged as the human) — IsUserControlled is the only reliable way to
+  // identify the specific coach that's really the user.
+  const userCoachPortrait = parsed.userCoachInfo
+    ? {
+        name: parsed.userCoachInfo.name ?? null,
+        genericHeadAssetName: parsed.userCoachInfo.generic_head_asset_name ?? null,
+        portraitId: parsed.userCoachInfo.portrait_id ?? null,
+      }
+    : null
   if (parsed.userCoachInfo) {
     const newTid = rawTeamIdMap.get(parsed.userCoachInfo.rawTid)
     const newPosition = parsed.userCoachInfo.position
@@ -1829,6 +1916,7 @@ export function buildSyncPlan(dynasty, parsed) {
     awardsUpdate,
     userJobChange,
     userJobChangeResolved,
+    userCoachPortrait,
     coachOffersUpdate,
     seasonInfo,
     unresolvedTeamNames: playerDiff.unresolvedTeamNames,

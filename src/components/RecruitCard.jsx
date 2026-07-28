@@ -184,6 +184,16 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, team
               </svg>
             ))}
           </span>
+          {/* Verbal (SoftCommitted) tag — a commitment, but still reversible
+              unlike Hard/Signed, so it's called out distinctly here. */}
+          {recruit.commitmentTier === 'SoftCommitted' && (
+            <span
+              className="inline-flex items-center px-1.5 py-0.5 rounded-sm text-[9px] font-bold uppercase tracking-widest"
+              style={{ letterSpacing: '1.5px', color: teamAccent, backgroundColor: teamBgText, border: `1px solid ${teamBgText}` }}
+            >
+              Verbal
+            </span>
+          )}
           {/* Scout grade — score + tier, color-coded. Only when scouted. */}
           {grade.score != null && (
             <span
