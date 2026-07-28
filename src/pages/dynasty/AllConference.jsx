@@ -15,7 +15,6 @@ import {
   PageHero,
   Card,
   Button,
-  Badge,
   EmptyState,
   Tabs,
   InlineYearSelect,
@@ -105,11 +104,11 @@ export default function AllConference() {
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('first')
   const [showEditModal, setShowEditModal] = useState(false)
-  // Explicit "view the preseason predictions" toggle — separate from the
-  // automatic fallback below, so a year/conference with real final honors
-  // can still be compared against what was predicted. Resets on year change.
-  const [viewPreseason, setViewPreseason] = useState(false)
-  useEffect(() => { setViewPreseason(false) }, [urlYear])
+  // Explicit Final/Preseason selection — null means "no explicit choice
+  // yet, use the automatic default" (see defaultView below). Resets on
+  // year change so switching years doesn't carry over a stale choice.
+  const [explicitView, setExplicitView] = useState(null)
+  useEffect(() => { setExplicitView(null) }, [urlYear])
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
 
   if (!currentDynasty) return null
@@ -213,20 +212,29 @@ export default function AllConference() {
   // year/conference — but the preseason picks stay available behind an
   // explicit toggle so they can still be compared against the real
   // end-of-season teams afterward.
-  const { allConference, isPreseasonView, hasFinalAllConference, hasPreseasonAllConference } = useMemo(() => {
+  // Default view: Preseason until the season's real Final honors are
+  // announced, then Final becomes the default automatically — every new
+  // season repeats the same process since that year/conference's own final
+  // list starts out empty again until its season actually ends. An explicit
+  // tab click always wins over this default, including clicking "Final"
+  // before it exists (shows a blank/empty state rather than silently
+  // falling back to Preseason).
+  const { allConference, isPreseasonView, hasFinalAllConference, hasPreseasonAllConference, activeView } = useMemo(() => {
     const byConf = yearData.allConferenceByConference?.[displayConference]
     const final = (Array.isArray(byConf) && byConf.length > 0) ? byConf : filterByConference(yearData.allConference || [])
     const preseason = filterByConference(yearData.allConferencePreseason || [])
     const hasFinal = final.length > 0
     const hasPreseason = preseason.length > 0
-    const showPreseason = viewPreseason || (!hasFinal && hasPreseason)
+    const defaultView = hasFinal ? 'final' : 'preseason'
+    const view = explicitView || defaultView
     return {
-      allConference: showPreseason ? preseason : final,
-      isPreseasonView: showPreseason,
+      allConference: view === 'preseason' ? preseason : final,
+      isPreseasonView: view === 'preseason',
       hasFinalAllConference: hasFinal,
       hasPreseasonAllConference: hasPreseason,
+      activeView: view,
     }
-  }, [yearData, displayConference, viewPreseason])
+  }, [yearData, displayConference, explicitView])
 
   const handleYearChange = (year) => {
     navigate(`${pathPrefix}/all-conference/${year}/${encodeConference(displayConference)}`)
@@ -378,12 +386,18 @@ export default function AllConference() {
 
   // Placeholder images: imported rosters often set every player's pictureUrl to
   // the team logo. A real photo is unique, so anything shared by 3+ players is
-  // treated as a placeholder and the tile shows a monogram instead.
+  // treated as a placeholder and the tile shows a monogram instead — EXCEPT a
+  // CFB27 generic portrait (/cfb27-portraits/generic/), which legitimately
+  // draws from a shared pool of ~5,040 template faces by the game's own
+  // design (see TeamYear.jsx's own fix for this exact bug, confirmed against
+  // a real save) — many players genuinely looking identical there is not a
+  // mistake this heuristic should "fix", and treating it as one silently
+  // hides real, correctly-synced portraits.
   const placeholderImages = (() => {
     const counts = new Map()
     for (const p of (currentDynasty.players || [])) {
       const u = p.pictureUrl
-      if (u) counts.set(u, (counts.get(u) || 0) + 1)
+      if (u && !u.includes('/cfb27-portraits/')) counts.set(u, (counts.get(u) || 0) + 1)
     }
     return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
   })()
@@ -528,35 +542,28 @@ export default function AllConference() {
         onTabChange={setFilter}
       />
 
-      {hasAnyPlayers && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={isPreseasonView ? 'warning' : 'default'}>
-            {isPreseasonView ? 'Preseason All-Conference' : 'All-Conference'}
-          </Badge>
-          {isPreseasonView && (
-            <span className="text-xs text-txt-tertiary">
-              {hasFinalAllConference
-                ? 'Predicted teams from before the season started.'
-                : "Predicted teams — replaced automatically once the season's final honors are announced."}
-            </span>
-          )}
-          {isPreseasonView && hasFinalAllConference && (
-            <Button variant="secondary" size="sm" onClick={() => setViewPreseason(false)}>
-              Back to Final Teams
-            </Button>
-          )}
-          {!isPreseasonView && hasFinalAllConference && hasPreseasonAllConference && (
-            <Button variant="secondary" size="sm" onClick={() => setViewPreseason(true)}>
-              Compare to Preseason Picks
-            </Button>
-          )}
+      {(hasFinalAllConference || hasPreseasonAllConference) && (
+        <div className="inline-flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--surface-2)' }}>
+          {[{ key: 'final', label: 'Final' }, { key: 'preseason', label: 'Preseason' }].map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              onClick={() => setExplicitView(v.key)}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-colors ${
+                activeView === v.key ? 'bg-surface-4 text-txt-primary' : 'text-txt-tertiary hover:text-txt-primary'
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
       )}
 
       {!hasAnyPlayers ? (
         <Card>
           <EmptyState
-            title={`No All-${displayConference} Yet`}
+            title={activeView === 'final' ? `Final All-${displayConference} Not Announced Yet` : `No Preseason All-${displayConference} Yet`}
+            message={activeView === 'final' ? "Check back once the season's final honors are announced." : undefined}
             action={!isViewOnly && (
               <Button variant="secondary" onClick={() => setShowEditModal(true)}>
                 Add All-Conference

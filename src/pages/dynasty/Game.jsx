@@ -3673,7 +3673,7 @@ export default function Game() {
                               <Link to={`${pathPrefix}/team/${resolveTid(leftTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 min-w-0">
                                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 shadow-sm">
                                   <img
-                                    src={getTeamLogo(getMascotName(leftTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || leftTeamData_bs.abbr)}
+                                    src={leftTeamData_bs.logo || getTeamLogo(getMascotName(leftTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || leftTeamData_bs.abbr)}
                                     alt={leftTeamData_bs.name}
                                     className="w-full h-full object-contain"
                                   />
@@ -3697,7 +3697,7 @@ export default function Game() {
                               <Link to={`${pathPrefix}/team/${resolveTid(rightTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 min-w-0">
                                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 shadow-sm">
                                   <img
-                                    src={getTeamLogo(getMascotName(rightTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || rightTeamData_bs.abbr)}
+                                    src={rightTeamData_bs.logo || getTeamLogo(getMascotName(rightTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || rightTeamData_bs.abbr)}
                                     alt={rightTeamData_bs.name}
                                     className="w-full h-full object-contain"
                                   />
@@ -3844,7 +3844,7 @@ export default function Game() {
             >
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-white p-1 shadow-sm">
-                  <img src={getTeamLogoRobust(leftTeamAbbr)} alt="" className="w-full h-full object-contain" />
+                  <img src={getTeamLogoRobust(leftTeamAbbr, currentDynasty?.teams)} alt="" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-sm font-bold text-white hidden sm:inline" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
                   {getMascotName(leftTeamAbbr, currentDynasty?.teams) || leftTeamAbbr}
@@ -3855,7 +3855,7 @@ export default function Game() {
                   {getMascotName(rightTeamAbbr, currentDynasty?.teams) || rightTeamAbbr}
                 </span>
                 <div className="w-8 h-8 rounded-full bg-white p-1 shadow-sm">
-                  <img src={getTeamLogoRobust(rightTeamAbbr)} alt="" className="w-full h-full object-contain" />
+                  <img src={getTeamLogoRobust(rightTeamAbbr, currentDynasty?.teams)} alt="" className="w-full h-full object-contain" />
                 </div>
               </div>
             </div>

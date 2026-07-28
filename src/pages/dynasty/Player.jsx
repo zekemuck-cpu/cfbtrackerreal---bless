@@ -36,7 +36,7 @@ import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../uti
 import { computeSeasonAV } from '../../utils/approximateValue'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
 import { predictRecruitOverall } from '../../utils/scoutScore'
-import { getEditionConfig } from '../../editions'
+import { getEditionConfig, isPcAutoDynasty } from '../../editions'
 import { getPlayerNil } from '../../data/playerNilModel'
 import nilIcon from '../../assets/blueprint/points.png'
 
@@ -195,6 +195,7 @@ function PlayerInner() {
   const [expandedGameLog, setExpandedGameLog] = useState(null) // { year, statType }
   const [showScoringHighlightsModal, setShowScoringHighlightsModal] = useState(false)
   const [selectedGameScoringPlays, setSelectedGameScoringPlays] = useState(null)
+  const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
 
   // Sort preferences for stat tables (persisted in localStorage)
   const [statSortPrefs, setStatSortPrefs] = useState(() => {
@@ -567,6 +568,12 @@ function PlayerInner() {
   // ScoutScore surfaces. When on, suppress the ScoutScore overview/tab entirely
   // so the player page behaves as if ScoutScore didn't exist. When off, this is
   // a no-op and ScoutScore behaves exactly as before.
+  // CFB27 PC auto-sync dynasties get their whole roster re-derived from the
+  // save every time — manually editing a player here would just get
+  // silently overwritten (or worse, drift out of sync) on the next sync, so
+  // the Edit button is hidden entirely rather than offering an action that
+  // doesn't actually stick. Manual/CFB26 dynasties are unaffected.
+  const isCfb27Auto = isPcAutoDynasty(dynasty)
   const scoutStaffEnabled = !!dynasty?.scoutStaffEnabled
   const hasScoutAttributes = !!(player?.attributes && Object.keys(player.attributes).length > 0)
   const enrolledOnRoster = Object.keys(player?.teamsByYear || {})
@@ -1903,8 +1910,10 @@ function PlayerInner() {
                 <img
                   src={proxyImageUrl(player.pictureUrl, 300)}
                   alt={player.name}
-                  className="relative z-[1] w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl"
+                  className="relative z-[1] w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl cursor-pointer hover:brightness-110 transition-[filter]"
                   style={{ border: `2px solid ${teamBgText}66`, boxShadow: '0 2px 10px rgba(0,0,0,0.35)' }}
+                  onClick={() => setShowPhotoLightbox(true)}
+                  title="Click to enlarge"
                   onError={(e) => {
                     // wsrv hiccup (e.g. a cached error from an imgbb outage) →
                     // fall back to the original URL, which often still loads.
@@ -1915,7 +1924,7 @@ function PlayerInner() {
                   }}
                 />
                 {/* Mobile Edit — tucked into the empty space under the photo. */}
-                {!isViewOnly && (
+                {!isViewOnly && !isCfb27Auto && (
                   <button
                     onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
                     className="sm:hidden w-20 flex items-center justify-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide hover:bg-black/20 transition-colors"
@@ -1946,7 +1955,7 @@ function PlayerInner() {
                 {/* Edit — inline right after the name on tablet/desktop, and also
                     on mobile when there's no photo (so it sits to the RIGHT of the
                     name instead of pushing it over from the left). */}
-                {!isViewOnly && (
+                {!isViewOnly && !isCfb27Auto && (
                   <button
                     onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
                     className={`${player.pictureUrl ? 'hidden sm:inline-flex' : 'inline-flex'} items-center justify-center p-1.5 rounded-lg hover:bg-black/20 transition-colors flex-shrink-0 self-center`}
@@ -6212,6 +6221,35 @@ function PlayerInner() {
                 )
               })}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo lightbox — click the portrait to enlarge, click the backdrop
+          or the X to close. */}
+      {showPhotoLightbox && player.pictureUrl && (
+        <div
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+          style={{ margin: 0 }}
+          onClick={() => setShowPhotoLightbox(false)}
+        >
+          <div className="relative max-w-full max-h-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setShowPhotoLightbox(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black/90 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <img
+              src={proxyImageUrl(player.pictureUrl, 800)}
+              alt={player.name}
+              className="max-w-full max-h-[85vh] rounded-xl object-contain"
+              style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}
+            />
           </div>
         </div>
       )}

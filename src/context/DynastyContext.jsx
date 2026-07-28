@@ -8353,8 +8353,21 @@ export function DynastyProvider({ children }) {
           seenPIDs.add(player.pid)
         }
 
-        // Also check for duplicate names (same name + same team + same year class = likely duplicate)
-        const nameKey = `${(player.name || '').toLowerCase().trim()}_${player.team || ''}_${player.year || ''}`
+        // Also check for duplicate names (same name + same team + same year class = likely
+        // duplicate) — but ONLY as a fallback for players with no cfb27AssetName (manual
+        // entries, or CFB27 recruits the save hasn't "created" yet — see
+        // reconcileRecruitingBoard's header comment for why that's commonly ''). Confirmed
+        // against a real save this name+team+year key alone is NOT reliable enough on its
+        // own: two different real freshmen ("James Moore" QB pid 10916 and "James Moore" K
+        // pid 11834, both team 28) were colliding on it every single sync, and the second
+        // one was silently deleted here on every save — real data loss, not a duplicate.
+        // cfb27AssetName is the save's own per-player unique id and is trusted first when
+        // present; distinct pids with distinct asset names are never the same duplicate
+        // regardless of name/team/year overlap.
+        const hasAssetName = player.cfb27AssetName != null && player.cfb27AssetName !== ''
+        const nameKey = hasAssetName
+          ? `asset:${player.cfb27AssetName}`
+          : `name:${(player.name || '').toLowerCase().trim()}_${player.team || ''}_${player.year || ''}_${(player.position || '').toLowerCase()}`
         if (player.name && seenNames.has(nameKey)) {
           console.warn(`Duplicate player name/team/class detected and removed: ${player.name}`)
           return false

@@ -14,7 +14,6 @@ import {
   PageHero,
   Card,
   Button,
-  Badge,
   EmptyState,
   Tabs,
   TitleWithYear,
@@ -106,13 +105,12 @@ export default function AllAmericans() {
   const pathPrefix = usePathPrefix()
   const [filter, setFilter] = useState('first')
   const [showEditModal, setShowEditModal] = useState(false)
-  // Explicit "view the preseason predictions" toggle — separate from the
-  // automatic fallback below, so a year with real final honors can still be
-  // compared against what was predicted. Resets to false on year change so
-  // switching years doesn't carry over a stale toggle.
-  const [viewPreseason, setViewPreseason] = useState(false)
+  // Explicit Final/Preseason selection — null means "no explicit choice
+  // yet, use the automatic default" (see defaultView below). Resets on
+  // year change so switching years doesn't carry over a stale choice.
+  const [explicitView, setExplicitView] = useState(null)
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
-  useEffect(() => { setViewPreseason(false) }, [urlYear])
+  useEffect(() => { setExplicitView(null) }, [urlYear])
 
   if (!currentDynasty) return null
 
@@ -148,7 +146,16 @@ export default function AllAmericans() {
   const preseasonAllAmericans = yearData.allAmericansPreseason || []
   const hasFinalAllAmericans = finalAllAmericans.length > 0
   const hasPreseasonAllAmericans = preseasonAllAmericans.length > 0
-  const isPreseasonView = viewPreseason || (!hasFinalAllAmericans && hasPreseasonAllAmericans)
+  // Default view: Preseason until the season's real Final honors are
+  // announced, then Final becomes the default automatically — every new
+  // season repeats the same process since that year's own finalAllAmericans
+  // starts out empty again until its season actually ends. An explicit tab
+  // click always wins over this default, including clicking "Final" before
+  // it exists (shows a blank/empty state rather than silently falling back
+  // to Preseason) — the user needs to be able to SEE that it isn't out yet.
+  const defaultView = hasFinalAllAmericans ? 'final' : 'preseason'
+  const activeView = explicitView || defaultView
+  const isPreseasonView = activeView === 'preseason'
   const allAmericans = isPreseasonView ? preseasonAllAmericans : finalAllAmericans
 
   const handleYearChange = (year) => {
@@ -358,12 +365,19 @@ export default function AllAmericans() {
 
   // Placeholder images: imported rosters often set every player's pictureUrl to
   // the team logo. A real photo is unique, so anything shared by 3+ players is
-  // treated as a placeholder and the tile shows a monogram instead.
+  // treated as a placeholder and the tile shows a monogram instead — EXCEPT a
+  // CFB27 generic portrait (/cfb27-portraits/generic/), which legitimately
+  // draws from a shared pool of ~5,040 template faces by the game's own
+  // design (see TeamYear.jsx's own fix for this exact bug, confirmed against
+  // a real save) — many players genuinely looking identical there is not a
+  // mistake this heuristic should "fix", and treating it as one silently
+  // hides real, correctly-synced portraits (confirmed: Brady Bradshaw, a
+  // generic-portrait punter, lost his real photo this way).
   const placeholderImages = (() => {
     const counts = new Map()
     for (const p of (currentDynasty.players || [])) {
       const u = p.pictureUrl
-      if (u) counts.set(u, (counts.get(u) || 0) + 1)
+      if (u && !u.includes('/cfb27-portraits/')) counts.set(u, (counts.get(u) || 0) + 1)
     }
     return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
   })()
@@ -473,35 +487,28 @@ export default function AllAmericans() {
         onTabChange={setFilter}
       />
 
-      {hasAnyPlayers && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={isPreseasonView ? 'warning' : 'default'}>
-            {isPreseasonView ? 'Preseason All-Americans' : 'All-Americans'}
-          </Badge>
-          {isPreseasonView && (
-            <span className="text-xs text-txt-tertiary">
-              {hasFinalAllAmericans
-                ? 'Predicted teams from before the season started.'
-                : "Predicted teams — replaced automatically once the season's final honors are announced."}
-            </span>
-          )}
-          {isPreseasonView && hasFinalAllAmericans && (
-            <Button variant="secondary" size="sm" onClick={() => setViewPreseason(false)}>
-              Back to Final Teams
-            </Button>
-          )}
-          {!isPreseasonView && hasFinalAllAmericans && hasPreseasonAllAmericans && (
-            <Button variant="secondary" size="sm" onClick={() => setViewPreseason(true)}>
-              Compare to Preseason Picks
-            </Button>
-          )}
+      {(hasFinalAllAmericans || hasPreseasonAllAmericans) && (
+        <div className="inline-flex items-center gap-1 p-1 rounded-lg" style={{ backgroundColor: 'var(--surface-2)' }}>
+          {[{ key: 'final', label: 'Final' }, { key: 'preseason', label: 'Preseason' }].map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              onClick={() => setExplicitView(v.key)}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-colors ${
+                activeView === v.key ? 'bg-surface-4 text-txt-primary' : 'text-txt-tertiary hover:text-txt-primary'
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
         </div>
       )}
 
       {!hasAnyPlayers ? (
         <Card>
           <EmptyState
-            title="No All-Americans Yet"
+            title={activeView === 'final' ? "Final All-Americans Not Announced Yet" : "No Preseason All-Americans Yet"}
+            message={activeView === 'final' ? "Check back once the season's final honors are announced." : undefined}
             action={!isViewOnly && (
               <Button variant="secondary" onClick={() => setShowEditModal(true)}>
                 Add All-Americans

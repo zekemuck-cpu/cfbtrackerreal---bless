@@ -6,6 +6,7 @@ import { getTeamLogoByTid, getMascotName, stripMascotFromName } from '../../data
 import { getTeamColors } from '../../data/teamColors'
 import { AWARD_IMAGES } from '../../data/awardImages'
 import { normalizePlayerName } from '../../utils/playerMatching'
+import { getPlayerTid } from '../../data/rosterModel'
 import { HonorPlayerTile } from '../../components/HonorsUI'
 import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../components/ui'
 
@@ -73,6 +74,55 @@ function findLastGameSummary(dynasty, candidate, year, atOrBeforeWeek) {
   }
 
   return { noGame: false, oppName, won, teamScore, oppScore, statLine: parts.length ? parts.join(', ') : null }
+}
+
+// This candidate's CURRENT SEASON totals (not just their last game) —
+// matched against dynasty.players by normalized name, preferring a name+team
+// match (guards against the same real-world name existing on two different
+// teams) and falling back to name-only if that fails. A Heisman Watch entry
+// carries no pid of its own (see mapHeismanEntry in cfb27SaveImport.js), so
+// this lookup is the only way to reach their statsByYear.
+function findSeasonStatLine(dynasty, candidate, year) {
+  if (!candidate?.name) return null
+  const target = normalizePlayerName(candidate.name)
+  const players = dynasty.players || []
+  const matchesName = (p) => normalizePlayerName(p.name || '') === target
+  let player = candidate.tid != null
+    ? players.find((p) => matchesName(p) && Number(getPlayerTid(p, year, { currentYear: dynasty.currentYear })) === Number(candidate.tid))
+    : null
+  if (!player) player = players.find(matchesName)
+  if (!player) return null
+
+  const ys = player.statsByYear?.[year] || player.statsByYear?.[String(year)]
+  if (!ys) return null
+  const parts = []
+
+  if (ys.passing) {
+    const p = ys.passing
+    const ypa = p.att ? (p.yds / p.att).toFixed(1) : '0.0'
+    parts.push(`${p.yds || 0} PASS YDS`, `${ypa} YPA`, `${p.td || 0} PASS TD`)
+    if (p.int) parts.push(`${p.int} INT`)
+  }
+  if (ys.rushing) {
+    const r = ys.rushing
+    parts.push(`${r.car || 0} CAR`, `${r.yds || 0} RUSH YDS`)
+    if (r.td) parts.push(`${r.td} RUSH TD`)
+  }
+  if (ys.receiving) {
+    const rc = ys.receiving
+    parts.push(`${rc.rec || 0} REC`, `${rc.yds || 0} REC YDS`)
+    if (rc.td) parts.push(`${rc.td} REC TD`)
+  }
+  if (ys.defense) {
+    const d = ys.defense
+    const tkl = (d.soloTkl || 0) + (d.astTkl || 0)
+    if (tkl) parts.push(`${tkl} TKL`)
+    if (d.sacks) parts.push(`${d.sacks} SACK`)
+    if (d.int) parts.push(`${d.int} INT`)
+    if (d.pd) parts.push(`${d.pd} PBU`)
+  }
+
+  return parts.length ? parts.join(', ') : null
 }
 
 // Rank-change indicator — a brand-new top-4 entry (prevRank null) reads the
@@ -152,13 +202,14 @@ export default function HeismanWatch() {
           <EmptyState title="No Heisman Watch Data Yet" message="Sync from your CFB27 save to populate the Heisman Watch." />
         </Card>
       ) : (
-        <div className="space-y-2 max-w-2xl">
+        <div className="space-y-2">
           {[...candidates].sort((a, b) => a.rank - b.rank).map((c) => {
             const mascotName = getMascotName(c.tid, teamsSource)
             const schoolName = stripMascotFromName(mascotName) || mascotName
             const colors = mascotName ? getTeamColors(mascotName, teamsSource) : null
             const logo = c.tid != null ? getTeamLogoByTid(c.tid, teamsSource) : null
             const lastGame = findLastGameSummary(currentDynasty, c, displayYear, activeWeek)
+            const seasonStatLine = findSeasonStatLine(currentDynasty, c, displayYear)
             const won = isWinner(c)
             return (
               <div
@@ -180,6 +231,8 @@ export default function HeismanWatch() {
                       teamLogo={logo}
                       primary={colors?.primary || '#3a3d47'}
                       photoUrl={c.pictureUrl}
+                      statLine={seasonStatLine ? `SEASON: ${seasonStatLine}` : null}
+                      showLogoWatermark
                     />
                   </div>
                   {won && (

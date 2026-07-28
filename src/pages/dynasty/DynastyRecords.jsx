@@ -962,6 +962,7 @@ export default function DynastyRecords() {
                           style={{
                             padding: isFirst ? '15px 20px' : (isTop3 ? '12px 20px' : '10px 20px'),
                             borderTop: displayIdx > 0 ? '1px solid var(--surface-4)' : 'none',
+                            isolation: 'isolate',
                           }}
                           onClick={() => setExpandedRowKey(isExpanded ? null : rowKey)}
                         >
@@ -1115,7 +1116,8 @@ export default function DynastyRecords() {
                           style={{
                             padding: isFirst ? '14px 16px' : '8px 16px',
                             borderTop: idx === 0 ? 'none' : '1px solid var(--surface-4)',
-                            backgroundColor: 'transparent'
+                            backgroundColor: 'transparent',
+                            isolation: 'isolate',
                           }}
                         >
                           {/* Team logo watermark — large, faded, bleeding off
@@ -1205,7 +1207,7 @@ export default function DynastyRecords() {
                               fontWeight: isFirst ? 900 : 700,
                               letterSpacing: '0.5px',
                               lineHeight: 1,
-                              opacity: isFirst ? 1 : rank === 2 ? 0.8 : 0.65
+                              opacity: isFirst ? 1 : rank === 2 ? 0.8 : 0.65,
                             }}
                           >
                             {formatValue(entry.value, stat.format)}
@@ -1418,6 +1420,7 @@ export default function DynastyRecords() {
                               padding: isFirst ? '14px 24px' : (isTop3 ? '10px 24px' : '8px 24px'),
                               borderTop: displayIdx > 0 ? '1px solid var(--surface-4)' : 'none',
                               background: 'transparent',
+                              isolation: 'isolate',
                             }}
                             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--surface-3)' }}
                             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}

@@ -1076,10 +1076,17 @@ export default function AllTimeLineup({ embedded = false }) {
 
   const heroBorderColor = coachedTeamInfo[0]?.colors.primary || '#374151'
 
+  // A CFB27 generic portrait (/cfb27-portraits/generic/) legitimately draws
+  // from a shared pool of ~5,040 template faces by the game's own design
+  // (see TeamYear.jsx's own fix for this exact bug, confirmed against a real
+  // save) — many players genuinely looking identical there is not the
+  // "every player defaulted to the team logo" scenario this placeholder
+  // detection exists for, so it's excluded from the shared-count check
+  // entirely rather than silently hiding real, correctly-synced portraits.
   const placeholderImages = useMemo(() => {
     const counts = new Map()
     for (const p of players) {
-      if (p.pictureUrl) counts.set(p.pictureUrl, (counts.get(p.pictureUrl) || 0) + 1)
+      if (p.pictureUrl && !p.pictureUrl.includes('/cfb27-portraits/')) counts.set(p.pictureUrl, (counts.get(p.pictureUrl) || 0) + 1)
     }
     return new Set([...counts].filter(([, n]) => n >= 3).map(([u]) => u))
   }, [players])

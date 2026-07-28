@@ -16,7 +16,7 @@ const hexA = (hex, a) => {
 // One honoree tile — a team-color gradient row with the player's photo (or a
 // monogram), name, a team logo+name pill, class, and position. The whole tile
 // links to the player's page.
-export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr, teamLogo, primary = '#3a3d47', photoUrl, to, statLine, rankBadge }) {
+export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr, teamLogo, primary = '#3a3d47', photoUrl, to, statLine, rankBadge, showLogoWatermark = false }) {
   // Full, true team color (the box-score / game-card treatment) instead of a
   // low-alpha wash that fades to dark and muddies the color. Text is
   // contrast-aware; the team chip + avatar sit in dark translucent pills so
@@ -78,6 +78,27 @@ export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr,
         border: '1px solid rgba(0,0,0,0.3)',
       }}
     >
+      {/* Team logo watermark — faded, bleeding off the right edge, behind
+          the tile's own content (z-[1] above). Opt-in since some callers
+          (All-Americans/All-Conference) weren't asked to show this. */}
+      {showLogoWatermark && teamLogo && (
+        <img
+          src={teamLogo}
+          alt=""
+          aria-hidden="true"
+          className="absolute pointer-events-none select-none"
+          style={{
+            top: '50%',
+            right: '-16px',
+            transform: 'translateY(-50%)',
+            width: '84px',
+            height: '84px',
+            objectFit: 'contain',
+            opacity: 0.2,
+            zIndex: 0,
+          }}
+        />
+      )}
       {to
         ? <Link to={to} className="block hover:brightness-110 transition-[filter]">{inner}</Link>
         : inner}

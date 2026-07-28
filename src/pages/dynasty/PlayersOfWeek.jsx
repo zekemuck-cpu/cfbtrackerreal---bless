@@ -7,23 +7,33 @@ import { getTeamColors } from '../../data/teamColors'
 import { HonorPlayerTile } from '../../components/HonorsUI'
 import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../components/ui'
 
-// Finds this honoree's box-score line for the given week — PlayerAward's own
-// AwardScore field is always 0 in the save (see extractPlayers.cjs's
-// buildPlayerAwards), so the real stat line has to come from that week's
-// already-synced box score instead. Combines every category they show up in
-// (a dual-threat QB's passing AND rushing lines together, matching the
-// in-game card exactly) rather than stopping at the first match — mirrors
-// Heisman Watch's own findLastGameSummary (HeismanWatch.jsx) field-for-field
-// so the two pages never disagree about the same game's same stat line.
-function findBoxScoreStatLine(dynasty, honoree, week, year) {
-  if (!honoree?.tid) return null
+// Finds this honoree's game result + box-score line for the given week —
+// PlayerAward's own AwardScore field is always 0 in the save (see
+// extractPlayers.cjs's buildPlayerAwards), so the real stat line has to come
+// from that week's already-synced box score instead. Combines every category
+// they show up in (a dual-threat QB's passing AND rushing lines together,
+// matching the in-game card exactly) rather than stopping at the first
+// match. Mirrors Heisman Watch's own findLastGameSummary (HeismanWatch.jsx)
+// field-for-field/shape-for-shape so the two pages render the identical
+// "Last Game vs X (W/L score-score): stats" line for the same game.
+function findBoxScoreGameSummary(dynasty, honoree, week, year) {
+  if (!honoree?.tid) return { noGame: true }
+  const teamsSource = dynasty.teams || {}
   const game = (dynasty.games || []).find((g) =>
     Number(g.year) === Number(year) && Number(g.week) === Number(week)
     && (Number(g.team1Tid) === honoree.tid || Number(g.team2Tid) === honoree.tid))
-  const categories = game?.boxScore?.byTid?.[honoree.tid]
-  if (!categories) return null
+  if (!game) return { noGame: true }
+
+  const isTeam1 = Number(game.team1Tid) === honoree.tid
+  const teamScore = isTeam1 ? game.team1Score : game.team2Score
+  const oppScore = isTeam1 ? game.team2Score : game.team1Score
+  const oppTid = isTeam1 ? game.team2Tid : game.team1Tid
+  const won = teamScore > oppScore
+  const oppMascot = getMascotName(oppTid, teamsSource)
+  const oppName = stripMascotFromName(oppMascot) || oppMascot || teamsSource?.[oppTid]?.abbr || 'Opponent'
+
+  const categories = game.boxScore?.byTid?.[honoree.tid]
   const target = (honoree.name || '').toLowerCase().trim()
-  if (!target) return null
   const findIn = (cat) => categories?.[cat]?.find((s) => (s.playerName || '').toLowerCase().trim() === target)
   const parts = []
 
@@ -57,7 +67,7 @@ function findBoxScoreStatLine(dynasty, honoree, week, year) {
   const punting = findIn('punting')
   if (punting) parts.push(`${punting.punts} PUNTS`, `${punting.yards} YDS`)
 
-  return parts.length ? parts.join(', ') : null
+  return { noGame: false, oppName, won, teamScore, oppScore, statLine: parts.length ? parts.join(', ') : null }
 }
 
 export default function PlayersOfWeek() {
@@ -104,7 +114,7 @@ export default function PlayersOfWeek() {
     const schoolName = stripMascotFromName(mascotName) || mascotName
     const colors = mascotName ? getTeamColors(mascotName, teamsSource) : null
     const logo = honoree.tid != null ? getTeamLogoByTid(honoree.tid, teamsSource) : null
-    const statLine = findBoxScoreStatLine(currentDynasty, honoree, activeWeek, displayYear)
+    const game = findBoxScoreGameSummary(currentDynasty, honoree, activeWeek, displayYear)
     return (
       <div className="space-y-2">
         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-txt-tertiary">{label}</div>
@@ -116,9 +126,21 @@ export default function PlayersOfWeek() {
           teamLogo={logo}
           primary={colors?.primary || '#3a3d47'}
           photoUrl={honoree.pictureUrl}
-          statLine={statLine}
           to={undefined}
+          showLogoWatermark
         />
+        <div className="pl-3 text-xs text-txt-tertiary">
+          {game.noGame ? (
+            <span className="italic">No Game This Week.</span>
+          ) : (
+            <>
+              <span className="font-semibold text-txt-secondary">
+                Last Game vs {game.oppName} ({game.won ? 'W' : 'L'} {game.teamScore}-{game.oppScore}):
+              </span>{' '}
+              {game.statLine || '—'}
+            </>
+          )}
+        </div>
       </div>
     )
   }
