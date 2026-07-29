@@ -369,7 +369,60 @@ const USER_COACH_POSITION_CODE = {
   DefensiveCoordinator: 'DC',
 };
 
-function buildUserCoachInfo(coachTable) {
+// CareerCoachStats sub-record fields → the app's own dynasty.userCoachCareerStats
+// shape. Coach.CareerStats is a single (non-array) reference field, resolved
+// the same way as other proven reference fields in this file (Team.HeadCoach,
+// Conference.TeamSlots) via resolveRef. Verified against a real save's Coach
+// schema (Franchise-Schemas/CareerCoachStats.ftx, 26 members) — these are
+// LIFETIME totals across the coach's whole career (any school), not scoped to
+// the coach's current school, except WinsAtCurrentSchool/LossesAtCurrentSchool
+// which are explicitly current-school-only and intentionally not surfaced here
+// (the app's own per-stint game-derived numbers already cover that case).
+const CAREER_COACH_STATS_FIELDS = {
+  wins: 'Wins',
+  losses: 'Losses',
+  bowlWins: 'BowlWins',
+  bowlLosses: 'BowlLosses',
+  confChampWins: 'ConfChampWins',
+  confChampLosses: 'ConfChampLosses',
+  playoffWins: 'PlayoffWins',
+  playoffLosses: 'PlayoffLosses',
+  ncWins: 'NCWins',
+  ncLosses: 'NCLosses',
+  rivalWins: 'RivalWins',
+  rivalLosses: 'RivalLosses',
+  top25Wins: 'Top25Wins',
+  top25Losses: 'Top25Losses',
+  draftPicks: 'DraftPicks',
+  firstRoundDraftPicks: 'FirstRoundDraftPicks',
+  top5RecruitClasses: 'Top5RecruitClasses',
+  timesFired: 'TimesFired',
+  confChampWinStreak: 'ConfChampWinStreak',
+  rivalWinStreak: 'RivalWinStreak',
+  winsAtCurrentSchool: 'WinsAtCurrentSchool',
+  lossesAtCurrentSchool: 'LossesAtCurrentSchool',
+};
+
+// Coach.CoachPrestige (LetterGrade enum) decodes to symbol names like
+// "Dplus"/"Aminus" (verified against Football-Schemas/LetterGrade.ftx's 17
+// members) — not the "D+"/"A-" the in-game coach card actually displays.
+// "Incomplete" means the game hasn't assigned a grade yet (e.g. year one).
+const LETTER_GRADE_LABELS = {
+  Aplus: 'A+', A: 'A', Aminus: 'A-',
+  Bplus: 'B+', B: 'B', Bminus: 'B-',
+  Cplus: 'C+', C: 'C', Cminus: 'C-',
+  Dplus: 'D+', D: 'D', Dminus: 'D-',
+  F: 'F', Incomplete: null,
+};
+
+// Coach.CurrentJobSecurityStatus (JobSecurityStatus enum) decodes to
+// "SafeForNow"/"HotSeat" etc. (Franchise-Schemas/JobSecurityStatus.ftx) —
+// spaced out to match the in-game "Safe For Now"/"Hot Seat" label text.
+const JOB_SECURITY_STATUS_LABELS = {
+  Safe: 'Safe', SafeForNow: 'Safe For Now', Low: 'Low', HotSeat: 'Hot Seat', Invalid: null,
+};
+
+async function buildUserCoachInfo(save, coachTable) {
   if (!coachTable) return null;
   for (let i = 0; i < coachTable.records.length; i++) {
     const rec = coachTable.records[i];
@@ -392,6 +445,36 @@ function buildUserCoachInfo(coachTable) {
     // specific coach that's really you.
     const first = readCell(rec, 'FirstName') || '';
     const last = readCell(rec, 'LastName') || '';
+
+    // Live, current-moment program/coach standing — snapshot only (no
+    // history), same convention as the in-game coach card.
+    const jobSecurityPct = Number(readCell(rec, 'CurrentJobSecurityPercentage'));
+    const rawPrestigeGrade = readCell(rec, 'CoachPrestige');
+    const prestigeGrade = rawPrestigeGrade != null
+      ? (LETTER_GRADE_LABELS[rawPrestigeGrade] ?? null)
+      : null;
+    const prestigeScore = Number(readCell(rec, 'CoachPrestigeScore'));
+    const careerWinSeasons = Number(readCell(rec, 'CareerWinSeasons'));
+    const rawJobSecurityStatus = readCell(rec, 'CurrentJobSecurityStatus');
+    const jobSecurityStatus = rawJobSecurityStatus != null
+      ? (JOB_SECURITY_STATUS_LABELS[rawJobSecurityStatus] ?? null)
+      : null;
+
+    let careerStats = null;
+    try {
+      const careerStatsRec = await resolveRef(save, readCell(rec, 'CareerStats'));
+      if (careerStatsRec && !careerStatsRec.isEmpty) {
+        careerStats = {};
+        for (const [key, field] of Object.entries(CAREER_COACH_STATS_FIELDS)) {
+          const v = Number(readCell(careerStatsRec, field));
+          careerStats[key] = Number.isFinite(v) ? v : 0;
+        }
+      }
+    } catch (err) {
+      // Leave careerStats null — the sync layer treats that as "no data",
+      // not a crash reason.
+    }
+
     return {
       rawTid,
       position,
@@ -399,9 +482,77 @@ function buildUserCoachInfo(coachTable) {
       name: `${first} ${last}`.trim() || null,
       generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
       portrait_id: Number(readCell(rec, 'Portrait')) || null,
+      jobSecurityPct: Number.isFinite(jobSecurityPct) ? jobSecurityPct : null,
+      jobSecurityStatus,
+      prestigeGrade,
+      prestigeScore: Number.isFinite(prestigeScore) ? prestigeScore : null,
+      careerWinSeasons: Number.isFinite(careerWinSeasons) ? careerWinSeasons : null,
+      careerStats,
     };
   }
   return null;
+}
+
+/**
+ * Every current Head Coach in the league (not just the human's own row) —
+ * powers the "All Coaches" national leaderboard, same column set as the
+ * in-game Coach Stats screen minus "Cost": verified against a real sync
+ * that neither ContractSalary nor any other Coach-record numeric field
+ * (CoachPoints, ExperiencePoints, LegacyScore, AwardPoints, Level,
+ * CoachPrestigeScore — all tried) matches that screen's Cost column, even
+ * in relative ranking order, so it's presumed to be a value EA computes
+ * for that UI rather than a single stored field. CoachPrestigeScore is
+ * used instead as the table's default sort.
+ */
+async function buildAllHeadCoaches(save, coachTable) {
+  const coaches = [];
+  if (!coachTable) return coaches;
+  for (let i = 0; i < coachTable.records.length; i++) {
+    const rec = coachTable.records[i];
+    if (!rec || rec.isEmpty) continue;
+    if (readCell(rec, 'Position') !== 'HeadCoach') continue;
+    const rawTid = Number(readCell(rec, 'TeamIndex'));
+    if (!Number.isFinite(rawTid)) continue;
+    const first = readCell(rec, 'FirstName') || '';
+    const last = readCell(rec, 'LastName') || '';
+    const name = `${first} ${last}`.trim();
+    if (!name) continue;
+
+    const jobSecurityPct = Number(readCell(rec, 'CurrentJobSecurityPercentage'));
+    const rawPrestigeGrade = readCell(rec, 'CoachPrestige');
+    const prestigeGrade = rawPrestigeGrade != null ? (LETTER_GRADE_LABELS[rawPrestigeGrade] ?? null) : null;
+    const prestigeScore = Number(readCell(rec, 'CoachPrestigeScore'));
+    const rawJobSecurityStatus = readCell(rec, 'CurrentJobSecurityStatus');
+    const jobSecurityStatus = rawJobSecurityStatus != null ? (JOB_SECURITY_STATUS_LABELS[rawJobSecurityStatus] ?? null) : null;
+
+    let careerStats = null;
+    try {
+      const careerStatsRec = await resolveRef(save, readCell(rec, 'CareerStats'));
+      if (careerStatsRec && !careerStatsRec.isEmpty) {
+        careerStats = {};
+        for (const [key, field] of Object.entries(CAREER_COACH_STATS_FIELDS)) {
+          const v = Number(readCell(careerStatsRec, field));
+          careerStats[key] = Number.isFinite(v) ? v : 0;
+        }
+      }
+    } catch (err) {
+      // Leave careerStats null for this coach; the rest of the row is
+      // still useful.
+    }
+
+    coaches.push({
+      rawTid,
+      name,
+      generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
+      portrait_id: Number(readCell(rec, 'Portrait')) || null,
+      jobSecurityPct: Number.isFinite(jobSecurityPct) ? jobSecurityPct : null,
+      jobSecurityStatus,
+      prestigeGrade,
+      prestigeScore: Number.isFinite(prestigeScore) ? prestigeScore : null,
+      careerStats,
+    });
+  }
+  return coaches;
 }
 
 /**
@@ -1859,7 +2010,8 @@ async function extractFullSave(filePath, opts = {}) {
 
   const coachTable = await getBestTable(save, 'Coach');
   const coachingStaff = buildCoachingStaff(coachTable);
-  const userCoachInfo = buildUserCoachInfo(coachTable);
+  const userCoachInfo = await buildUserCoachInfo(save, coachTable);
+  const allHeadCoaches = await buildAllHeadCoaches(save, coachTable);
 
   const jobOpeningTable = await getBestTable(save, 'JobOpening');
   const coachOffers = await buildCoachOffers(save, jobOpeningTable, coachTable, userCoachInfo?.coachRowIndex);
@@ -1905,6 +2057,7 @@ async function extractFullSave(filePath, opts = {}) {
     leagueHonors,
     heismanWatch,
     userCoachInfo,
+    allHeadCoaches,
     coachOffers,
     gameStats,
     depthCharts,

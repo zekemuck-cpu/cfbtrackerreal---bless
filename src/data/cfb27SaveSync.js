@@ -1873,6 +1873,24 @@ export function buildSyncPlan(dynasty, parsed) {
         portraitId: parsed.userCoachInfo.portrait_id ?? null,
       }
     : null
+
+  // Real, save-authoritative career totals for the human coach — a full
+  // overwrite every sync (these are lifetime counters the save itself
+  // maintains, so last-synced value is always the correct one; no merge
+  // logic needed). jobSecurityPct/prestige are live, current-moment values
+  // (not history) — CoachCareer.jsx shows them as a snapshot only, same as
+  // the in-game coach card. Null when the save didn't resolve CareerStats
+  // (very old dynasties/edge cases) rather than write a half-empty object.
+  const userCoachCareerStats = parsed.userCoachInfo
+    ? {
+        jobSecurityPct: parsed.userCoachInfo.jobSecurityPct ?? null,
+        jobSecurityStatus: parsed.userCoachInfo.jobSecurityStatus ?? null,
+        prestigeGrade: parsed.userCoachInfo.prestigeGrade ?? null,
+        prestigeScore: parsed.userCoachInfo.prestigeScore ?? null,
+        careerWinSeasons: parsed.userCoachInfo.careerWinSeasons ?? null,
+        ...(parsed.userCoachInfo.careerStats || {}),
+      }
+    : null
   if (parsed.userCoachInfo) {
     const newTid = rawTeamIdMap.get(parsed.userCoachInfo.rawTid)
     const newPosition = parsed.userCoachInfo.position
@@ -1884,6 +1902,31 @@ export function buildSyncPlan(dynasty, parsed) {
       }
     }
   }
+
+  // National "All Coaches" leaderboard (extractPlayers.cjs's
+  // buildAllHeadCoaches) — every current FBS head coach, tid-mapped and
+  // fully replaced each sync (same lifetime-counter reasoning as
+  // userCoachCareerStats above: the save's own numbers are always the
+  // current truth, no merge needed). Coaches whose team doesn't resolve to
+  // an app tid (FCS filler slots, unrecognized rows) are dropped rather
+  // than stored with a null team.
+  const allCoachesUpdate = (parsed.allHeadCoaches || [])
+    .map((c) => {
+      const tid = rawTeamIdMap.get(c.rawTid)
+      if (tid == null) return null
+      return {
+        tid,
+        name: c.name ?? null,
+        genericHeadAssetName: c.generic_head_asset_name ?? null,
+        portraitId: c.portrait_id ?? null,
+        jobSecurityPct: c.jobSecurityPct ?? null,
+        jobSecurityStatus: c.jobSecurityStatus ?? null,
+        prestigeGrade: c.prestigeGrade ?? null,
+        prestigeScore: c.prestigeScore ?? null,
+        ...(c.careerStats || {}),
+      }
+    })
+    .filter(Boolean)
 
   // Coach Carousel — pending job offers from OTHER schools for the user's
   // OWN coach (extractPlayers.cjs's buildCoachOffers). Always a full
@@ -1917,6 +1960,8 @@ export function buildSyncPlan(dynasty, parsed) {
     userJobChange,
     userJobChangeResolved,
     userCoachPortrait,
+    userCoachCareerStats,
+    allCoachesUpdate,
     coachOffersUpdate,
     seasonInfo,
     unresolvedTeamNames: playerDiff.unresolvedTeamNames,

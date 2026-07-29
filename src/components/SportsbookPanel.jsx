@@ -7,6 +7,7 @@ import { getTeamColors } from '../data/teamColors'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { getSchoolName } from '../data/teams'
 import { isPcAutoDynasty } from '../editions'
+import { currentPollRank } from '../utils/teamRanking'
 
 // ─── Rounding ─────────────────────────────────────────────────────────────────
 
@@ -438,38 +439,9 @@ function gameSideOvr(dynasty, game, tid, year) {
   return teamOvr(dynasty, tid, year)
 }
 
-// Current real poll rank for a team. Deliberately does NOT depend on
-// dynasty.currentWeek/currentPhase (getTeamRanking's approach) or on any
-// `week` argument threaded down from a caller (this file's earlier
-// attempt) — both turned out to be unreliable here: calcSeededPower's
-// `week` is meant for on-field stat cutoffs and is either absent (defaults
-// to 99) or sourced from an arbitrary displayed game's own week, neither of
-// which reliably reflects "what week is it right now" for polling purposes.
-// Instead this mirrors EXACTLY what Rankings.jsx does to find its own
-// default week (proven correct — it's what's actually on screen): scan
-// every canonical poll slot this team has on record and take the value at
-// the HIGHEST one. No external "current week" signal needed at all — the
-// data itself says which is latest.
-function currentPollRank(dynasty, tid, year) {
-  const t = dynasty?.teams?.[tid]
-  const rbw = t?.byYear?.[Number(year)]?.rankByWeek ?? t?.byYear?.[String(year)]?.rankByWeek
-  if (!rbw) return null
-  let best = null
-  let bestWeek = -Infinity
-  for (const k of Object.keys(rbw)) {
-    const wk = Number(k)
-    if (!Number.isFinite(wk)) continue
-    // Canonical poll slots only (same set Rankings.jsx recognizes):
-    // Preseason(0), Weeks 1-15, Conf Champ(16), Bowl Weeks(17-20), CFP
-    // rounds + Final(101-105) — skips legacy/orphan slots like "100".
-    const isCanonical = (wk >= 0 && wk <= 20) || (wk >= 101 && wk <= 105)
-    if (!isCanonical) continue
-    const v = rbw[k]
-    if (typeof v !== 'number' || v < 1 || v > 25) continue
-    if (wk > bestWeek) { bestWeek = wk; best = v }
-  }
-  return best
-}
+// currentPollRank now lives in utils/teamRanking.js (single source of truth,
+// also used by Heisman Watch/Players of the Week) — see that file's header
+// comment for why it deliberately ignores dynasty.currentWeek/currentPhase.
 
 // Preseason strength SEED for the futures boards. On-field power (calcPowerScore)
 // is the flat neutral 20 for every team until games are played, which makes the

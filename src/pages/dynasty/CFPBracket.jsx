@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useDynasty, getGamesByType, GAME_TYPES, detectGameType, getUserGamePerspective, calculateTeamRecordFromGames } from '../../context/DynastyContext'
-import { buildCFPProjection } from '../../utils/cfpProjection'
+import { buildCFPProjection, getSeedAutoBidTids } from '../../utils/cfpProjection'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -274,6 +274,18 @@ export default function CFPBracket() {
   // bracket yet, fall through to the live projection so the bracket
   // slots fill in directly instead of sitting empty.
   const effectiveSeeds = showProjection ? (projection.seeds || []) : cfpSeeds
+
+  // Automatic-qualifier tids — conference champions + Independents — for
+  // the asterisk badge next to a team's name, matching the in-game
+  // bracket screen's "* = Automatic Qualifier" marker. Computed purely
+  // from the teams actually on screen (effectiveSeeds) — see
+  // getSeedAutoBidTids's header comment for why a separate whole-league
+  // re-derivation (standings lookup, or ranking G5 conferences against
+  // each other) proved unreliable against a real save.
+  const autoBidTids = useMemo(
+    () => getSeedAutoBidTids(currentDynasty, displayYear, effectiveSeeds),
+    [currentDynasty, displayYear, effectiveSeeds]
+  )
 
   // Get tid for a seed, then look up team info
   const getTidBySeed = (seed) => effectiveSeeds.find(s => s.seed === seed)?.tid || null
@@ -626,6 +638,7 @@ export default function CFPBracket() {
     // produce inconsistent behavior). stopPropagation prevents the parent
     // matchup link from also firing.
     const linkTid = teamTid != null ? Number(teamTid) : (resolvedAbbr ? resolveTid(resolvedAbbr, dynastyTeams || TEAMS) : null)
+    const isAutoBid = linkTid != null && autoBidTids.has(linkTid)
 
     // Season record for the broadcast-style "(12-1)" line under the name.
     const record = (() => {
@@ -641,8 +654,9 @@ export default function CFPBracket() {
       if (!resolvedAbbr) {
         return <span className={nameClass} style={{ ...nameStyle, opacity: 0.8 }}>TBD</span>
       }
+      const label = getShortName(resolvedAbbr) + (isAutoBid ? '*' : '')
       if (linkTid == null) {
-        return <span className={nameClass} style={nameStyle}>{getShortName(resolvedAbbr)}</span>
+        return <span className={nameClass} style={nameStyle}>{label}</span>
       }
       const teamHref = `${pathPrefix}/team/${linkTid}/${displayYear}`
       if (isParentClickable) {
@@ -653,13 +667,13 @@ export default function CFPBracket() {
             className={`${nameClass} hover:underline text-left bg-transparent border-0 p-0 cursor-pointer max-w-full`}
             style={nameStyle}
           >
-            {getShortName(resolvedAbbr)}
+            {label}
           </button>
         )
       }
       return (
         <Link to={teamHref} onClick={(e) => e.stopPropagation()} className={`${nameClass} hover:underline max-w-full`} style={nameStyle}>
-          {getShortName(resolvedAbbr)}
+          {label}
         </Link>
       )
     }
@@ -1169,6 +1183,10 @@ export default function CFPBracket() {
       <div className="sm:hidden text-center label-xs text-txt-tertiary">
         Scroll right to view full bracket
       </div>
+
+      {autoBidTids.size > 0 && (
+        <div className="text-[11px] text-txt-tertiary">* = Automatic Qualifier</div>
+      )}
 
       {/* Bracket Container - scrollable on mobile, centered on larger screens */}
       <div

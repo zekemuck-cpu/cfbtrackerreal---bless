@@ -7,6 +7,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { AWARD_IMAGES } from '../../data/awardImages'
 import { normalizePlayerName } from '../../utils/playerMatching'
 import { getPlayerTid } from '../../data/rosterModel'
+import { currentPollRank } from '../../utils/teamRanking'
 import { HonorPlayerTile } from '../../components/HonorsUI'
 import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../components/ui'
 
@@ -210,6 +211,7 @@ export default function HeismanWatch() {
             const logo = c.tid != null ? getTeamLogoByTid(c.tid, teamsSource) : null
             const lastGame = findLastGameSummary(currentDynasty, c, displayYear, activeWeek)
             const seasonStatLine = findSeasonStatLine(currentDynasty, c, displayYear)
+            const teamRank = c.tid != null ? currentPollRank(currentDynasty, c.tid, displayYear) : null
             const won = isWinner(c)
             return (
               <div
@@ -233,6 +235,7 @@ export default function HeismanWatch() {
                       photoUrl={c.pictureUrl}
                       statLine={seasonStatLine ? `SEASON: ${seasonStatLine}` : null}
                       showLogoWatermark
+                      teamRank={teamRank}
                     />
                   </div>
                   {won && (

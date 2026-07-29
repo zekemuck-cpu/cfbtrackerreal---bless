@@ -114,14 +114,21 @@ export default function Rankings() {
   // game block saved yet) is technically a valid Top 25 snapshot but
   // a confusing default — the user lands on Wk N+1 right after saving
   // Wk N and sees just the bye teams.
+  // Poll source per week mirrors CFB27's own in-game Rankings screen: Media
+  // poll for weeks 1-9, then the CFP Committee poll starting week 10
+  // (confirmed against real save screenshots) — falls back to the other
+  // poll when the primary one is missing that week's entry (dynasties
+  // synced before cfpRankByWeek existed only ever populate rankByWeek).
   const weekCounts = (() => {
     const counts = new Map()
     const teams = currentDynasty.teams || {}
     for (const team of Object.values(teams)) {
-      const rbw = team?.byYear?.[displayYear]?.rankByWeek
-        ?? team?.byYear?.[String(displayYear)]?.rankByWeek
-      if (!rbw) continue
-      for (const k of Object.keys(rbw)) {
+      const byYear = team?.byYear?.[displayYear] ?? team?.byYear?.[String(displayYear)]
+      if (!byYear) continue
+      const media = byYear.rankByWeek || {}
+      const cfp = byYear.cfpRankByWeek || {}
+      const weekKeys = new Set([...Object.keys(media), ...Object.keys(cfp)])
+      for (const k of weekKeys) {
         const wk = Number(k)
         if (!Number.isFinite(wk)) continue
         // Canonical poll slots only: Preseason(0), Weeks 1–15, Conf Champ(16),
@@ -130,7 +137,8 @@ export default function Rankings() {
         // don't surface as a bogus "Week 100" in the picker.
         const isCanonical = (wk >= 0 && wk <= 20) || (wk >= 101 && wk <= 105)
         if (!isCanonical) continue
-        const v = rbw[k]
+        let v = wk >= 10 ? cfp[k] : media[k]
+        if (typeof v !== 'number' || v < 1 || v > 25) v = wk >= 10 ? media[k] : cfp[k]
         if (typeof v !== 'number' || v < 1 || v > 25) continue
         counts.set(wk, (counts.get(wk) || 0) + 1)
       }
@@ -182,15 +190,22 @@ export default function Rankings() {
   if (selectedWeek === 'final') {
     top25 = savedMedia
   } else if (selectedWeek != null) {
-    // Primary source: rankByWeek[selectedWeek] across every team.
+    // Primary source: rankByWeek/cfpRankByWeek[selectedWeek] across every
+    // team — CFP poll for week 10+, falling back to the other poll when
+    // the primary is missing this week's entry (see weekCounts above).
     const slotMap = new Map()
     const claimedTids = new Set()
     const teams = currentDynasty.teams || {}
     for (const [tidKey, team] of Object.entries(teams)) {
-      const rbw = team?.byYear?.[displayYear]?.rankByWeek
-        ?? team?.byYear?.[String(displayYear)]?.rankByWeek
-      if (!rbw) continue
-      const v = rbw[selectedWeek] ?? rbw[String(selectedWeek)]
+      const byYear = team?.byYear?.[displayYear] ?? team?.byYear?.[String(displayYear)]
+      if (!byYear) continue
+      const media = byYear.rankByWeek || {}
+      const cfp = byYear.cfpRankByWeek || {}
+      const usesCfp = Number(selectedWeek) >= 10
+      let v = usesCfp ? (cfp[selectedWeek] ?? cfp[String(selectedWeek)]) : (media[selectedWeek] ?? media[String(selectedWeek)])
+      if (typeof v !== 'number' || v < 1 || v > 25) {
+        v = usesCfp ? (media[selectedWeek] ?? media[String(selectedWeek)]) : (cfp[selectedWeek] ?? cfp[String(selectedWeek)])
+      }
       if (typeof v !== 'number' || v < 1 || v > 25) continue
       if (slotMap.has(v)) continue
       slotMap.set(v, {
@@ -480,12 +495,22 @@ export default function Rankings() {
       <PageHero
         eyebrow={
           showWeekSelector && selectedLabel ? (
-            <InlineWeekSelect
-              value={selectedWeek}
-              label={selectedLabel}
-              options={weekOptions}
-              onChange={setSelectedWeek}
-            />
+            <span className="inline-flex items-center gap-2">
+              <InlineWeekSelect
+                value={selectedWeek}
+                label={selectedLabel}
+                options={weekOptions}
+                onChange={setSelectedWeek}
+              />
+              {typeof selectedWeek === 'number' && (
+                <span
+                  className="text-[10px] font-black tracking-[0.15em] px-1.5 py-0.5 rounded flex-shrink-0"
+                  style={{ backgroundColor: 'var(--surface-3)', color: 'var(--text-tertiary)', border: '1px solid var(--surface-5)' }}
+                >
+                  {selectedWeek >= 10 ? 'CFP' : 'MEDIA'}
+                </span>
+              )}
+            </span>
           ) : (
             selectedLabel
           )

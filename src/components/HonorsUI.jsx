@@ -16,7 +16,7 @@ const hexA = (hex, a) => {
 // One honoree tile — a team-color gradient row with the player's photo (or a
 // monogram), name, a team logo+name pill, class, and position. The whole tile
 // links to the player's page.
-export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr, teamLogo, primary = '#3a3d47', photoUrl, to, statLine, rankBadge, showLogoWatermark = false }) {
+export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr, teamLogo, primary = '#3a3d47', photoUrl, to, statLine, rankBadge, showLogoWatermark = false, teamRank = null }) {
   // Full, true team color (the box-score / game-card treatment) instead of a
   // low-alpha wash that fades to dark and muddies the color. Text is
   // contrast-aware; the team chip + avatar sit in dark translucent pills so
@@ -55,6 +55,11 @@ export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr,
             {teamLogo && (
               <span className="w-3.5 h-3.5 rounded-full bg-white p-px flex items-center justify-center flex-shrink-0">
                 <img src={teamLogo} alt="" className="w-full h-full object-contain" />
+              </span>
+            )}
+            {teamRank != null && (
+              <span className="text-[10px] font-black tabular-nums flex-shrink-0" style={{ color: txt, opacity: 0.85 }}>
+                {teamRank}
               </span>
             )}
             <FittedTeamName name={schoolName} abbr={schoolAbbr} className="text-[10px] font-bold uppercase tracking-wide" style={{ color: txt }} />

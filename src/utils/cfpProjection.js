@@ -63,6 +63,86 @@ const BID_LABELS = {
 }
 
 /**
+ * Automatic-qualifier tids for the ACTUAL (already-seeded) CFP bracket —
+ * conference champions + Independents — computed ONLY from the teams
+ * genuinely on screen (`seeds`, e.g. CFPBracket.jsx's effectiveSeeds),
+ * never a separate whole-league re-derivation. This replaced an earlier
+ * standings-lookup version after two failure modes turned up against a
+ * real save:
+ *
+ *   1. dynasty.conferenceStandingsByYear is never written by the CFB27
+ *      sync (it's a manual-entry-only field) — so a standings-only
+ *      lookup silently found nothing for every conference.
+ *   2. Comparing "highest-ranked champion" ACROSS all 6 G5 conferences
+ *      to guess the lone G5 auto-bid (most of those conferences' real
+ *      champs aren't even in the field) can disagree with the save's
+ *      own pick — verified: a real save's G5 auto-bid was Tulsa by
+ *      conference record, but a national-rank comparison across G5
+ *      conference leaders picked a different, higher-ranked-but-non-
+ *      champion team instead (the same Boise-State-vs-Louisiana failure
+ *      mode buildCFPProjection's own doc comment already warns about).
+ *
+ * Since the 12 seeded teams are already known, we only need to ask, PER
+ * CONFERENCE ALREADY REPRESENTED IN THE FIELD: which of that conference's
+ * seeded team(s) has the best real conference record (calculateTeam-
+ * RecordFromGames' confWins/confLosses, tie-broken by seed)? A conference
+ * with only one seeded team trivially "wins" its own group (the Tulsa/
+ * American case — no cross-conference rank comparison needed at all),
+ * and a conference with several seeded teams correctly prefers real
+ * conference W-L over national rank (the TCU/Big 12 case: TCU was the
+ * worst-seeded of 4 Big 12 teams in the field but still the real
+ * conference champion).
+ */
+export function getSeedAutoBidTids(dynasty, year, seeds) {
+  const tids = new Set()
+  if (!Array.isArray(seeds) || seeds.length === 0) return tids
+  const teamsSrc = dynasty?.teams || dynasty?.customTeams || null
+  const customConfs = getCustomConferencesForYear(dynasty, year)
+  const confMap = customConfs || DEFAULT_CONFERENCE_TEAMS
+
+  const abbrFor = (s) => {
+    if (s.tid != null && teamsSrc?.[s.tid]?.abbr) return teamsSrc[s.tid].abbr
+    return s.team || null
+  }
+  const conferenceOf = (abbr) => {
+    if (!abbr) return null
+    for (const [conf, list] of Object.entries(confMap)) {
+      if (Array.isArray(list) && list.includes(abbr)) return conf
+    }
+    return null
+  }
+
+  const byConf = new Map()
+  for (const s of seeds) {
+    const conf = conferenceOf(abbrFor(s))
+    if (!conf) continue
+    if (conf === 'Independent') {
+      if (s.tid != null) tids.add(Number(s.tid))
+      continue
+    }
+    const list = byConf.get(conf) || []
+    list.push(s)
+    byConf.set(conf, list)
+  }
+
+  for (const list of byConf.values()) {
+    let best = null
+    for (const s of list) {
+      if (s.tid == null) continue
+      const rec = calculateTeamRecordFromGames(dynasty, Number(s.tid), year) || {}
+      const cand = { s, confWins: rec.confWins || 0, confLosses: rec.confLosses || 0 }
+      if (!best) { best = cand; continue }
+      if (cand.confWins !== best.confWins) { if (cand.confWins > best.confWins) best = cand; continue }
+      if (cand.confLosses !== best.confLosses) { if (cand.confLosses < best.confLosses) best = cand; continue }
+      if ((cand.s.seed ?? 999) < (best.s.seed ?? 999)) best = cand
+    }
+    if (best?.s?.tid != null) tids.add(Number(best.s.tid))
+  }
+
+  return tids
+}
+
+/**
  * Build the projected 12-team field for a given year.
  *
  * Returns:

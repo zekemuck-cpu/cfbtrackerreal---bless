@@ -5,6 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogoByTid, getMascotName, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { HonorPlayerTile } from '../../components/HonorsUI'
+import { currentPollRank } from '../../utils/teamRanking'
 import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../components/ui'
 
 // Finds this honoree's game result + box-score line for the given week —
@@ -115,6 +116,7 @@ export default function PlayersOfWeek() {
     const colors = mascotName ? getTeamColors(mascotName, teamsSource) : null
     const logo = honoree.tid != null ? getTeamLogoByTid(honoree.tid, teamsSource) : null
     const game = findBoxScoreGameSummary(currentDynasty, honoree, activeWeek, displayYear)
+    const teamRank = honoree.tid != null ? currentPollRank(currentDynasty, honoree.tid, displayYear) : null
     return (
       <div className="space-y-2">
         <div className="text-[10px] font-black uppercase tracking-[0.2em] text-txt-tertiary">{label}</div>
@@ -128,6 +130,7 @@ export default function PlayersOfWeek() {
           photoUrl={honoree.pictureUrl}
           to={undefined}
           showLogoWatermark
+          teamRank={teamRank}
         />
         <div className="pl-3 text-xs text-txt-tertiary">
           {game.noGame ? (

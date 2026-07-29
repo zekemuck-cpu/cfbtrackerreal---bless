@@ -495,7 +495,7 @@ export default function TeamYear() {
   const { id, tid: tidParam, year } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, updatePlayer, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule } = useDynasty()
+  const { currentDynasty: _dyn, loadingDynastyId, updateDynasty, updatePlayer, addGame, saveRoster, isViewOnly, saveTeamYearInfo, saveSchedule, saveRivalries } = useDynasty()
   // Shadow with a non-null alias so intermediate useMemos and non-hook
   // computations below don't have to constantly null-check. The real
   // null gate sits at the end of the component, AFTER all hooks have
@@ -6430,7 +6430,13 @@ export default function TeamYear() {
 
       {/* History Tab */}
       {activeTab === 'rivalries' && (
-        <RivalriesTab dynasty={currentDynasty} tid={tid} />
+        <RivalriesTab
+          dynasty={currentDynasty}
+          tid={tid}
+          selectedYear={selectedYear}
+          dynastyId={currentDynasty.id}
+          saveRivalries={saveRivalries}
+        />
       )}
 
       {activeTab === 'history' && (() => {

@@ -2006,6 +2006,36 @@ export function buildTop25Diff(dynasty, diff) {
   return { byYear, totals: { added: totalAdded, removed: totalRemoved, changed: totalChanged } }
 }
 
+// CFB27's own in-game Rankings screen features the Media poll for weeks 1-9,
+// then switches its primary Top 25 to the CFP Committee poll starting week
+// 10 (confirmed against real save screenshots — the two polls can genuinely
+// disagree on who's ranked, e.g. a team in one poll's #25 slot but unranked
+// in the other's). Merges a team's rankByWeek (Media) and cfpRankByWeek
+// (CFP) into one effective per-week map — weeks 0-9 from Media, weeks 10+
+// from CFP, falling back to the other poll when the preferred one is
+// missing that specific week's entry (dynasties synced before
+// cfpRankByWeek existed only ever populate rankByWeek). Every other rank
+// display in the app (Rankings.jsx, teamRanking.js's currentPollRank) uses
+// the same week-10 cutover — this is the shared merge for getTeamRanking's
+// own, more complex phase-aware logic below.
+function mergedRankByWeek(team, year) {
+  const media = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+  const cfp = team?.byYear?.[year]?.cfpRankByWeek ?? team?.byYear?.[String(year)]?.cfpRankByWeek
+  if (!media && !cfp) return null
+  const merged = {}
+  const keys = new Set([...Object.keys(media || {}), ...Object.keys(cfp || {})])
+  for (const k of keys) {
+    const wk = Number(k)
+    if (!Number.isFinite(wk)) continue
+    const primary = wk >= 10 ? cfp : media
+    const fallback = wk >= 10 ? media : cfp
+    let v = primary?.[k]
+    if (typeof v !== 'number' || v < 1 || v > 25) v = fallback?.[k]
+    if (typeof v === 'number' && v >= 1 && v <= 25) merged[wk] = v
+  }
+  return merged
+}
+
 export function getTeamRanking(dynasty, tidOrAbbr, year) {
   if (!dynasty || !tidOrAbbr || !year) return null
 
@@ -2021,8 +2051,8 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
   // entry (preseason poll seed, prior playthrough, manual entry)
   // doesn't override the live week-by-week truth.
   if (tid != null) {
-    const byYear = dynasty.teams?.[tid]?.byYear || dynasty.teams?.[String(tid)]?.byYear
-    const rankByWeek = byYear?.[year]?.rankByWeek ?? byYear?.[String(year)]?.rankByWeek
+    const team = dynasty.teams?.[tid] ?? dynasty.teams?.[String(tid)]
+    const rankByWeek = mergedRankByWeek(team, year)
     if (rankByWeek && typeof rankByWeek === 'object') {
       const isYearMatch = Number(dynasty.currentYear) === Number(year)
       const phase = dynasty.currentPhase
@@ -2114,16 +2144,16 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
         if (Number.isFinite(cw) && cw >= 0) {
           // Confirm at least one team has data for currentWeek; if not,
           // fall through to the legacy "max populated" path.
-          for (const team of Object.values(dynasty.teams || {})) {
-            const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+          for (const otherTeam of Object.values(dynasty.teams || {})) {
+            const tRbw = mergedRankByWeek(otherTeam, year)
             if (!tRbw || typeof tRbw !== 'object') continue
             const v = tRbw[cw] ?? tRbw[String(cw)]
             if (typeof v === 'number' && v >= 1 && v <= 25) { snapshotWeek = cw; break }
           }
         }
         if (snapshotWeek === -Infinity) {
-          for (const team of Object.values(dynasty.teams || {})) {
-            const tRbw = team?.byYear?.[year]?.rankByWeek ?? team?.byYear?.[String(year)]?.rankByWeek
+          for (const otherTeam of Object.values(dynasty.teams || {})) {
+            const tRbw = mergedRankByWeek(otherTeam, year)
             if (!tRbw || typeof tRbw !== 'object') continue
             for (const k of Object.keys(tRbw)) {
               const wk = Number(k)
@@ -8218,6 +8248,23 @@ export function DynastyProvider({ children }) {
     // value.
     const userCoachPortraitUpdate = plan.userCoachPortrait ? { userCoachPortrait: plan.userCoachPortrait } : {}
 
+    // Real, save-authoritative career totals for the human coach (Job
+    // Security %, Prestige, career W-L/bowl/conf-title/NC/playoff/rivalry/
+    // Top-25 records, draft picks, Top 5 recruiting classes) — see
+    // cfb27SaveSync.js's userCoachCareerStats comment. Full overwrite each
+    // sync (lifetime counters the save itself maintains), only written when
+    // present so a sync that can't resolve it doesn't blow away a
+    // previously-good value.
+    const userCoachCareerStatsUpdate = plan.userCoachCareerStats ? { userCoachCareerStats: plan.userCoachCareerStats } : {}
+
+    // "All Coaches" national leaderboard (every current FBS head coach) —
+    // see cfb27SaveSync.js's allCoachesUpdate comment. Keyed by year like
+    // the rest of this dynasty's per-season snapshots (cfpSeedsByYear,
+    // finalPollsByYear); full overwrite for the current year each sync.
+    const allCoachesUpdate = plan.allCoachesUpdate
+      ? { allCoachesByYear: { ...(dynasty.allCoachesByYear || {}), [dynasty.currentYear]: plan.allCoachesUpdate } }
+      : {}
+
     // Coach Carousel — plan.coachOffersUpdate is always the CURRENT live
     // list from this sync (see cfb27SaveSync.js), so it's a full replace,
     // never merged with what was there before: an offer that's since
@@ -8242,7 +8289,7 @@ export function DynastyProvider({ children }) {
       // on the games unread and every stats page stays empty.
       const mergedPlayers = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
 
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...coachOffersUpdate })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...allCoachesUpdate, ...coachOffersUpdate })
     } else {
       // Same recompute as the local branch, but diffed against freshPlayers
       // (not written wholesale — a cloud dynasty can have thousands of
@@ -8286,7 +8333,7 @@ export function DynastyProvider({ children }) {
       if (createsWithStats.length || plan.toUpdatePatches.length || plan.departurePatches.length || statsPatches.length) {
         await syncPlayersToSubcollection(dynastyId, createsWithStats, [...plan.toUpdatePatches, ...plan.departurePatches, ...statsPatches])
       }
-      await updateDynasty(dynastyId, { teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...coachOffersUpdate }, { skipPlayersSubcollection: true })
+      await updateDynasty(dynastyId, { teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...allCoachesUpdate, ...coachOffersUpdate }, { skipPlayersSubcollection: true })
     }
 
     return {

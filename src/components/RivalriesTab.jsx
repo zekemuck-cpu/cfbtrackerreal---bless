@@ -12,7 +12,6 @@ import {
   getKnownRivalsForAbbr,
   TEAM_STATE,
   RIVALRY_FORM_THRESHOLD,
-  RIVALRY_WATCH_THRESHOLD,
   RIVALRY_DORMANT_YEARS,
   RIVALRY_NAME_YEARS,
   RIVALRY_TROPHY_YEARS,
@@ -355,12 +354,52 @@ RIVALRY DESCRIPTION: [2-3 sentences]
 TROPHY DESCRIPTION: [2-3 sentences describing the physical object]`
 }
 
+// ─── AI output parser ───────────────────────────────────────────────────────
+// Parses buildNamesPrompt's exact output format:
+//   RIVALRY NAME: ...
+//   TROPHY NAME: ...
+//   RIVALRY DESCRIPTION: ... (can span multiple lines/paragraphs)
+//   TROPHY DESCRIPTION: ... (can span multiple lines/paragraphs)
+// Order-independent, tolerant of stray markdown bold markers (**LABEL:**)
+// around a label and blank lines between sections. Returns '' for any
+// field that isn't found rather than throwing, so a partial/malformed
+// paste still fills whatever it can.
+
+const AI_OUTPUT_LABELS = ['RIVALRY NAME', 'TROPHY NAME', 'RIVALRY DESCRIPTION', 'TROPHY DESCRIPTION']
+
+function extractLabeledField(text, label) {
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const others = AI_OUTPUT_LABELS.filter((l) => l !== label).map(escape).join('|')
+  const re = new RegExp(
+    `\\**${escape(label)}\\**\\s*:\\s*([\\s\\S]*?)(?=\\**(?:${others})\\**\\s*:|$)`,
+    'i'
+  )
+  const m = text.match(re)
+  return m ? m[1].trim() : ''
+}
+
+function parseAiNamesOutput(text) {
+  if (!text || !text.trim()) return null
+  const result = {
+    name: extractLabeledField(text, 'RIVALRY NAME'),
+    trophyName: extractLabeledField(text, 'TROPHY NAME'),
+    description: extractLabeledField(text, 'RIVALRY DESCRIPTION'),
+    trophyDescription: extractLabeledField(text, 'TROPHY DESCRIPTION'),
+  }
+  // Nothing recognizable at all — treat as a failed parse so the caller
+  // can fall back to showing the raw text for the user to sort out.
+  if (!result.name && !result.trophyName && !result.description && !result.trophyDescription) return null
+  return result
+}
+
 // ─── Edit Rivalry Modal ─────────────────────────────────────────────────────
 
 function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDelete, onClose }) {
   const yearsFormed = rivalry.formedYear ? currentYear - rivalry.formedYear : 0
-  const canName     = rivalry.manuallyAdded || yearsFormed >= RIVALRY_NAME_YEARS
-  const canTrophy   = rivalry.manuallyAdded || yearsFormed >= RIVALRY_TROPHY_YEARS
+  // Synced-from-save rivalries (cfb27SaveSync.js's `cfb27-rival-*` ids) are
+  // already confirmed real rivalries by the game itself — no reason to make
+  // the user wait 5/10 years to name something that's already official.
+  const isSynced = typeof rivalry.id === 'string' && rivalry.id.startsWith('cfb27-rival-')
 
   const [name,             setName]             = useState(rivalry.name             || '')
   const [description,      setDescription]      = useState(rivalry.description      || '')
@@ -368,12 +407,67 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
   const [trophyDesc,       setTrophyDesc]       = useState(rivalry.trophyDescription || '')
   const [trophyImageUrl,   setTrophyImageUrl]   = useState(rivalry.trophyImageUrl   || '')
   const [active,           setActive]           = useState(rivalry.active !== false)
+  // Manual escape hatch for any rivalry the user doesn't want to wait on —
+  // read live off state (not the saved prop) so flipping the toggle
+  // unlocks the fields in this same render, not after the autosave
+  // round-trip finishes.
+  const [forceUnlocked,    setForceUnlocked]    = useState(!!rivalry.forceUnlocked)
+  const canName   = rivalry.manuallyAdded || isSynced || forceUnlocked || yearsFormed >= RIVALRY_NAME_YEARS
+  const canTrophy = rivalry.manuallyAdded || isSynced || forceUnlocked || yearsFormed >= RIVALRY_TROPHY_YEARS
   const [confirmDelete,    setConfirmDelete]    = useState(false)
   const [namesCopied,      setNamesCopied]      = useState(false)
   const [imageCopied,      setImageCopied]      = useState(false)
   const [viewingPrompt,    setViewingPrompt]    = useState(null) // 'names' | 'image' | null
   const [savedIndicator,   setSavedIndicator]   = useState(false)
+  const [showPasteBox,     setShowPasteBox]     = useState(false)
+  const [pasteText,        setPasteText]        = useState('')
+  const [pasteFilled,      setPasteFilled]      = useState(false)
+  const [pasteFailed,      setPasteFailed]      = useState(false)
   const isFirstRender = useRef(true)
+
+  // Applies a parsed AI-output object onto the four text fields — only
+  // overwriting a field the AI actually returned, so a partial paste
+  // (e.g. trophy fields only) never blanks out fields you already had.
+  function applyParsedFields(parsed) {
+    if (!parsed) return false
+    if (parsed.name) setName(parsed.name)
+    if (parsed.trophyName) setTrophy(parsed.trophyName)
+    if (parsed.description) setDescription(parsed.description)
+    if (parsed.trophyDescription) setTrophyDesc(parsed.trophyDescription)
+    return true
+  }
+
+  async function handlePasteAiOutput() {
+    setPasteFailed(false)
+    if (navigator.clipboard?.readText) {
+      try {
+        const text = await navigator.clipboard.readText()
+        const parsed = parseAiNamesOutput(text)
+        if (applyParsedFields(parsed)) {
+          setPasteFilled(true)
+          setTimeout(() => setPasteFilled(false), 2000)
+          setShowPasteBox(false)
+          return
+        }
+      } catch {
+        // Clipboard read blocked (permissions/browser) — fall through to
+        // the manual paste box below.
+      }
+    }
+    setShowPasteBox(true)
+  }
+
+  function handleFillFromPasteBox() {
+    const parsed = parseAiNamesOutput(pasteText)
+    if (applyParsedFields(parsed)) {
+      setPasteFilled(true)
+      setTimeout(() => setPasteFilled(false), 2000)
+      setShowPasteBox(false)
+      setPasteText('')
+    } else {
+      setPasteFailed(true)
+    }
+  }
 
   // Auto-save 600ms after any field stops changing
   useEffect(() => {
@@ -386,13 +480,14 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
         trophyName:        trophy.trim()      || null,
         trophyDescription: trophyDesc.trim()  || null,
         trophyImageUrl:    trophyImageUrl.trim() || null,
+        forceUnlocked,
         active,
       })
       setSavedIndicator(true)
       setTimeout(() => setSavedIndicator(false), 1500)
     }, 600)
     return () => clearTimeout(t)
-  }, [name, description, trophy, trophyDesc, trophyImageUrl, active]) // eslint-disable-line
+  }, [name, description, trophy, trophyDesc, trophyImageUrl, active, forceUnlocked]) // eslint-disable-line
 
   function copyText(text, setFlag, promptKey) {
     const finish = (ok) => {
@@ -475,26 +570,68 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
                   onClick={() => copyText(buildNamesPrompt(dynasty, rivalry, myTid), setNamesCopied, 'names')}
                   className="flex-1 py-2 px-3 rounded border border-border-subtle text-xs font-medium text-txt-secondary hover:text-txt-primary hover:bg-bg-hover transition-colors text-center"
                 >
-                  {namesCopied ? 'Copied!' : 'Copy Names & Description Prompt'}
+                  {namesCopied ? 'Copied!' : 'Copy Rivalry & Trophy Name & Description Prompt'}
                 </button>
                 <button
                   type="button"
                   onClick={() => copyText(buildTrophyPrompt(dynasty, rivalry, myTid), setImageCopied, 'image')}
                   className="flex-1 py-2 px-3 rounded border border-border-subtle text-xs font-medium text-txt-secondary hover:text-txt-primary hover:bg-bg-hover transition-colors text-center"
                 >
-                  {imageCopied ? 'Copied!' : 'Copy Image Prompt'}
+                  {imageCopied ? 'Copied!' : 'Copy Trophy Generator Prompt'}
                 </button>
               </div>
               <p className="text-xs text-txt-muted mt-1.5">
-                Run Names prompt first in ChatGPT/Claude → paste results below. Then run Image prompt in an image generator → upload photo.
+                Run the Rivalry & Trophy prompt first in ChatGPT/Claude, copy its reply, then use Paste AI Output below to fill everything in at once. Then run the Trophy Generator prompt in an image generator → upload photo.
               </p>
+
+              <button
+                type="button"
+                onClick={handlePasteAiOutput}
+                className="w-full mt-2 py-2 px-3 rounded border border-border-subtle text-xs font-bold text-txt-primary hover:bg-bg-hover transition-colors text-center"
+              >
+                {pasteFilled ? 'Filled in!' : 'Paste AI Output'}
+              </button>
+
+              {/* Manual fallback — shown when clipboard read is blocked/unsupported */}
+              {showPasteBox && (
+                <div className="mt-2">
+                  <textarea
+                    autoFocus
+                    className="w-full bg-bg-input border border-border-subtle rounded px-3 py-2 text-xs text-txt-primary font-mono resize-none"
+                    rows={6}
+                    placeholder="Click here, then Ctrl+V / Cmd+V to paste the AI's reply, then Fill Fields..."
+                    value={pasteText}
+                    onChange={e => { setPasteText(e.target.value); setPasteFailed(false) }}
+                  />
+                  {pasteFailed && (
+                    <p className="text-xs text-red-500 mt-1">Couldn't find RIVALRY NAME / TROPHY NAME / RIVALRY DESCRIPTION / TROPHY DESCRIPTION labels in that text — check it matches the prompt's output format.</p>
+                  )}
+                  <div className="flex gap-2 mt-1.5">
+                    <button
+                      type="button"
+                      onClick={handleFillFromPasteBox}
+                      disabled={!pasteText.trim()}
+                      className="flex-1 py-1.5 rounded text-xs font-bold bg-[var(--team-primary)] text-[var(--team-primary-text)] disabled:opacity-40"
+                    >
+                      Fill Fields
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowPasteBox(false); setPasteText(''); setPasteFailed(false) }}
+                      className="flex-1 py-1.5 rounded text-xs text-txt-secondary border border-border-subtle hover:bg-bg-hover"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Fallback textarea — shown when clipboard is blocked */}
               {viewingPrompt && (
                 <div className="mt-3">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-xs font-medium text-txt-secondary">
-                      {viewingPrompt === 'names' ? 'Names & Description Prompt' : 'Image Prompt'} — select all and copy
+                      {viewingPrompt === 'names' ? 'Rivalry & Trophy Name & Description Prompt' : 'Trophy Generator Prompt'} — select all and copy
                     </p>
                     <button onClick={() => setViewingPrompt(null)} className="text-xs text-txt-muted hover:text-txt-secondary">Hide</button>
                   </div>
@@ -619,6 +756,24 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
               </button>
             </div>
 
+            {/* Manual override for the 5/10-yr name/trophy wait — only worth
+                showing when something would otherwise still be locked and
+                isn't already exempt (synced/manually-added rivalries). */}
+            {!rivalry.manuallyAdded && !isSynced && (!canName || !canTrophy) && (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-txt-primary">Unlock Now</p>
+                  <p className="text-xs text-txt-muted">Skip the {RIVALRY_NAME_YEARS}/{RIVALRY_TROPHY_YEARS}-yr wait for naming and the trophy</p>
+                </div>
+                <button
+                  onClick={() => setForceUnlocked(v => !v)}
+                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 ${forceUnlocked ? 'bg-green-500' : 'bg-bg-subtle'}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${forceUnlocked ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
+
             {/* ── Done button ── auto-save handles saves; this just closes */}
             <button
               onClick={onClose}
@@ -732,8 +887,17 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
   const yearsFormed = rivalry.formedYear ? currentYear - rivalry.formedYear : null
   const isDormant = lastPlayedYear != null && (currentYear - lastPlayedYear) >= RIVALRY_DORMANT_YEARS
   const isActive  = rivalry.active !== false && !isDormant
-  const canName   = rivalry.manuallyAdded || (yearsFormed != null && yearsFormed >= RIVALRY_NAME_YEARS)
-  const canTrophy = rivalry.manuallyAdded || (yearsFormed != null && yearsFormed >= RIVALRY_TROPHY_YEARS)
+  // Rivalries synced straight from the CFB27 save (cfb27SaveSync.js's
+  // rivalriesToAdd, id: `cfb27-rival-${tid}`) are already confirmed,
+  // real in-game rivalries — the organic point heuristic below exists to
+  // GUESS whether a rivalry has formed, which is moot once the game
+  // itself has told us. Show these at a flat 100% instead of running
+  // them through the same score as an undetermined pairing. Synced
+  // rivalries and any rivalry the user manually force-unlocked skip the
+  // 5/10-yr name/trophy wait too.
+  const isSynced  = typeof rivalry.id === 'string' && rivalry.id.startsWith('cfb27-rival-')
+  const canName   = rivalry.manuallyAdded || isSynced || rivalry.forceUnlocked || (yearsFormed != null && yearsFormed >= RIVALRY_NAME_YEARS)
+  const canTrophy = rivalry.manuallyAdded || isSynced || rivalry.forceUnlocked || (yearsFormed != null && yearsFormed >= RIVALRY_TROPHY_YEARS)
   const hasTrophy = !!rivalry.trophyImageUrl
   const rivalTidNum = Number(rivalry.rivalTid)
 
@@ -823,22 +987,6 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
           <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: bgText }}>
             Dormant
           </span>
-        )}
-        {/* Trophy thumbnail — small, clickable to lightbox */}
-        {hasTrophy && (
-          <button
-            onClick={() => setShowTrophyLightbox(true)}
-            className="flex-shrink-0 rounded overflow-hidden hover:opacity-80 transition-opacity"
-            title={rivalry.trophyName ? `View ${rivalry.trophyName}` : 'View trophy'}
-            style={{ width: 48, height: 48, backgroundColor: '#0a0a0a' }}
-          >
-            <img
-              src={rivalry.trophyImageUrl}
-              alt="Trophy"
-              className="w-full h-full object-contain"
-              onError={e => { e.target.parentElement.style.display = 'none' }}
-            />
-          </button>
         )}
         {/* Reorder buttons */}
         <div className="flex gap-0.5">
@@ -936,8 +1084,43 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
 
       {/* Rivalry description */}
       {rivalry.description && (
-        <div className="px-4 pb-3">
+        <div className="border-t border-border-subtle px-4 py-3">
+          <p className="label-xs text-txt-muted mb-1.5" style={{ letterSpacing: '1px' }}>ABOUT</p>
           <p className="text-xs text-txt-secondary leading-relaxed">{rivalry.description}</p>
+        </div>
+      )}
+
+      {/* Trophy showcase — fuller presentation than a bare thumbnail:
+          image (clickable to lightbox) alongside the trophy's name and
+          description, shown whenever any of the three has been entered. */}
+      {(hasTrophy || rivalry.trophyName || rivalry.trophyDescription) && (
+        <div className="border-t border-border-subtle px-4 py-3">
+          <p className="label-xs text-txt-muted mb-2" style={{ letterSpacing: '1px' }}>TROPHY</p>
+          <div className="flex items-start gap-3">
+            {hasTrophy && (
+              <button
+                onClick={() => setShowTrophyLightbox(true)}
+                className="flex-shrink-0 rounded-lg overflow-hidden hover:opacity-85 transition-opacity"
+                title={rivalry.trophyName ? `View ${rivalry.trophyName}` : 'View trophy'}
+                style={{ width: 72, height: 72, backgroundColor: '#0a0a0a' }}
+              >
+                <img
+                  src={rivalry.trophyImageUrl}
+                  alt={rivalry.trophyName || 'Trophy'}
+                  className="w-full h-full object-contain"
+                  onError={e => { e.target.parentElement.style.display = 'none' }}
+                />
+              </button>
+            )}
+            <div className="min-w-0 flex-1">
+              {rivalry.trophyName && (
+                <p className="font-bold text-sm text-txt-primary leading-tight">{rivalry.trophyName}</p>
+              )}
+              {rivalry.trophyDescription && (
+                <p className={`text-xs text-txt-secondary leading-relaxed ${rivalry.trophyName ? 'mt-1' : ''}`}>{rivalry.trophyDescription}</p>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -957,18 +1140,22 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
         </div>
       )}
 
-      {/* Rivalry score bar + breakdown */}
+      {/* Rivalry score bar + breakdown — synced-from-save rivalries skip
+          the organic point heuristic entirely and just show 100%, since
+          the game itself already confirmed this is a real rivalry. */}
       {(() => {
-        const points  = score.points || 0
-        const grouped = groupRivalryEvents(score.events || [])
-        const pct     = Math.min(100, Math.round((points / RIVALRY_FORM_THRESHOLD) * 100))
-        const barColor = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#6b7280'
+        const points  = isSynced ? RIVALRY_FORM_THRESHOLD : (score.points || 0)
+        const grouped = isSynced ? [] : groupRivalryEvents(score.events || [])
+        const pct     = isSynced ? 100 : Math.min(100, Math.round((points / RIVALRY_FORM_THRESHOLD) * 100))
+        const barColor = isSynced ? '#22c55e' : pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#6b7280'
         return (
           <div className="border-t border-border-subtle px-4 py-3">
             <div className="flex items-center justify-between mb-2">
               <span className="label-xs text-txt-muted" style={{ letterSpacing: '1px' }}>RIVALRY SCORE</span>
               <span className="text-sm font-black tabular text-txt-primary">
-                {points}<span className="text-txt-muted font-normal text-xs"> / {RIVALRY_FORM_THRESHOLD} pts</span>
+                {isSynced ? 'Official' : (
+                  <>{points}<span className="text-txt-muted font-normal text-xs"> / {RIVALRY_FORM_THRESHOLD} pts</span></>
+                )}
               </span>
             </div>
 
@@ -992,7 +1179,13 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
             </div>
 
             {/* Point breakdown chips */}
-            {grouped.length > 0 && (
+            {isSynced ? (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-bg-subtle text-txt-secondary">
+                  Confirmed in-game rivalry
+                </span>
+              </div>
+            ) : grouped.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {grouped.map(g => (
                   <span
@@ -1022,7 +1215,6 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
 
   const [editingId,    setEditingId]    = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showWatch,    setShowWatch]    = useState(false)
 
   const rivalries    = dynasty.rivalries || []
   const formedTids   = useMemo(() => new Set(rivalries.map(r => Number(r.rivalTid))), [rivalries])
@@ -1069,15 +1261,16 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
     [dynasty, myTid]
   )
 
-  // Rivalry Watch: teams with 5+ pts that are NOT already in the rivalries list
-  const watchList = useMemo(
+  // Brewing Rivalries — top 3 non-formed teams by rivalry score, always
+  // shown (no minimum point threshold): the point of the section is to
+  // surface whichever candidates are CLOSEST to becoming a rivalry, even
+  // early in a dynasty when nothing has cleared a fixed bar yet.
+  const brewingList = useMemo(
     () =>
       Object.entries(rivalryScores)
-        .filter(([rivalTid, score]) =>
-          score.points >= RIVALRY_WATCH_THRESHOLD &&
-          !formedTids.has(Number(rivalTid))
-        )
+        .filter(([rivalTid]) => !formedTids.has(Number(rivalTid)))
         .sort((a, b) => b[1].points - a[1].points)
+        .slice(0, 3)
         .map(([rivalTid, score]) => ({ rivalTid: Number(rivalTid), ...score })),
     [rivalryScores, formedTids]
   )
@@ -1173,23 +1366,18 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
         )}
       </section>
 
-      {/* Rivalry Watch — developing potential new rivalries */}
-      {watchList.length > 0 && (
+      {/* Brewing Rivalries — top 3 candidates by score, always visible */}
+      {brewingList.length > 0 && (
         <section>
-          <button
-            onClick={() => setShowWatch(v => !v)}
-            className="flex items-center gap-2 mb-2 w-full text-left group"
-          >
-            <h3 className="label-sm text-txt-muted group-hover:text-txt-secondary transition-colors" style={{ letterSpacing: '1px' }}>
-              RIVALRY WATCH ({watchList.length})
+          <div className="mb-2">
+            <h3 className="label-sm text-txt-secondary" style={{ letterSpacing: '1px' }}>
+              BREWING RIVALRIES
             </h3>
-            <span className="text-xs text-txt-muted">{showWatch ? '▲' : '▼'}</span>
-            <p className="text-xs text-txt-muted ml-1">Potential new rivalries developing in your dynasty</p>
-          </button>
+            <p className="text-xs text-txt-muted mt-0.5">Your top potential rivalries, based on rivalry score</p>
+          </div>
 
-          {showWatch && (
-            <div className="card overflow-hidden divide-y divide-border-subtle">
-              {watchList.map(({ rivalTid, points, events }) => {
+          <div className="card overflow-hidden divide-y divide-border-subtle">
+              {brewingList.map(({ rivalTid, points, events }) => {
                 const team     = dynasty.teams?.[rivalTid]
                 const teamName = team?.name || `Team ${rivalTid}`
                 const logo     = getTeamLogoByTid(rivalTid, dynasty.teams)
@@ -1254,8 +1442,7 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
                   </div>
                 )
               })}
-            </div>
-          )}
+          </div>
         </section>
       )}
 
@@ -1273,7 +1460,7 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
             <p><span className="font-bold text-txt-primary">+8</span> — Head coach left for them (last {RIVALRY_COACH_LOOKBACK} yrs)</p>
             <p className="pt-2 text-txt-muted">
               Points build from your first season and never reset for games — rivalries take years to develop.
-              Watch list shows at {RIVALRY_WATCH_THRESHOLD}+ pts. Bar fills at {RIVALRY_FORM_THRESHOLD} pts.
+              Brewing Rivalries shows your top 3 candidates. Bar fills at {RIVALRY_FORM_THRESHOLD} pts.
             </p>
           </div>
         </details>
