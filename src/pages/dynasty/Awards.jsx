@@ -107,7 +107,9 @@ const AWARD_DISPLAY = {
   louGroza: { name: 'Lou Groza Award', category: 'special', prestige: 'position' },
   rayGuy: { name: 'Ray Guy Award', category: 'special', prestige: 'position' },
   returnerOfTheYear: { name: 'Returner of the Year', category: 'special', prestige: 'position' },
-  shaunAlexander: { name: 'Shaun Alexander Award', category: 'player', prestige: 'elite' }
+  shaunAlexander: { name: 'Shaun Alexander Award', category: 'player', prestige: 'elite' },
+  paulHornungAward: { name: 'Paul Hornung Award', category: 'player', prestige: 'position' },
+  williamVCampbell: { name: 'William V. Campbell Award', category: 'player', prestige: 'position' }
 }
 
 const AWARD_ORDER = [
@@ -117,7 +119,7 @@ const AWARD_ORDER = [
   'outland', 'lombardi', 'rimington',
   'louGroza', 'rayGuy', 'returnerOfTheYear',
   'bearBryantCoachOfTheYear', 'broyles',
-  'shaunAlexander'
+  'shaunAlexander', 'paulHornungAward', 'williamVCampbell'
 ]
 
 // Delegate to the shared mascot-strip helper.

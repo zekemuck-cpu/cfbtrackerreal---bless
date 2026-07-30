@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { getTeamConference } from '../data/conferenceTeams'
 import { isFCSPlaceholderAbbr } from '../data/teamRegistry'
-import { getCustomConferencesForYear, getTeamRatingsForYear } from '../context/DynastyContext'
+import { getCustomConferencesForYear, getTeamRatingsForYear, GAME_TYPES, detectGameType } from '../context/DynastyContext'
 import { getTeamColors } from '../data/teamColors'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { getSchoolName } from '../data/teams'
@@ -527,7 +527,14 @@ function calcSpread(dynasty, homeTid, awayTid, year, week, normCtx, isNeutral = 
   }
 
   const clamped = Math.max(-28, Math.min(28, core + homeField))
-  return Math.round(clamped * 2) / 2
+  const rounded = Math.round(clamped * 2) / 2
+  // Never post a flat "PK" (pick'em) line — real books do use that term for a
+  // true dead-even game, but two teams are effectively never IDENTICAL, so
+  // give the smallest real edge to whichever side the unrounded math actually
+  // favors (falling back to home-team-favored on a true exact tie) instead of
+  // rounding away the last sliver of difference.
+  if (rounded === 0) return clamped !== 0 ? (clamped > 0 ? 0.5 : -0.5) : 0.5
+  return rounded
 }
 
 // Full point-spread for one matchup, home-field aware — builds the same
@@ -682,11 +689,16 @@ function softmaxOdds(rows, scoreKey, opts = {}) {
 }
 
 // National championship board — blended 60/40 score, top 25 get real odds.
-function buildNatlChampBoard(dynasty, year, week) {
+// Once the CFP field is set (restrictTids), only those teams still have any
+// realistic path to the title, so the board scopes to exactly that field
+// instead of the whole FBS — matches how a real sportsbook stops pricing
+// eliminated teams once the playoff bracket is locked.
+function buildNatlChampBoard(dynasty, year, week, restrictTids = null) {
   const teams = dynasty.teams || {}
   const tids  = Object.keys(teams).map(Number).filter(tid => {
     if (!teams[tid]?.abbr) return false
     if (isFCSPlaceholderAbbr(teams[tid].abbr)) return false
+    if (restrictTids && !restrictTids.has(tid)) return false
     return true
   })
   if (tids.length === 0) return []
@@ -1062,6 +1074,26 @@ function MatchupRows({ m, compact }) {
 
 // ─── Sub-panel: Game Lines ────────────────────────────────────────────────────
 
+// Maps a game to the numeric week slot used for the URL/header week param.
+// Regular weeks come straight from game.week; postseason games don't carry
+// a matching week number (they're tagged isBowlGame/isConferenceChampionship/
+// isCFP* instead), so they're bucketed the same way WeeklyScores.jsx buckets
+// them for its own Scores/Recap tabs — otherwise a bowl/CCG/CFP week's Game
+// Lines board finds zero games even though the games exist.
+//   16 = Conference Championship, 17 = Bowl Wk 1 / CFP First Round,
+//   18 = Bowl Wk 2 / CFP Quarterfinal, 19 = CFP Semifinal, 20 = National Championship
+function weekBucketFor(g) {
+  const type = detectGameType(g)
+  if (type === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) return 16
+  if (type === GAME_TYPES.CFP_FIRST_ROUND) return 17
+  if (type === GAME_TYPES.CFP_QUARTERFINAL) return 18
+  if (type === GAME_TYPES.CFP_SEMIFINAL) return 19
+  if (type === GAME_TYPES.CFP_CHAMPIONSHIP) return 20
+  if (type === GAME_TYPES.BOWL) return g.bowlWeek === 'week2' ? 18 : 17
+  const wk = Number(g.week)
+  return Number.isFinite(wk) ? wk : null
+}
+
 function GameLinesPanel({ dynasty, game, pathPrefix, gameFilter }) {
   const year = game?.year
   const week = game?.week
@@ -1074,7 +1106,7 @@ function GameLinesPanel({ dynasty, game, pathPrefix, gameFilter }) {
     const normCtx = buildNormSpreadContext(dynasty, year, week, powerMap)
     const filtered = dynasty.games.filter(g => {
       if (Number(g.year) !== Number(year)) return false
-      if (g.week == null || Number(g.week) !== Number(week)) return false
+      if (weekBucketFor(g) !== Number(week)) return false
       // FCS games are shown too (matching the Scores tab, which lists every
       // game). The line for an FCS placeholder is rough — it's an anonymous
       // regional bucket with no real rating — but the game itself, its score,
@@ -1246,11 +1278,20 @@ function NatlChampPanel({ dynasty, game, pathPrefix, teamFilter }) {
   const year = game?.year
   const week = game?.week ?? 17
 
+  // Once the CFP field is set for this year, only those 12 teams have any
+  // real path left — everyone else has already been eliminated from
+  // championship contention, so the board scopes down to just the field.
+  const cfpTidSet = useMemo(() => {
+    const seeds = dynasty?.cfpSeedsByYear?.[year]
+    if (!Array.isArray(seeds) || seeds.length === 0) return null
+    return new Set(seeds.map(s => Number(s.tid)))
+  }, [dynasty, year])
+
   const rows = useMemo(() => {
-    let r = buildNatlChampBoard(dynasty, year, week)
+    let r = buildNatlChampBoard(dynasty, year, week, cfpTidSet)
     if (teamFilter) r = r.filter(x => teamFilter(x.tid))
     return r
-  }, [dynasty, year, week, teamFilter])
+  }, [dynasty, year, week, teamFilter, cfpTidSet])
 
   return (
     <div className="px-2 sm:px-3 py-3">
@@ -1309,6 +1350,35 @@ function ConfChampPanel({ dynasty, game, pathPrefix, customConfs, controlledConf
     [dynasty, year, week, confTeams]
   )
 
+  // Once this conference's title game has actually been played, the field is
+  // no longer "who might win it" — it's decided. Show just the winner
+  // instead of pricing odds for a race that's already over.
+  const decidedGame = useMemo(() => {
+    if (!conf || !year || confTeams.length === 0) return null
+    // CFB27-auto-synced CCG records never get a `conference` string field
+    // (they're plain CPU games tagged isConferenceChampionship, with only
+    // team tids + scores) — match by team membership in this conference
+    // instead, same as buildConfChampBoard already scopes its own field.
+    const confTidSet = new Set(
+      Object.keys(teams).map(Number).filter(tid => confTeams.includes(teams[tid]?.abbr))
+    )
+    return (dynasty?.games || []).find(g =>
+      g && g.isConferenceChampionship &&
+      Number(g.year) === Number(year) &&
+      confTidSet.has(Number(g.team1Tid)) && confTidSet.has(Number(g.team2Tid)) &&
+      g.team1Score != null && g.team2Score != null
+    ) || null
+  }, [dynasty, conf, year, confTeams, teams])
+
+  const winnerRow = useMemo(() => {
+    if (!decidedGame) return null
+    const winnerTid = Number(
+      decidedGame.winnerTid ??
+      (Number(decidedGame.team1Score) > Number(decidedGame.team2Score) ? decidedGame.team1Tid : decidedGame.team2Tid)
+    )
+    return rows.find(r => Number(r.tid) === winnerTid) || null
+  }, [decidedGame, rows])
+
   if (conferences.length === 0) {
     return <p className="text-txt-tertiary text-sm px-4 py-6 text-center">No conference data available.</p>
   }
@@ -1320,11 +1390,30 @@ function ConfChampPanel({ dynasty, game, pathPrefix, customConfs, controlledConf
   return (
     <div className="px-2 sm:px-3 py-3">
       {showPills && <ConfPills confs={conferences} active={conf} onPick={setActiveConf} />}
-      <FuturesList
-        rows={rows} dynasty={dynasty} year={year} pathPrefix={pathPrefix}
-        recordFor={r => recordStr(r.stats, r.conf)}
-        oddsFor={(r, txt) => championOdds(r.odds, txt)}
-      />
+      {decidedGame && winnerRow ? (
+        <>
+          <p className="text-txt-tertiary text-xs px-1 pb-2 uppercase tracking-wider font-semibold">{conf} Champion — Decided</p>
+          <FuturesList
+            rows={[winnerRow]} dynasty={dynasty} year={year} pathPrefix={pathPrefix}
+            ranked={false}
+            recordFor={r => recordStr(r.stats, r.conf)}
+            oddsFor={(r, txt) => (
+              <span
+                className="inline-flex items-center justify-center rounded-md px-3 py-1.5 font-display text-xs font-black"
+                style={{ color: txt, background: 'rgba(0,0,0,0.26)', border: '1px solid rgba(255,255,255,0.16)', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+              >
+                CHAMPION
+              </span>
+            )}
+          />
+        </>
+      ) : (
+        <FuturesList
+          rows={rows} dynasty={dynasty} year={year} pathPrefix={pathPrefix}
+          recordFor={r => recordStr(r.stats, r.conf)}
+          oddsFor={(r, txt) => championOdds(r.odds, txt)}
+        />
+      )}
     </div>
   )
 }
@@ -1399,17 +1488,24 @@ function WinTotalsPanel({ dynasty, game, pathPrefix, customConfs, teamFilter, co
 // Once the game is played it highlights which side hit in each market.
 export function GameOdds({ dynasty, game }) {
   const year = game?.year
-  const week = game?.week
+  // Postseason games store a display LABEL in week ('Bowl', 'Bowl 2', 'Bowl 3',
+  // 'Bowl 4') — an established convention other features (recap prompts, team
+  // history) rely on, not a real week number. Feeding that raw string into the
+  // power/spread math (which does Number(week) comparisons throughout) silently
+  // produced garbage — treat anything non-numeric as "full season," same as
+  // every other week ?? 99 fallback already does for the futures boards.
+  const rawWeek = game?.week
+  const week = Number.isFinite(Number(rawWeek)) ? Number(rawWeek) : 99
 
   const m = useMemo(() => {
-    if (!dynasty || !game || week == null) return null
+    if (!dynasty || !game) return null
     const powerMap = buildSrsPowerMap(dynasty, year, week)
     const normCtx = buildNormSpreadContext(dynasty, year, week, powerMap)
     return buildMatchup(dynasty, game, year, week, normCtx, powerMap)
   }, [dynasty, game?.id, game?.team1Tid, game?.team2Tid, game?.homeTeamTid, game?.team1Score, game?.team2Score, game?.team1Overall, game?.team2Overall, game?.opponentOverall, year, week])
 
   if (!dynasty || !game) return null
-  if (week == null || !m) {
+  if (!m) {
     return (
       <div className="max-w-lg mx-auto rounded-xl border border-surface-4 overflow-hidden p-6 text-center text-sm text-txt-tertiary" style={{ background: 'var(--surface-1)' }}>
         Betting lines are available for regular season games only.

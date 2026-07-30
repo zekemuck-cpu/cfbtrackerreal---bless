@@ -47,11 +47,11 @@ function gameLine(tag, game, dynasty) {
   return `${tag}: ${rankPrefix(game.team1Rank)}${t1.name} (${t1.abbr}) ${s1}, ${rankPrefix(game.team2Rank)}${t2.name} (${t2.abbr}) ${s2}${ot}${site}${result}`
 }
 
-function charsForTeam(charactersById, tid) {
+export function charsForTeam(charactersById, tid) {
   return Object.values(charactersById || {}).filter(c => c && c.teamTid === tid)
 }
 
-function nationalSample(charactersById, n) {
+export function nationalSample(charactersById, n) {
   return Object.values(charactersById || {})
     .filter(c => c && c.kind === 'national')
     .sort((a, b) => (Number(b.followerCount) || 0) - (Number(a.followerCount) || 0))
@@ -74,7 +74,7 @@ function byPostPriority(a, b) {
   return (Number(b.followerCount) || 0) - (Number(a.followerCount) || 0)
 }
 
-function rosterLine(c) {
+export function rosterLine(c) {
   const p = (c.personality || '').trim() || c.role || c.category || 'a college football account'
   return `${c.handle} [${TIER_LABEL[accountTier(c)]}] — ${p}`
 }

@@ -370,6 +370,11 @@ const AWARD_LABEL_TO_KEY = {
   'returner of the year':        'returnerOfTheYear',
   'shaun alexander award':       'shaunAlexander',
   'shaun alexander':             'shaunAlexander',
+  'paul hornung award':          'paulHornungAward',
+  'paul hornung':                'paulHornungAward',
+  'william v. campbell award':   'williamVCampbell',
+  'william v campbell award':    'williamVCampbell',
+  'campbell trophy':             'williamVCampbell',
 }
 
 // Legacy KEY → canonical key. Pre-2026 builds wrote 'maxwellAward'

@@ -46,7 +46,7 @@ const TWO_DIGIT = (y) => String(y).slice(-2)
 
 // Best-effort full name for a team — uses dynasty.teams when available, falls
 // back to mascot lookup, then to the abbreviation.
-function teamDisplay(tid, abbr, dynasty) {
+export function teamDisplay(tid, abbr, dynasty) {
   if (tid != null && dynasty?.teams?.[tid]) {
     const t = dynasty.teams[tid]
     return t.name || t.fullName || t.abbr || abbr || 'Unknown'
@@ -299,7 +299,7 @@ function getConferenceAlignmentForYear(dynasty, year) {
 // when possible so teambuilder renames flow through. Returns '' when the
 // dynasty has no alignment data of any kind (extremely rare, since the
 // static fallback always returns something).
-function conferenceAlignmentBlock(dynasty, year) {
+export function conferenceAlignmentBlock(dynasty, year) {
   const alignment = getConferenceAlignmentForYear(dynasty, year)
   if (!alignment || Object.keys(alignment).length === 0) return ''
   const lines = []
@@ -315,7 +315,7 @@ function conferenceAlignmentBlock(dynasty, year) {
   return lines.join('\n')
 }
 
-const CONFERENCE_GUARDRAIL = `
+export const CONFERENCE_GUARDRAIL = `
 ═══════════════════════════════════════════════════════════
 CONFERENCE ALIGNMENT — DYNASTY-SPECIFIC, NOT REAL LIFE
 ═══════════════════════════════════════════════════════════
@@ -347,7 +347,7 @@ Self-check before you submit: pick five teams you mentioned in the recap and ver
 // Shared guardrail block (used by all three prompts).
 // ---------------------------------------------------------------------------
 
-const FACTUAL_GUARDRAIL = `
+export const FACTUAL_GUARDRAIL = `
 ═══════════════════════════════════════════════════════════
 HARD RULE — NEVER MAKE THINGS UP
 ═══════════════════════════════════════════════════════════
@@ -384,7 +384,7 @@ would be wrong. NEVER write that a team won unless they have (W) in their game
 line. NEVER assign the home team a win just because they appear first.
 `
 
-const OUTPUT_FORMAT = `
+export const OUTPUT_FORMAT = `
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
@@ -416,7 +416,7 @@ These markers contaminate the saved recap and must never appear. The output is p
 // Output format used when social posts are baked into the same prompt.
 // Replaces OUTPUT_FORMAT entirely — the two-block structure must be stated
 // upfront and clearly, not buried in a modified sentence.
-const OUTPUT_FORMAT_SOCIAL = `
+export const OUTPUT_FORMAT_SOCIAL = `
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT — TWO FENCED BLOCKS REQUIRED
 ═══════════════════════════════════════════════════════════

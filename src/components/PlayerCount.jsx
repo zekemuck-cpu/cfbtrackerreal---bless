@@ -77,12 +77,26 @@ export default function PlayerCount({ onSelectBucket = null, actionsRef = null, 
   // Folds in this dynasty's own recruitingDatabasePlayers extras — recruits
   // that were never a real Target but still belong in these counts once
   // their dev trait is known.
+  //
+  // isJucoRecruit mirrors ScoutStaff.jsx's freshmanRecruits filter exactly —
+  // this comment already claimed "matches Recruiting Database" but the actual
+  // filter here never excluded JUCO recruits, so a JUCO recruit whose dev
+  // trait got revealed counted here while never appearing in the Database,
+  // producing a Scouting Needs total higher than the Database's.
+  const isJucoRecruit = (r) => r.isHighSchoolRecruit === false ||
+    (typeof r.class === 'string' && (r.class.toUpperCase().startsWith('JUCO') || r.class.startsWith('JC (')));
+  // Same reasoning as ScoutStaff.jsx's Database filter: the whole point of
+  // this page is correlating the 10 scouted attributes against dev trait, so
+  // a recruit with no attribute data on file can never count here — a
+  // revealed dev trait with no attributes behind it (e.g. via the Update Dev
+  // Traits modal, which only ever sets devTrait) is not a usable comp.
+  const hasAttrs = (r) => !!r.attributes && Object.keys(r.attributes).length > 0;
   const mergedRecruits = useMemo(() => {
     const excluded = new Set((currentDynasty?.recruitingDatabaseExcludedPids || []).map(String));
     const own = currentDynasty?.players || [];
-    const targets = own.filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam && !excluded.has(String(p.pid)));
+    const targets = own.filter(p => p.isTarget && p.name && !p.isPortal && !p.previousTeam && !isJucoRecruit(p) && hasAttrs(p) && !excluded.has(String(p.pid)));
     const seen = new Set(targets.map(p => `${p.pid}`));
-    const extras = (currentDynasty?.recruitingDatabasePlayers || []).filter(p => p.name && !p.isPortal && !p.previousTeam && !seen.has(`${p.pid}`) && !excluded.has(String(p.pid)));
+    const extras = (currentDynasty?.recruitingDatabasePlayers || []).filter(p => p.name && !p.isPortal && !p.previousTeam && !isJucoRecruit(p) && hasAttrs(p) && !seen.has(`${p.pid}`) && !excluded.has(String(p.pid)));
     return [...targets, ...extras];
   }, [currentDynasty]);
 

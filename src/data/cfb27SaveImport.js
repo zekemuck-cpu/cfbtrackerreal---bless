@@ -846,10 +846,35 @@ export function mapSeasonInfo(rawSeason) {
   // stays correct even if a save's regular-season length ever differs from
   // this year's default (15 weeks + week-16 CCG).
   let week = rawWeek
-  if (rawSeason.conferenceChampionshipWeek != null) {
-    if (phase === 'conference_championship') {
-      week = rawWeek - rawSeason.conferenceChampionshipWeek + 1
-    } else if (phase === 'postseason') {
+  if (phase === 'conference_championship' && rawSeason.conferenceChampionshipWeek != null) {
+    week = rawWeek - rawSeason.conferenceChampionshipWeek + 1
+  } else if (phase === 'postseason') {
+    // Read the bowl week directly off the save's own weekType tag
+    // ("BowlSeason1"/"BowlSeason2"/...) instead of counting raw weeks
+    // since the conference championship — verified against a real save
+    // that there's an unaccounted-for gap week between the CCG (raw week
+    // 15) and the first bowl week (raw week 17, weekType "BowlSeason1"):
+    // the old rawWeek-conferenceChampionshipWeek arithmetic assumed bowls
+    // start the week immediately after CCG with no gap, and came out one
+    // week too high as a result — the save said "BowlSeason1" (Bowl Week
+    // 1) while this produced week 2. Reading the save's own explicit
+    // counter sidesteps needing to know the gap size at all, and stays
+    // correct even if that gap ever changes. NationalChampionship and the
+    // generic post-bowls "PostSeason" tag have no trailing digit — mapped
+    // to the app's existing week 4 / week 5 convention (Layout.jsx's
+    // getPhaseDisplay) instead. Falls back to the old rawWeek-based
+    // formula for any unrecognized postseason weekType, so a save shaped
+    // differently than expected degrades to previous behavior rather than
+    // breaking outright.
+    const weekType = rawSeason.weekType || ''
+    const bowlMatch = /^BowlSeason(\d+)$/.exec(weekType)
+    if (bowlMatch) {
+      week = Number(bowlMatch[1])
+    } else if (weekType.startsWith('NationalChampionship')) {
+      week = 4
+    } else if (weekType.startsWith('PostSeason')) {
+      week = 5
+    } else if (rawSeason.conferenceChampionshipWeek != null) {
       week = rawWeek - rawSeason.conferenceChampionshipWeek
     }
   }

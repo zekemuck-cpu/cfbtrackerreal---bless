@@ -902,6 +902,22 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
       if (match) {
         const freshUrl = mapPortraitUrl(match.generic_head_asset_name, Number(match.portrait_id))
         if (freshUrl && freshUrl !== p.pictureUrl) patch.pictureUrl = freshUrl
+
+        // Dev trait reveal, same "don't spoil it before signing" gate the
+        // user's own board rows use (isSigned above) — just no longer
+        // scoped to only the user's own signees. A target that signed with
+        // ANOTHER school falls off the user's board and never gets touched
+        // by the per-row loop above, so without this its dev trait stays
+        // frozen at whatever it was (usually still Hidden/null) forever,
+        // even once the save itself has long since revealed it. Deliberately
+        // does NOT touch scoutedFully/attributes — the directory only ever
+        // carries dev_trait, never the 10 scouted ratings, so this recruit
+        // still correctly stays out of the Database/Scouting Needs pools
+        // (which require real attribute data) until actually scouted.
+        const hiddenNow = !p.devTrait || p.devTrait === 'Hidden'
+        if (hiddenNow && match.is_signed && match.dev_trait) {
+          patch.devTrait = match.dev_trait
+        }
       }
     }
 
@@ -1076,7 +1092,51 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     toWrite.push(record)
   }
 
-  return { toWrite, stats: { gamesTouched: toWrite.length, boxScoresAdded } }
+  // Prune stale CPU games that no longer match the CURRENT save. The loop
+  // above is upsert-only by design (minimal-diff) and never removes a
+  // record — so a game written by an earlier, incomplete/wrong sync (e.g.
+  // a schedule that hadn't fully resolved yet) can survive forever even
+  // after a later sync's real data disagrees with it. Confirmed against a
+  // real dynasty: Notre Dame ended up with a phantom "BYU, Week 7" game
+  // (a week that's actually a BYE) and a phantom duplicate "Miami, Week 10"
+  // entry (Miami's real matchup was Week 0) — both leftover records this
+  // function had never had a way to clean up.
+  //
+  // Two distinct signals, both treated as definite (never prunes on mere
+  // absence of THIS team/week from the parse, which just means "unknown"):
+  //   1. This team+week DOES appear in the current parse, but with a
+  //      different opponent than what's stored — a wrong-opponent record.
+  //   2. This week is a real week in the season (some OTHER team has a game
+  //      that week, so it's not just "outside this sync's range"), but THIS
+  //      team has no game at all that week per the current parse — a bye,
+  //      so any stored game for this team at that week is a phantom.
+  const currentOpponentByTidWeek = new Map() // `${tid}:${week}` -> opponent tid
+  const knownWeeks = new Set() // every week that's a real (non-bye-only) week this season
+  for (const g of parsed.games || []) {
+    if (g.weekType !== 'RegularSeason') continue
+    knownWeeks.add(g.week)
+    const homeAppTid = g.homeTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.homeTeam] ?? null : rawTeamIdMap.get(g.homeTeamId)
+    const awayAppTid = g.awayTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.awayTeam] ?? null : rawTeamIdMap.get(g.awayTeamId)
+    if (homeAppTid == null || awayAppTid == null) continue
+    currentOpponentByTidWeek.set(`${homeAppTid}:${g.week}`, awayAppTid)
+    currentOpponentByTidWeek.set(`${awayAppTid}:${g.week}`, homeAppTid)
+  }
+
+  const toDelete = []
+  for (const g of existingGames || []) {
+    if ((g.gameType !== 'regular' && g.gameType !== 'conference_championship') || Number(g.year) !== year) continue
+    if (g.team1Tid == null || g.team2Tid == null) continue
+    if (g.team1Tid === userTid || g.team2Tid === userTid) continue // user games handled by the other pipeline
+    const expected1 = currentOpponentByTidWeek.get(`${g.team1Tid}:${g.week}`)
+    const expected2 = currentOpponentByTidWeek.get(`${g.team2Tid}:${g.week}`)
+    const wrongOpponent =
+      (expected1 != null && expected1 !== g.team2Tid) ||
+      (expected2 != null && expected2 !== g.team1Tid)
+    const bothSidesNowByes = expected1 == null && expected2 == null && knownWeeks.has(g.week)
+    if (wrongOpponent || bothSidesNowByes) toDelete.push(g.id)
+  }
+
+  return { toWrite, toDelete, stats: { gamesTouched: toWrite.length, boxScoresAdded, gamesPruned: toDelete.length } }
 }
 
 // PlayoffBracketSlot -> cfpSlot, a FIXED index into the real bracket
@@ -1947,6 +2007,7 @@ export function buildSyncPlan(dynasty, parsed) {
     gameScoresForUserTeam,
     boxScoresByWeek,
     cpuGamesToWrite: cpuGames.toWrite,
+    cpuGamesToDelete: cpuGames.toDelete,
     postseasonGamesToWrite: postseasonGames,
     depthChartUpdates,
     playersOfWeekUpdate,

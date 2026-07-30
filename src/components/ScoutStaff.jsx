@@ -179,10 +179,21 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
   // through) already excludes Hidden/blank dev traits on its own, so a Hidden
   // extra folded in here contributes nothing until its dev trait is filled in.
   const thresholdRecruits = useMemo(() => {
+    // isJucoRecruit duplicated here (same predicate as freshmanRecruits below)
+    // since this runs before that declaration — this comment already claimed
+    // "matches Recruiting Database" but never actually excluded JUCO recruits,
+    // the same drift fixed in PlayerCount.jsx's Scouting Needs total.
+    const isJuco = (r) => r.isHighSchoolRecruit === false ||
+      (typeof r.class === 'string' && (r.class.toUpperCase().startsWith('JUCO') || r.class.startsWith('JC (')));
+    // The whole point of this pool is correlating the 10 scouted attributes
+    // against dev trait — a recruit with no attribute data on file can't
+    // contribute to that and would just pollute the comps, regardless of
+    // whether its dev trait happens to be known.
+    const hasAttrs = (r) => !!r.attributes && Object.keys(r.attributes).length > 0;
     const excluded = new Set((currentDynasty?.recruitingDatabaseExcludedPids || []).map(String));
-    const targets = databaseRecruits.filter(r => !r.isPortal && !r.previousTeam && !excluded.has(String(r.pid)));
+    const targets = databaseRecruits.filter(r => !r.isPortal && !r.previousTeam && !isJuco(r) && hasAttrs(r) && !excluded.has(String(r.pid)));
     const seen = new Set(targets.map(r => `${r.pid}`));
-    const extras = (currentDynasty?.recruitingDatabasePlayers || []).filter(r => !r.isPortal && !r.previousTeam && !seen.has(`${r.pid}`) && !excluded.has(String(r.pid)));
+    const extras = (currentDynasty?.recruitingDatabasePlayers || []).filter(r => !r.isPortal && !r.previousTeam && !isJuco(r) && hasAttrs(r) && !seen.has(`${r.pid}`) && !excluded.has(String(r.pid)));
     return [...targets, ...extras];
   }, [databaseRecruits, currentDynasty]);
 
@@ -359,14 +370,18 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
   // True freshmen only — no portal/transfer players, no Junior College
   // transfers (checked both via the CFB27 sync's explicit isHighSchoolRecruit
   // flag and the class string itself, so a manually-entered 'JUCO ...' recruit
-  // is excluded the same way), and — CFB27-synced recruits only — must be
-  // 100% scouted (scoutedFully === false means the save says otherwise;
-  // undefined means "no data", e.g. a manual entry, which is never excluded
-  // on this basis since that system has no partial-scouting concept at all).
+  // is excluded the same way). The whole point of this database is
+  // correlating the 10 scouted attributes against dev trait, so a recruit
+  // with no attribute data on file (never scouted — whether still Hidden or,
+  // via the Update Dev Traits modal, a dev trait revealed with no attributes
+  // behind it) must never count here regardless of dev trait status; a
+  // recruit that IS scouted but still Hidden is fine (that's the normal
+  // pre-signing-day state) and stays in.
   const isJucoRecruit = (r) => r.isHighSchoolRecruit === false ||
     (typeof r.class === 'string' && (r.class.toUpperCase().startsWith('JUCO') || r.class.startsWith('JC (')));
+  const hasAttrs = (r) => !!r.attributes && Object.keys(r.attributes).length > 0;
   const freshmanRecruits = useMemo(() => databaseRecruits.filter(r =>
-    !r.isPortal && !r.previousTeam && !isJucoRecruit(r) && r.scoutedFully !== false
+    !r.isPortal && !r.previousTeam && !isJucoRecruit(r) && hasAttrs(r)
   ), [databaseRecruits]);
 
   const teamTheme = { teamColors, teamLogo };

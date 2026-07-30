@@ -241,7 +241,9 @@ const AWARD_DISPLAY = {
   louGroza: 'Lou Groza Award',
   rayGuy: 'Ray Guy Award',
   returnerOfTheYear: 'Returner of the Year',
-  shaunAlexander: 'Shaun Alexander Award'
+  shaunAlexander: 'Shaun Alexander Award',
+  paulHornungAward: 'Paul Hornung Award',
+  williamVCampbell: 'William V. Campbell Award'
 }
 
 // Award order for display (same as Awards page)
@@ -252,7 +254,7 @@ const AWARD_ORDER = [
   'outland', 'lombardi', 'rimington',
   'louGroza', 'rayGuy', 'returnerOfTheYear',
   'bearBryantCoachOfTheYear', 'broyles',
-  'shaunAlexander'
+  'shaunAlexander', 'paulHornungAward', 'williamVCampbell'
 ]
 
 // Compact "last name only" for the Stat Leaders widget — a plain

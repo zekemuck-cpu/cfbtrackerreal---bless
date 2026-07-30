@@ -62,6 +62,7 @@ import PositionChangesModal from '../../components/PositionChangesModal'
 import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
 import TrainingResultsModal from '../../components/TrainingResultsModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
+import PlayoffPreviewModal from '../../components/PlayoffPreviewModal'
 import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import PreseasonTop25Modal from '../../components/PreseasonTop25Modal'
@@ -173,6 +174,32 @@ export default function Dashboard() {
   // for every edition.
   const isCfb27Auto = isPcAutoDynasty(currentDynasty)
 
+  // Some PC-mode rows have no real "is this actually done" signal at all —
+  // the underlying data is just always synced-and-present the moment the row
+  // is eligible to show (Awards, All-Americans, Injury Report, etc.), so a
+  // done:true stub was the only option and the dot never meant anything
+  // (always green, whether or not the user ever looked). trackViewed swaps
+  // that stub for a REAL signal: red until the user actually clicks View
+  // once, green after — persisted per (year, key) so it survives reloads
+  // and resets naturally each new season.
+  const viewedTasksForYear = currentDynasty?.viewedTasksByYear?.[currentDynasty?.currentYear] || {}
+  const markTaskViewed = (key) => {
+    if (!currentDynasty || isViewOnly || viewedTasksForYear[key]) return
+    const year = currentDynasty.currentYear
+    const cur = currentDynasty.viewedTasksByYear || {}
+    const yr = { ...(cur[year] || {}), [key]: true }
+    updateDynasty(currentDynasty.id, { viewedTasksByYear: { ...cur, [year]: yr } }).catch(() => {})
+  }
+
+  // Small trailing star marking a task as time-sensitive (only worth doing
+  // this specific week) — suffixed, not prefixed, and sized down so it reads
+  // as an annotation on the title rather than competing with it.
+  const starredTitle = (text) => (
+    <>
+      {text} <span style={{ fontSize: '0.65em', opacity: 0.8 }}>★</span>
+    </>
+  )
+
   // PC-mode (CFB27 auto-sync) to-do rows are almost all pure "go look at the
   // already-synced page" links, not data entry — no separate Edit/Enter
   // affordance. Every row-rendering tail in this file gates its entire
@@ -181,13 +208,13 @@ export default function Dashboard() {
   // no actionLabel renders NO button at all. This builds a todo entry that
   // shows exactly one "View" button (or none, if there's nothing to view
   // yet) instead of the usual Enter/Edit/View pair.
-  const pcViewTodo = ({ key, title, subtitle, done, url }) => ({
+  const pcViewTodo = ({ key, title, subtitle, done, url, trackViewed = false }) => ({
     key,
-    done,
+    done: trackViewed ? !!viewedTasksForYear[key] : done,
     title,
     subtitle,
     actionLabel: url ? 'View' : undefined,
-    onAction: url ? () => navigate(url) : undefined,
+    onAction: url ? () => { if (trackViewed) markTaskViewed(key); navigate(url) } : undefined,
   })
 
   // Check if dynasty data is being lazily loaded
@@ -627,6 +654,11 @@ export default function Dashboard() {
     }
     setSavingDevTraits(true)
     try {
+      // Revealing a dev trait here does NOT mean the 10 scouted attributes are
+      // now known — those are a completely separate signal (real box-score
+      // scouting), and admitting a no-attributes recruit into the Database
+      // would pollute the exact correlation data the Database/Scouting Needs
+      // exist to build. devTrait is the only thing this modal ever touches.
       const byPid = new Map(updates.map(u => [String(u.pid), u.devTrait]))
       const changedPids = updates.map(u => u.pid)
       const newPlayers = (currentDynasty.players || []).map(p =>
@@ -653,6 +685,9 @@ export default function Dashboard() {
   // Lets the same modal serve both preseason (week 0) and in-season recaps
   // without juggling two state booleans.
   const [recapModalContext, setRecapModalContext] = useState(null)
+  // Playoff Preview modal: the year it's open for, or null when closed —
+  // same on/off shape as recapModalContext above.
+  const [playoffPreviewYear, setPlayoffPreviewYear] = useState(null)
   // Inline budget editing on the preseason "Enter Dynasty Points Budget" to-do.
   const [dpBudgetEditing, setDpBudgetEditing] = useState(false)
   const [dpBudgetInput, setDpBudgetInput] = useState('')
@@ -5083,18 +5118,12 @@ export default function Dashboard() {
             if (week === 1) {
               const bw1Todos = []
 
-              // CFB27: CCG results now come straight from the whole-league
-              // game sync (see cfb27SaveSync.js's buildWholeLeagueGames
-              // isConferenceChampionship tagging) — pure View, no manual entry.
-              if (isCfb27Auto) {
-                bw1Todos.push(pcViewTodo({
-                  key: 'cc-results-pc',
-                  done: hasCCData,
-                  title: 'Conference Championship Results',
-                  subtitle: hasCCData ? `${ccGamesWithScores}/${totalCCGames} synced from your save` : 'Not yet synced',
-                  url: hasCCData ? `${pathPrefix}/weekly-scores/${Number(currentDynasty.currentYear)}/16` : null,
-                }))
-              } else {
+              // CFB27: Conference Championship Results row removed for PC
+              // dynasties — redundant with Around the Country, which already
+              // surfaces these same scores. Manual dynasties keep it since
+              // it's their only way to actually ENTER the results (no sync
+              // to fall back on).
+              if (!isCfb27Auto) {
                 bw1Todos.push({
                   key: 'cc-results',
                   done: hasCCData,
@@ -5110,34 +5139,19 @@ export default function Dashboard() {
                 })
               }
 
-              {
-                const yearNum = Number(currentDynasty.currentYear)
-                const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[16]
-                const done = !!recap?.text
-                bw1Todos.push({
-                  key: 'cc-recap',
-                  done,
-                  title: done ? 'CCG Recap Saved' : 'Generate CCG Recap',
-                  subtitle: done
-                    ? 'Narrative recap stored for Conference Championship Week'
-                    : 'Generate the AI recap of Conference Championship Week',
-                  viewTo: done ? `${pathPrefix}/weekly-scores/${yearNum}/16?tab=recap` : null,
-                  onAction: () => setRecapModalContext({ year: yearNum, week: 16 }),
-                  actionLabel: done ? 'Edit' : 'Generate',
-                })
-              }
-
               // CFB27: cfpSeedsByYear now gets written directly from the
               // save's own locked bracket (cfb27SaveSync.js's deriveCFPSeeds)
-              // once the postseason field is set — hasCFPSeedsData naturally
-              // reads true from real data at that point.
+              // once the postseason field is set — hasCFPSeedsData just
+              // means the DATA has synced, not that the user has actually
+              // looked at the bracket, so the dot is tracked by real View
+              // clicks (trackViewed) rather than that sync state.
               if (isCfb27Auto) {
                 bw1Todos.push(pcViewTodo({
                   key: 'cfp-bracket-pc',
-                  done: hasCFPSeedsData,
                   title: 'CFP Bracket',
                   subtitle: hasCFPSeedsData ? 'Synced from your save' : 'Not yet synced',
                   url: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
+                  trackViewed: true,
                 }))
               } else {
                 bw1Todos.push({
@@ -5148,6 +5162,30 @@ export default function Dashboard() {
                   viewTo: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
                   onAction: () => setShowCFPSeedsModal(true),
                   actionLabel: hasCFPSeedsData ? 'Edit' : 'Enter',
+                })
+              }
+
+              // Generate Playoff Preview — same "Copy AI Prompt" shape as
+              // Generate CCG Recap above, just built from the locked 12-team
+              // CFP bracket instead of a played week's games. Needs the
+              // bracket set first, same gate the CFP Bracket row above uses.
+              if (hasCFPSeedsData) {
+                const previewYear = Number(currentDynasty.currentYear)
+                const preview = currentDynasty.playoffPreviewByYear?.[previewYear]
+                const previewDone = !!preview?.text
+                bw1Todos.push({
+                  key: 'playoff-preview',
+                  done: previewDone,
+                  title: previewDone ? 'Playoff Preview Saved' : 'Generate Playoff Preview',
+                  subtitle: previewDone
+                    ? 'AI hype preview stored for the CFP bracket'
+                    : 'Generate the AI preview of all 12 playoff teams',
+                  // Lives on the Conference Championship week's own Preview
+                  // tab (see WeeklyScores.jsx) — a once-per-year artifact, not
+                  // a Bowl Week 1 thing, even though this task sits here.
+                  viewTo: previewDone ? `${pathPrefix}/weekly-scores/${previewYear}/16?tab=preview` : null,
+                  onAction: () => setPlayoffPreviewYear(previewYear),
+                  actionLabel: previewDone ? 'Edit' : 'Generate',
                 })
               }
 
@@ -5196,11 +5234,43 @@ export default function Dashboard() {
                     ? `${userBowlGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}-${Math.min(userBowlGame.perspective?.userScore || 0, userBowlGame.perspective?.opponentScore || 0)}`
                     : `vs ${getMascotName(oppTid) || 'opponent'}${userHasBowlWeek1Game ? '' : ' (plays in Week 2)'}`
                   if (isCfb27Auto) {
-                    bw1Todos.push(pcViewTodo({
+                    // Same "Row 1: Game entry" treatment the regular-season
+                    // week uses for the user's own game (see ~line 4023):
+                    // logo-vs-logo composition AS the title itself, unshifted
+                    // to the top of the list — not a text todo with small
+                    // inline logos bolted on.
+                    const bowlOppMascot = getMascotName(oppTid)
+                    const bowlUserLogo = userTeamName ? getTeamLogo(userTeamName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                    const bowlOppLogo = bowlOppMascot ? getTeamLogo(bowlOppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                    const bowlRenderLogo = (url, abbr, key, tid) => {
+                      const inner = url
+                        ? <img src={url} alt={abbr || ''} className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0" />
+                        : <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border-2 border-dashed border-surface-4 flex items-center justify-center text-[9px] font-bold text-txt-secondary flex-shrink-0">{abbr ? abbr.charAt(0) : 'TBD'}</div>
+                      return tid
+                        ? <Link key={key} to={`${pathPrefix}/team/${tid}/${bowlYear}`} title={abbr || ''} onClick={(e) => e.stopPropagation()} className="flex-shrink-0 hover:opacity-80 transition-opacity">{inner}</Link>
+                        : <span key={key} className="flex-shrink-0">{inner}</span>
+                    }
+                    const bowlGameTitle = (
+                      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                        {bowlRenderLogo(bowlOppLogo, bowlOppMascot, 'L', oppTid)}
+                        <span
+                          className="text-[11px] sm:text-xs font-bold uppercase tabular-nums text-txt-tertiary"
+                          style={{ letterSpacing: '1.5px' }}
+                        >
+                          vs
+                        </span>
+                        {bowlRenderLogo(bowlUserLogo, userTeamName, 'R', userTeamTid)}
+                        {(userBowlGame.bowlName || 'Bowl Game') && (
+                          <span className="text-sm sm:text-base font-display font-bold text-txt-primary">
+                            - {userBowlGame.bowlName || 'Bowl Game'}
+                          </span>
+                        )}
+                      </div>
+                    )
+                    bw1Todos.unshift(pcViewTodo({
                       key: 'bowl-status-pc',
-                      done: true,
-                      title: `Your ${userBowlGame.bowlName || 'Bowl'} Game`,
-                      subtitle,
+                      done: userBowlGameScoresEntered,
+                      title: bowlGameTitle,
                       url: `${pathPrefix}/game/${userBowlGame.id}`,
                     }))
                   } else {
@@ -5453,23 +5523,46 @@ export default function Dashboard() {
 
               // Job Offers — real pending job offers for the user's own
               // coach, synced straight from the save (see cfb27SaveSync.js's
-              // coachOffersUpdate). Purely informational (no yes/no needed
-              // here — accepting a job happens in-game and shows up via the
-              // "Taking a New Job?" auto-detection above), so this always
-              // renders "done" (green dot) and just disappears once every
-              // offer is gone from the save. One row total regardless of
-              // offer count — View opens CoachOffersModal, which lists them
-              // all (mirrors the in-game "Schools Interested In Me" panel).
+              // coachOffersUpdate). No yes/no needed here — accepting a job
+              // happens in-game and shows up via the "Taking a New Job?"
+              // auto-detection above. Starred (time-sensitive) and tracked
+              // by actual View clicks rather than a meaningless done:true —
+              // disappears entirely once every offer is gone from the save.
+              // One row total regardless of offer count — View opens
+              // CoachOffersModal, which lists them all (mirrors the in-game
+              // "Schools Interested In Me" panel).
               if ((currentDynasty.coachOffers || []).length > 0) {
                 bw1Todos.push({
                   key: 'coach-offers-bw1',
-                  done: true,
-                  title: currentDynasty.coachOffers.length > 1
+                  done: !!viewedTasksForYear['coach-offers-bw1'],
+                  title: starredTitle(currentDynasty.coachOffers.length > 1
                     ? `Job Offers (${currentDynasty.coachOffers.length})`
-                    : 'Job Offers',
+                    : 'Job Offers'),
                   actionLabel: 'View',
-                  onAction: () => setShowCoachOffersModal(true),
+                  onAction: () => { markTaskViewed('coach-offers-bw1'); setShowCoachOffersModal(true) },
                 })
+              }
+
+              // Early National Signing Day (CFB27 only) — matches the same
+              // in-game action item at Bowl Week 1. No manual reveal needed
+              // (dev traits + the 10 scoutable attributes for signed
+              // commits already come through automatically via sync — see
+              // cfb27SaveSync.js's recruiting board mapping), so this is
+              // purely a nudge pointing at where that data now shows up.
+              // Starred (time-sensitive) and placed right after Job Offers.
+              if (isCfb27Auto) {
+                // Bare /recruiting (no :tid/:year) let the page fall back to
+                // its own default-year logic, which landed on the WRONG
+                // year (one behind currentYear) until a real navigation
+                // (e.g. the sidebar link) supplied one explicitly — same
+                // tid/year the "Targets & Commitments" viewTo above uses.
+                const bw1SigningDayTid = getUserTeamTid(currentDynasty)
+                bw1Todos.push(pcViewTodo({
+                  key: 'early-signing-day-bw1',
+                  title: starredTitle('Early National Signing Day'),
+                  url: `${pathPrefix}/recruiting/${bw1SigningDayTid}/${currentDynasty.currentYear}?tab=commitments`,
+                  trackViewed: true,
+                }))
               }
 
               // Recruiting commitments + dev trait reveal. CFB27: already synced.
@@ -5521,74 +5614,47 @@ export default function Dashboard() {
                 })
               }
               } else {
-                // PC mode: Recruiting Board, Awards, All-Americans,
-                // All-Conference, Injury Report, Around the Country —
-                // all already synced, pure View links.
-                const bw1UserTidForCommits = getUserTeamTid(currentDynasty)
+                // PC mode: Awards, All-Americans, All-Conference, Injury
+                // Report, Around the Country — all already synced, pure
+                // View links. (Recruiting Board is deliberately NOT
+                // repeated here — it overlaps entirely with Early National
+                // Signing Day above for Bowl Week 1 specifically.)
                 const bw1Year = currentDynasty.currentYear
                 bw1Todos.push(pcViewTodo({
-                  key: 'recruiting-board-bw1-pc',
-                  done: true,
-                  title: 'Recruiting Board',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/recruiting/${bw1UserTidForCommits}/${bw1Year}?tab=targets`,
-                }))
-                bw1Todos.push(pcViewTodo({
                   key: 'awards-bw1-pc',
-                  done: true,
-                  title: 'Awards',
+                  title: starredTitle('Awards'),
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/awards/${bw1Year}`,
+                  trackViewed: true,
                 }))
                 bw1Todos.push(pcViewTodo({
                   key: 'all-americans-bw1-pc',
-                  done: true,
-                  title: 'All-Americans',
+                  title: starredTitle('All-Americans'),
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/all-americans/${bw1Year}`,
+                  trackViewed: true,
                 }))
                 bw1Todos.push(pcViewTodo({
                   key: 'all-conference-bw1-pc',
-                  done: true,
-                  title: 'All-Conference',
+                  title: starredTitle('All-Conference'),
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/all-conference/${bw1Year}`,
+                  trackViewed: true,
                 }))
                 bw1Todos.push(pcViewTodo({
                   key: 'injury-report-bw1-pc',
-                  done: true,
                   title: 'Injury Report',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/injury-report`,
+                  trackViewed: true,
                 }))
                 bw1Todos.push(pcViewTodo({
                   key: 'weekly-scores-bw1-pc',
-                  done: true,
                   title: 'Around the Country',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/weekly-scores`,
+                  trackViewed: true,
                 }))
-              }
-
-              // Early National Signing Day (CFB27 only) — matches the same
-              // in-game action item at Bowl Week 1. No manual reveal needed
-              // (dev traits + the 10 scoutable attributes for signed
-              // commits already come through automatically via sync — see
-              // cfb27SaveSync.js's recruiting board mapping), so this is
-              // purely a nudge pointing at where that data now shows up.
-              if (isCfb27Auto) {
-                // Bare /recruiting (no :tid/:year) let the page fall back to
-                // its own default-year logic, which landed on the WRONG
-                // year (one behind currentYear) until a real navigation
-                // (e.g. the sidebar link) supplied one explicitly — same
-                // tid/year the "Targets & Commitments" viewTo above uses.
-                const bw1SigningDayTid = getUserTeamTid(currentDynasty)
-                bw1Todos.push({
-                  key: 'early-signing-day-bw1',
-                  done: true,
-                  title: 'Early National Signing Day',
-                  viewTo: `${pathPrefix}/recruiting/${bw1SigningDayTid}/${currentDynasty.currentYear}?tab=commitments`,
-                })
               }
 
               return (
@@ -8170,7 +8236,7 @@ export default function Dashboard() {
                     <span className="text-[10px] text-white/70">Conf Championship</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {ccGame && (
+                    {ccGame && userScore != null && (
                       <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
                     )}
                     <div className="w-14 text-right">
@@ -8231,7 +8297,7 @@ export default function Dashboard() {
                     <span className="text-[10px] text-white/70 truncate block">{bowlGameName}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    {userBowlGameData && (
+                    {userBowlGameData && userScore != null && (
                       <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
                     )}
                     <div className="w-14 text-right">
@@ -8281,8 +8347,10 @@ export default function Dashboard() {
                       <span className="text-[10px] text-white/70">CFP First Round</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                      {userScore != null && (
+                        <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      )}
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
                     </div>
                   </div>
                 </Link>
@@ -8323,8 +8391,10 @@ export default function Dashboard() {
                       <span className="text-[10px] text-white/70 truncate block">{bowlName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                      {userScore != null && (
+                        <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      )}
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
                     </div>
                   </div>
                 </Link>
@@ -8365,8 +8435,10 @@ export default function Dashboard() {
                       <span className="text-[10px] text-white/70 truncate block">{bowlName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                      {userScore != null && (
+                        <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      )}
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
                     </div>
                   </div>
                 </Link>
@@ -8406,8 +8478,10 @@ export default function Dashboard() {
                       <span className="text-[10px] text-white/70">National Championship</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, oppScore || 0)}-{Math.min(userScore || 0, oppScore || 0)}</span>
+                      {userScore != null && (
+                        <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
+                      )}
+                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
                     </div>
                   </div>
                 </Link>
@@ -8640,12 +8714,17 @@ export default function Dashboard() {
                       const mascotFromAbbr = getMascotName(entry.opponentTid ?? entry.opponent)
                       const opponentName = mascotFromAbbr || getTeamNameFromAbbr(entry.opponent)
                       const opponentLogo = mascotFromAbbr ? getTeamLogo(mascotFromAbbr, currentDynasty?.teams || currentDynasty?.customTeams) : getTeamLogo(entry.opponent, currentDynasty?.teams || currentDynasty?.customTeams)
-                      const playedGame = (currentDynasty.games || []).find(g => {
-                        if (!isSameYear(g.year, currentDynasty.currentYear)) return false
-                        if (g.week !== entry.week) return false
-                        const isRegular = !g.isBowlGame && !g.isConferenceChampionship && !g.isCFPFirstRound && !g.isCFPQuarterfinal && !g.isCFPSemifinal && !g.isCFPChampionship
-                        return isRegular
-                      })
+                      // entry comes from teamSchedule (getScheduleWithGameData),
+                      // which already resolved the correct game for this week via
+                      // gameId — re-deriving it here with a bare year+week lookup
+                      // (no team check at all) matched WHICHEVER other team's
+                      // regular-season game for that week happened to be first in
+                      // dynasty.games, completely ignoring which teams were
+                      // actually playing. Verified against a real dynasty: this
+                      // mobile-only lookup linked a schedule row to a random
+                      // unrelated CPU-vs-CPU game every time, while the desktop
+                      // schedule (which already used entry.game) was correct.
+                      const playedGame = entry.game
                       const isCurrentWeek = currentDynasty.currentWeek === entry.week && currentDynasty.currentPhase === 'regular_season'
                       const isWin = entry.perspective?.userWon
                       const mobileOpponentTid = entry.opponentTid ?? resolveTid(entry.opponent, currentDynasty?.teams || TEAMS)
@@ -9065,6 +9144,16 @@ export default function Dashboard() {
           onClose={() => setRecapModalContext(null)}
           year={recapModalContext.year}
           week={recapModalContext.week}
+        />
+      )}
+
+      {/* Playoff Preview Modal — generates and saves the AI hype preview of
+          the locked 12-team CFP bracket. Same copy/paste shell as Week Recap. */}
+      {playoffPreviewYear != null && (
+        <PlayoffPreviewModal
+          isOpen={playoffPreviewYear != null}
+          onClose={() => setPlayoffPreviewYear(null)}
+          year={playoffPreviewYear}
         />
       )}
 

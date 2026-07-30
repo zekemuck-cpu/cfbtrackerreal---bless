@@ -16,6 +16,7 @@ import BowlWeek2Modal from '../../components/BowlWeek2Modal'
 import ConferenceChampionshipModal from '../../components/ConferenceChampionshipModal'
 import FormattedRecap from '../../components/FormattedRecap'
 import GenerateSocialModal from '../../components/GenerateSocialModal'
+import PlayoffPreviewModal from '../../components/PlayoffPreviewModal'
 import SocialFeed from '../../components/SocialFeed'
 import { DEFAULT_SOCIAL_PLATFORM, getEffectiveCharacters } from '../../data/socialModel'
 import buildRecapLinks from '../../utils/buildRecapLinks'
@@ -409,6 +410,7 @@ export default function WeeklyScores() {
   // the dashboard. Same component handles preseason + in-season.
   const [recapModalOpen, setRecapModalOpen] = useState(false)
   const [socialModalOpen, setSocialModalOpen] = useState(false)
+  const [previewModalOpen, setPreviewModalOpen] = useState(false)
 
   // Resolve display year/week BEFORE consumers like `tabParam` reference
   // them — both feed off URL params plus dynasty phase fallbacks.
@@ -434,7 +436,7 @@ export default function WeeklyScores() {
   // user's choice survives navigating into a game and back.
   const rawTab = searchParams.get('tab')
   const tabParam = displayWeek === -1 ? 'recap'
-    : (rawTab === 'recap' || rawTab === 'social' || rawTab === 'sportsbook') ? rawTab
+    : (rawTab === 'recap' || rawTab === 'preview' || rawTab === 'social' || rawTab === 'sportsbook') ? rawTab
     : 'scores'
   const setTab = (next) => {
     setSearchParams(prev => {
@@ -444,6 +446,13 @@ export default function WeeklyScores() {
       return params
     }, { replace: true })
   }
+
+  // The Playoff Preview is a once-per-year artifact (not per-week), so it
+  // lives on the Conference Championship week's page specifically — that's
+  // the same week its social posts save to (see PlayoffPreviewModal), and
+  // the last "active" weekly-scores week before bowl season actually starts
+  // playing games. Tab only appears once a preview has actually been saved.
+  const hasPlayoffPreview = displayWeek === 16 && !!currentDynasty?.playoffPreviewByYear?.[displayYear]?.text
 
   // Generic URL-param setter (shared by the sportsbook sub-tab + conference row)
   // so the whole sportsbook view is link-routable, stacked on ?tab=sportsbook.
@@ -900,6 +909,11 @@ export default function WeeklyScores() {
                   <button type="button" onClick={() => setRecapModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title={`Edit ${weekLabelFor(displayWeek)} recap`}>
                     Edit Recap
                   </button>
+                  {displayWeek === 16 && (
+                    <button type="button" onClick={() => setPreviewModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Generate and edit the CFP playoff preview">
+                      Edit Preview
+                    </button>
+                  )}
                   {displayWeek !== -1 && (
                     <button type="button" onClick={() => setSocialModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Generate and edit social posts">
                       Edit Social
@@ -918,6 +932,7 @@ export default function WeeklyScores() {
               {[
                 ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
                 { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
+                ...(hasPlayoffPreview ? [{ key: 'preview', label: 'Preview' }] : []),
                 ...(displayWeek !== -1 ? [{ key: 'social', label: 'Social' }] : []),
                 ...(displayWeek !== -1 ? [{ key: 'sportsbook', label: 'Sportsbook' }] : []),
               ].map(tab => {
@@ -1089,6 +1104,29 @@ export default function WeeklyScores() {
         )
       })()}
 
+      {tabParam === 'preview' && hasPlayoffPreview && (() => {
+        const preview = currentDynasty.playoffPreviewByYear[displayYear]
+        return (
+          <Card padding="lg">
+            <FormattedRecap text={preview.text} />
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-surface-4">
+              <p className="text-xs text-txt-tertiary">
+                {preview.generatedAt ? `Saved ${new Date(preview.generatedAt).toLocaleString()}` : ''}
+              </p>
+              {!isViewOnly && (
+                <button
+                  type="button"
+                  onClick={() => setPreviewModalOpen(true)}
+                  className="text-xs font-semibold underline hover:text-txt-secondary"
+                >
+                  Edit preview
+                </button>
+              )}
+            </div>
+          </Card>
+        )
+      })()}
+
       {tabParam === 'social' && (() => {
         const platform = { ...DEFAULT_SOCIAL_PLATFORM, ...(currentDynasty.socialPlatform || {}) }
         const weekPosts = currentDynasty.socialFeedByYear?.[displayYear]?.[displayWeek] || []
@@ -1180,6 +1218,14 @@ export default function WeeklyScores() {
           onClose={() => setSocialModalOpen(false)}
           year={displayYear}
           week={displayWeek}
+        />
+      )}
+
+      {previewModalOpen && (
+        <PlayoffPreviewModal
+          isOpen={previewModalOpen}
+          onClose={() => setPreviewModalOpen(false)}
+          year={displayYear}
         />
       )}
 

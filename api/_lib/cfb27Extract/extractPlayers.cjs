@@ -1336,6 +1336,16 @@ async function buildLeagueRecruitDirectory(save, recruitRecords, playerFieldPick
     if (!name) continue;
     const key = name.toLowerCase();
 
+    // dev_trait/is_signed ride along on this same lookup so a target that's
+    // fallen off the user's own board (signed with another school, or still
+    // just being recruited elsewhere) can have its hidden dev trait revealed
+    // once actually signed — same "don't spoil it before signing" gate the
+    // user's own board rows already use (isSigned above), just no longer
+    // scoped to only the user's own signees. Player.dev is the SAME
+    // underlying field buildPlayerCoreFields reads for every rostered
+    // player — it's already assigned at recruit generation, just not
+    // exposed here until RecruitStage says Signed.
+    const devCode = F.dev ? readCell(playerRec, F.dev) : null;
     const entry = {
       first_name: firstName,
       last_name: lastName,
@@ -1345,6 +1355,8 @@ async function buildLeagueRecruitDirectory(save, recruitRecords, playerFieldPick
       home_state: F.homeState ? readCell(playerRec, F.homeState) : null,
       generic_head_asset_name: F.genericHeadAssetName ? readCell(playerRec, F.genericHeadAssetName) : null,
       portrait_id: F.portraitId ? Number(readCell(playerRec, F.portraitId)) : null,
+      is_signed: readCell(recruitRec, 'RecruitStage') === 'Signed',
+      dev_trait: devCode ? schema.DEV_TRAIT_LABELS.get(String(devCode)) || devCode : null,
     };
     if (!byName.has(key)) byName.set(key, []);
     byName.get(key).push(entry);
@@ -1484,10 +1496,28 @@ const ALL_AM_PRESEASON_AWARD_TYPES = {
 // specifically to a senior QB (matches the Unitas Golden Arm Award, which is
 // senior-QB-specific in real life), BEST_DE to an edge rusher (matches Edge
 // Rusher of the Year) while BEST_IL resolved to a center (matches the
-// Outland Trophy's true interior-lineman scope). BEST_ACADEMIC/
-// BEST_FRESHMAN_POTY/BEST_SR/BEST_DL, and the two coach awards (Bear Bryant/
-// Broyles), have no home in AWARD_DISPLAY yet or no verified save field —
-// intentionally left unmapped rather than guessed.
+// Outland Trophy's true interior-lineman scope).
+//
+// MOST_VERSATILE/BEST_FRESHMAN_POTY were previously SWAPPED — verified
+// against a real save's own "Award Watchlists" screens: MOST_VERSATILE's
+// screen is explicitly labeled "Paul Hornung Award... most versatile Player
+// of the Year" and BEST_FRESHMAN_POTY's is "Shaun Alexander Award...
+// Freshman Player of the Year", the exact opposite of what this table had.
+// paulHornungAward (not paulHornung) matches the key already used elsewhere
+// in the app (Player.jsx, AllTimeLineup.jsx) — paulHornung was a stray,
+// unused alias in PlayerMatchConfirmModal.jsx only.
+//
+// BEST_DL ('Lombardi Award... Defensive Lineman of the Year') and
+// BEST_ACADEMIC ('William V. Campbell Award... Academic Player of the
+// Year') are newly verified the same way. williamVCampbell is a brand-new
+// key with no prior support elsewhere in the app (unlike the others here,
+// which already had display/trophy wiring waiting for real data) — added
+// to Awards.jsx/TeamYear.jsx's AWARD_DISPLAY alongside this.
+//
+// BEST_SR and the two coach awards (Bear Bryant/Broyles — these live on a
+// SEPARATE CoachAward table, not PlayerAward; see buildCoachAwards) still
+// have no verified mapping here and are intentionally left out rather than
+// guessed.
 const NAMED_AWARD_TYPES = {
   HEISMAN: 'heisman',
   BEST_POTY: 'maxwell',
@@ -1506,7 +1536,10 @@ const NAMED_AWARD_TYPES = {
   BEST_C: 'rimington',
   BEST_KICK: 'louGroza',
   BEST_PUNT: 'rayGuy',
-  MOST_VERSATILE: 'shaunAlexander',
+  MOST_VERSATILE: 'paulHornungAward',
+  BEST_FRESHMAN_POTY: 'shaunAlexander',
+  BEST_DL: 'lombardi',
+  BEST_ACADEMIC: 'williamVCampbell',
 };
 
 /**
@@ -1574,6 +1607,39 @@ async function buildLeagueHonors(save, awardTable) {
   }
 
   return { allAmericans, allAmericansPreseason, namedAwards };
+}
+
+// Bear Bryant Coach of the Year / Broyles Award — these live on their OWN
+// CoachAward table (Franchise-Schemas/CoachAward.ftx: AwardType/Coach/Team),
+// not PlayerAward, since the winner is a coach, not a player. Coach is a
+// direct reference to a Coach row (FirstName/LastName), same resolution
+// pattern buildCoachingStaff/buildAllHeadCoaches already use elsewhere.
+const COACH_AWARD_TYPES = {
+  BEST_HC: 'bearBryantCoachOfTheYear',
+  BEST_AC: 'broyles',
+};
+
+async function buildCoachAwards(save, coachAwardTable) {
+  const namedAwards = {};
+  if (!coachAwardTable) return namedAwards;
+
+  for (const rec of coachAwardTable.records) {
+    if (!rec || rec.isEmpty) continue;
+    const namedKey = COACH_AWARD_TYPES[readCell(rec, 'AwardType')];
+    if (!namedKey) continue;
+
+    const coachRec = await resolveRef(save, readCell(rec, 'Coach'));
+    if (!coachRec || coachRec.isEmpty) continue;
+    const first = readCell(coachRec, 'FirstName') || '';
+    const last = readCell(coachRec, 'LastName') || '';
+
+    const teamRec = await resolveRef(save, readCell(rec, 'Team'));
+    const rawTid = (teamRec && !teamRec.isEmpty) ? Number(readCell(teamRec, 'TeamIndex')) : null;
+
+    namedAwards[namedKey] = { first_name: first, last_name: last, position: null, team_id: rawTid };
+  }
+
+  return namedAwards;
 }
 
 /**
@@ -2004,6 +2070,10 @@ async function extractFullSave(filePath, opts = {}) {
   const playerAwardTable = await getBestTable(save, 'PlayerAward');
   const playerAwards = await buildPlayerAwards(save, playerAwardTable);
   const leagueHonors = await buildLeagueHonors(save, playerAwardTable);
+
+  const coachAwardTable = await getBestTable(save, 'CoachAward');
+  const coachNamedAwards = await buildCoachAwards(save, coachAwardTable);
+  leagueHonors.namedAwards = { ...leagueHonors.namedAwards, ...coachNamedAwards };
 
   const heismanTable = await getBestTable(save, 'HeismanAwardRanking');
   const heismanWatch = await buildHeismanWatch(save, heismanTable);

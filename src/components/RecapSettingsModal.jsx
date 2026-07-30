@@ -14,18 +14,27 @@ export default function RecapSettingsModal({
   onPerspectiveChange,
   depth,
   onDepthChange,
+  // Depth options default to the per-game set; pass a different array (same
+  // {key,label,wordTarget,directive} shape) to reuse this modal for a
+  // different kind of AI content (e.g. the Playoff Preview).
+  depthOptions = RECAP_DEPTH_OPTIONS,
   // Social (optional)
   socialEnabled,
   onSocialEnabledChange,
   socialCount,
   onSocialCountChange,
+  socialLabel = 'posts about this game, in the same response',
 }) {
   if (!isOpen) return null
 
-  const perspIdx = Math.max(0, perspectiveOptions.findIndex(p => p.key === perspective))
-  const currentPersp = perspectiveOptions[perspIdx] || perspectiveOptions[Math.floor(perspectiveOptions.length / 2)]
-  const depthIdx = Math.max(0, RECAP_DEPTH_OPTIONS.findIndex(d => d.key === depth))
-  const currentDepth = RECAP_DEPTH_OPTIONS[depthIdx] || RECAP_DEPTH_OPTIONS[5]
+  // Voice (perspective) only applies when the caller passes perspective props
+  // — a multi-team preview (e.g. Playoff Preview) has no single team to be a
+  // "fan" of, so it omits these props entirely rather than passing an empty array.
+  const showVoice = typeof onPerspectiveChange === 'function' && Array.isArray(perspectiveOptions) && perspectiveOptions.length > 0
+  const perspIdx = showVoice ? Math.max(0, perspectiveOptions.findIndex(p => p.key === perspective)) : 0
+  const currentPersp = showVoice ? (perspectiveOptions[perspIdx] || perspectiveOptions[Math.floor(perspectiveOptions.length / 2)]) : null
+  const depthIdx = Math.max(0, depthOptions.findIndex(d => d.key === depth))
+  const currentDepth = depthOptions[depthIdx] || depthOptions[Math.floor(depthOptions.length / 2)]
 
   const sectionLabel = { fontSize: '10px', fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--text-tertiary)' }
   const showSocial = typeof onSocialEnabledChange === 'function'
@@ -50,18 +59,20 @@ export default function RecapSettingsModal({
 
         <div className="px-5 py-4 space-y-4">
           {/* Voice */}
-          <div>
-            <div className="flex items-baseline justify-between mb-1.5">
-              <span style={sectionLabel}>Voice</span>
-              <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{currentPersp.label}</span>
+          {showVoice && (
+            <div>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <span style={sectionLabel}>Voice</span>
+                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{currentPersp.label}</span>
+              </div>
+              <input type="range" min={0} max={perspectiveOptions.length - 1} step={1} value={perspIdx}
+                onChange={(e) => onPerspectiveChange(perspectiveOptions[Number(e.target.value)].key)} className="w-full" />
+              <div className="flex justify-between mt-1" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
+                <span className="max-w-[80px] leading-tight">{perspectiveOptions[0]?.label}</span>
+                <span className="max-w-[80px] text-right leading-tight">{perspectiveOptions[perspectiveOptions.length - 1]?.label}</span>
+              </div>
             </div>
-            <input type="range" min={0} max={perspectiveOptions.length - 1} step={1} value={perspIdx}
-              onChange={(e) => onPerspectiveChange(perspectiveOptions[Number(e.target.value)].key)} className="w-full" />
-            <div className="flex justify-between mt-1" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-              <span className="max-w-[80px] leading-tight">{perspectiveOptions[0]?.label}</span>
-              <span className="max-w-[80px] text-right leading-tight">{perspectiveOptions[perspectiveOptions.length - 1]?.label}</span>
-            </div>
-          </div>
+          )}
 
           {/* Length */}
           <div>
@@ -71,11 +82,11 @@ export default function RecapSettingsModal({
                 {currentDepth.label}{currentDepth.wordTarget ? ` · ${currentDepth.wordTarget} words` : ''}
               </span>
             </div>
-            <input type="range" min={0} max={RECAP_DEPTH_OPTIONS.length - 1} step={1} value={depthIdx}
-              onChange={(e) => onDepthChange(RECAP_DEPTH_OPTIONS[Number(e.target.value)].key)} className="w-full" />
+            <input type="range" min={0} max={depthOptions.length - 1} step={1} value={depthIdx}
+              onChange={(e) => onDepthChange(depthOptions[Number(e.target.value)].key)} className="w-full" />
             <div className="flex justify-between mt-1" style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>
-              <span>{RECAP_DEPTH_OPTIONS[0].label}</span>
-              <span>{RECAP_DEPTH_OPTIONS[RECAP_DEPTH_OPTIONS.length - 1].label}</span>
+              <span>{depthOptions[0].label}</span>
+              <span>{depthOptions[depthOptions.length - 1].label}</span>
             </div>
           </div>
 
@@ -90,7 +101,7 @@ export default function RecapSettingsModal({
                 <div className="flex items-center gap-2 mt-2">
                   <input type="number" min="1" max="60" value={socialCount} onChange={(e) => onSocialCountChange(e.target.value)}
                     className="w-16 rounded-md border border-surface-4 bg-surface-2 text-txt-primary text-sm p-1.5 focus:outline-none" />
-                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>posts about this game, in the same response</span>
+                  <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{socialLabel}</span>
                 </div>
               )}
             </div>

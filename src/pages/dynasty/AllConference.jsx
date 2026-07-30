@@ -8,7 +8,7 @@ import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
 import { conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllConferenceModal from '../../components/AllConferenceModal'
-import { HonorPlayerTile } from '../../components/HonorsUI'
+import { HonorPlayerTile, SchoolLeaderboard } from '../../components/HonorsUI'
 import { normalizePlayerName } from '../../utils/playerMatching'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import {
@@ -310,6 +310,38 @@ export default function AllConference() {
     freshman: allConference.filter(p => p.designation === 'freshman')
   }
 
+  // School leaderboard strip — same weighted tally (1st = 3, 2nd = 2,
+  // freshman = 1) as AllAmericans.jsx. allConference is already scoped to the
+  // selected conference, so this naturally ranks only that conference's
+  // schools with no extra filtering needed.
+  const schoolTally = (() => {
+    const byKey = new Map()
+    allConference.forEach(p => {
+      const key = (p.school || '').toUpperCase()
+      if (!key) return
+      if (!byKey.has(key)) byKey.set(key, { school: key, first: 0, second: 0, freshman: 0, total: 0, score: 0 })
+      const entry = byKey.get(key)
+      entry[p.designation] = (entry[p.designation] || 0) + 1
+      entry.total += 1
+      entry.score += p.designation === 'first' ? 3 : p.designation === 'second' ? 2 : 1
+    })
+    return Array.from(byKey.values()).sort((a, b) => b.score - a.score || b.total - a.total)
+  })()
+  const leaderboardEntries = schoolTally.slice(0, 10).map((e, idx) => {
+    const mascotName = getMascotName(e.school, currentDynasty?.teams || currentDynasty?.customTeams)
+    const tid = resolveTid(e.school, currentDynasty?.teams || TEAMS)
+    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    return {
+      key: e.school,
+      rank: idx + 1,
+      name: stripMascotFromName(mascotName) || e.school,
+      logo: mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null,
+      primary: colors?.primary || '#64748b',
+      first: e.first, second: e.second, freshman: e.freshman, total: e.total,
+      link: tid ? `${pathPrefix}/team/${tid}/${displayYear}` : '#',
+    }
+  })
+
   const findPlayerByNameAndSchool = (playerName, school, schoolTid = null) => {
     if (!playerName || !currentDynasty.players) return null
     const normalizedName = normalizePlayerName(cleanPlayerName(playerName))
@@ -573,6 +605,10 @@ export default function AllConference() {
         </Card>
       ) : (
         <TeamSection designation={filter} players={filteredPlayers} />
+      )}
+
+      {hasAnyPlayers && leaderboardEntries.length > 0 && (
+        <SchoolLeaderboard entries={leaderboardEntries} totalSchools={schoolTally.length} />
       )}
 
       <AllConferenceModal

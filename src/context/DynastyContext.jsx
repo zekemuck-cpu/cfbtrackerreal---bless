@@ -3465,6 +3465,22 @@ export function isGamePlayed(g) {
 export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
   const existingGames = dynasty.games || []
 
+  // Bulletproof against a nullish userTid: without this, `g.userTid ===
+  // userTid` below turns into `undefined === undefined` and matches EVERY
+  // OTHER team's CPU game that also lacks a userTid field (all of them —
+  // see buildWholeLeagueGames, which never sets one) — verified against a
+  // real dynasty where this silently linked the user's current-week
+  // schedule entry to an unrelated CPU-vs-CPU game (wrong two teams,
+  // wrong score) instead of creating/keeping the real shell game. Bailing
+  // out to an empty diff is always safe here: the caller (applyScheduleDiff)
+  // just treats "nothing changed" as a no-op, so a transient missing
+  // userTid self-heals on the next sync instead of corrupting a schedule
+  // entry that then persists.
+  if (userTid == null) {
+    console.error('computeScheduleDiff called with a nullish userTid — skipping to avoid mismatching games to the wrong team.')
+    return { toAdd: [], toUpdate: [], toRemove: [], toKeep: [], playedAffected: [], updatedSchedule: newSchedule || [] }
+  }
+
   // Existing user-team regular-season games for this year, keyed by week.
   // Legacy game records sometimes omit gameType — treat missing as 'regular'
   // so older dynasties don't get bypassed by the diff and accumulate ghosts.
@@ -3473,7 +3489,7 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
     const gType = g.gameType || 'regular'
     if (gType !== 'regular') return
     if (Number(g.year) !== Number(year)) return
-    const matchesUser = g.team1Tid === userTid || g.team2Tid === userTid || g.userTid === userTid
+    const matchesUser = g.team1Tid === userTid || g.team2Tid === userTid || (g.userTid != null && g.userTid === userTid)
     if (!matchesUser) return
     existingByWeek.set(Number(g.week), g)
   })
@@ -7907,6 +7923,16 @@ export function DynastyProvider({ children }) {
       const phaseIdx = phaseOrder.indexOf(phase)
       const targetIdx = phaseOrder.indexOf(targetPhase)
       if (phaseIdx > targetIdx) break // already past what the save reports — don't walk backwards
+      if (phase === targetPhase && week > Number(targetWeek)) {
+        // Already in the target phase but ahead of the fresh target week —
+        // can only happen if the previously-stored week was wrong (e.g. a
+        // since-fixed week-mapping bug). Counting up from here would just
+        // overshoot past this phase entirely and miss the target, so trust
+        // the save's own (authoritative) week label instead.
+        week = Number(targetWeek)
+        reachedTarget = true
+        break
+      }
       if (phase === 'offseason') { stoppedAtOffseason = true; break }
 
       let nextWeek = week + 1
@@ -8010,6 +8036,17 @@ export function DynastyProvider({ children }) {
       const byId = new Map(mergedGames.map((g) => [g.id, g]))
       for (const cpuGame of plan.cpuGamesToWrite) byId.set(cpuGame.id, cpuGame)
       mergedGames = [...byId.values()]
+    }
+
+    // Prune stale CPU games the current save no longer agrees with — see
+    // buildWholeLeagueGames' cpuGamesToDelete comment. Without this, a
+    // record written by an earlier/incomplete sync (a phantom bye-week
+    // opponent, a stale duplicate at the wrong week, etc.) could survive
+    // forever since the upsert above only ever adds/updates by id, never
+    // removes.
+    if (plan.cpuGamesToDelete?.length) {
+      const deleteIds = new Set(plan.cpuGamesToDelete)
+      mergedGames = mergedGames.filter((g) => !deleteIds.has(g.id))
     }
 
     // Bowl + full CFP bracket results, every team including the user's own —
@@ -8879,6 +8916,34 @@ export function DynastyProvider({ children }) {
     if (String(currentDynasty?.id) === String(dynastyId)) {
       setCurrentDynasty(prev => prev ? apply(prev) : prev)
     }
+  }
+
+  // One preview per year (not one per week like weekRecapsByYear), so the
+  // plain embedded map is never a document-size concern — no subcollection
+  // needed here, unlike saveWeekRecap/deleteWeekRecap above.
+  const savePlayoffPreview = async (dynastyId, year, text) => {
+    if (blockIfReadOnly(dynastyId, 'save playoff preview')) return
+    const yearN = Number(year)
+    const dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+    const cur = dynasty.playoffPreviewByYear || {}
+    await updateDynasty(dynastyId, {
+      playoffPreviewByYear: { ...cur, [yearN]: { generatedAt: Date.now(), text: String(text || '') } }
+    })
+  }
+
+  const deletePlayoffPreview = async (dynastyId, year) => {
+    if (blockIfReadOnly(dynastyId, 'delete playoff preview')) return
+    const yearN = Number(year)
+    const dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+    const cur = { ...(dynasty.playoffPreviewByYear || {}) }
+    delete cur[yearN]
+    await updateDynasty(dynastyId, { playoffPreviewByYear: cur })
   }
 
   // ─── Social Media feature ──────────────────────────────────────────────────
@@ -17845,6 +17910,8 @@ export function DynastyProvider({ children }) {
     syncDynastyFromCFB27Save,
     saveWeekRecap,
     deleteWeekRecap,
+    savePlayoffPreview,
+    deletePlayoffPreview,
     // Social Media feature
     loadSocial,
     importSocialUniverse,

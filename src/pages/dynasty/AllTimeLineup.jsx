@@ -114,7 +114,7 @@ const AWARD_PRIORITY = [
   'broncoNagurski', 'dickButkus', 'lombardi', 'outland', 'jimThorpe',
   'fredBiletnikoff', 'doakWalker', 'johnMackey', 'unitasGoldenArm',
   'edgeRusherOfTheYear', 'rimington', 'rayGuy', 'louGroza',
-  'returnerOfTheYear', 'shaunAlexander', 'paulHornungAward', 'tedHendricksAward',
+  'returnerOfTheYear', 'shaunAlexander', 'paulHornungAward', 'tedHendricksAward', 'williamVCampbell',
 ]
 
 const AWARD_LABELS = {
@@ -127,6 +127,7 @@ const AWARD_LABELS = {
   edgeRusherOfTheYear: 'Edge Rusher of the Year', returnerOfTheYear: 'Returner of the Year',
   shaunAlexander: 'Shaun Alexander', tedHendricksAward: 'Hendricks',
   paulHornungAward: 'Paul Hornung', bowlMVP: 'Bowl MVP', cfpChampMVP: 'CFP Title MVP',
+  williamVCampbell: 'William V. Campbell',
 }
 
 // ─── Color util ───────────────────────────────────────────────────────────────

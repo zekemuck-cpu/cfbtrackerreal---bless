@@ -120,6 +120,40 @@ export function SchoolLeaderboard({ title = 'School Leaderboard', entries, total
     { k: 'second', label: '2nd' },
     { k: 'freshman', label: 'Fr' },
   ]
+  // Split into two READING-ORDER columns (1-5 left, 6-10 right) rather than a
+  // plain 2-col CSS grid, which fills row-by-row and interleaves ranks
+  // (1,3,5,7,9 left / 2,4,6,8,10 right) — not how people expect to scan a
+  // ranked list left-to-right.
+  const half = Math.ceil(entries.length / 2)
+  const leftCol = entries.slice(0, half)
+  const rightCol = entries.slice(half)
+  const renderRow = (e) => (
+    <Link
+      key={e.key}
+      to={e.link || '#'}
+      className="group relative flex items-center gap-3 rounded-lg overflow-hidden border border-surface-4 px-3 py-2.5 hover:brightness-110 transition-[filter] no-underline"
+      style={{ background: `linear-gradient(90deg, ${hexA(e.primary, 0.20)} 0%, transparent 70%), var(--surface-2)` }}
+    >
+      <span
+        className="font-display font-black tabular-nums w-6 text-center flex-shrink-0 leading-none"
+        style={{ fontSize: '18px', color: e.rank <= 3 ? '#d4af37' : 'var(--text-muted)' }}
+      >
+        {e.rank}
+      </span>
+      <span className="w-8 h-8 rounded-full bg-white p-0.5 flex-shrink-0 flex items-center justify-center">
+        {e.logo ? <img src={e.logo} alt="" className="w-full h-full object-contain" /> : null}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="font-semibold text-sm text-txt-primary truncate">{e.name}</div>
+        <div className="mt-0.5 flex items-center gap-2 text-[10px] tabular-nums text-txt-tertiary">
+          {keys.map(({ k, label }) => (e[k] > 0 ? <span key={k}>{e[k]}× {label}</span> : null))}
+        </div>
+      </div>
+      <span className="font-display font-black tabular-nums text-txt-primary flex-shrink-0 leading-none" style={{ fontSize: '24px' }}>
+        {e.total}
+      </span>
+    </Link>
+  )
   return (
     <section>
       <div className="flex items-center gap-3 mb-3">
@@ -132,33 +166,8 @@ export function SchoolLeaderboard({ title = 'School Leaderboard', entries, total
         )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {entries.map((e) => (
-          <Link
-            key={e.key}
-            to={e.link || '#'}
-            className="group relative flex items-center gap-3 rounded-lg overflow-hidden border border-surface-4 px-3 py-2.5 hover:brightness-110 transition-[filter] no-underline"
-            style={{ background: `linear-gradient(90deg, ${hexA(e.primary, 0.20)} 0%, transparent 70%), var(--surface-2)` }}
-          >
-            <span
-              className="font-display font-black tabular-nums w-6 text-center flex-shrink-0 leading-none"
-              style={{ fontSize: '18px', color: e.rank <= 3 ? '#d4af37' : 'var(--text-muted)' }}
-            >
-              {e.rank}
-            </span>
-            <span className="w-8 h-8 rounded-full bg-white p-0.5 flex-shrink-0 flex items-center justify-center">
-              {e.logo ? <img src={e.logo} alt="" className="w-full h-full object-contain" /> : null}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-sm text-txt-primary truncate">{e.name}</div>
-              <div className="mt-0.5 flex items-center gap-2 text-[10px] tabular-nums text-txt-tertiary">
-                {keys.map(({ k, label }) => (e[k] > 0 ? <span key={k}>{e[k]}× {label}</span> : null))}
-              </div>
-            </div>
-            <span className="font-display font-black tabular-nums text-txt-primary flex-shrink-0 leading-none" style={{ fontSize: '24px' }}>
-              {e.total}
-            </span>
-          </Link>
-        ))}
+        <div className="space-y-2">{leftCol.map(renderRow)}</div>
+        <div className="space-y-2">{rightCol.map(renderRow)}</div>
       </div>
     </section>
   )
