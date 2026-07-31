@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { getShownGraphic } from '../../utils/scoreGraphics'
-import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
+import { getRivalryTrophyForTeams, getCustomRivalryTrophy } from '../../utils/trophyEngine'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -1327,10 +1327,22 @@ export default function Game() {
 
   // Rivalry trophy (regular-season only): when these two teams contest a named
   // rivalry trophy, the header shows it (name + art) instead of "Week N". Bowls /
-  // CFP / conference-championship games keep their own title.
-  const rivalryTrophy = (!game.isConferenceChampionship && !game.isCFPChampionship && !game.isCFPSemifinal && !game.isCFPQuarterfinal && !game.isCFPFirstRound && !game.bowlName)
-    ? getRivalryTrophyForTeams(currentDynasty, game.team1Tid, game.team2Tid)
-    : null
+  // CFP / conference-championship games keep their own title. The user's own
+  // AI-generated custom trophy (RivalriesTab.jsx) takes priority over the
+  // static real-world TROPHIES catalog — it's specific to THIS dynasty.
+  const isRivalryEligibleGame = !game.isConferenceChampionship && !game.isCFPChampionship && !game.isCFPSemifinal && !game.isCFPQuarterfinal && !game.isCFPFirstRound && !game.bowlName
+  const customRivalryTrophy = isRivalryEligibleGame ? getCustomRivalryTrophy(currentDynasty, userTid, oppTid) : null
+  const catalogRivalryTrophy = (isRivalryEligibleGame && !customRivalryTrophy) ? getRivalryTrophyForTeams(currentDynasty, game.team1Tid, game.team2Tid) : null
+  const rivalryTrophy = customRivalryTrophy
+    ? {
+        name: customRivalryTrophy.name || customRivalryTrophy.trophyName,
+        gameName: customRivalryTrophy.name || customRivalryTrophy.trophyName,
+        trophyName: customRivalryTrophy.trophyName || null,
+        rivalryName: customRivalryTrophy.name || null,
+        image: customRivalryTrophy.trophyImageUrl,
+        isCustom: true,
+      }
+    : catalogRivalryTrophy
 
   // Get game title
   let gameTitle = ''
@@ -1355,7 +1367,9 @@ export default function Game() {
     gameSubtitle = `${game.year} Bowl Season`
   } else if (rivalryTrophy) {
     gameTitle = rivalryTrophy.gameName || rivalryTrophy.name
-    gameSubtitle = `${game.year} Regular Season${game.week != null ? ` · Week ${game.week}` : ''}`
+    gameSubtitle = rivalryTrophy.isCustom && rivalryTrophy.trophyName
+      ? `${rivalryTrophy.trophyName} · ${game.year} Regular Season${game.week != null ? ` · Week ${game.week}` : ''}`
+      : `${game.year} Regular Season${game.week != null ? ` · Week ${game.week}` : ''}`
   } else {
     gameTitle = game.week ? `Week ${game.week}` : 'Game'
     gameSubtitle = `${game.year} Regular Season`
@@ -2209,16 +2223,35 @@ export default function Game() {
               })() : (
                 <div className="flex flex-col items-center py-2 sm:py-4">
                   {rivalryTrophy ? (
-                    <img
-                      src={rivalryTrophy.image}
-                      alt={rivalryTrophy.gameName || rivalryTrophy.name}
-                      title={rivalryTrophy.gameName || rivalryTrophy.name}
-                      className="h-16 sm:h-28 w-auto object-contain"
-                      style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.55))' }}
-                    />
+                    <>
+                      <img
+                        src={rivalryTrophy.image}
+                        alt={rivalryTrophy.gameName || rivalryTrophy.name}
+                        title={rivalryTrophy.gameName || rivalryTrophy.name}
+                        className="h-16 sm:h-28 w-auto object-contain"
+                        style={{ filter: 'drop-shadow(0 6px 16px rgba(0,0,0,0.55))' }}
+                      />
+                      {rivalryTrophy.isCustom && (rivalryTrophy.trophyName || rivalryTrophy.rivalryName) && (
+                        <div className="flex flex-col items-center mt-1.5 text-center">
+                          {rivalryTrophy.trophyName && (
+                            <span className="text-[10px] sm:text-xs font-bold text-white">{rivalryTrophy.trophyName}</span>
+                          )}
+                          {rivalryTrophy.rivalryName && (
+                            <span className="text-[9px] sm:text-[11px] text-white opacity-70">{rivalryTrophy.rivalryName}</span>
+                          )}
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div className="px-2 py-1 sm:px-4 sm:py-2 rounded-full bg-yellow-500/20 border border-yellow-500/30">
-                      <span className="text-xs sm:text-sm font-bold text-yellow-400">UPCOMING</span>
+                    <div className="flex flex-col items-center gap-1.5">
+                      <div className="px-2 py-1 sm:px-4 sm:py-2 rounded-full bg-yellow-500/20 border border-yellow-500/30">
+                        <span className="text-xs sm:text-sm font-bold text-yellow-400">UPCOMING</span>
+                      </div>
+                      {(game.dateLabel || game.kickoffTimeLabel) && (
+                        <span className="text-[10px] sm:text-xs text-txt-tertiary font-semibold">
+                          {[game.dateLabel, game.kickoffTimeLabel].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

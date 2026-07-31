@@ -24,6 +24,8 @@ export const AWARD_IMAGES = {
   broyles: 'https://i.imgur.com/WZaJ975.png',
   returnerOfTheYear: 'https://i.imgur.com/CHVXg6r.png', // Jet Award
   shaunAlexander: 'https://i.imgur.com/lbhil64.png', // Shaun Alexander Award (Most Outstanding Freshman)
+  paulHornungAward: 'https://i.imgur.com/0flZzK8.png',
+  williamVCampbell: 'https://i.imgur.com/pWQd9fe.png',
 }
 
 // Resolve a trophy image from any award key (post-normalizeAwardName), handling

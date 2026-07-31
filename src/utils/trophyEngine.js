@@ -245,6 +245,19 @@ export function getRivalryTrophyForTeams(dynasty, tidA, tidB) {
   return null
 }
 
+// The user's own AI-generated custom rivalry trophy (name/image/description
+// entered via RivalriesTab.jsx and saved onto dynasty.rivalries) — separate
+// from the static real-world TROPHIES catalog above. Each dynasty.rivalries
+// entry is scoped to the user's own program (rivalTid = the OTHER team in
+// the matchup), so this only resolves when one of the two tids is the
+// user's own team.
+export function getCustomRivalryTrophy(dynasty, myTid, otherTid) {
+  const my = Number(myTid), other = Number(otherTid)
+  if (!Number.isFinite(my) || !Number.isFinite(other)) return null
+  const rivalries = dynasty?.rivalries || []
+  return rivalries.find(r => Number(r.rivalTid) === other && r.trophyImageUrl) || null
+}
+
 // Distinct, sorted years a trophy was earned.
 export function earnedYears(instances) {
   return [...new Set((instances || []).map((e) => Number(e.year)).filter(Number.isFinite))].sort((a, b) => a - b)

@@ -26,6 +26,9 @@ export const Awards = lazyWithPreload(() => import('../pages/dynasty/Awards'))
 export const AllAmericans = lazyWithPreload(() => import('../pages/dynasty/AllAmericans'))
 export const AllConference = lazyWithPreload(() => import('../pages/dynasty/AllConference'))
 export const DynastyRecords = lazyWithPreload(() => import('../pages/dynasty/DynastyRecords'))
+export const Records = lazyWithPreload(() => import('../pages/dynasty/Records'))
+export const SeasonStats = lazyWithPreload(() => import('../pages/dynasty/SeasonStats'))
+export const TeamStats = lazyWithPreload(() => import('../pages/dynasty/TeamStats'))
 export const Teams = lazyWithPreload(() => import('../pages/dynasty/Teams'))
 export const TeamYear = lazyWithPreload(() => import('../pages/dynasty/TeamYear'))
 export const BowlHistory = lazyWithPreload(() => import('../pages/dynasty/BowlHistory'))
@@ -62,6 +65,9 @@ export const preloadByNavName = {
   'Dashboard': Dashboard.preload,
   'Coach Career': CoachCareer.preload,
   'Leaderboard': DynastyRecords.preload,
+  'Records': Records.preload,
+  'Season Stats': SeasonStats.preload,
+  'Team Stats': TeamStats.preload,
   'Recruiting': Recruiting.preload,
   'Scout Staff': ScoutStaff.preload,
   'Awards': Awards.preload,

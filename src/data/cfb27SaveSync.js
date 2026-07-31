@@ -61,6 +61,7 @@ import {
   mapRecruitClassLabel,
   mapDraftRound,
   mapSchoolGrades,
+  mapTeamStatRecords,
   mapHonorEntry,
   mapAwardEntry,
   mapCoachOffer,
@@ -929,6 +930,41 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
   return { toUpdate, toCreate, committedRecords, stats: { targets: toUpdate.length + toCreate.length } }
 }
 
+// Real kickoff date/time, straight off the save's own SeasonGame fields —
+// GameDateMonth/GameDateDay (no year on the field itself; the game's own
+// SeasonYear/dynasty year covers that) and TimeOfDay (minutes since
+// midnight — verified exact against a real save: 1065 -> "5:45 PM", matching
+// that same game's in-game schedule screen). Returns null fields when the
+// save doesn't have them rather than guessing.
+function kickoffLabel(month, day) {
+  if (!month || !day) return null
+  const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const name = MONTH_ABBR[month - 1]
+  return name ? `${name} ${day}` : null
+}
+function timeOfDayLabel(minutes) {
+  if (!Number.isFinite(minutes)) return null
+  const totalMinutes = ((minutes % 1440) + 1440) % 1440
+  const h24 = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  const period = h24 >= 12 ? 'PM' : 'AM'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`
+}
+// Bundles all four raw/derived date-time fields for a raw save game row `g`
+// (the shape buildSchedule/extractPlayers.cjs produces) into one spreadable
+// object, so every game-record builder below stays a one-line addition.
+function gameDateTimeFields(g) {
+  return {
+    gameDateMonth: g.gameDateMonth ?? null,
+    gameDateDay: g.gameDateDay ?? null,
+    dayOfWeek: g.dayOfWeek || null,
+    kickoffTimeMinutes: g.timeOfDayMinutes ?? null,
+    dateLabel: kickoffLabel(g.gameDateMonth, g.gameDateDay),
+    kickoffTimeLabel: timeOfDayLabel(g.timeOfDayMinutes),
+  }
+}
+
 // Stable, deterministic id for a CPU-vs-CPU game — same matchup always
 // resolves to the same id across syncs (order-independent on the two tids),
 // so re-syncing never creates a duplicate record for a game already tracked.
@@ -1057,6 +1093,7 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
           ...(quarters ? { quarters } : {}),
           ...(overtimes ? { overtimes } : {}),
           ...(box ? { boxScore: box } : {}),
+          ...gameDateTimeFields(g),
         }
       : {
           id: cpuGameId(year, week, homeAppTid, awayAppTid),
@@ -1074,6 +1111,7 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
           ...(quarters ? { quarters } : {}),
           ...(overtimes ? { overtimes } : {}),
           ...(box ? { boxScore: box } : {}),
+          ...gameDateTimeFields(g),
         }
 
     // Minimal-diff: skip writing if nothing actually changed vs. what's tracked.
@@ -1084,7 +1122,12 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
         Boolean(existing.isPlayed) === Boolean(record.isPlayed) &&
         Boolean(existing.isConferenceChampionship) === Boolean(isCCG) &&
         JSON.stringify(existing.boxScore || null) === JSON.stringify(record.boxScore || null) &&
-        JSON.stringify(existing.quarters || null) === JSON.stringify(record.quarters || null)
+        JSON.stringify(existing.quarters || null) === JSON.stringify(record.quarters || null) &&
+        // One-time backfill: a game synced before date/time was tracked
+        // would otherwise never get it written, since nothing else about
+        // it "changes" once it's already played.
+        existing.dateLabel === record.dateLabel &&
+        existing.kickoffTimeLabel === record.kickoffTimeLabel
       if (unchanged) continue
     }
 
@@ -1291,12 +1334,15 @@ export function buildPostseasonGames(parsed, rawTeamIdMap, existingGames, year) 
       homeTeamTid: null,
       isPlayed,
       winnerTid: isPlayed ? (team1Score > team2Score ? team1Tid : team2Tid) : null,
+      ...gameDateTimeFields(g),
     }
 
     if (existing) {
       const unchanged = existing.team1Score === record.team1Score
         && existing.team2Score === record.team2Score
         && Boolean(existing.isPlayed) === isPlayed
+        && existing.dateLabel === record.dateLabel
+        && existing.kickoffTimeLabel === record.kickoffTimeLabel
       if (unchanged) continue
       toWrite.push({ ...existing, ...record })
     } else {
@@ -1529,6 +1575,7 @@ export function buildSyncPlan(dynasty, parsed) {
   let teamsCoachingUpdated = 0
   let recruitingClassesUpdated = 0
   let schoolGradesUpdated = 0
+  let statRecordsUpdated = 0
 
   // Whole-roster pid lookup for depth chart resolution (broader than
   // pidByName above, which is scoped to recruiting targets only — depth
@@ -1571,6 +1618,7 @@ export function buildSyncPlan(dynasty, parsed) {
     const staff = mapCoachingStaff(parsed.coachingStaff, rawTid)
     const recruitingClass = mapTeamRecruitingClass(parsed.leagueRecruitingClasses?.[rawTid], parsed.topClassRanks?.[rawTid])
     const schoolGrades = mapSchoolGrades(parsed.leagueSchoolGrades?.[rawTid])
+    const statRecords = mapTeamStatRecords(parsed.leagueStatRecords, rawTid)
     const patchedYear = { ...yearData }
     if (ratings) {
       patchedYear.teamRatings = ratings
@@ -1590,7 +1638,24 @@ export function buildSyncPlan(dynasty, parsed) {
       patchedYear.schoolGrades = schoolGrades
       schoolGradesUpdated += 1
     }
-    mergedTeams[tidKey] = { ...team, byYear: { ...team.byYear, [year]: patchedYear } }
+    if (statRecords) statRecordsUpdated += 1
+    mergedTeams[tidKey] = {
+      ...team,
+      // statRecords is deliberately NOT nested under byYear[year] like the
+      // fields above it — it's the save's CURRENT record book state (same
+      // as leagueStatRecords at the dynasty level), not a fact that differs
+      // per season. Writing it into byYear on every sync would duplicate
+      // ~3.5 KB/team into every single year's slot forever — for a 130+
+      // team dynasty that's already ~450 KB added per season of syncing,
+      // well on its way to tripping Firestore's 1 MiB per-doc cap within a
+      // couple seasons (the exact failure mode documented in
+      // seasonSubcollection.js for weekRecapsByYear/allAmericansByYear,
+      // except `teams` isn't covered by that subcollection system at all).
+      // A flat, overwritten-every-sync field keeps this at a constant size
+      // regardless of how many seasons the dynasty has played.
+      ...(statRecords ? { statRecords } : {}),
+      byYear: { ...team.byYear, [year]: patchedYear },
+    }
   }
 
   // The main loop above keys ratings by raw TeamIndex, but all 5 FCS filler
@@ -1893,6 +1958,24 @@ export function buildSyncPlan(dynasty, parsed) {
       }
     : null
 
+  // Record book (Career/Game/Season x National/Conference) — team-scoped
+  // records are folded into each team's own byYear.statRecords above; this
+  // is just the National + Conference portion, small and flat (not
+  // year-keyed — always overwritten wholesale with the save's CURRENT
+  // record-book state, same as the in-game screen always showing current
+  // records rather than a history). See extractPlayers.cjs's
+  // buildLeagueStatRecords for the save shape / verification.
+  const rawStatRecords = parsed.leagueStatRecords
+  const hasStatRecords = rawStatRecords && ['career', 'game', 'season'].some(
+    (tf) => rawStatRecords[tf]?.national?.length || Object.keys(rawStatRecords[tf]?.conference || {}).length
+  )
+  const leagueStatRecordsUpdate = hasStatRecords
+    ? Object.fromEntries(['career', 'game', 'season'].map((tf) => [
+        tf,
+        { national: rawStatRecords[tf]?.national || [], conference: rawStatRecords[tf]?.conference || {} },
+      ]))
+    : null
+
   const rawNamedAwards = parsed.leagueHonors?.namedAwards
   const awardsUpdate = rawNamedAwards && Object.keys(rawNamedAwards).length
     ? Object.fromEntries(
@@ -2018,6 +2101,7 @@ export function buildSyncPlan(dynasty, parsed) {
     cfpSeedsUpdate: cfpSeeds,
     allAmericansUpdate,
     awardsUpdate,
+    leagueStatRecordsUpdate,
     userJobChange,
     userJobChangeResolved,
     userCoachPortrait,
@@ -2036,6 +2120,7 @@ export function buildSyncPlan(dynasty, parsed) {
       teamsCoachingUpdated,
       recruitingClassesUpdated,
       schoolGradesUpdated,
+      statRecordsUpdated,
       rankingsUpdated: rankings.length,
       boxScoresAdded: Object.keys(boxScoresByWeek).length + cpuGames.stats.boxScoresAdded,
       cpuGamesUpdated: cpuGames.stats.gamesTouched,
@@ -2047,6 +2132,7 @@ export function buildSyncPlan(dynasty, parsed) {
       cfpSeedsLocked: cfpSeeds != null,
       allAmericansUpdated: allAmericansUpdate != null,
       awardsUpdated: awardsUpdate ? Object.keys(awardsUpdate).length : 0,
+      leagueStatRecordsUpdated: leagueStatRecordsUpdate != null,
       userJobChangeDetected: userJobChange != null,
       userJobChangeResolved,
       coachOffersFound: coachOffersUpdate.length,

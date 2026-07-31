@@ -106,20 +106,18 @@ const AWARD_DISPLAY = {
   rimington: { name: 'Rimington Trophy', category: 'lineman', prestige: 'position' },
   louGroza: { name: 'Lou Groza Award', category: 'special', prestige: 'position' },
   rayGuy: { name: 'Ray Guy Award', category: 'special', prestige: 'position' },
-  returnerOfTheYear: { name: 'Returner of the Year', category: 'special', prestige: 'position' },
+  returnerOfTheYear: { name: 'Jet Award', category: 'special', prestige: 'position' },
   shaunAlexander: { name: 'Shaun Alexander Award', category: 'player', prestige: 'elite' },
   paulHornungAward: { name: 'Paul Hornung Award', category: 'player', prestige: 'position' },
   williamVCampbell: { name: 'William V. Campbell Award', category: 'player', prestige: 'position' }
 }
 
 const AWARD_ORDER = [
-  'heisman', 'maxwell', 'walterCamp', 'daveyObrien', 'doakWalker',
-  'fredBiletnikoff', 'johnMackey', 'unitasGoldenArm',
-  'chuckBednarik', 'broncoNagurski', 'jimThorpe', 'dickButkus', 'edgeRusherOfTheYear',
-  'outland', 'lombardi', 'rimington',
-  'louGroza', 'rayGuy', 'returnerOfTheYear',
-  'bearBryantCoachOfTheYear', 'broyles',
-  'shaunAlexander', 'paulHornungAward', 'williamVCampbell'
+  'heisman', 'maxwell', 'walterCamp', 'bearBryantCoachOfTheYear', 'daveyObrien',
+  'chuckBednarik', 'broncoNagurski', 'jimThorpe', 'doakWalker', 'fredBiletnikoff',
+  'lombardi', 'unitasGoldenArm', 'edgeRusherOfTheYear', 'outland', 'johnMackey',
+  'broyles', 'dickButkus', 'rimington', 'louGroza', 'rayGuy',
+  'returnerOfTheYear', 'shaunAlexander', 'paulHornungAward', 'williamVCampbell'
 ]
 
 // Delegate to the shared mascot-strip helper.

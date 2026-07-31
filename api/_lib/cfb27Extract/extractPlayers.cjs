@@ -75,7 +75,16 @@ function findPlayerTable(save, forced) {
  * would silently drop every recruit sitting in the other instance — with no
  * error, just a partial, seemingly-random per-team undercount (whichever
  * recruits happened to land in the chunk that got read). This merges every
- * instance's non-empty records instead of picking one.
+ * instance's non-empty records instead of picking one. Also confirmed to be
+ * the real shape (not just a theoretical concern) for PlayerAward, Coach,
+ * SeasonGame, and Team — getBestTable's own instance-count warning caught
+ * real discarded rows on all of them in one save.
+ *
+ * The returned array also carries a `.schema` property (from the first
+ * instance that had one) for the rare caller that needs field-existence
+ * checks (`records.schema.attributes`) the way a single table object would
+ * provide — every instance of a given table name shares the same schema,
+ * so any one of them is representative.
  */
 async function getAllTableRecords(save, name) {
   let candidates = [];
@@ -86,9 +95,11 @@ async function getAllTableRecords(save, name) {
     candidates = (save.tables || []).filter((t) => t.name === name);
   }
   const records = [];
+  let schema = null;
   for (const t of candidates) {
     try {
       await t.readRecords();
+      if (!schema && t.schema) schema = t.schema;
       for (const r of t.records) {
         if (r && !r.isEmpty) records.push(r);
       }
@@ -96,12 +107,23 @@ async function getAllTableRecords(save, name) {
       /* skip unreadable instance */
     }
   }
+  records.schema = schema;
   return records;
 }
 
 /** The save carries several same-named tables (per-slot scratch instances);
  * only one is actually populated. Used for Team/Coach/Conference/SeasonInfo/
- * SeasonGame — all follow this same "many instances, one real one" shape. */
+ * SeasonGame — all follow this same "many instances, one real one" shape.
+ *
+ * That assumption is NOT always true — PlayerAward was believed to fit it
+ * too until a real, already-decided Jet Award winner turned out to be
+ * invisible: the table actually shards across multiple simultaneously-
+ * populated instances, and this function was silently discarding whichever
+ * ones weren't "the biggest." That bug took a long manual investigation to
+ * find precisely because getBestTable never said anything when it threw
+ * real, non-empty rows away. The warning below exists so any OTHER table
+ * with the same shape announces itself in the sync log immediately instead
+ * of requiring another one of those investigations. */
 async function getBestTable(save, name) {
   let candidates = [];
   if (typeof save.getAllTablesByName === 'function') {
@@ -114,10 +136,12 @@ async function getBestTable(save, name) {
 
   let best = null;
   let bestCount = -1;
+  let totalCount = 0;
   for (const t of candidates) {
     try {
       await t.readRecords();
       const count = t.records.filter((r) => r && !r.isEmpty).length;
+      totalCount += count;
       if (count > bestCount) {
         bestCount = count;
         best = t;
@@ -125,6 +149,10 @@ async function getBestTable(save, name) {
     } catch (err) {
       /* skip unreadable instance */
     }
+  }
+  const discarded = totalCount - bestCount;
+  if (discarded > 0) {
+    console.warn(`[getBestTable] "${name}": kept ${bestCount} record(s) from one instance, but ${discarded} more non-empty record(s) exist across its other ${candidates.length - 1} instance(s) and were discarded. If this table is meant to hold whole-league data (not a handful of per-slot scratch rows), switch it to getAllTableRecords — see the PlayerAward/Recruit fix for precedent.`);
   }
   return best;
 }
@@ -192,7 +220,7 @@ async function resolveRefWithTable(save, refString) {
  * collects each team's overall/offense/defense ratings while it's already
  * iterating every row, so callers don't need a second full table scan.
  */
-function buildTeamMaps(teamTable) {
+function buildTeamMaps(teamRecords) {
   const names = new Map();
   const ratings = new Map();
   // TeamIndex 255 is shared by all 5 FCS filler rows (East/Midwest/
@@ -223,15 +251,15 @@ function buildTeamMaps(teamTable) {
   // every OTHER real team's raw value can close it correctly.
   const rawTopClassRanks = new Map();
   const topClassRanks = new Map();
-  if (!teamTable) return { names, ratings, fcsFillerRatings, rankings, cfpRankings, topClassRanks };
+  if (!teamRecords || !teamRecords.length) return { names, ratings, fcsFillerRatings, rankings, cfpRankings, topClassRanks };
 
-  const fields = new Set(teamTable.schema.attributes.map((f) => f.name));
+  const fields = new Set((teamRecords.schema?.attributes || []).map((f) => f.name));
   const nameField = ['LongName', 'DisplayName', 'TeamName'].find((n) => fields.has(n));
   const nickField = ['NickName', 'Mascot'].find((n) => fields.has(n));
   const idField = ['TeamIndex', 'TEAM_ORIGID', 'TeamId'].find((n) => fields.has(n));
   if (!nameField) return { names, ratings, fcsFillerRatings, rankings, cfpRankings, topClassRanks };
 
-  teamTable.records.forEach((rec, i) => {
+  teamRecords.forEach((rec, i) => {
     if (!rec || rec.isEmpty) return;
     const id = idField ? Number(readCell(rec, idField)) : i;
     const name = readCell(rec, nameField);
@@ -315,11 +343,11 @@ const COACH_POSITIONS = {
   DefensiveCoordinator: 'defensiveCoordinator',
 };
 
-function buildCoachingStaff(coachTable) {
+function buildCoachingStaff(coachRecords) {
   const staff = new Map();
-  if (!coachTable) return staff;
+  if (!coachRecords) return staff;
 
-  for (const rec of coachTable.records) {
+  for (const rec of coachRecords) {
     if (!rec || rec.isEmpty) continue;
     const position = COACH_POSITIONS[readCell(rec, 'Position')];
     if (!position) continue;
@@ -422,18 +450,24 @@ const JOB_SECURITY_STATUS_LABELS = {
   Safe: 'Safe', SafeForNow: 'Safe For Now', Low: 'Low', HotSeat: 'Hot Seat', Invalid: null,
 };
 
-async function buildUserCoachInfo(save, coachTable) {
-  if (!coachTable) return null;
-  for (let i = 0; i < coachTable.records.length; i++) {
-    const rec = coachTable.records[i];
+async function buildUserCoachInfo(save, coachRecords) {
+  if (!coachRecords) return null;
+  for (const rec of coachRecords) {
     if (!rec || rec.isEmpty) continue;
     if (!readCell(rec, 'IsUserControlled')) continue;
     const position = USER_COACH_POSITION_CODE[readCell(rec, 'Position')];
     const rawTid = Number(readCell(rec, 'TeamIndex'));
     if (!position || !Number.isFinite(rawTid)) continue;
-    // Row POSITION within coachTable (not a field value) — Coach has no
-    // separate stable id column, so this is the same identity buildCoachOffers
-    // matches StaffPersonContractOffer.StaffPerson refs against.
+    // Coach has no separate stable id column, so buildCoachOffers matches
+    // StaffPersonContractOffer.StaffPerson refs against this exact record
+    // OBJECT (resolveRefWithTable returns the same cached object every time
+    // it resolves the same underlying row within one extractFullSave call) —
+    // NOT a row-position number. Coach is confirmed sharded across multiple
+    // simultaneously-populated table instances (getBestTable's own instance-
+    // count warning caught a real save missing 1 of 498 coaches), so a
+    // position-within-the-merged-array number would silently stop matching
+    // the raw reference's real (table, rowNumber) coordinate for anyone
+    // whose own coach lands after the first instance.
     //
     // Portrait fields pulled from THIS specific row (not cross-referenced by
     // team+position through buildCoachingStaff) — verified against a real
@@ -478,7 +512,7 @@ async function buildUserCoachInfo(save, coachTable) {
     return {
       rawTid,
       position,
-      coachRowIndex: i,
+      coachRec: rec,
       name: `${first} ${last}`.trim() || null,
       generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
       portrait_id: Number(readCell(rec, 'Portrait')) || null,
@@ -504,11 +538,10 @@ async function buildUserCoachInfo(save, coachTable) {
  * for that UI rather than a single stored field. CoachPrestigeScore is
  * used instead as the table's default sort.
  */
-async function buildAllHeadCoaches(save, coachTable) {
+async function buildAllHeadCoaches(save, coachRecords) {
   const coaches = [];
-  if (!coachTable) return coaches;
-  for (let i = 0; i < coachTable.records.length; i++) {
-    const rec = coachTable.records[i];
+  if (!coachRecords) return coaches;
+  for (const rec of coachRecords) {
     if (!rec || rec.isEmpty) continue;
     if (readCell(rec, 'Position') !== 'HeadCoach') continue;
     const rawTid = Number(readCell(rec, 'TeamIndex'));
@@ -566,16 +599,25 @@ async function buildAllHeadCoaches(save, coachTable) {
  * and it's the ONLY match in the whole 181-row JobOpening table, exactly
  * matching that same coach's own Coach.NumContractOffers value (1).
  *
- * Matched by raw table identity + row POSITION (resolveRefWithTable's
- * `table`/`rowNumber`), not a field value — Coach has no separate stable id
- * column, same convention buildUserCoachInfo's coachRowIndex already uses.
+ * Matched by resolving StaffPerson through resolveRefWithTable and
+ * comparing the resulting record object against userCoachRec (the exact
+ * same cached record object buildUserCoachInfo found) — NOT by decoding a
+ * raw row-position number and comparing it to a row-position within some
+ * separately-read Coach table. Coach is confirmed sharded across multiple
+ * simultaneously-populated table instances (getBestTable's own instance-
+ * count warning caught a real save missing 1 of 498 coaches), so a
+ * position-within-one-instance number is not a safe identity to compare —
+ * resolveRefWithTable always finds the coach's TRUE originating instance
+ * regardless of how many there are, and table.records[rowNumber] is a
+ * stable cached object within one extractFullSave/save session, so object
+ * identity is a correct, instance-agnostic comparison.
  *
  * @returns {Array<{rawTid:number, position:string, status:string,
  *   offeredPoints:number, expectedPoints:number, length:number}>}
  */
-async function buildCoachOffers(save, jobTable, coachTable, userCoachRowIndex) {
+async function buildCoachOffers(save, jobTable, userCoachRec) {
   const offers = [];
-  if (!jobTable || !coachTable || userCoachRowIndex == null) return offers;
+  if (!jobTable || !userCoachRec) return offers;
 
   for (const jobRec of jobTable.records) {
     if (!jobRec || jobRec.isEmpty) continue;
@@ -587,17 +629,10 @@ async function buildCoachOffers(save, jobTable, coachTable, userCoachRowIndex) {
       const offerResolved = await resolveRefWithTable(save, readCell(arrRec, `StaffPersonContractOffer${i}`));
       if (!offerResolved || !offerResolved.rec || offerResolved.rec.isEmpty) continue;
       const offerRec = offerResolved.rec;
-      // Decoded directly (not via resolveRefWithTable, which doesn't expose
-      // rowNumber on its return value) and compared by row POSITION within
-      // the SAME coachTable object userCoachRowIndex was derived from —
-      // avoids any risk of landing in a different, unpopulated per-slot
-      // Coach table instance.
       const staffRef = readCell(offerRec, 'StaffPerson');
-      if (!staffRef || typeof staffRef !== 'string' || staffRef.length < 16) continue;
-      const staffRowNumber = parseInt(staffRef.slice(15), 2);
-      if (staffRowNumber !== userCoachRowIndex) continue;
-      const staffRec = coachTable.records[staffRowNumber];
-      if (!staffRec || staffRec.isEmpty) continue;
+      if (!staffRef) continue;
+      const staffResolved = await resolveRefWithTable(save, staffRef);
+      if (!staffResolved || !staffResolved.rec || staffResolved.rec !== userCoachRec) continue;
 
       const teamRec = await resolveRef(save, readCell(jobRec, 'Team'));
       const rawTid = teamRec ? Number(readCell(teamRec, 'TeamIndex')) : null;
@@ -644,14 +679,14 @@ const DEPTH_CHART_SLOT_FIELDS = [
  *   buildTeamMaps'/buildRawTeamIdMap's TeamIndex, so the client can resolve
  *   it with the SAME rawTeamIdMap already built from player rows.
  */
-async function buildDepthCharts(save, teamTable, playerFieldPicker) {
+async function buildDepthCharts(save, teamRecords, playerFieldPicker) {
   const depthCharts = {};
-  if (!teamTable) return depthCharts;
-  const fields = new Set(teamTable.schema.attributes.map((f) => f.name));
+  if (!teamRecords || !teamRecords.length) return depthCharts;
+  const fields = new Set((teamRecords.schema?.attributes || []).map((f) => f.name));
   const idField = ['TeamIndex', 'TEAM_ORIGID', 'TeamId'].find((n) => fields.has(n));
   if (!idField || !fields.has('DepthChart')) return depthCharts;
 
-  for (const rec of teamTable.records) {
+  for (const rec of teamRecords) {
     if (!rec || rec.isEmpty) continue;
     const rawTid = Number(readCell(rec, idField));
     if (!Number.isFinite(rawTid)) continue;
@@ -776,11 +811,11 @@ async function buildPlayoffBowlSites(save) {
   return sites;
 }
 
-async function buildSchedule(save, gameTable, teamNames, playoffBowlSites) {
+async function buildSchedule(save, gameRecords, teamNames, playoffBowlSites) {
   const games = [];
-  if (!gameTable) return games;
+  if (!gameRecords) return games;
 
-  for (const rec of gameTable.records) {
+  for (const rec of gameRecords) {
     if (!rec || rec.isEmpty) continue;
     const homeRec = await resolveRef(save, readCell(rec, 'HomeTeam'));
     const awayRec = await resolveRef(save, readCell(rec, 'AwayTeam'));
@@ -880,6 +915,20 @@ async function buildSchedule(save, gameTable, teamNames, playoffBowlSites) {
       away_score_q3: Number(readCell(rec, 'AwayScoreQuarter3')) || 0,
       away_score_q4: Number(readCell(rec, 'AwayScoreQuarter4')) || 0,
       away_score_ot: Number(readCell(rec, 'AwayScoreOT')) || 0,
+      // Real kickoff date/time — GameDateMonth/GameDateDay + SeasonYear give
+      // the calendar date; TimeOfDay is minutes-since-midnight (verified
+      // exact against a real save: 1065 -> 17:45 -> "5:45 PM", matching the
+      // in-game schedule screen's own Time(ET) column for that same game).
+      // DayOfWeek is the save's own label, kept as-is rather than derived
+      // (the dynasty's internal calendar doesn't necessarily line up with
+      // any real-world year).
+      gameDateMonth: Number(readCell(rec, 'GameDateMonth')) || null,
+      gameDateDay: Number(readCell(rec, 'GameDateDay')) || null,
+      dayOfWeek: readCell(rec, 'DayOfWeek') || null,
+      timeOfDayMinutes: (() => {
+        const t = Number(readCell(rec, 'TimeOfDay'));
+        return Number.isFinite(t) ? t : null;
+      })(),
     });
   }
 
@@ -1062,9 +1111,9 @@ async function buildRecruitingBoard(save, playerFieldPicker, presentRatings) {
  *
  * @returns {Map<number, {rivalRawTid:number, name:string|null, formedYear:number|null}[]>}
  */
-async function buildLeagueRivalries(save, teamTable) {
+async function buildLeagueRivalries(save, teamRecords) {
   const byTeam = new Map();
-  if (!teamTable) return byTeam;
+  if (!teamRecords || !teamRecords.length) return byTeam;
 
   const rivalryTable = await getBestTable(save, 'Rivalry');
   const rivalryRows = [];
@@ -1090,7 +1139,7 @@ async function buildLeagueRivalries(save, teamTable) {
     (r) => (r.team1RawTid === tidA && r.team2RawTid === tidB) || (r.team1RawTid === tidB && r.team2RawTid === tidA)
   );
 
-  for (const rec of teamTable.records) {
+  for (const rec of teamRecords) {
     if (!rec || rec.isEmpty) continue;
     const rawTid = Number(readCell(rec, 'TeamIndex'));
     if (!Number.isFinite(rawTid) || rawTid === 255) continue;
@@ -1139,11 +1188,11 @@ const SCHOOL_GRADE_FIELDS = [
  *
  * @returns {Map<number, object>} rawTeamId -> flat grades object
  */
-async function buildLeagueSchoolGrades(save, teamTable) {
+async function buildLeagueSchoolGrades(save, teamRecords) {
   const byTeam = new Map();
-  if (!teamTable) return byTeam;
+  if (!teamRecords || !teamRecords.length) return byTeam;
 
-  for (const rec of teamTable.records) {
+  for (const rec of teamRecords) {
     if (!rec || rec.isEmpty) continue;
     const rawTid = Number(readCell(rec, 'TeamIndex'));
     if (!Number.isFinite(rawTid) || rawTid === 255) continue;
@@ -1160,6 +1209,105 @@ async function buildLeagueSchoolGrades(save, teamTable) {
   }
 
   return byTeam;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// League-wide record book — the in-game "CFB Records" screen (Career/Game/
+// Season x National/Conference/Team). Seeded with real NCAA history at save
+// creation and overwritten by simulated dynasty performances once they
+// surpass it — genuine evolving save state, not static flavor content.
+//
+// Save shape (verified against a real save, every value cross-checked
+// against the actual in-game Career/Game/Season screens for an exact
+// match — Case Keenum's 19,217 career pass yards, Connor Halliday's 734
+// game pass yards, Bailey Zappe's 5,967 season pass yards, etc.):
+//  - PlayerStatRecordScope has exactly 3 rows, in a fixed but UNLABELED
+//    order — no field says which is which, so row order 0/1/2 =
+//    Career/Game/Season is established purely by matching every resolved
+//    value against the real screens, not by any schema hint.
+//  - Each row has 3 reference fields — League (national), Conference,
+//    Team — each pointing into a "PlayerStatRecord[]" array-table row.
+//    Array tables have no schema; slot fields are named
+//    `${baseTableName}${index}` (baseTableName = table name minus the
+//    trailing "[]"), the same convention buildGameStats already uses for
+//    weekly GameStats0../TeamStats1.. slots (confirmed by reading
+//    node_modules/madden-franchise's own FranchiseFileTable.readRecords).
+//    arraySize on the resolved array-row is how many slots are actually
+//    populated (9 for League = 1 national bucket x 9 stat types; 90 for
+//    Conference = ~10 conferences x 9; 1242 for Team = ~138 teams x 9).
+//  - Each slot resolves into a flat PlayerStatRecord row: calendarYear,
+//    ConferenceRef, firstName, lastName, position, statType, statValue,
+//    teamName, TeamRef. Conference/team identity for grouping comes
+//    straight off each individual record's own ConferenceRef/TeamRef —
+//    NOT the outer array's slot position — so no assumption about slot
+//    ordering is needed to group correctly.
+const RECORD_TIMEFRAMES = ['career', 'game', 'season'];
+
+async function resolveStatRecordArray(save, arrayRefString, onEntry) {
+  const resolved = arrayRefString ? await resolveRefWithTable(save, arrayRefString) : null;
+  if (!resolved) return;
+  const rec = resolved.rec;
+  const baseName = resolved.table.name.endsWith('[]')
+    ? resolved.table.name.slice(0, -2)
+    : resolved.table.name;
+  const size = rec.arraySize || 0;
+  for (let i = 0; i < size; i++) {
+    const slotRaw = rec[`${baseName}${i}`];
+    if (!slotRaw) continue;
+    const slotResolved = await resolveRefWithTable(save, slotRaw);
+    if (!slotResolved || slotResolved.rec.isEmpty) continue;
+    await onEntry(slotResolved.rec);
+  }
+}
+
+async function buildLeagueStatRecords(save) {
+  const empty = () => ({ national: [], conference: {}, team: {} });
+  const result = { career: empty(), game: empty(), season: empty() };
+
+  let scopeRecords;
+  try {
+    scopeRecords = await getAllTableRecords(save, 'PlayerStatRecordScope');
+  } catch (err) {
+    return result;
+  }
+
+  const buildEntry = (rec) => ({
+    statType: readCell(rec, 'statType'),
+    first_name: readCell(rec, 'firstName'),
+    last_name: readCell(rec, 'lastName'),
+    position: readCell(rec, 'position'),
+    team_name: readCell(rec, 'teamName'),
+    year: readCell(rec, 'calendarYear'),
+    value: readCell(rec, 'statValue'),
+  });
+
+  for (let i = 0; i < Math.min(3, scopeRecords.length); i++) {
+    const timeframe = RECORD_TIMEFRAMES[i];
+    const scopeRec = scopeRecords[i];
+    const bucket = result[timeframe];
+
+    await resolveStatRecordArray(save, readCell(scopeRec, 'League'), async (rec) => {
+      bucket.national.push(buildEntry(rec));
+    });
+
+    await resolveStatRecordArray(save, readCell(scopeRec, 'Conference'), async (rec) => {
+      const confRec = await resolveRef(save, readCell(rec, 'ConferenceRef'));
+      const confName = confRec && !confRec.isEmpty ? readCell(confRec, 'Name') : null;
+      if (!confName) return;
+      if (!bucket.conference[confName]) bucket.conference[confName] = [];
+      bucket.conference[confName].push(buildEntry(rec));
+    });
+
+    await resolveStatRecordArray(save, readCell(scopeRec, 'Team'), async (rec) => {
+      const teamRec = await resolveRef(save, readCell(rec, 'TeamRef'));
+      const rawTid = teamRec && !teamRec.isEmpty ? Number(readCell(teamRec, 'TeamIndex')) : null;
+      if (rawTid == null || !Number.isFinite(rawTid)) return;
+      if (!bucket.team[rawTid]) bucket.team[rawTid] = [];
+      bucket.team[rawTid].push(buildEntry(rec));
+    });
+  }
+
+  return result;
 }
 
 /**
@@ -1184,11 +1332,11 @@ async function buildLeagueSchoolGrades(save, teamTable) {
  *
  * @returns {Map<string, number>} `${rawTid}::${nationalRank}` -> CurrentNILOffer
  */
-async function buildRecruitTeamNilOffers(save, teamTable) {
+async function buildRecruitTeamNilOffers(save, teamRecords) {
   const offers = new Map();
-  if (!teamTable) return offers;
+  if (!teamRecords || !teamRecords.length) return offers;
 
-  for (const teamRec of teamTable.records) {
+  for (const teamRec of teamRecords) {
     if (!teamRec || teamRec.isEmpty) continue;
     const rawTid = Number(readCell(teamRec, 'TeamIndex'));
     if (!Number.isFinite(rawTid) || rawTid === 255) continue;
@@ -1401,10 +1549,10 @@ const POTW_AWARD_TYPES = {
  * @returns {{ national: Object<number, {offensive?, defensive?}>,
  *             conference: Object<number, Object<string, {offensive?, defensive?}>> }}
  */
-async function buildPlayerAwards(save, awardTable) {
+async function buildPlayerAwards(save, awardRecords) {
   const national = {};
   const conference = {};
-  if (!awardTable) return { national, conference };
+  if (!awardRecords || !awardRecords.length) return { national, conference };
 
   const pickerCache = new Map();
   const pickerFor = (table) => {
@@ -1412,7 +1560,7 @@ async function buildPlayerAwards(save, awardTable) {
     return pickerCache.get(table);
   };
 
-  for (const rec of awardTable.records) {
+  for (const rec of awardRecords) {
     if (!rec || rec.isEmpty) continue;
     const meta = POTW_AWARD_TYPES[readCell(rec, 'AwardType')];
     if (!meta) continue;
@@ -1514,10 +1662,15 @@ const ALL_AM_PRESEASON_AWARD_TYPES = {
 // which already had display/trophy wiring waiting for real data) — added
 // to Awards.jsx/TeamYear.jsx's AWARD_DISPLAY alongside this.
 //
-// BEST_SR and the two coach awards (Bear Bryant/Broyles — these live on a
-// SEPARATE CoachAward table, not PlayerAward; see buildCoachAwards) still
-// have no verified mapping here and are intentionally left out rather than
-// guessed.
+// BEST_SR is the Jet Award (Returner of the Year) — verified against a real
+// save via the separate LeagueHistoryAward table (a self-contained, no-
+// reference-resolution-needed archive of the same season-end named-award
+// winners): its BEST_SR row named Tank Hawkins (WR, Washington State),
+// exactly matching that save's own in-game "Jet Award" winner screen.
+// Previously left unmapped/intentionally unguessed pending that proof.
+//
+// The two coach awards (Bear Bryant/Broyles) live on a SEPARATE CoachAward
+// table, not PlayerAward — see buildCoachAwards.
 const NAMED_AWARD_TYPES = {
   HEISMAN: 'heisman',
   BEST_POTY: 'maxwell',
@@ -1540,6 +1693,7 @@ const NAMED_AWARD_TYPES = {
   BEST_FRESHMAN_POTY: 'shaunAlexander',
   BEST_DL: 'lombardi',
   BEST_ACADEMIC: 'williamVCampbell',
+  BEST_SR: 'returnerOfTheYear',
 };
 
 /**
@@ -1555,11 +1709,11 @@ const NAMED_AWARD_TYPES = {
  *   namedAwards: Object<string, object>
  * }}
  */
-async function buildLeagueHonors(save, awardTable) {
+async function buildLeagueHonors(save, awardRecords) {
   const allAmericans = { national: [], conference: [] };
   const allAmericansPreseason = { national: [], conference: [] };
   const namedAwards = {};
-  if (!awardTable) return { allAmericans, allAmericansPreseason, namedAwards };
+  if (!awardRecords || !awardRecords.length) return { allAmericans, allAmericansPreseason, namedAwards };
 
   const pickerCache = new Map();
   const pickerFor = (table) => {
@@ -1567,13 +1721,27 @@ async function buildLeagueHonors(save, awardTable) {
     return pickerCache.get(table);
   };
 
-  for (const rec of awardTable.records) {
+  // Diagnostic only: surfaces any AwardType enum value on this table that
+  // none of ALL_AM_AWARD_TYPES/ALL_AM_PRESEASON_AWARD_TYPES/NAMED_AWARD_TYPES
+  // recognize. This is how BEST_SR (the Jet Award) was found and verified.
+  // POTW_AWARD_TYPES entries are excluded from the "unmatched" set below —
+  // those ARE recognized, just by the sibling buildPlayerAwards function
+  // reading this same table for a different purpose (weekly Player of the
+  // Week) — without the exclusion they'd show up here every single sync as
+  // false-positive noise, burying any genuinely new/unmapped award type a
+  // future game update adds.
+  const unmatchedAwardTypes = new Set();
+
+  for (const rec of awardRecords) {
     if (!rec || rec.isEmpty) continue;
     const awardType = readCell(rec, 'AwardType');
     const aaMeta = ALL_AM_AWARD_TYPES[awardType];
     const aaPreMeta = ALL_AM_PRESEASON_AWARD_TYPES[awardType];
     const namedKey = NAMED_AWARD_TYPES[awardType];
-    if (!aaMeta && !aaPreMeta && !namedKey) continue;
+    if (!aaMeta && !aaPreMeta && !namedKey) {
+      if (awardType && !POTW_AWARD_TYPES[awardType]) unmatchedAwardTypes.add(awardType);
+      continue;
+    }
 
     const playerResolved = await resolveRefWithTable(save, readCell(rec, 'Player'));
     if (!playerResolved || playerResolved.rec.isEmpty) continue;
@@ -1604,6 +1772,10 @@ async function buildLeagueHonors(save, awardTable) {
     if (namedKey) {
       namedAwards[namedKey] = { first_name, last_name, position, team_id: rawTid };
     }
+  }
+
+  if (unmatchedAwardTypes.size) {
+    console.log('[buildLeagueHonors] Unmatched AwardType values (not yet mapped):', [...unmatchedAwardTypes].join(', '));
   }
 
   return { allAmericans, allAmericansPreseason, namedAwards };
@@ -1773,11 +1945,11 @@ function pickFields(rec, fieldList) {
  *
  * @param {object} save
  * @param {object} playerTable - already had readRecords() called (buildPlayerRows already needs this)
- * @param {object} teamTable - already had readRecords() called (buildTeamMaps already needs this)
+ * @param {object[]} teamRecords - merged Team records (getAllTableRecords)
  * @param {object} F - buildPlayerFieldPicker(playerTable) output
  * @param {number[]} playedWeeks - week numbers (SeasonWeek convention) with at least one played game
  */
-async function buildGameStats(save, playerTable, teamTable, F, playedWeeks) {
+async function buildGameStats(save, playerTable, teamRecords, F, playedWeeks) {
   const teamStatsByWeek = {};
   const playerStatsByWeek = {};
   for (const week of playedWeeks) {
@@ -1786,8 +1958,8 @@ async function buildGameStats(save, playerTable, teamTable, F, playedWeeks) {
   }
   if (!playedWeeks.length) return { teamStatsByWeek, playerStatsByWeek };
 
-  if (teamTable) {
-    for (const teamRec of teamTable.records) {
+  if (teamRecords && teamRecords.length) {
+    for (const teamRec of teamRecords) {
       if (!teamRec || teamRec.isEmpty) continue;
       const rawTid = Number(readCell(teamRec, 'TeamIndex'));
       if (!Number.isFinite(rawTid)) continue;
@@ -2043,8 +2215,17 @@ async function extractFullSave(filePath, opts = {}) {
   const playerFieldNames = new Set(playerTable.schema.attributes.map((f) => f.name));
   const presentRatings = schema.RATING_FIELDS.filter((r) => playerFieldNames.has(r));
 
-  const teamTable = await getBestTable(save, 'Team');
-  const { names: teamNames, ratings: teamRatings, fcsFillerRatings, rankings: teamRankings, cfpRankings, topClassRanks } = buildTeamMaps(teamTable);
+  // Confirmed sharded across multiple simultaneously-populated instances,
+  // same shape as PlayerAward/Recruit/SeasonGame/Coach — getBestTable's
+  // single-instance pick was silently discarding 7 real teams' worth of
+  // ratings/coaching/recruiting/school-grades/records data in a real save
+  // (caught by getBestTable's own instance-count warning). None of Team's
+  // consumers below rely on row-position identity the way buildCoachOffers
+  // used to (they all resolve OTHER teams via full reference resolution,
+  // never by decoding+comparing a raw row number to a loop index), so this
+  // is a safe drop-in merge unlike the Coach fix.
+  const teamRecords = await getAllTableRecords(save, 'Team');
+  const { names: teamNames, ratings: teamRatings, fcsFillerRatings, rankings: teamRankings, cfpRankings, topClassRanks } = buildTeamMaps(teamRecords);
 
   const players = buildPlayerRows(playerTable, teamNames, opts, playerFieldPicker);
   const recruitingBoard = await buildRecruitingBoard(save, playerFieldPicker, presentRatings);
@@ -2057,19 +2238,29 @@ async function extractFullSave(filePath, opts = {}) {
   // shaped differently than the one this was verified against.
   let recruitNilOffers = new Map();
   try {
-    recruitNilOffers = await buildRecruitTeamNilOffers(save, teamTable);
+    recruitNilOffers = await buildRecruitTeamNilOffers(save, teamRecords);
   } catch (err) {
     console.error('buildRecruitTeamNilOffers failed, continuing without NIL data:', err.message);
   }
   const leagueRecruitingClasses = await buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers);
   const leagueRecruitDirectory = await buildLeagueRecruitDirectory(save, recruitRecords, playerFieldPicker);
 
-  const leagueRivalries = await buildLeagueRivalries(save, teamTable);
-  const leagueSchoolGrades = await buildLeagueSchoolGrades(save, teamTable);
+  const leagueRivalries = await buildLeagueRivalries(save, teamRecords);
+  const leagueSchoolGrades = await buildLeagueSchoolGrades(save, teamRecords);
 
-  const playerAwardTable = await getBestTable(save, 'PlayerAward');
-  const playerAwards = await buildPlayerAwards(save, playerAwardTable);
-  const leagueHonors = await buildLeagueHonors(save, playerAwardTable);
+  const leagueStatRecords = await buildLeagueStatRecords(save);
+
+  // PlayerAward is a high-volume table (every week's Player of the Week x
+  // every team, All-Americans, All-Conference, every named award) — unlike
+  // Team/Coach/Conference/etc., some of these tables shard across MULTIPLE
+  // simultaneously-populated instances rather than one dominant instance
+  // plus empty scratch copies, and getBestTable's "pick the single biggest
+  // instance" heuristic would silently drop anything landing in a smaller
+  // one. getAllTableRecords merges every instance's non-empty rows
+  // instead, same fix already proven correct for the 'Recruit' table below.
+  const playerAwardRecords = await getAllTableRecords(save, 'PlayerAward');
+  const playerAwards = await buildPlayerAwards(save, playerAwardRecords);
+  const leagueHonors = await buildLeagueHonors(save, playerAwardRecords);
 
   const coachAwardTable = await getBestTable(save, 'CoachAward');
   const coachNamedAwards = await buildCoachAwards(save, coachAwardTable);
@@ -2078,13 +2269,19 @@ async function extractFullSave(filePath, opts = {}) {
   const heismanTable = await getBestTable(save, 'HeismanAwardRanking');
   const heismanWatch = await buildHeismanWatch(save, heismanTable);
 
-  const coachTable = await getBestTable(save, 'Coach');
-  const coachingStaff = buildCoachingStaff(coachTable);
-  const userCoachInfo = await buildUserCoachInfo(save, coachTable);
-  const allHeadCoaches = await buildAllHeadCoaches(save, coachTable);
+  // Confirmed sharded across multiple simultaneously-populated instances,
+  // same shape as PlayerAward/Recruit/SeasonGame — getBestTable's single-
+  // instance pick was silently discarding a real coach (1 of 498 in a real
+  // save, caught by getBestTable's own instance-count warning). See
+  // buildCoachOffers' header comment for how the row-index-based matching
+  // that used to rely on a single instance was replaced.
+  const coachRecords = await getAllTableRecords(save, 'Coach');
+  const coachingStaff = buildCoachingStaff(coachRecords);
+  const userCoachInfo = await buildUserCoachInfo(save, coachRecords);
+  const allHeadCoaches = await buildAllHeadCoaches(save, coachRecords);
 
   const jobOpeningTable = await getBestTable(save, 'JobOpening');
-  const coachOffers = await buildCoachOffers(save, jobOpeningTable, coachTable, userCoachInfo?.coachRowIndex);
+  const coachOffers = await buildCoachOffers(save, jobOpeningTable, userCoachInfo?.coachRec);
 
   const confTable = await getBestTable(save, 'Conference');
   const conferences = await buildConferences(save, confTable);
@@ -2092,9 +2289,13 @@ async function extractFullSave(filePath, opts = {}) {
   const seasonTable = await getBestTable(save, 'SeasonInfo');
   const season = buildSeasonInfo(seasonTable);
 
-  const gameTable = await getBestTable(save, 'SeasonGame');
+  // Confirmed sharded across multiple simultaneously-populated instances,
+  // same shape as PlayerAward/Recruit — getBestTable's single-instance
+  // pick was silently discarding real games (4 discarded in a real save,
+  // caught by getBestTable's own instance-count warning).
+  const gameRecords = await getAllTableRecords(save, 'SeasonGame');
   const playoffBowlSites = await buildPlayoffBowlSites(save);
-  const games = await buildSchedule(save, gameTable, teamNames, playoffBowlSites);
+  const games = await buildSchedule(save, gameRecords, teamNames, playoffBowlSites);
 
   // Only bother resolving weekly stat slots (whole-league, 2 tables' worth
   // of reference-chasing) for weeks that actually have a played game —
@@ -2102,8 +2303,14 @@ async function extractFullSave(filePath, opts = {}) {
   const playedWeeks = [...new Set(
     games.filter((g) => g.weekType === 'RegularSeason' && g.status !== 'Unplayed').map((g) => g.week)
   )];
-  const gameStats = await buildGameStats(save, playerTable, teamTable, playerFieldPicker, playedWeeks);
-  const depthCharts = await buildDepthCharts(save, teamTable, playerFieldPicker);
+  const gameStats = await buildGameStats(save, playerTable, teamRecords, playerFieldPicker, playedWeeks);
+  const depthCharts = await buildDepthCharts(save, teamRecords, playerFieldPicker);
+
+  // coachRec (a raw internal file-parsing object, needed only for
+  // buildCoachOffers' identity match above) can't survive JSON
+  // serialization back to the client — strip it before returning.
+  const { coachRec: _coachRec, ...userCoachInfoSafe } = userCoachInfo || {};
+  const userCoachInfoResult = userCoachInfo ? userCoachInfoSafe : null;
 
   return {
     players,
@@ -2123,10 +2330,11 @@ async function extractFullSave(filePath, opts = {}) {
     leagueRecruitDirectory,
     leagueRivalries: Object.fromEntries(leagueRivalries),
     leagueSchoolGrades: Object.fromEntries(leagueSchoolGrades),
+    leagueStatRecords,
     playerAwards,
     leagueHonors,
     heismanWatch,
-    userCoachInfo,
+    userCoachInfo: userCoachInfoResult,
     allHeadCoaches,
     coachOffers,
     gameStats,

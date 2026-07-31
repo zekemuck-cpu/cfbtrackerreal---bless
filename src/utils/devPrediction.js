@@ -19,6 +19,7 @@
 import { normalizeArch } from '../components/archetypeWeights';
 import { getAllTierProfiles, getFormAttrs } from './devTraitLearning';
 import { computeSeparationClarity, computeLean, aggregateLeans } from './separationClarity';
+import { positionBucket } from './recruitAttributes';
 
 // Low -> high canonical order. A player's actual possible outcomes may be a
 // restricted subset of this (see restrictLadder) — everything below walks
@@ -122,23 +123,29 @@ export function buildAttributeQualityMap(pool, players) {
   (players || []).forEach(p => {
     if (!p.position || !p.archetype) return;
     const arch = normalizeArch(p.archetype);
-    const archKey = `${p.position}_${arch}`;
+    // Bucketed position, not raw — must match buildRevealedPool's own
+    // bucketed archKey (the `pool` this reads from) and archetypeWeights.js's
+    // archetypeBaseScore/getScoreConfidence (the readers of THIS map's
+    // output). Raw p.position ("LT"/"SAM"/"NT"/etc.) never found a match in
+    // either direction for any multi-alias position.
+    const pos = positionBucket(p.position);
+    const archKey = `${pos}_${arch}`;
     const star = String(p.stars ?? '');
     if (!star) return;
     const cacheKey = `${archKey}::${star}`;
     if (!seen.has(cacheKey)) {
       seen.add(cacheKey);
-      const formAttrs = getFormAttrs(p.position, arch);
-      const { weights, boundariesUsed } = computeAttributeQuality(pool, p.position, arch, star, formAttrs);
+      const formAttrs = getFormAttrs(pos, arch);
+      const { weights, boundariesUsed } = computeAttributeQuality(pool, pos, arch, star, formAttrs);
       map[archKey] ??= {};
       map[archKey][star] = { weights, boundariesUsed };
     }
 
     if (!anyStarDone.has(archKey)) {
       anyStarDone.add(archKey);
-      const formAttrs = getFormAttrs(p.position, arch);
+      const formAttrs = getFormAttrs(pos, arch);
       const widened = widenPoolAcrossStars(pool, archKey);
-      const { weights, boundariesUsed } = computeAttributeQuality(widened, p.position, arch, ANY_STAR, formAttrs);
+      const { weights, boundariesUsed } = computeAttributeQuality(widened, pos, arch, ANY_STAR, formAttrs);
       map[archKey] ??= {};
       map[archKey][ANY_STAR] = { weights, boundariesUsed };
     }
@@ -386,8 +393,10 @@ export function predictHiddenDevBonus(player, weightsMap, pool, devBonusTable) {
     return { trait: null, bonus: 0, source: 'no-data', floorTier: null, floorConfidence: null, ceilingTier: null, ceilingUndifferentiated: false, perBoundary: [], n: 0 };
   }
   const arch = normalizeArch(player.archetype || '');
-  const formAttrs = getFormAttrs(player.position, arch);
-  const result = predictFloorCeiling(pool, player.position, arch, String(player.stars ?? ''), player, formAttrs);
+  // Bucketed, not raw — see buildAttributeQualityMap's comment above for why.
+  const pos = positionBucket(player.position);
+  const formAttrs = getFormAttrs(pos, arch);
+  const result = predictFloorCeiling(pool, pos, arch, String(player.stars ?? ''), player, formAttrs);
   const bonus = blendDevBonus(result, devBonusTable);
   const lastBoundary = result.perBoundary?.[result.perBoundary.length - 1];
   return {

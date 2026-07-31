@@ -15,7 +15,8 @@ import { getTeamLogo } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { getConferenceLogo } from '../../data/conferenceLogos'
-import { getEditionConfig, isPcAutoDynasty } from '../../editions'
+import { getBowlLogo } from '../../data/bowlLogos'
+import { getEditionConfig, isPcAutoDynasty, isDynastyBlueprintEnabled } from '../../editions'
 import { getSeasonBudget, setSeasonBudget, getSupportStaff, isSupportStaffSet, setSupportStaff, parseDp, getFacilities, getCarriedFacilityTier } from '../../data/dynastyPointsModel'
 import { getPlayerNil, sumPlayerNil } from '../../data/playerNilModel'
 import SearchableSelect from '../../components/SearchableSelect'
@@ -107,7 +108,9 @@ function renderTodoList({ todos, isViewOnly }) {
                 style={{
                   backgroundColor: todo.done
                     ? 'var(--accent-success)'
-                    : 'var(--accent-error)',
+                    : todo.urgent
+                      ? 'var(--accent-warning)'
+                      : 'var(--accent-error)',
                 }}
               />
               {todo.extraLeading}
@@ -191,15 +194,6 @@ export default function Dashboard() {
     updateDynasty(currentDynasty.id, { viewedTasksByYear: { ...cur, [year]: yr } }).catch(() => {})
   }
 
-  // Small trailing star marking a task as time-sensitive (only worth doing
-  // this specific week) — suffixed, not prefixed, and sized down so it reads
-  // as an annotation on the title rather than competing with it.
-  const starredTitle = (text) => (
-    <>
-      {text} <span style={{ fontSize: '0.65em', opacity: 0.8 }}>★</span>
-    </>
-  )
-
   // PC-mode (CFB27 auto-sync) to-do rows are almost all pure "go look at the
   // already-synced page" links, not data entry — no separate Edit/Enter
   // affordance. Every row-rendering tail in this file gates its entire
@@ -208,11 +202,12 @@ export default function Dashboard() {
   // no actionLabel renders NO button at all. This builds a todo entry that
   // shows exactly one "View" button (or none, if there's nothing to view
   // yet) instead of the usual Enter/Edit/View pair.
-  const pcViewTodo = ({ key, title, subtitle, done, url, trackViewed = false }) => ({
+  const pcViewTodo = ({ key, title, subtitle, done, url, trackViewed = false, urgent = false }) => ({
     key,
     done: trackViewed ? !!viewedTasksForYear[key] : done,
     title,
     subtitle,
+    urgent,
     actionLabel: url ? 'View' : undefined,
     onAction: url ? () => { if (trackViewed) markTaskViewed(key); navigate(url) } : undefined,
   })
@@ -3653,10 +3648,11 @@ export default function Dashboard() {
 
             // Dynasty Points budget (CFB 27+ only). One preseason prompt to
             // record the season's total budget; deep-links to the always-
-            // editable Dynasty Blueprint page. Gated by the edition feature
-            // flag so CFB 26 dynasties never see this row. Stays manual in
-            // BOTH modes — no verified save field for either budget or staff.
-            if (getEditionConfig(currentDynasty)?.features?.dynastyPoints) {
+            // editable Dynasty Blueprint page. Gated by isDynastyBlueprintEnabled
+            // so CFB 26 dynasties AND anyone who's hidden Blueprint via league
+            // preferences never see this row. Stays manual in BOTH modes — no
+            // verified save field for either budget or staff.
+            if (isDynastyBlueprintEnabled(currentDynasty)) {
               const dpBudget = getSeasonBudget(currentDynasty, preseasonYear)
               const dpDone = dpBudget != null
               const saveDpBudget = async () => {
@@ -4181,12 +4177,19 @@ export default function Dashboard() {
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}?tab=targets`,
                 }))
+                // Green (nothing to review) when the user's team has no
+                // injured players right now; red-until-viewed only when
+                // there's actually something new to look at.
+                const hasInjuries = (currentDynasty.players || []).some(p =>
+                  p.isInjured && isPlayerOnRoster(p, userTidForCommitments, currentDynasty.currentYear, currentDynasty)
+                )
                 todos.push(pcViewTodo({
                   key: 'injury-report-pc',
                   done: true,
                   title: 'Injury Report',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/injury-report`,
+                  trackViewed: hasInjuries,
                 }))
               }
 
@@ -4241,17 +4244,19 @@ export default function Dashboard() {
               if (hasPrevWeek) {
                 const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
                 const done = !!recap?.text
-                todos.push({
-                  key: 'week-recap',
-                  done,
-                  title: done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`,
-                  subtitle: done
-                    ? 'Narrative recap stored for this week'
-                    : "Summarize the week's biggest results",
-                  viewTo: done ? `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap` : null,
-                  onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
-                  actionLabel: done ? 'Edit' : 'Generate',
-                })
+                // Drop the row entirely once saved — the recap itself stays
+                // reachable on the week's own Recap tab (WeeklyScores.jsx),
+                // so nothing is lost by clearing it from the todo list.
+                if (!done) {
+                  todos.push({
+                    key: 'week-recap',
+                    done: false,
+                    title: `Generate Week ${prevWeek} Recap`,
+                    subtitle: "Summarize the week's biggest results",
+                    onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
+                    actionLabel: 'Generate',
+                  })
+                }
               }
 
               return (
@@ -4567,12 +4572,16 @@ export default function Dashboard() {
                 subtitle: 'Synced from your save',
                 url: `${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}?tab=targets`,
               }))
+              const ccHasInjuries = (currentDynasty.players || []).some(p =>
+                p.isInjured && isPlayerOnRoster(p, userTidForCommits, currentDynasty.currentYear, currentDynasty)
+              )
               todos.push(pcViewTodo({
                 key: 'cc-injury-report-pc',
                 done: true,
                 title: 'Injury Report',
                 subtitle: 'Synced from your save',
                 url: `${pathPrefix}/injury-report`,
+                trackViewed: ccHasInjuries,
               }))
               todos.push(pcViewTodo({
                 key: 'cc-heisman-watch-pc',
@@ -4628,17 +4637,16 @@ export default function Dashboard() {
               const prevWeek = 15
               const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[prevWeek]
               const done = !!recap?.text
-              todos.push({
-                key: 'cc-week15-recap',
-                done,
-                title: done ? `Week ${prevWeek} Recap Saved` : `Generate Week ${prevWeek} Recap`,
-                subtitle: done
-                  ? 'Narrative recap stored for this week'
-                  : 'Generate the AI recap of Week 15',
-                viewTo: done ? `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}?tab=recap` : null,
-                onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
-                actionLabel: done ? 'Edit' : 'Generate',
-              })
+              if (!done) {
+                todos.push({
+                  key: 'cc-week15-recap',
+                  done: false,
+                  title: `Generate Week ${prevWeek} Recap`,
+                  subtitle: 'Generate the AI recap of Week 15',
+                  onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
+                  actionLabel: 'Generate',
+                })
+              }
             }
 
             return (
@@ -5173,20 +5181,20 @@ export default function Dashboard() {
                 const previewYear = Number(currentDynasty.currentYear)
                 const preview = currentDynasty.playoffPreviewByYear?.[previewYear]
                 const previewDone = !!preview?.text
-                bw1Todos.push({
-                  key: 'playoff-preview',
-                  done: previewDone,
-                  title: previewDone ? 'Playoff Preview Saved' : 'Generate Playoff Preview',
-                  subtitle: previewDone
-                    ? 'AI hype preview stored for the CFP bracket'
-                    : 'Generate the AI preview of all 12 playoff teams',
-                  // Lives on the Conference Championship week's own Preview
-                  // tab (see WeeklyScores.jsx) — a once-per-year artifact, not
-                  // a Bowl Week 1 thing, even though this task sits here.
-                  viewTo: previewDone ? `${pathPrefix}/weekly-scores/${previewYear}/16?tab=preview` : null,
-                  onAction: () => setPlayoffPreviewYear(previewYear),
-                  actionLabel: previewDone ? 'Edit' : 'Generate',
-                })
+                // Once generated, drop this row entirely rather than leaving
+                // a done/green row sitting in the list forever — the preview
+                // itself stays reachable on the Conf Championship week's own
+                // Preview tab (see WeeklyScores.jsx), so nothing is lost.
+                if (!previewDone) {
+                  bw1Todos.push({
+                    key: 'playoff-preview',
+                    done: false,
+                    title: 'Generate Playoff Preview',
+                    subtitle: 'Generate the AI preview of all 12 playoff teams',
+                    onAction: () => setPlayoffPreviewYear(previewYear),
+                    actionLabel: 'Generate',
+                  })
+                }
               }
 
               // ─── Your Bowl Game ──────────────────────────────────────
@@ -5250,20 +5258,36 @@ export default function Dashboard() {
                         ? <Link key={key} to={`${pathPrefix}/team/${tid}/${bowlYear}`} title={abbr || ''} onClick={(e) => e.stopPropagation()} className="flex-shrink-0 hover:opacity-80 transition-opacity">{inner}</Link>
                         : <span key={key} className="flex-shrink-0">{inner}</span>
                     }
+                    const bowlLogoUrl = userBowlGame.bowlName ? getBowlLogo(userBowlGame.bowlName) : null
+                    const vsLabel = (
+                      <span
+                        className="text-[11px] sm:text-xs font-bold uppercase tabular-nums text-txt-tertiary"
+                        style={{ letterSpacing: '1.5px' }}
+                      >
+                        vs
+                      </span>
+                    )
                     const bowlGameTitle = (
                       <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                         {bowlRenderLogo(bowlOppLogo, bowlOppMascot, 'L', oppTid)}
-                        <span
-                          className="text-[11px] sm:text-xs font-bold uppercase tabular-nums text-txt-tertiary"
-                          style={{ letterSpacing: '1.5px' }}
-                        >
-                          vs
-                        </span>
+                        {vsLabel}
                         {bowlRenderLogo(bowlUserLogo, userTeamName, 'R', userTeamTid)}
-                        {(userBowlGame.bowlName || 'Bowl Game') && (
-                          <span className="text-sm sm:text-base font-display font-bold text-txt-primary">
-                            - {userBowlGame.bowlName || 'Bowl Game'}
-                          </span>
+                        {bowlLogoUrl && (
+                          <>
+                            <span
+                              aria-hidden="true"
+                              className="invisible text-[11px] sm:text-xs font-bold uppercase tabular-nums"
+                              style={{ letterSpacing: '1.5px' }}
+                            >
+                              vs
+                            </span>
+                            <img
+                              src={bowlLogoUrl}
+                              alt={userBowlGame.bowlName}
+                              title={userBowlGame.bowlName}
+                              className="w-7 h-7 sm:w-8 sm:h-8 object-contain flex-shrink-0"
+                            />
+                          </>
                         )}
                       </div>
                     )
@@ -5535,9 +5559,10 @@ export default function Dashboard() {
                 bw1Todos.push({
                   key: 'coach-offers-bw1',
                   done: !!viewedTasksForYear['coach-offers-bw1'],
-                  title: starredTitle(currentDynasty.coachOffers.length > 1
+                  title: currentDynasty.coachOffers.length > 1
                     ? `Job Offers (${currentDynasty.coachOffers.length})`
-                    : 'Job Offers'),
+                    : 'Job Offers',
+                  urgent: true,
                   actionLabel: 'View',
                   onAction: () => { markTaskViewed('coach-offers-bw1'); setShowCoachOffersModal(true) },
                 })
@@ -5559,9 +5584,10 @@ export default function Dashboard() {
                 const bw1SigningDayTid = getUserTeamTid(currentDynasty)
                 bw1Todos.push(pcViewTodo({
                   key: 'early-signing-day-bw1',
-                  title: starredTitle('Early National Signing Day'),
+                  title: 'Early National Signing Day',
                   url: `${pathPrefix}/recruiting/${bw1SigningDayTid}/${currentDynasty.currentYear}?tab=commitments`,
                   trackViewed: true,
+                  urgent: true,
                 }))
               }
 
@@ -5622,31 +5648,38 @@ export default function Dashboard() {
                 const bw1Year = currentDynasty.currentYear
                 bw1Todos.push(pcViewTodo({
                   key: 'awards-bw1-pc',
-                  title: starredTitle('Awards'),
+                  title: 'Awards',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/awards/${bw1Year}`,
                   trackViewed: true,
+                  urgent: true,
                 }))
                 bw1Todos.push(pcViewTodo({
                   key: 'all-americans-bw1-pc',
-                  title: starredTitle('All-Americans'),
+                  title: 'All-Americans',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/all-americans/${bw1Year}`,
                   trackViewed: true,
+                  urgent: true,
                 }))
                 bw1Todos.push(pcViewTodo({
                   key: 'all-conference-bw1-pc',
-                  title: starredTitle('All-Conference'),
+                  title: 'All-Conference',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/all-conference/${bw1Year}`,
                   trackViewed: true,
+                  urgent: true,
                 }))
+                const bw1HasInjuries = (currentDynasty.players || []).some(p =>
+                  p.isInjured && isPlayerOnRoster(p, userTeamTid, currentDynasty.currentYear, currentDynasty)
+                )
                 bw1Todos.push(pcViewTodo({
                   key: 'injury-report-bw1-pc',
+                  done: true,
                   title: 'Injury Report',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/injury-report`,
-                  trackViewed: true,
+                  trackViewed: bw1HasInjuries,
                 }))
                 bw1Todos.push(pcViewTodo({
                   key: 'weekly-scores-bw1-pc',
@@ -5754,15 +5787,16 @@ export default function Dashboard() {
                 const yearNum = Number(currentDynasty.currentYear)
                 const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[17]
                 const done = !!recap?.text
-                bw2Todos.push({
-                  key: 'bw1-recap',
-                  done,
-                  title: done ? 'Bowl Week 1 Recap Saved' : 'Generate Bowl Week 1 Recap',
-                  subtitle: done ? 'Narrative recap stored for Bowl Week 1' : 'Generate the AI recap of Bowl Week 1',
-                  viewTo: done ? `${pathPrefix}/weekly-scores/${yearNum}/17?tab=recap` : null,
-                  onAction: () => setRecapModalContext({ year: yearNum, week: 17 }),
-                  actionLabel: done ? 'Edit' : 'Generate',
-                })
+                if (!done) {
+                  bw2Todos.push({
+                    key: 'bw1-recap',
+                    done: false,
+                    title: 'Generate Bowl Week 1 Recap',
+                    subtitle: 'Generate the AI recap of Bowl Week 1',
+                    onAction: () => setRecapModalContext({ year: yearNum, week: 17 }),
+                    actionLabel: 'Generate',
+                  })
+                }
               }
 
               if (userHasBowlWeek1Game && !userBowlGameScoresEntered && !isCfb27Auto) {
@@ -6079,12 +6113,16 @@ export default function Dashboard() {
                   subtitle: hasCFPSeedsData ? 'Synced from your save' : 'Not yet synced',
                   url: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
                 }))
+                const bw2HasInjuries = (currentDynasty.players || []).some(p =>
+                  p.isInjured && isPlayerOnRoster(p, bw2UserTidForCommits, currentDynasty.currentYear, currentDynasty)
+                )
                 bw2Todos.push(pcViewTodo({
                   key: 'injury-report-bw2-pc',
                   done: true,
                   title: 'Injury Report',
                   subtitle: 'Synced from your save',
                   url: `${pathPrefix}/injury-report`,
+                  trackViewed: bw2HasInjuries,
                 }))
                 bw2Todos.push(pcViewTodo({
                   key: 'weekly-scores-bw2-pc',
@@ -6342,8 +6380,9 @@ export default function Dashboard() {
 
               // Next season's Dynasty Points budget refreshes HERE (End of Season
               // Recap), so this is where you record it. Year 1 has no prior recap,
-              // so that budget is entered in the preseason instead. CFB 27 only.
-              if (getEditionConfig(currentDynasty)?.features?.dynastyPoints && w5Tid != null) {
+              // so that budget is entered in the preseason instead. CFB 27 only,
+              // and hidden if the user's turned off Blueprint in league preferences.
+              if (isDynastyBlueprintEnabled(currentDynasty) && w5Tid != null) {
                 const nextYear = Number(w5Year) + 1
                 const nextBudget = getSeasonBudget(currentDynasty, nextYear)
                 const nbDone = nextBudget != null
@@ -6462,15 +6501,16 @@ export default function Dashboard() {
                 const yearNum = Number(currentDynasty.currentYear)
                 const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[20]
                 const done = !!recap?.text
-                w5Todos.push({
-                  key: 'nc-recap',
-                  done,
-                  title: done ? 'National Championship Recap Saved' : 'Generate National Championship Recap',
-                  subtitle: done ? 'Narrative recap stored for the National Championship' : 'Generate the AI recap of the National Championship',
-                  viewTo: done ? `${pathPrefix}/weekly-scores/${yearNum}/20?tab=recap` : null,
-                  onAction: () => setRecapModalContext({ year: yearNum, week: 20 }),
-                  actionLabel: done ? 'Edit' : 'Generate',
-                })
+                if (!done) {
+                  w5Todos.push({
+                    key: 'nc-recap',
+                    done: false,
+                    title: 'Generate National Championship Recap',
+                    subtitle: 'Generate the AI recap of the National Championship',
+                    onAction: () => setRecapModalContext({ year: yearNum, week: 20 }),
+                    actionLabel: 'Generate',
+                  })
+                }
               }
 
               if (isCfb27Auto) {
@@ -6661,15 +6701,16 @@ export default function Dashboard() {
                 const yearNum = Number(currentDynasty.currentYear)
                 const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[18]
                 const done = !!recap?.text
-                w34Todos.push({
-                  key: 'bw2-recap',
-                  done,
-                  title: done ? 'Bowl Week 2 Recap Saved' : 'Generate Bowl Week 2 Recap',
-                  subtitle: done ? 'Narrative recap stored for Bowl Week 2' : 'Generate the AI recap of Bowl Week 2',
-                  viewTo: done ? `${pathPrefix}/weekly-scores/${yearNum}/18?tab=recap` : null,
-                  onAction: () => setRecapModalContext({ year: yearNum, week: 18 }),
-                  actionLabel: done ? 'Edit' : 'Generate',
-                })
+                if (!done) {
+                  w34Todos.push({
+                    key: 'bw2-recap',
+                    done: false,
+                    title: 'Generate Bowl Week 2 Recap',
+                    subtitle: 'Generate the AI recap of Bowl Week 2',
+                    onAction: () => setRecapModalContext({ year: yearNum, week: 18 }),
+                    actionLabel: 'Generate',
+                  })
+                }
               }
             }
 
@@ -6750,15 +6791,16 @@ export default function Dashboard() {
                 const yearNum = Number(currentDynasty.currentYear)
                 const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[19]
                 const done = !!recap?.text
-                w34Todos.push({
-                  key: 'bw3-recap',
-                  done,
-                  title: done ? 'Bowl Week 3 Recap Saved' : 'Generate Bowl Week 3 Recap',
-                  subtitle: done ? 'Narrative recap stored for Bowl Week 3' : 'Generate the AI recap of Bowl Week 3',
-                  viewTo: done ? `${pathPrefix}/weekly-scores/${yearNum}/19?tab=recap` : null,
-                  onAction: () => setRecapModalContext({ year: yearNum, week: 19 }),
-                  actionLabel: done ? 'Edit' : 'Generate',
-                })
+                if (!done) {
+                  w34Todos.push({
+                    key: 'bw3-recap',
+                    done: false,
+                    title: 'Generate Bowl Week 3 Recap',
+                    subtitle: 'Generate the AI recap of Bowl Week 3',
+                    onAction: () => setRecapModalContext({ year: yearNum, week: 19 }),
+                    actionLabel: 'Generate',
+                  })
+                }
               }
             }
 
@@ -7000,12 +7042,16 @@ export default function Dashboard() {
                 subtitle: hasCFPSeedsData ? 'Synced from your save' : 'Not yet synced',
                 url: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
               }))
+              const w34HasInjuries = (currentDynasty.players || []).some(p =>
+                p.isInjured && isPlayerOnRoster(p, w34UserTidForCommits, currentDynasty.currentYear, currentDynasty)
+              )
               w34Todos.push(pcViewTodo({
                 key: 'injury-report-w34-pc',
                 done: true,
                 title: 'Injury Report',
                 subtitle: 'Synced from your save',
                 url: `${pathPrefix}/injury-report`,
+                trackViewed: w34HasInjuries,
               }))
               w34Todos.push(pcViewTodo({
                 key: 'weekly-scores-w34-pc',
@@ -8119,6 +8165,19 @@ export default function Dashboard() {
                               </span>
                             )}
                           </div>
+                        ) : (entry.dateLabel || entry.kickoffTimeLabel) ? (
+                          <div className="flex flex-col items-end">
+                            {entry.dateLabel && (
+                              <span className="text-[11px] font-semibold tabular-nums" style={{ color: rowTxt, opacity: 0.85 }}>
+                                {entry.dateLabel}
+                              </span>
+                            )}
+                            {entry.kickoffTimeLabel && (
+                              <span className="text-[9px] tabular-nums" style={{ color: rowTxt, opacity: 0.65 }}>
+                                {entry.kickoffTimeLabel}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-sm" style={{ color: rowTxt, opacity: 0.5 }}>—</span>
                         )}
@@ -8242,6 +8301,11 @@ export default function Dashboard() {
                     <div className="w-14 text-right">
                       {ccGame && userScore != null ? (
                         <span className="text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, opponentScore || 0)}-{Math.min(userScore || 0, opponentScore || 0)}</span>
+                      ) : (ccGame?.dateLabel || ccGame?.kickoffTimeLabel) ? (
+                        <div className="flex flex-col items-end">
+                          {ccGame?.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{ccGame.dateLabel}</span>}
+                          {ccGame?.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{ccGame.kickoffTimeLabel}</span>}
+                        </div>
                       ) : <span className="text-sm text-white/50">—</span>}
                     </div>
                   </div>
@@ -8303,6 +8367,11 @@ export default function Dashboard() {
                     <div className="w-14 text-right">
                       {userBowlGameData && userScore != null ? (
                         <span className="text-base font-bold tabular-nums text-white">{Math.max(userScore || 0, opponentScore || 0)}-{Math.min(userScore || 0, opponentScore || 0)}</span>
+                      ) : (userBowlGameData?.dateLabel || userBowlGameData?.kickoffTimeLabel) ? (
+                        <div className="flex flex-col items-end">
+                          {userBowlGameData?.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{userBowlGameData.dateLabel}</span>}
+                          {userBowlGameData?.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{userBowlGameData.kickoffTimeLabel}</span>}
+                        </div>
                       ) : <span className="text-sm text-white/50">—</span>}
                     </div>
                   </div>
@@ -8350,7 +8419,14 @@ export default function Dashboard() {
                       {userScore != null && (
                         <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
                       )}
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
+                      {userScore != null ? (
+                        <span className="w-14 text-right text-base font-bold tabular-nums text-white">{`${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}`}</span>
+                      ) : (cfpGame.dateLabel || cfpGame.kickoffTimeLabel) ? (
+                        <div className="w-14 flex flex-col items-end">
+                          {cfpGame.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{cfpGame.dateLabel}</span>}
+                          {cfpGame.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{cfpGame.kickoffTimeLabel}</span>}
+                        </div>
+                      ) : <span className="w-14 text-right text-base font-bold tabular-nums text-white">—</span>}
                     </div>
                   </div>
                 </Link>
@@ -8394,7 +8470,14 @@ export default function Dashboard() {
                       {userScore != null && (
                         <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
                       )}
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
+                      {userScore != null ? (
+                        <span className="w-14 text-right text-base font-bold tabular-nums text-white">{`${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}`}</span>
+                      ) : (cfpGame.dateLabel || cfpGame.kickoffTimeLabel) ? (
+                        <div className="w-14 flex flex-col items-end">
+                          {cfpGame.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{cfpGame.dateLabel}</span>}
+                          {cfpGame.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{cfpGame.kickoffTimeLabel}</span>}
+                        </div>
+                      ) : <span className="w-14 text-right text-base font-bold tabular-nums text-white">—</span>}
                     </div>
                   </div>
                 </Link>
@@ -8438,7 +8521,14 @@ export default function Dashboard() {
                       {userScore != null && (
                         <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
                       )}
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
+                      {userScore != null ? (
+                        <span className="w-14 text-right text-base font-bold tabular-nums text-white">{`${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}`}</span>
+                      ) : (cfpGame.dateLabel || cfpGame.kickoffTimeLabel) ? (
+                        <div className="w-14 flex flex-col items-end">
+                          {cfpGame.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{cfpGame.dateLabel}</span>}
+                          {cfpGame.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{cfpGame.kickoffTimeLabel}</span>}
+                        </div>
+                      ) : <span className="w-14 text-right text-base font-bold tabular-nums text-white">—</span>}
                     </div>
                   </div>
                 </Link>
@@ -8481,7 +8571,14 @@ export default function Dashboard() {
                       {userScore != null && (
                         <span className={`text-sm font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>{isWin ? 'W' : 'L'}</span>
                       )}
-                      <span className="w-14 text-right text-base font-bold tabular-nums text-white">{userScore != null ? `${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}` : '—'}</span>
+                      {userScore != null ? (
+                        <span className="w-14 text-right text-base font-bold tabular-nums text-white">{`${Math.max(userScore || 0, oppScore || 0)}-${Math.min(userScore || 0, oppScore || 0)}`}</span>
+                      ) : (cfpGame.dateLabel || cfpGame.kickoffTimeLabel) ? (
+                        <div className="w-14 flex flex-col items-end">
+                          {cfpGame.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{cfpGame.dateLabel}</span>}
+                          {cfpGame.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{cfpGame.kickoffTimeLabel}</span>}
+                        </div>
+                      ) : <span className="w-14 text-right text-base font-bold tabular-nums text-white">—</span>}
                     </div>
                   </div>
                 </Link>
@@ -8789,6 +8886,11 @@ export default function Dashboard() {
                                 <span className="text-base font-bold tabular-nums text-white">
                                   {Math.max(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}-{Math.min(entry.perspective?.userScore || 0, entry.perspective?.opponentScore || 0)}
                                 </span>
+                              ) : (entry.dateLabel || entry.kickoffTimeLabel) ? (
+                                <div className="flex flex-col items-end">
+                                  {entry.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{entry.dateLabel}</span>}
+                                  {entry.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{entry.kickoffTimeLabel}</span>}
+                                </div>
                               ) : (
                                 <span className="text-sm text-white/50">—</span>
                               )}
@@ -8876,6 +8978,11 @@ export default function Dashboard() {
                             <div className="w-14 text-right">
                               {ccIsPlayed && ccUserScore != null ? (
                                 <span className="text-base font-bold tabular-nums text-white">{Math.max(ccUserScore, ccOppScore || 0)}-{Math.min(ccUserScore, ccOppScore || 0)}</span>
+                              ) : (ccGame.dateLabel || ccGame.kickoffTimeLabel) ? (
+                                <div className="flex flex-col items-end">
+                                  {ccGame.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{ccGame.dateLabel}</span>}
+                                  {ccGame.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{ccGame.kickoffTimeLabel}</span>}
+                                </div>
                               ) : <span className="text-sm text-white/50">—</span>}
                             </div>
                           </div>
@@ -8919,6 +9026,11 @@ export default function Dashboard() {
                             <div className="w-14 text-right">
                               {bowlIsPlayed && bowlUserScore != null ? (
                                 <span className="text-base font-bold tabular-nums text-white">{Math.max(bowlUserScore, bowlOppScore || 0)}-{Math.min(bowlUserScore, bowlOppScore || 0)}</span>
+                              ) : (bowlGame.dateLabel || bowlGame.kickoffTimeLabel) ? (
+                                <div className="flex flex-col items-end">
+                                  {bowlGame.dateLabel && <span className="text-[11px] font-semibold tabular-nums text-white/85">{bowlGame.dateLabel}</span>}
+                                  {bowlGame.kickoffTimeLabel && <span className="text-[9px] tabular-nums text-white/65">{bowlGame.kickoffTimeLabel}</span>}
+                                </div>
                               ) : <span className="text-sm text-white/50">—</span>}
                             </div>
                           </div>

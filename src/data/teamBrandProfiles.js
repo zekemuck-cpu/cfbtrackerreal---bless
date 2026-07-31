@@ -2822,6 +2822,26 @@ export const TEAM_BRAND_PROFILES = {
   ...FCS_TEAMS,
 }
 
+// Some teams are researched here under a shorter/alternate name than the
+// exact string teamRegistry.js's TEAMS table uses for the same program (e.g.
+// the registry says "North Carolina State Wolfpack", this file's key is "NC
+// State Wolfpack") — a plain object-key lookup misses those entirely and
+// silently falls back to "no profile", even though real research exists.
+// This maps every known alternate spelling to the exact key it should
+// resolve to, so both names are recognized as the same team without
+// renaming or duplicating any researched entry above.
+const TEAM_NAME_ALIASES = {
+  'North Carolina State Wolfpack': 'NC State Wolfpack',
+  'Texas A&M Aggies': 'Texas AM Aggies',
+  'Miami Redhawks': 'Miami Ohio Redhawks',
+  'Middle Tennessee State Blue Raiders': 'Middle Tennessee Blue Raiders',
+  'Sam Houston State Bearkats': 'Sam Houston Bearkats',
+  'Southern Mississippi Golden Eagles': 'Southern Miss Golden Eagles',
+  'Monroe Warhawks': 'Louisiana Monroe Warhawks',
+  'Massachusetts Minutemen': 'UMass Minutemen',
+  "Lafayette Ragin' Cajuns": 'Louisiana Ragin Cajuns',
+}
+
 /**
  * Get the brand profile for a team by its full name.
  * Returns null if no profile has been researched yet (expected during
@@ -2831,7 +2851,9 @@ export const TEAM_BRAND_PROFILES = {
  * @returns {Object|null}
  */
 export function getTeamBrandProfile(teamName) {
-  return TEAM_BRAND_PROFILES[teamName] ?? null
+  return TEAM_BRAND_PROFILES[teamName]
+    ?? TEAM_BRAND_PROFILES[TEAM_NAME_ALIASES[teamName]]
+    ?? null
 }
 
 /**

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { isTargetPlayer, getTargetStatus } from '../utils/recruitingTargets'
 import { useEdition } from '../editions/useEdition'
+import { isDynastyBlueprintEnabled } from '../editions'
 import { Button, Input } from './ui'
 import { useToast } from './ui/Toast'
 import {
@@ -140,7 +141,7 @@ function Donut({ segments, budget, unspent, size = 200, stroke = 24 }) {
 
 export default function DynastyBlueprintPanel({ year, tid }) {
   const { currentDynasty, updateDynasty, updatePlayer, isViewOnly } = useDynasty()
-  const { features, config } = useEdition()
+  const { config } = useEdition()
   const { toast } = useToast()
 
   const [showAddCoach, setShowAddCoach] = useState(false)
@@ -177,7 +178,7 @@ export default function DynastyBlueprintPanel({ year, tid }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, currentDynasty?.lastModified])
 
-  if (!features?.dynastyPoints) return null
+  if (!isDynastyBlueprintEnabled(currentDynasty)) return null
 
   // Coaching staff for this team-season (derived from dynasty.coaches).
   const staff = tid != null ? getStaffForTeamYear(currentDynasty, tid, selectedYear) : []

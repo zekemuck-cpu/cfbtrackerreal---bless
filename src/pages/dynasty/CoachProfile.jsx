@@ -1,7 +1,7 @@
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { useDynasty } from '../../context/DynastyContext'
-import { useEdition } from '../../editions/useEdition'
+import { isDynastyBlueprintEnabled } from '../../editions'
 import { Button } from '../../components/ui'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -20,7 +20,10 @@ export default function CoachProfile() {
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
   const { currentDynasty, isViewOnly } = useDynasty()
-  const { features } = useEdition()
+  // Dynasty Points framing on coach salary — shown only when Blueprint is
+  // enabled AND not hidden by the user; otherwise the salary reads as a plain
+  // "Salary" (the value itself is never hidden — it's a coach career stat).
+  const showPointsFraming = isDynastyBlueprintEnabled(currentDynasty)
 
   const coach = getCoach(currentDynasty, cid)
 
@@ -148,7 +151,7 @@ export default function CoachProfile() {
             <div className="hidden sm:block sm:self-center flex-shrink-0 text-right">
               <div className="label-xs flex items-center justify-end gap-1" style={{ color: `${teamBgText}cc`, letterSpacing: '1px' }}>
                 <span>{currentSeasonYear}</span>
-                {features?.dynastyPoints
+                {showPointsFraming
                   ? <img src={pointsIcon} alt="Dynasty Points" className="w-3.5 h-3.5 object-contain" />
                   : <span>Salary</span>}
               </div>

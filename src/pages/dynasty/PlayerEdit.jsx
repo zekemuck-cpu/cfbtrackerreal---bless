@@ -163,7 +163,7 @@ const AWARD_OPTIONS = [
   { value: 'rimington',         label: 'Rimington Trophy',          tier: 'award' },
   { value: 'louGroza',          label: 'Lou Groza Award',           tier: 'award' },
   { value: 'rayGuy',            label: 'Ray Guy Award',             tier: 'award' },
-  { value: 'returnerOfTheYear', label: 'Returner of the Year',      tier: 'award' },
+  { value: 'returnerOfTheYear', label: 'Jet Award',                 tier: 'award' },
   { value: 'shaunAlexander',    label: 'Shaun Alexander Award',     tier: 'award' },
 ]
 

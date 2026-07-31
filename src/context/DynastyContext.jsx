@@ -3547,6 +3547,12 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
         isPlayed: false,
         userTid,
         opponentTid,
+        dateLabel: entry.dateLabel ?? null,
+        kickoffTimeLabel: entry.kickoffTimeLabel ?? null,
+        gameDateMonth: entry.gameDateMonth ?? null,
+        gameDateDay: entry.gameDateDay ?? null,
+        dayOfWeek: entry.dayOfWeek ?? null,
+        kickoffTimeMinutes: entry.kickoffTimeMinutes ?? null,
       }
       toAdd.push({
         week,
@@ -8250,6 +8256,15 @@ export function DynastyProvider({ children }) {
         ...existingByYear,
         [year]: { ...existingYearData, ...plan.awardsUpdate },
       }
+    }
+    // Record book (Career/Game/Season x National/Conference) — NOT
+    // year-keyed, unlike allAmericansByYear/awardsByYear above. This always
+    // reflects the save's CURRENT record-book state (same as the in-game
+    // screen, which shows current records, not history), so it's a plain
+    // overwrite rather than a per-year merge. Team-scoped records already
+    // rode along on plan.mergedTeams (each team's byYear.statRecords).
+    if (plan.leagueStatRecordsUpdate) {
+      honorsUpdate.leagueStatRecords = plan.leagueStatRecordsUpdate
     }
 
     // User job-change detection — plan.userJobChange is only set when

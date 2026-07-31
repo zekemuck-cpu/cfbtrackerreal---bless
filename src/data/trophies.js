@@ -174,8 +174,8 @@ export const TROPHIES = [
     availableIn: D_ONLY, image: 'https://i.imgur.com/IzDtHBk.png',
   },
   {
-    id: 'returner-of-the-year', name: 'Returner of the Year', category: 'award',
-    history: 'The Returner of the Year award honors the most outstanding special teams returner. This athlete demonstrates exceptional speed, agility, and vision, consistently transforming special teams plays into game-changing moments.',
+    id: 'returner-of-the-year', name: 'Jet Award', category: 'award',
+    history: 'The Jet Award honors the most outstanding special teams returner. This athlete demonstrates exceptional speed, agility, and vision, consistently transforming special teams plays into game-changing moments.',
     howToEarn: 'This Award can be achieved in Dynasty.',
     availableIn: D_ONLY, image: 'https://i.imgur.com/CHVXg6r.png',
   },

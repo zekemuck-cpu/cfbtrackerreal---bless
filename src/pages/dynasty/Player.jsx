@@ -32,6 +32,7 @@ import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 import { canonicalBoxScore } from '../../utils/boxScoreHelpers'
 import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
 import { healPlayer, PLAYER_HEAL_VERSION, normalizeAwardName } from '../../utils/playerHeal'
+import { computeLiveHonorsByPid, mergeHonorLists } from '../../utils/honorMatch'
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
 import { computeSeasonAV } from '../../utils/approximateValue'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
@@ -134,6 +135,17 @@ const getSchoolName = (abbrOrTid, teamsData = null) => {
 
 // Class progression order
 const CLASS_ORDER = ['Fr', 'RS Fr', 'So', 'RS So', 'Jr', 'RS Jr', 'Sr', 'RS Sr']
+
+// All-American / All-Conference designation -> display tier label. Shared by
+// the Awards tab, Timeline tab, and Overview tab so a "freshman" designation
+// always reads as "Freshman" everywhere, never diverging.
+const honorDesTier = (d) => d === 'first' ? '1st Team' : d === 'second' ? '2nd Team' : d === 'freshman' ? 'Freshman' : d
+
+// Same badge used on the All-Americans/All-Conference pages themselves — one
+// asset, reused everywhere a designation needs a visual marker.
+const HonorBadge = ({ className = '', style }) => (
+  <img src="/badges/all-american.png" alt="" className={`w-auto shrink-0 ${className}`} style={{ height: '1em', ...style }} />
+)
 
 // Determine primary stat category for a position (where G/Snaps should appear)
 const getPrimaryStatCategory = (position) => {
@@ -323,6 +335,25 @@ function PlayerInner() {
     const { player: healed, changed } = healPlayer(rawPlayer, { currentYear: dynasty?.currentYear })
     return changed ? healed : rawPlayer
   }, [rawPlayer, dynasty?.currentYear])
+
+  // All-American/All-Conference honors for cfb27 auto-synced dynasties never
+  // get copied onto player.allAmericans/player.allConference (only the manual
+  // AllAmericansModal/AllConferenceModal save flow does that via
+  // processHonorPlayers) — re-derive them from dynasty.allAmericansByYear so
+  // the Awards tab below shows synced honors too. See utils/honorMatch.js.
+  const liveHonorsByPid = useMemo(() => computeLiveHonorsByPid(dynasty), [dynasty?.allAmericansByYear, dynasty?.players])
+
+  // Merged (stored + live-derived) honors for THIS player, shared by the
+  // Awards tab, Overview tab, and Timeline tab so all three read the exact
+  // same list — a synced honor shows up identically everywhere.
+  const playerHonors = useMemo(() => {
+    if (!player) return { allAmericans: [], allConference: [] }
+    const live = liveHonorsByPid.get(player.pid)
+    return {
+      allAmericans: mergeHonorLists(player.allAmericans || [], live?.allAmericans || []),
+      allConference: mergeHonorLists(player.allConference || [], live?.allConference || []),
+    }
+  }, [player, liveHonorsByPid])
 
 // True only while the player is a committed recruit who hasn't yet
   // joined the roster. Once they have a teamsByYear entry for the
@@ -1730,7 +1761,7 @@ function PlayerInner() {
       doakWalker: 'Doak Walker',
       unitasGoldenArm: 'Unitas Golden Arm',
       edgeRusherOfTheYear: 'Edge Rusher of the Year',
-      returnerOfTheYear: 'Returner of the Year',
+      returnerOfTheYear: 'Jet Award',
       shaunAlexander: 'Shaun Alexander',
       // Other player honors that don't have a label form in the
       // dropdown but still surface on the profile awards plate.
@@ -2436,6 +2467,32 @@ function PlayerInner() {
 
         return (
           <div className="flex flex-col gap-6">
+            {/* All-American / All-Conference honors — same card layout as
+                TeamYear.jsx's per-season honors section, adapted to a
+                single player: one row per honor year instead of one row
+                per teammate. */}
+            {(playerHonors.allAmericans.length > 0 || playerHonors.allConference.length > 0) && (() => {
+              const honorRows = [
+                ...playerHonors.allAmericans.map(h => ({ ...h, type: 'All-American', linkBase: 'all-americans' })),
+                ...playerHonors.allConference.map(h => ({ ...h, type: 'All-Conference', linkBase: 'all-conference' })),
+              ].sort((a, b) => b.year - a.year)
+              return (
+                <div className="card p-4 flex flex-wrap gap-x-6 gap-y-2 cfb-texture">
+                  {honorRows.map((h, idx) => (
+                    <Link
+                      key={idx}
+                      to={`${pathPrefix}/${h.linkBase}/${h.year}`}
+                      className="flex items-center gap-1.5 text-sm hover:underline"
+                    >
+                      <HonorBadge />
+                      <span className="font-semibold" style={{ color: primaryText }}>{h.type} ({honorDesTier(h.designation)})</span>
+                      <span className="text-xs" style={{ color: secondaryText }}>&rsquo;{String(h.year).slice(-2)}</span>
+                    </Link>
+                  ))}
+                </div>
+              )
+            })()}
+
             {/* 3-column layout: timeline | stats + video | game log.
                 Flex lets each column size to its own content — no phantom
                 row stretching when the game log is much taller than the
@@ -3797,17 +3854,53 @@ function PlayerInner() {
                   </span>
                 ) : null
 
+                // All-American / All-Conference honors this player won in
+                // this specific season — same badge + designation labeling
+                // as the Awards tab and TeamYear.jsx's per-season honors card.
+                const yearHonorChips = [
+                  ...playerHonors.allAmericans.filter(h => Number(h.year) === Number(yd.year)).map(h => ({ type: 'All-American', designation: h.designation, linkBase: 'all-americans' })),
+                  ...playerHonors.allConference.filter(h => Number(h.year) === Number(yd.year)).map(h => ({ type: 'All-Conference', designation: h.designation, linkBase: 'all-conference' })),
+                ]
+                const honorChipsNode = yearHonorChips.length > 0 ? (
+                  <span className="flex items-center gap-2 flex-wrap">
+                    {yearHonorChips.map((h, i) => (
+                      <Link
+                        key={i}
+                        to={`${pathPrefix}/${h.linkBase}/${yd.year}`}
+                        className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase text-txt-secondary hover:text-txt-primary transition-colors"
+                        style={{ letterSpacing: '1px' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <HonorBadge style={{ height: '0.9em' }} />
+                        {h.type} ({honorDesTier(h.designation)})
+                      </Link>
+                    ))}
+                  </span>
+                ) : null
+
                 const metaRow = isMergedFirstSeason ? (
                   <>
                     {buildRecruitMeta(recruitmentNode)}
                     {devChip && (
                       <>
-                        
+
                         {devChip}
                       </>
                     )}
+                    {honorChipsNode && (
+                      <>
+
+                        {honorChipsNode}
+                      </>
+                    )}
                   </>
-                ) : devChip
+                ) : (
+                  <>
+                    {devChip}
+                    {devChip && honorChipsNode && ' '}
+                    {honorChipsNode}
+                  </>
+                )
 
                 const rightSlot = yd.overall ? (
                   <>
@@ -4912,8 +5005,8 @@ function PlayerInner() {
 
         // Get accolades from new format
         const accolades = player.accolades || []
-        const allAmericans = player.allAmericans || []
-        const allConference = player.allConference || []
+        const allAmericans = playerHonors.allAmericans
+        const allConference = playerHonors.allConference
 
         // Check if we have any awards to show
         const hasAwards = powHonors.confPOW > 0 || powHonors.nationalPOW > 0 ||
@@ -4987,7 +5080,7 @@ function PlayerInner() {
         // Honor rows (no artwork): All-American / All-Conference designations,
         // then named honors. Player of the Week is rendered separately (modal).
         const desOrder = { first: 0, second: 1, freshman: 2 }
-        const desTier = (d) => d === 'first' ? '1st Team' : d === 'second' ? '2nd Team' : d === 'freshman' ? 'Freshman' : d
+        const desTier = honorDesTier
         const groupDes = (list) => list.reduce((acc, a) => {
           const k = a.designation || 'first'
           ;(acc[k] = acc[k] || []).push(Number(a.year))
@@ -4996,10 +5089,10 @@ function PlayerInner() {
         const honorRows = []
         Object.entries(groupDes(allAmericans))
           .sort((a, b) => (desOrder[a[0]] ?? 9) - (desOrder[b[0]] ?? 9))
-          .forEach(([d, yrs]) => honorRows.push({ label: `All-American (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-americans' }))
+          .forEach(([d, yrs]) => honorRows.push({ label: `All-American (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-americans', badge: true }))
         Object.entries(groupDes(allConference))
           .sort((a, b) => (desOrder[a[0]] ?? 9) - (desOrder[b[0]] ?? 9))
-          .forEach(([d, yrs]) => honorRows.push({ label: `All-Conference (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-conference' }))
+          .forEach(([d, yrs]) => honorRows.push({ label: `All-Conference (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-conference', badge: true }))
         Object.values(honorMap)
           .sort((a, b) => b.years.length - a.years.length || a.label.localeCompare(b.label))
           .forEach(h => honorRows.push({ label: h.label, years: uniqSortDesc(h.years), linkBase: 'awards' }))
@@ -5071,6 +5164,7 @@ function PlayerInner() {
                 <div className="rounded-xl bg-surface-2 border border-surface-4 divide-y divide-surface-4 overflow-hidden">
                   {honorRows.map((h, idx) => (
                     <div key={idx} className="flex items-center gap-2.5 px-3 py-2.5">
+                      {h.badge && <HonorBadge style={{ height: '1.1em' }} />}
                       {h.years.length > 0 ? (
                         <Link to={`${pathPrefix}/${h.linkBase}/${h.years[0]}`} className="font-semibold text-sm text-white hover:underline">{h.label}</Link>
                       ) : (

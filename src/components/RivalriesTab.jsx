@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { getTeamLogoByTid } from '../data/teams'
+import { getTeamBrandProfile } from '../data/teamBrandProfiles'
 import { getNameFromTid } from '../data/teamRegistry'
 import { getTidFromAbbr, getAbbrFromTid } from '../data/teamRegistry'
 import ImageUpload from './ImageUpload'
@@ -67,6 +69,14 @@ function buildTrophyPrompt(dynasty, rivalry, myTid) {
 
   const myTeam    = dynasty.teams?.[myTidNum]
   const rivalTeam = dynasty.teams?.[rivalTidNum]
+  // The actual hosted logo image for each team — a text description alone
+  // (even a good one) still leaves the model inventing its own generic
+  // interpretation of "an eagle" or "a horse." Giving the user the real
+  // image URLs to download and attach as reference images alongside this
+  // text prompt is the only way a multimodal image generator can draw the
+  // ACTUAL logo instead of a lookalike.
+  const myLogoUrl    = getTeamLogoByTid(myTidNum, dynasty.teams)
+  const rivalLogoUrl = getTeamLogoByTid(rivalTidNum, dynasty.teams)
 
   const myName    = myTeam?.name    || `Team ${myTidNum}`
   const rivalName = rivalTeam?.name || `Team ${rivalTidNum}`
@@ -75,6 +85,26 @@ function buildTrophyPrompt(dynasty, rivalry, myTid) {
   const myState   = TEAM_STATE[myAbbr]    || null
   const rivalState = TEAM_STATE[rivalAbbr] || null
   const sameState  = myState && myState === rivalState
+
+  // Real mascot/visual identity — pulled from the researched brand-profile
+  // database, NOT inferred from the team name string. A team name alone
+  // ("Mean Green") gives an AI image generator nothing to anchor on and it
+  // will invent a creature (a dragon has actually happened for North Texas,
+  // whose real mascot is Scrappy the Eagle) — motifs/logoDescription give it
+  // the real, specific creature/symbol so it can't substitute one.
+  const myBrand    = getTeamBrandProfile(myName)
+  const rivalBrand = getTeamBrandProfile(rivalName)
+  const mascotLine = (name, brand) => {
+    if (!brand) {
+      return `${name}: no verified mascot on file — do NOT invent or guess an animal/creature for this program. Keep the design anchored to the team name, colors, and region only.`
+    }
+    const parts = [`${name}: real mascot/visual identity is ${brand.motifs?.length ? brand.motifs.join(', ') : brand.shortNickname || 'unspecified'}.`]
+    if (brand.logoDescription) parts.push(`Real logo: ${brand.logoDescription}`)
+    if (brand.graphicNotes) parts.push(`Brand notes: ${brand.graphicNotes}`)
+    return parts.join(' ')
+  }
+  const myMascotLine = mascotLine(myName, myBrand)
+  const rivalMascotLine = mascotLine(rivalName, rivalBrand)
 
   const myColor1   = hexToColorDesc(myTeam?.primaryColor)
   const myColor2   = hexToColorDesc(myTeam?.secondaryColor)
@@ -168,12 +198,27 @@ function buildTrophyPrompt(dynasty, rivalry, myTid) {
   bigGamesPlayed.forEach(bg => originEvents.push(bg))
 
   // ── Trophy identity ────────────────────────────────────────────────────────
-  const trophyNameLine = rivalry.trophyName
-    ? `The trophy is officially called the "${rivalry.trophyName}." Every design choice should feel like it earned that name.`
-    : 'The trophy has not yet been named — its design should be so specific that the name becomes obvious once you see it.'
+  // trophyDescription (when saved) is the single most important input to this
+  // whole prompt — it's the user's OWN already-written spec for what this
+  // object physically is. Once one exists, it's the ground truth to render,
+  // not flavor text alongside the AI's own invention.
+  const hasTrophyDesc = !!(rivalry.trophyDescription || '').trim()
   const rivalryNameLine = rivalry.name
     ? `This rivalry is known as "${rivalry.name}".`
     : ''
+
+  // Off by default (no text at all). When on, the ONLY text allowed is the
+  // trophy/rivalry name — never a record, score, or date, which would be
+  // permanently wrong pixels the moment another game is played.
+  const includeText = !!rivalry.trophyIncludeText
+  const allowedNames = [
+    rivalry.trophyName ? `The trophy name: "${rivalry.trophyName}"` : null,
+    rivalry.name ? `The rivalry name: "${rivalry.name}"` : null,
+  ].filter(Boolean)
+
+  const textRuleShort = includeText && allowedNames.length > 0
+    ? `The trophy may be engraved with ${[rivalry.trophyName && `"${rivalry.trophyName}"`, rivalry.name && `"${rivalry.name}"`].filter(Boolean).join(' and ')} — no other words, dates, or records.`
+    : `No text, letters, or numbers anywhere on the trophy — communicate identity entirely through imagery, not writing.`
 
   return `COMMISSION: One-of-a-kind rivalry trophy — ${myName} vs. ${rivalName}
 This trophy must be impossible to mistake for any other rivalry. It exists for these two programs and no one else.
@@ -184,10 +229,16 @@ THE PROGRAMS
 ${myName}
   Colors: ${colorLine || 'unknown'}
   State: ${myState || 'unknown'}
+  ${myMascotLine}${myLogoUrl ? `
+  Real logo image (download this and attach it to your message as a reference image before sending): ${myLogoUrl}
+  This attached image is the COMPLETE and ONLY mascot representation to use for ${myName} — reproduce exactly what is in that image (the same shapes, the same crop) and stop there. Do NOT add a head, face, body, or any other creature part that isn't already drawn in that reference image, even if the mascot description above mentions an animal. If the logo is a wing, a paw, an abstract mark, or any partial/stylized shape, the trophy uses that exact partial shape — it does NOT get "completed" into a full animal.` : ''}
 
 ${rivalName}
   Colors: ${rivColorLine || 'unknown'}
   State: ${rivalState || 'unknown'}
+  ${rivalMascotLine}${rivalLogoUrl ? `
+  Real logo image (download this and attach it to your message as a reference image before sending): ${rivalLogoUrl}
+  This attached image is the COMPLETE and ONLY mascot representation to use for ${rivalName} — reproduce exactly what is in that image (the same shapes, the same crop) and stop there. Do NOT add a head, face, body, or any other creature part that isn't already drawn in that reference image, even if the mascot description above mentions an animal. If the logo is a wing, a paw, an abstract mark, or any partial/stylized shape, the trophy uses that exact partial shape — it does NOT get "completed" into a full animal.` : ''}
 
 ${rivalryNameLine}
 
@@ -207,29 +258,38 @@ ${bigGamesPlayed.length > 0 ? `\nBig game history:\n${bigGamesPlayed.map(g => ` 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE TROPHY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${trophyNameLine}
+${rivalry.trophyName ? `The trophy is officially called the "${rivalry.trophyName}." Every design choice should feel like it earned that name.` : 'The trophy has not yet been named — its design should be so specific that the name becomes obvious once you see it.'}
 
-REAL CFB TROPHY DESIGN PRECEDENTS — understand the logic, don't copy the objects:
+${hasTrophyDesc
+    ? `This exact object has already been designed — render it as written, don't redesign it:
+"${rivalry.trophyDescription.trim()}"
+Every detail named there (materials, shapes, figures, textures) should appear in the image. Materials still render in metal (see below) even if the description mentions something else.`
+    : `No design has been written yet — invent one from the real mascots above, the ${regionPhrase} region, both teams' colors, and the origin story above.`}
+
+REAL CFB TROPHY DESIGN PRECEDENTS — the logic and spirit to draw from, not the literal materials (this trophy is metal only):
 • Floyd of Rosedale (Iowa–Minnesota): Bronze pig from a real gubernatorial wager over prize livestock. The trophy IS the story.
 • The Golden Boot (LSU–Arkansas): A gold football cleat. One object. Immediately understood.
-• Paul Bunyan's Axe (Minnesota–Wisconsin): An actual axe, with every year's score painted on the handle. The trophy grows with the rivalry.
-• Old Oaken Bucket (Indiana–Purdue): A wooden bucket pulled from a well — a found object made sacred by what teams went through to win it.
-• Cy-Hawk (Iowa–Iowa State): One figure blending both mascots. Two identities, no hierarchy.
-• Apple Cup (Washington–WSU): Apple-shaped, because that's what Washington actually is.
-• Victory Bell (USC–UCLA): A real bell. The winner rings it. Scale and ritual.
+• Paul Bunyan's Axe (Minnesota–Wisconsin): An actual axe, with every year's score painted on the handle.
+• Old Oaken Bucket (Indiana–Purdue): A found object made sacred by what teams went through to win it.
+• Cy-Hawk (Iowa–Iowa State): One figure blending both real mascots. Two identities, no hierarchy.
 
 DESIGN REQUIREMENTS:
-1. Incorporate imagery from BOTH mascots/programs — neither is a guest
-2. The ${regionPhrase} identity must be physically present — landscape, wildlife, industry, culture
-3. The colors — ${[colorLine, rivColorLine].filter(Boolean).join(' / ')} — should appear in the materials or finish
-4. The origin story above must inform the design — if a coach left, if a star transferred, if they met in a championship, those moments deserve to live in the object
-5. It must have physical weight and presence — something worth fighting 10 years for
-6. It must be impossible to mistake for any other trophy on earth
+1. Use the REAL mascots/logos referenced above exactly as they appear in the attached reference images, and ONLY what appears in those images — never an invented or generic-lookalike creature, and never extra parts (heads, faces, bodies, limbs) bolted onto a logo that doesn't already contain them
+2. Crafted entirely from metal — gold, silver, bronze, brass, aluminum, and/or stainless steel — no wood, stone, glass, fabric, or plastic anywhere
+3. Large and substantial, the scale and weight of a real championship trophy (the kind that takes two or three people to lift onto a stage) — not a small desktop or shelf trophy. If the design has any lattice, frame, or tower structure, its beams/struts must be drawn THICK like real structural steel I-beams, not thin rods or wire — thin lattice reads as a small delicate model no matter how the shot is framed
+4. The ${regionPhrase} identity should be physically present — landscape, industry, culture
+5. The colors — ${[colorLine, rivColorLine].filter(Boolean).join(' / ')} — should appear in the metal finishes
+6. ${textRuleShort} This also rules out engraved coordinates, dates, or map grid numbers dressed up as a "design detail" — those are still text.
+7. Impossible to mistake for any other trophy on earth
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 IMAGE GENERATION PROMPT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Photorealistic 8K HDR photograph of the official ${myName} vs. ${rivalName} rivalry trophy, displayed in a prestigious college athletics trophy room. The trophy is a unique sculptural object that incorporates elements of both programs and the ${regionPhrase} region. It sits on a dark mahogany display shelf, dramatically lit by a single overhead spotlight that catches the texture and weight of its materials. Behind it: blurred warm wood paneling, glass display cases, and other championship hardware softly out of focus. The trophy commands the frame. Studio-sharp foreground, cinematic depth. Ultra-realistic materials — metal, wood, stone, or bronze as appropriate. No text, no nameplates, no words visible anywhere in the image. Shot as if for a Sports Illustrated feature or a Hall of Fame display.`
+Photorealistic 8K HDR photograph of ONLY the trophy described above, sitting on a plain white or soft light-gray seamless backdrop (not a colored screen — a saturated backdrop bounces color onto reflective metal and causes an ugly tinted edge). Neutral studio lighting, true metallic reflections. One single image, one trophy — not a collage, not multiple variants.
+
+CAMERA & COMPOSITION — this is the difference between "monumental trophy" and "tabletop knickknack," so follow it exactly: shoot from a slightly LOW angle, as if you were standing on the floor looking slightly UP at the trophy — the same angle you'd use photographing a life-size monument or statue, never a straight-on or downward angle (those flatten scale and make anything look small). The single most important rule, which overrides everything else in this section: the ENTIRE trophy — including its very top and every edge — must be fully inside the frame with a visible margin of backdrop on all four sides (top, bottom, left, right). Nothing may touch or cross the edge of the image. Within that hard constraint, make the trophy as large as possible so it still feels imposing rather than small and distant — but never so large that any part (especially the top of a tall design) gets pushed out of frame or cropped. When in doubt, zoom out slightly and leave more margin rather than risk cutting off any part of the trophy.
+
+Deliver the result as a PNG so it can be uploaded here directly.`
 }
 
 // ─── Names & Description prompt builder ────────────────────────────────────
@@ -395,7 +455,6 @@ function parseAiNamesOutput(text) {
 // ─── Edit Rivalry Modal ─────────────────────────────────────────────────────
 
 function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDelete, onClose }) {
-  const yearsFormed = rivalry.formedYear ? currentYear - rivalry.formedYear : 0
   // Synced-from-save rivalries (cfb27SaveSync.js's `cfb27-rival-*` ids) are
   // already confirmed real rivalries by the game itself — no reason to make
   // the user wait 5/10 years to name something that's already official.
@@ -403,15 +462,25 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
 
   const [name,             setName]             = useState(rivalry.name             || '')
   const [description,      setDescription]      = useState(rivalry.description      || '')
+  const [formedYear,       setFormedYear]       = useState(rivalry.formedYear != null ? String(rivalry.formedYear) : '')
   const [trophy,           setTrophy]           = useState(rivalry.trophyName       || '')
   const [trophyDesc,       setTrophyDesc]       = useState(rivalry.trophyDescription || '')
   const [trophyImageUrl,   setTrophyImageUrl]   = useState(rivalry.trophyImageUrl   || '')
+  // Off by default — the trophy image generator otherwise stays engraving-
+  // free. When on, the ONLY text it's allowed to add is the trophy/rivalry
+  // name (never a record, score, or date — those go stale the moment a game
+  // is played, and would be permanently wrong pixels baked into the image).
+  const [includeText,      setIncludeText]      = useState(!!rivalry.trophyIncludeText)
   const [active,           setActive]           = useState(rivalry.active !== false)
   // Manual escape hatch for any rivalry the user doesn't want to wait on —
   // read live off state (not the saved prop) so flipping the toggle
   // unlocks the fields in this same render, not after the autosave
   // round-trip finishes.
   const [forceUnlocked,    setForceUnlocked]    = useState(!!rivalry.forceUnlocked)
+  // Read live off the formedYear field itself (not the saved prop) so
+  // editing it updates the Name/Trophy unlock timers in this same render.
+  const formedYearNum = formedYear.trim() ? Number(formedYear.trim()) : null
+  const yearsFormed = formedYearNum ? currentYear - formedYearNum : 0
   const canName   = rivalry.manuallyAdded || isSynced || forceUnlocked || yearsFormed >= RIVALRY_NAME_YEARS
   const canTrophy = rivalry.manuallyAdded || isSynced || forceUnlocked || yearsFormed >= RIVALRY_TROPHY_YEARS
   const [confirmDelete,    setConfirmDelete]    = useState(false)
@@ -477,9 +546,11 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
         ...rivalry,
         name:              name.trim()        || null,
         description:       description.trim() || null,
+        formedYear:        formedYearNum,
         trophyName:        trophy.trim()      || null,
         trophyDescription: trophyDesc.trim()  || null,
         trophyImageUrl:    trophyImageUrl.trim() || null,
+        trophyIncludeText: includeText,
         forceUnlocked,
         active,
       })
@@ -487,7 +558,7 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
       setTimeout(() => setSavedIndicator(false), 1500)
     }, 600)
     return () => clearTimeout(t)
-  }, [name, description, trophy, trophyDesc, trophyImageUrl, active, forceUnlocked]) // eslint-disable-line
+  }, [name, description, formedYear, trophy, trophyDesc, trophyImageUrl, includeText, active, forceUnlocked]) // eslint-disable-line
 
   function copyText(text, setFlag, promptKey) {
     const finish = (ok) => {
@@ -524,9 +595,11 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
       ...rivalry,
       name:             name.trim()        || null,
       description:      description.trim() || null,
+      formedYear:       formedYearNum,
       trophyName:       trophy.trim()      || null,
       trophyDescription: trophyDesc.trim() || null,
       trophyImageUrl:   trophyImageUrl.trim() || null,
+      trophyIncludeText: includeText,
       active,
     })
   }
@@ -536,14 +609,22 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
   const bg       = team?.primaryColor || '#374151'
   const bgText   = getContrastTextColor(bg)
 
-  return (
+  // Portaled straight to document.body — mounted inline (like every other
+  // modal in this file previously was), this modal's "fixed" positioning was
+  // being resolved relative to some ancestor deep in TeamYear.jsx's tree
+  // instead of the true viewport, so it rendered pinned to a fixed DOCUMENT
+  // position rather than tracking the current scroll — after scrolling down
+  // the page, it appeared far above the visible area. Every other modal in
+  // this app already portals to document.body (AwardsModal, AIPromptModal,
+  // etc.) specifically to avoid this class of bug.
+  return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-md overflow-hidden flex flex-col"
+        className="card w-full max-w-4xl overflow-hidden flex flex-col"
         style={{ maxHeight: '90vh' }}
         onClick={e => e.stopPropagation()}
       >
@@ -557,8 +638,13 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
           <button onClick={onClose} className="text-lg leading-none opacity-60 hover:opacity-100" style={{ color: bgText }}>×</button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1">
+        {/* Scrollable body. min-h-0 is required here — without it, a flex
+            child defaults to min-height:auto (its content's natural height),
+            which stops it from ever shrinking to fit maxHeight/overflow-y-
+            auto on the parent. The modal was growing to its full un-clipped
+            content height and centering around THAT, pushing the visible top
+            edge down the page and cutting the bottom off the viewport. */}
+        <div className="overflow-y-auto flex-1 min-h-0">
           <div className="p-5 space-y-5">
 
             {/* ── AI Prompts ── */}
@@ -652,6 +738,11 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
 
             <div className="border-t border-border-subtle" />
 
+            {/* Rivalry + Trophy side-by-side on wide screens so the whole
+                form fits without scrolling — stacks back to one column on
+                mobile/narrow viewports. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
             {/* ── Rivalry section ── */}
             <div className="space-y-3">
               <p className="label-xs text-txt-tertiary" style={{ letterSpacing: '1px' }}>RIVALRY</p>
@@ -681,12 +772,22 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
                   rows={3}
                 />
               </div>
+
+              <div>
+                <label className="label-xs text-txt-tertiary block mb-1">Formed Year</label>
+                <input
+                  type="number"
+                  className="w-full bg-bg-input border border-border-subtle rounded px-3 py-2 text-sm text-txt-primary placeholder-txt-muted"
+                  placeholder={`e.g. ${currentYear} — leave blank if unknown`}
+                  value={formedYear}
+                  onChange={e => setFormedYear(e.target.value)}
+                />
+                <p className="text-xs text-txt-muted mt-1">Drives the "Since {'{'}year{'}'}" display and the Name/Trophy unlock timers above. Leave blank to show the current year with 0 yrs until you know the real one.</p>
+              </div>
             </div>
 
-            <div className="border-t border-border-subtle" />
-
             {/* ── Trophy section ── */}
-            <div className="space-y-3">
+            <div className="space-y-3 border-t border-border-subtle pt-5 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-5 lg:border-border-subtle">
               <p className="label-xs text-txt-tertiary" style={{ letterSpacing: '1px' }}>
                 TROPHY
                 {!canTrophy && <span className="ml-2 text-txt-muted font-normal normal-case">(unlocks in {RIVALRY_TROPHY_YEARS - yearsFormed} yr{RIVALRY_TROPHY_YEARS - yearsFormed !== 1 ? 's' : ''})</span>}
@@ -716,6 +817,23 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
                 />
               </div>
 
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-txt-primary">Engrave name on trophy</p>
+                  <p className="text-xs text-txt-muted">Lets the generator add the trophy/rivalry name as text. Never a record, score, or date — those go stale. Off = no text at all.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={includeText}
+                  onClick={() => setIncludeText(v => !v)}
+                  disabled={!canTrophy}
+                  className={`relative w-10 h-5 rounded-full transition-colors flex-shrink-0 disabled:opacity-40 ${includeText ? 'bg-green-500' : 'bg-bg-subtle'}`}
+                >
+                  <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${includeText ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
               <div>
                 <label className="label-xs text-txt-tertiary block mb-1">Photo</label>
                 {canTrophy ? (
@@ -730,6 +848,7 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
                       teamColors={{ primary: bg, secondary: bg }}
                       showPreview={false}
                       hidePasteButton={true}
+                      preserveTransparency={true}
                     />
                   </>
                 ) : (
@@ -738,6 +857,8 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
                   </div>
                 )}
               </div>
+            </div>
+
             </div>
 
             <div className="border-t border-border-subtle" />
@@ -798,7 +919,110 @@ function EditRivalryModal({ rivalry, dynasty, myTid, currentYear, onSave, onDele
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
+  )
+}
+
+// ─── Brewing Rivalry Modal ──────────────────────────────────────────────────
+// Detail view for a not-yet-formed rivalry candidate — the same point
+// breakdown shown inline on the Brewing Rivalries row, plus an explicit
+// override to promote it to a real rivalry immediately (skipping the score
+// threshold). Read-only otherwise: there's nothing to edit until it's formed.
+
+function BrewingRivalryModal({ rivalTid, dynasty, teamName, logo, points, events, onOverride, onClose }) {
+  const grouped = groupRivalryEvents(events)
+  const pct = Math.min(100, Math.round((points / RIVALRY_FORM_THRESHOLD) * 100))
+  const barColor = pct >= 100 ? '#22c55e' : pct >= 60 ? '#f59e0b' : '#6b7280'
+  const team = dynasty.teams?.[rivalTid]
+  const bg = team?.primaryColor || '#374151'
+  const bgText = getContrastTextColor(bg)
+
+  // Portaled to document.body — see EditRivalryModal for why.
+  return createPortal(
+    <div
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
+      style={{ margin: 0 }}
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-md overflow-hidden flex flex-col"
+        style={{ maxHeight: '90vh' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 flex items-center gap-3 flex-shrink-0" style={{ backgroundColor: bg }}>
+          {logo && <img src={logo} alt={teamName} className="w-8 h-8 object-contain" />}
+          <span className="font-bold text-base flex-1" style={{ color: bgText }}>{teamName}</span>
+          <button onClick={onClose} className="text-lg leading-none opacity-60 hover:opacity-100" style={{ color: bgText }}>×</button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 min-h-0">
+          <div className="p-5 space-y-5">
+            <div>
+              <p className="text-xs text-txt-muted mb-2">
+                Not a rivalry yet — this team hasn't crossed the {RIVALRY_FORM_THRESHOLD}-point threshold. Override below to make it official right now.
+              </p>
+              <button
+                type="button"
+                onClick={onOverride}
+                className="w-full py-2.5 rounded text-sm font-bold hover:opacity-90"
+                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
+              >
+                Override — Make This a Real Rivalry
+              </button>
+            </div>
+
+            <div className="border-t border-border-subtle" />
+
+            <div>
+              <p className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1px' }}>RIVALRY SCORE</p>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-sm font-black tabular text-txt-primary">
+                  {points}<span className="text-txt-muted font-normal text-xs"> / {RIVALRY_FORM_THRESHOLD} pts</span>
+                </span>
+                <span className="text-xs text-txt-muted">{pct}%</span>
+              </div>
+              <div className="relative">
+                <div className="h-5 bg-bg-subtle rounded overflow-hidden">
+                  <div
+                    className="h-full transition-all duration-500"
+                    style={{ width: `${pct}%`, backgroundColor: barColor, opacity: 0.85 }}
+                  />
+                </div>
+                {[25, 50, 75].map(tick => (
+                  <div
+                    key={tick}
+                    className="absolute top-0 h-5 w-px bg-bg-base opacity-40"
+                    style={{ left: `${tick}%` }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-xs text-txt-muted mt-1">
+                <span>0</span>
+                <span>Rivalry at {RIVALRY_FORM_THRESHOLD}</span>
+              </div>
+            </div>
+
+            <div>
+              <p className="label-xs text-txt-tertiary mb-2" style={{ letterSpacing: '1px' }}>BREAKDOWN</p>
+              <div className="flex flex-wrap gap-1.5">
+                {grouped.map(g => (
+                  <span
+                    key={g.type}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-bg-subtle text-txt-secondary"
+                  >
+                    <span className="font-bold text-txt-primary">+{g.points}</span>
+                    {rivalryEventLabel(g.type)}{g.count > 1 ? ` ×${g.count}` : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 
@@ -818,7 +1042,8 @@ function AddRivalryModal({ dynasty, myTid, existingRivalTids, onAdd, onClose }) 
     })
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
-  return (
+  // Portaled to document.body — see EditRivalryModal for why.
+  return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
       style={{ margin: 0 }}
@@ -871,7 +1096,8 @@ function AddRivalryModal({ dynasty, myTid, existingRivalTids, onAdd, onClose }) 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -931,8 +1157,9 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
 
   return (
     <>
-    {/* Trophy lightbox */}
-    {showTrophyLightbox && (
+    {/* Trophy lightbox — portaled to document.body (see EditRivalryModal for
+        why the portal matters). */}
+    {showTrophyLightbox && createPortal(
       <div
         className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-90 flex items-center justify-center z-[9999] p-4"
         style={{ margin: 0 }}
@@ -942,7 +1169,7 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
           <img
             src={rivalry.trophyImageUrl}
             alt={rivalry.trophyName || 'Trophy'}
-            className="w-full object-contain rounded-lg"
+            className="block mx-auto max-w-full object-contain rounded-lg"
             style={{ maxHeight: '85vh' }}
           />
           {rivalry.trophyName && (
@@ -958,7 +1185,8 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
             ×
           </button>
         </div>
-      </div>
+      </div>,
+      document.body
     )}
 
     <div className={`card overflow-hidden ${!isActive ? 'opacity-60' : ''}`}>
@@ -983,6 +1211,24 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
             <p className="text-xs mt-0.5" style={{ color: bgText, opacity: 0.75 }}>{rivalry.name}</p>
           )}
         </div>
+        {/* Trophy thumbnail — right next to the team name, once generated.
+            No background box: a transparent-PNG trophy needs to sit directly
+            on the row's own color, not inside a tinted chip (which showed as
+            a muddy black-over-team-color square). object-contain (not cover)
+            so the whole trophy shows uncropped. Sized bigger than the row's
+            other icons on purpose — flex-shrink-0 keeps it from affecting the
+            header's own width, it just claims more of the row's existing
+            flexible space. */}
+        {hasTrophy && (
+          <button
+            type="button"
+            onClick={() => setShowTrophyLightbox(true)}
+            className="h-14 w-14 flex-shrink-0 hover:opacity-80 transition-opacity"
+            title={rivalry.trophyName ? `View ${rivalry.trophyName}` : 'View trophy'}
+          >
+            <img src={rivalry.trophyImageUrl} alt={rivalry.trophyName || 'Trophy'} className="w-full h-full object-contain" />
+          </button>
+        )}
         {isDormant && (
           <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: bgText }}>
             Dormant
@@ -1037,17 +1283,12 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
           </div>
         )}
         <div className="ml-auto text-right">
-          {rivalry.formedYear ? (
-            <>
-              <p className="text-sm font-medium text-txt-primary">Since {rivalry.formedYear}</p>
-              {yearsFormed != null && <p className="label-xs text-txt-muted">{yearsFormed} yr{yearsFormed !== 1 ? 's' : ''}</p>}
-            </>
-          ) : rivalry.trophyName && !hasTrophy ? (
-            <>
-              <p className="text-sm font-medium text-txt-primary">{rivalry.trophyName}</p>
-              <p className="label-xs text-txt-muted">Trophy</p>
-            </>
-          ) : null}
+          {/* Always shown — falls back to the current year / 0 yrs when the
+              rivalry's actual formed year isn't known yet (e.g. just added).
+              Editable via the "Edit" button above to overwrite this fallback
+              with the real year once it's known. */}
+          <p className="text-sm font-medium text-txt-primary">Since {rivalry.formedYear || currentYear}</p>
+          <p className="label-xs text-txt-muted">{yearsFormed ?? 0} yr{(yearsFormed ?? 0) !== 1 ? 's' : ''}</p>
         </div>
       </div>
 
@@ -1100,9 +1341,9 @@ function RivalryCard({ rivalry, dynasty, myTid, currentYear, series, score, rank
             {hasTrophy && (
               <button
                 onClick={() => setShowTrophyLightbox(true)}
-                className="flex-shrink-0 rounded-lg overflow-hidden hover:opacity-85 transition-opacity"
+                className="flex-shrink-0 hover:opacity-85 transition-opacity"
                 title={rivalry.trophyName ? `View ${rivalry.trophyName}` : 'View trophy'}
-                style={{ width: 72, height: 72, backgroundColor: '#0a0a0a' }}
+                style={{ width: 72, height: 72 }}
               >
                 <img
                   src={rivalry.trophyImageUrl}
@@ -1214,6 +1455,7 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
   const myAbbr      = dynasty.teams?.[myTid]?.abbr || getAbbrFromTid(dynasty.teams, myTid)
 
   const [editingId,    setEditingId]    = useState(null)
+  const [editingBrewingTid, setEditingBrewingTid] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
 
   const rivalries    = dynasty.rivalries || []
@@ -1395,6 +1637,13 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
                       <span className="text-sm font-black tabular text-txt-primary whitespace-nowrap">
                         {points}<span className="text-txt-muted font-normal text-xs"> / {RIVALRY_FORM_THRESHOLD} pts</span>
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingBrewingTid(rivalTid)}
+                        className="text-xs px-2 py-1 rounded border border-border-subtle text-txt-secondary hover:text-txt-primary hover:bg-bg-hover transition-colors flex-shrink-0"
+                      >
+                        Edit
+                      </button>
                     </div>
 
                     {/* Progress bar — chunky with tick marks */}
@@ -1478,6 +1727,26 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
           onClose={() => setEditingId(null)}
         />
       )}
+
+      {/* Brewing rivalry detail modal */}
+      {editingBrewingTid != null && (() => {
+        const brewingScore = rivalryScores[editingBrewingTid] || { points: 0, events: [] }
+        const brewingTeam = dynasty.teams?.[editingBrewingTid]
+        const brewingTeamName = brewingTeam?.name || `Team ${editingBrewingTid}`
+        const brewingLogo = getTeamLogoByTid(editingBrewingTid, dynasty.teams)
+        return (
+          <BrewingRivalryModal
+            rivalTid={editingBrewingTid}
+            dynasty={dynasty}
+            teamName={brewingTeamName}
+            logo={brewingLogo}
+            points={brewingScore.points}
+            events={brewingScore.events}
+            onOverride={() => { handleAddManual(editingBrewingTid); setEditingBrewingTid(null) }}
+            onClose={() => setEditingBrewingTid(null)}
+          />
+        )
+      })()}
 
       {/* Add modal */}
       {showAddModal && (

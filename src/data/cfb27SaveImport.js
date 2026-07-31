@@ -697,6 +697,36 @@ export const FCS_FILLER_NAME_TO_TID = {
   'FCS Southeast': 141,
 }
 
+// Real kickoff date/time off the save's own SeasonGame fields. Duplicated
+// from cfb27SaveSync.js (which already imports FROM this file, so importing
+// back would cycle) — verified exact against a real save: TimeOfDay 1065 ->
+// "5:45 PM", matching that same game's in-game schedule screen.
+function kickoffLabel(month, day) {
+  if (!month || !day) return null
+  const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const name = MONTH_ABBR[month - 1]
+  return name ? `${name} ${day}` : null
+}
+function timeOfDayLabel(minutes) {
+  if (!Number.isFinite(minutes)) return null
+  const totalMinutes = ((minutes % 1440) + 1440) % 1440
+  const h24 = Math.floor(totalMinutes / 60)
+  const m = totalMinutes % 60
+  const period = h24 >= 12 ? 'PM' : 'AM'
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`
+}
+function gameDateTimeFields(g) {
+  return {
+    gameDateMonth: g.gameDateMonth ?? null,
+    gameDateDay: g.gameDateDay ?? null,
+    dayOfWeek: g.dayOfWeek || null,
+    kickoffTimeMinutes: g.timeOfDayMinutes ?? null,
+    dateLabel: kickoffLabel(g.gameDateMonth, g.gameDateDay),
+    kickoffTimeLabel: timeOfDayLabel(g.timeOfDayMinutes),
+  }
+}
+
 export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTeams) {
   const userAbbr = dynastyTeams?.[userAppTid]?.abbr
   const out = []
@@ -731,6 +761,7 @@ export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTe
         opponent: fcsAbbr || rawOpponentName,
         opponentTid: fcsTid,
         location: isHome ? 'home' : 'away',
+        ...gameDateTimeFields(g),
       })
       continue
     }
@@ -746,6 +777,7 @@ export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTe
       opponent: opponentAbbr,
       opponentTid: opponentAppTid,
       location: isHome ? 'home' : 'away',
+      ...gameDateTimeFields(g),
     })
   }
 
@@ -957,4 +989,20 @@ export function mapSchoolGrades(raw) {
     proPotentialGradeTE: raw.ProPotentialGradeTE ?? null,
     proPotentialGradeWR: raw.ProPotentialGradeWR ?? null,
   }
+}
+
+// A team's own program record book — this school's Career/Game/Season
+// individual-stat leaders, straight off extractPlayers.cjs's
+// buildLeagueStatRecords (see that function's header comment for the save
+// shape and verification). `raw` here is `leagueStatRecords.team[rawTid]`'s
+// keying resolved down to just this one team's { career, game, season }
+// entry arrays (each up to 9 entries — one per tracked stat type).
+export function mapTeamStatRecords(leagueStatRecords, rawTid) {
+  if (!leagueStatRecords || rawTid == null) return null
+  const out = {}
+  for (const timeframe of ['career', 'game', 'season']) {
+    const entries = leagueStatRecords[timeframe]?.team?.[rawTid]
+    if (entries && entries.length) out[timeframe] = entries
+  }
+  return Object.keys(out).length ? out : null
 }

@@ -15,6 +15,7 @@
 
 import { normalizeArch } from '../components/archetypeWeights';
 import { RECRUIT_FORM_OVERRIDES, BASE_POSITION_CONFIG } from '../components/ScoutingReport';
+import { positionBucket } from './recruitAttributes';
 
 export const DEV_TRAITS = ['Elite', 'Star', 'Impact', 'Normal'];
 export const MIN_N = 1;
@@ -45,7 +46,15 @@ export function buildRevealedPool(players) {
     if (!DEV_TRAITS.includes(pl.devTrait)) return;
     if (!pl.position || !pl.archetype) return;
     const arch = normalizeArch(pl.archetype);
-    const archKey = `${pl.position}_${arch}`;
+    // Bucketed, not raw — every reader of this pool (PlayerCount.jsx's
+    // Scouting Needs, ThresholdLookup.jsx, archetypeKey() in
+    // recruitAttributes.js) keys off the bucketed position (e.g. "OT" for
+    // LT/RT/OT/OL). Writing raw pl.position here ("LT"/"SAM"/"NT"/etc.)
+    // meant every multi-alias position group silently built a pool no
+    // bucketed lookup could ever find a match in — confirmed by a real
+    // save where OT/OG/OLB showed a real recruit count but a zero
+    // archetype/dev-trait breakdown on every tier.
+    const archKey = `${positionBucket(pl.position)}_${arch}`;
     const star = String(pl.stars ?? '');
     if (!star) return;
     pool[archKey] ??= {};

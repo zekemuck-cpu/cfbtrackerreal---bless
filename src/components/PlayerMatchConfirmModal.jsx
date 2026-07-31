@@ -24,7 +24,7 @@ const AWARD_DISPLAY = {
   rayGuy: 'Ray Guy Award',
   louGroza: 'Lou Groza Award',
   paulHornung: 'Paul Hornung Award',
-  returnerOfTheYear: 'Returner of the Year',
+  returnerOfTheYear: 'Jet Award',
   shaunAlexander: 'Shaun Alexander Award'
 }
 

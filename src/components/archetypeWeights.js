@@ -13,6 +13,7 @@
 // needing devPrediction.js's buildAttributeQualityMap/computeKnownTierStrength
 // import them directly from '../utils/devPrediction', not through here.)
 import { predictHiddenDevBonus, ANY_STAR } from '../utils/devPrediction';
+import { positionBucket } from '../utils/recruitAttributes';
 
 // Normalize stored archetype name → a stable archetype key suffix.
 // "Raw Strength (OT)" → "Raw Strength", "ATH - Thumper" → "Thumper"
@@ -64,7 +65,10 @@ export function isHiddenDev(d) { return !d || d === 'Hidden' || d === 'hidden' |
 // for context on how much the learned weighting shifted the number.
 export function calcWeightedAvg(player) {
   const attrs = player.attributes ?? {};
-  const priority = PRIORITY_ATTRS[player.position] ?? [];
+  // Bucketed, not raw — PRIORITY_ATTRS is keyed by the bucketed position
+  // (OT/OG/OLB/etc.), not the raw code (LT/RT/SAM/etc.) a real recruit
+  // actually carries.
+  const priority = PRIORITY_ATTRS[positionBucket(player.position)] ?? [];
   let sum = 0, weight = 0;
   Object.entries(attrs).forEach(([k, v]) => {
     const posW = priority.includes(k) ? 2 : 1;
@@ -139,7 +143,12 @@ export function computeScore(player, weightsMap = null, pool = null) {
 export function archetypeBaseScore(player, weightsMap = null) {
   if (!player.attributes || Object.keys(player.attributes).length === 0) return null;
   const arch    = normalizeArch(player.archetype || '');
-  const archKey = `${player.position}_${arch}`;
+  // Bucketed, not raw — weightsMap (buildAttributeQualityMap's output) is
+  // keyed by bucketed position. Using raw player.position here silently
+  // returned null (no score) for every O-line/DL/LB/some-DB player, since
+  // "LT_Pass Protector" (etc.) never matched the "OT_Pass Protector" key
+  // the map actually stores.
+  const archKey = `${positionBucket(player.position)}_${arch}`;
   const star    = String(player.stars ?? '');
   const weights = weightsMap?.[archKey]?.[star]?.weights ?? weightsMap?.[archKey]?.[ANY_STAR]?.weights;
   if (!weights) return null;
@@ -167,7 +176,8 @@ export function archetypeBaseScore(player, weightsMap = null) {
 // alone would otherwise read as strong.
 export function getScoreConfidence(player, weightsMap = null) {
   const arch    = normalizeArch(player.archetype || '');
-  const archKey = `${player.position}_${arch}`;
+  // Bucketed, not raw — see archetypeBaseScore's comment above.
+  const archKey = `${positionBucket(player.position)}_${arch}`;
   const star    = String(player.stars ?? '');
   const exact   = weightsMap?.[archKey]?.[star];
   const widened = weightsMap?.[archKey]?.[ANY_STAR];

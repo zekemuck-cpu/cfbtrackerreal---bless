@@ -25,7 +25,7 @@ import Contact from './pages/Contact'
 import {
   Dashboard, Roster, Rankings, Stats, CoachCareer, CoachBuild, Coaches, Players, Player, PlayerEdit,
   PlayersByState, AllTimeLineup, Recruiting, ScoutStaff, Leaders, Awards, AllAmericans,
-  AllConference, DynastyRecords, Teams, TeamYear, BowlHistory,
+  AllConference, DynastyRecords, Records, SeasonStats, TeamStats, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, DynastyBlueprint, CoachProfile, CoachEdit, DevTools,
   SocialCharacter, LeaguePreferences, ImageGallery, SchemeBuilder,
@@ -102,10 +102,16 @@ function AppRoutes() {
             <Route path="injury-report/:tid" element={<InjuryReport />} />
             <Route path="dynasty-records" element={<DynastyRecords />} />
             <Route path="dynasty-records/:category" element={<DynastyRecords />} />
+            <Route path="season-stats" element={<SeasonStats />} />
+            <Route path="season-stats/:position" element={<SeasonStats />} />
+            <Route path="team-stats" element={<TeamStats />} />
+            <Route path="team-stats/:side" element={<TeamStats />} />
             <Route path="teams" element={<Teams />} />
             <Route path="team/:tid/:year" element={<TeamYear />} />
             <Route path="bowl-history" element={<BowlHistory />} />
             <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
+            <Route path="records" element={<Records />} />
+            <Route path="records/:timeframe" element={<Records />} />
             <Route path="conference-standings" element={<ConferenceStandings />} />
             <Route path="conference-standings/:year" element={<ConferenceStandings />} />
             <Route path="cfp-bracket" element={<CFPBracket />} />
@@ -209,10 +215,16 @@ function AppRoutes() {
                   <Route path="injury-report/:tid" element={<InjuryReport />} />
                   <Route path="dynasty-records" element={<DynastyRecords />} />
                   <Route path="dynasty-records/:category" element={<DynastyRecords />} />
+                  <Route path="season-stats" element={<SeasonStats />} />
+                  <Route path="season-stats/:position" element={<SeasonStats />} />
+                  <Route path="team-stats" element={<TeamStats />} />
+                  <Route path="team-stats/:side" element={<TeamStats />} />
                   <Route path="teams" element={<Teams />} />
                   <Route path="team/:tid/:year" element={<TeamYear />} />
                   <Route path="bowl-history" element={<BowlHistory />} />
                   <Route path="conference-championship-history" element={<ConferenceChampionshipHistory />} />
+                  <Route path="records" element={<Records />} />
+                  <Route path="records/:timeframe" element={<Records />} />
                   <Route path="conference-standings" element={<ConferenceStandings />} />
                   <Route path="conference-standings/:year" element={<ConferenceStandings />} />
                   <Route path="cfp-bracket" element={<CFPBracket />} />

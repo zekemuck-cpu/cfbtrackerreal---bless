@@ -124,7 +124,7 @@ const AWARD_LABELS = {
   outland: 'Outland', jimThorpe: 'Thorpe', fredBiletnikoff: 'Biletnikoff',
   johnMackey: 'Mackey', rimington: 'Rimington', rayGuy: 'Ray Guy',
   louGroza: 'Lou Groza', doakWalker: 'Doak Walker', unitasGoldenArm: 'Unitas Golden Arm',
-  edgeRusherOfTheYear: 'Edge Rusher of the Year', returnerOfTheYear: 'Returner of the Year',
+  edgeRusherOfTheYear: 'Edge Rusher of the Year', returnerOfTheYear: 'Jet Award',
   shaunAlexander: 'Shaun Alexander', tedHendricksAward: 'Hendricks',
   paulHornungAward: 'Paul Hornung', bowlMVP: 'Bowl MVP', cfpChampMVP: 'CFP Title MVP',
   williamVCampbell: 'William V. Campbell',

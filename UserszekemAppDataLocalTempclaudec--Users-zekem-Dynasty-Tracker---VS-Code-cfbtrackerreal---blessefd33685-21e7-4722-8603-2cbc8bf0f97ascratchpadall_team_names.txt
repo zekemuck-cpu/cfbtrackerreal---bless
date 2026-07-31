@@ -1,0 +1,143 @@
+Air Force Falcons
+Akron Zips
+Appalachian State Mountaineers
+Arizona Wildcats
+Arkansas Razorbacks
+Army Black Knights
+Arkansas State Red Wolves
+Arizona State Sun Devils
+Auburn Tigers
+Ball State Cardinals
+Alabama Crimson Tide
+Boston College Eagles
+Bowling Green Falcons
+Boise State Broncos
+Baylor Bears
+Buffalo Bulls
+Brigham Young Cougars
+California Golden Bears
+Coastal Carolina Chanticleers
+Charlotte 49ers
+Clemson Tigers
+Central Michigan Chippewas
+Colorado Buffaloes
+Connecticut Huskies
+Colorado State Rams
+Delaware Fightin' Blue Hens
+Duke Blue Devils
+East Carolina Pirates
+Eastern Michigan Eagles
+Florida Atlantic Owls
+Florida International Panthers
+Florida Gators
+Fresno State Bulldogs
+Florida State Seminoles
+Georgia Southern Eagles
+Georgia State Panthers
+Georgia Tech Yellow Jackets
+Hawaii Rainbow Warriors
+Illinois Fighting Illini
+Iowa Hawkeyes
+Iowa State Cyclones
+Indiana Hoosiers
+Jacksonville State Gamecocks
+James Madison Dukes
+Kennesaw State Owls
+Kent State Golden Flashes
+Kansas State Wildcats
+Kansas Jayhawks
+Liberty Flames
+Louisville Cardinals
+LSU Tigers
+Louisiana Tech Bulldogs
+Miami Redhawks
+Massachusetts Minutemen
+Memphis Tigers
+Miami Hurricanes
+Michigan Wolverines
+Minnesota Golden Gophers
+Ole Miss Rebels
+Missouri Tigers
+Marshall Thundering Herd
+Mississippi State Bulldogs
+Michigan State Spartans
+Middle Tennessee State Blue Raiders
+Missouri State Bears
+Navy Midshipmen
+North Carolina State Wolfpack
+Notre Dame Fighting Irish
+Nebraska Cornhuskers
+Nevada Wolf Pack
+Northern Illinois Huskies
+New Mexico State Aggies
+Northwestern Wildcats
+Old Dominion Monarchs
+Ohio Bobcats
+Oklahoma State Cowboys
+Oregon Ducks
+Oregon State Beavers
+Ohio State Buckeyes
+Oklahoma Sooners
+Pittsburgh Panthers
+Penn State Nittany Lions
+Purdue Boilermakers
+Rice Owls
+Rutgers Scarlet Knights
+South Carolina Gamecocks
+San Diego State Aztecs
+Sam Houston State Bearkats
+San Jose State Spartans
+SMU Mustangs
+Stanford Cardinal
+Syracuse Orange
+Texas A&M Aggies
+TCU Horned Frogs
+Temple Owls
+Texas Longhorns
+Tulsa Golden Hurricane
+Toledo Rockets
+Troy Trojans
+Texas Tech Red Raiders
+Tulane Green Wave
+Texas State Bobcats
+UAB Blazers
+Cincinnati Bearcats
+UCF Knights
+UCLA Bruins
+Georgia Bulldogs
+Houston Cougars
+Kentucky Wildcats
+Lafayette Ragin' Cajuns
+Monroe Warhawks
+Maryland Terrapins
+North Carolina Tar Heels
+UNLV Rebels
+New Mexico Lobos
+North Texas Mean Green
+South Alabama Jaguars
+USC Trojans
+South Florida Bulls
+Southern Mississippi Golden Eagles
+Utah State Aggies
+Tennessee Volunteers
+Utah Utes
+UTEP Miners
+UTSA Roadrunners
+Virginia Cavaliers
+Vanderbilt Commodores
+Virginia Tech Hokies
+Wake Forest Demon Deacons
+Washington Huskies
+Wisconsin Badgers
+Western Kentucky Hilltoppers
+Western Michigan Broncos
+Washington State Cougars
+West Virginia Mountaineers
+Wyoming Cowboys
+FCS East
+FCS Midwest
+FCS Northwest
+FCS West
+FCS Southeast
+North Dakota State Bison
+Sacramento State Hornets

@@ -103,6 +103,10 @@ function runSerialized(task) {
 
 // Exported so the admin recompress tool can re-encode already-stored images.
 // opts.quality overrides UPLOAD_QUALITY; opts.maxDim overrides MAX_UPLOAD_DIMENSION.
+// opts.preserveTransparency re-encodes as lossless PNG instead of lossy webp
+// (quality is ignored) — for graphics where a hard alpha edge matters (trophy
+// icons, logos) rather than photos, where lossy webp's alpha-adjacent color
+// bleeding and JPEG-style artifacting would visibly degrade sharp edges/text.
 export function compressImageBlob(blob, opts = {}) {
   return runSerialized(() => _compressImageBlobInner(blob, opts))
 }
@@ -115,6 +119,7 @@ async function _compressImageBlobInner(blob, opts = {}) {
 
     const quality = opts.quality ?? UPLOAD_QUALITY
     const maxDim = opts.maxDim ?? MAX_UPLOAD_DIMENSION
+    const outputType = opts.preserveTransparency ? 'image/png' : 'image/webp'
 
     const bmp = await createImageBitmap(blob)
     const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height))
@@ -129,10 +134,16 @@ async function _compressImageBlobInner(blob, opts = {}) {
     ctx.drawImage(bmp, 0, 0, w, h)
     bmp.close?.()
 
-    const out = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality))
+    const out = await new Promise((resolve) => canvas.toBlob(resolve, outputType, quality))
     // Release the canvas backing store before the next queued image decodes.
     canvas.width = 0
     canvas.height = 0
+    if (opts.preserveTransparency) {
+      // Lossless PNG re-encode is mainly about the dimension cap here, not
+      // shrinking bytes — keep it whenever it actually produced a valid PNG,
+      // even if slightly larger than the (possibly already-webp) source.
+      return (out && out.size > 0) ? out : blob
+    }
     // Keep whichever is smaller (re-encoding an already-tiny image can grow it).
     return (out && out.size > 0 && out.size < blob.size) ? out : blob
   } catch {
@@ -201,10 +212,10 @@ async function uploadViaR2(blob, signal) {
  * Upload a single image and return the hosted image URL.
  * Throws on failure — caller decides how to surface (toast, etc.).
  */
-export async function uploadImage(input, { signal } = {}) {
+export async function uploadImage(input, { signal, preserveTransparency } = {}) {
   let blob = coerceToBlob(input)
   // Shrink the source before upload so it loads fast later (see compressImageBlob).
-  blob = await compressImageBlob(blob)
+  blob = await compressImageBlob(blob, { preserveTransparency })
   if (blob.size > MAX_BYTES) {
     throw new Error(`Image must be ≤ ${Math.round(MAX_BYTES / 1024 / 1024)}MB`)
   }

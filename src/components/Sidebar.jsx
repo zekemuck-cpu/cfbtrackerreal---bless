@@ -9,7 +9,7 @@ import ShareDynastyModal from './ShareDynastyModal'
 import { useToast } from './ui'
 import { preloadByNavName } from '../routes/lazyPages'
 import { useAuth } from '../context/AuthContext'
-import { getEditionConfig } from '../editions'
+import { getEditionConfig, isDynastyBlueprintEnabled } from '../editions'
 import {
   DndContext, MouseSensor, TouchSensor, KeyboardSensor,
   useSensor, useSensors, closestCenter,
@@ -157,10 +157,10 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const showCoachesLink = totalEditors > 1
 
   // Edition-gated nav: the Dynasty Blueprint hub only exists for editions
-  // that enable the Dynasty Points economy (CFB 27+). CFB 26 dynasties
-  // never see the link. Reads the resolved edition config off the dynasty.
+  // that enable the Dynasty Points economy (CFB 27+), and only when the user
+  // hasn't hidden it via the "Hide Dynasty Blueprint" league preference.
   const editionConfig = getEditionConfig(currentDynasty)
-  const showBlueprint = Boolean(editionConfig?.features?.dynastyPoints) && !isViewOnly
+  const showBlueprint = isDynastyBlueprintEnabled(currentDynasty) && !isViewOnly
 
   // Scheme Builder's formation/play/scheme data is sourced from CFB 27's rule
   // set itself — hidden for other editions, but shown on Console CFB27 too
@@ -190,8 +190,11 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     ...(isPcAuto ? [{ name: 'Injury Report', path: `${pathPrefix}/injury-report/${teamTid}` }] : []),
     { name: 'Coach Career', path: `${pathPrefix}/coach-career` },
     { name: 'Leaderboard', path: `${pathPrefix}/dynasty-records` },
+    { name: 'Season Stats', path: `${pathPrefix}/season-stats` },
+    { name: 'Team Stats', path: `${pathPrefix}/team-stats` },
     { name: 'Bowl History', path: `${pathPrefix}/bowl-history` },
     { name: 'CC History', path: `${pathPrefix}/conference-championship-history` },
+    { name: 'Records', path: `${pathPrefix}/records` },
     { name: 'Awards', path: `${pathPrefix}/awards` },
     ...(isPcAuto ? [{ name: 'Players of the Week', path: `${pathPrefix}/players-of-week/${currentYear}` }] : []),
     ...(isPcAuto ? [{ name: 'Heisman Watch', path: `${pathPrefix}/heisman-watch/${currentYear}` }] : []),

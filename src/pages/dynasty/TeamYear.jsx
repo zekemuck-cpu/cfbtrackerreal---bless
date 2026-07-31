@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getEditionConfig, isPcAutoDynasty } from '../../editions'
+import { getEditionConfig, isPcAutoDynasty, isDynastyBlueprintEnabled } from '../../editions'
 import DynastyBlueprintPanel from '../../components/DynastyBlueprintPanel'
 import { ProgramGradesBody } from '../../components/ProgramGradesBody'
 import { getCoachByRole } from '../../data/coachModel'
@@ -37,6 +37,7 @@ import SortableStatsTable, { PlayerCell } from '../../components/SortableStatsTa
 import { formatScoreHighLow } from '../../utils/scoreFormat'
 import { getCoachStints } from '../../data/coachStats'
 import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
+import { computeLiveHonorsByPid, mergeHonorLists, matchHonorToPlayer } from '../../utils/honorMatch'
 import TeamOutlook from '../../components/TeamOutlook'
 import RivalriesTab from '../../components/RivalriesTab'
 
@@ -240,7 +241,7 @@ const AWARD_DISPLAY = {
   rimington: 'Rimington Trophy',
   louGroza: 'Lou Groza Award',
   rayGuy: 'Ray Guy Award',
-  returnerOfTheYear: 'Returner of the Year',
+  returnerOfTheYear: 'Jet Award',
   shaunAlexander: 'Shaun Alexander Award',
   paulHornungAward: 'Paul Hornung Award',
   williamVCampbell: 'William V. Campbell Award'
@@ -1262,7 +1263,13 @@ export default function TeamYear() {
   // Default tab: 'home' normally, but 'roster' when no games are on the
   // books yet for this team/year — the Home tab has nothing useful to
   // show pre-season, so skip straight to the Roster.
-  const activeTab = explicitTab || (teamYearGames.length === 0 ? 'roster' : 'home')
+  const defaultTab = teamYearGames.length === 0 ? 'roster' : 'home'
+  // A stale ?tab=blueprint (bookmark, or hiding Blueprint while on the tab)
+  // would otherwise land on an empty tab — fall back to the default instead.
+  const effectiveTab = (explicitTab === 'blueprint' && !isDynastyBlueprintEnabled(currentDynasty))
+    ? defaultTab
+    : explicitTab
+  const activeTab = effectiveTab || defaultTab
 
   // Check for both 'win'/'loss' and 'W'/'L' formats
   // Use _displayResult for flipped perspective games (opponent team pages)
@@ -3196,9 +3203,10 @@ export default function TeamYear() {
           <div className="flex overflow-x-auto no-scrollbar">
             {[
               { key: 'home', label: 'Home' },
-              // Blueprint (Program Overview) — only on the user's own team and
-              // only for editions with the Dynasty Points economy (CFB 27+).
-              ...(isUserTeam && getEditionConfig(currentDynasty)?.features?.dynastyPoints
+              // Blueprint (Program Overview) — only on the user's own team, only
+              // for editions with the Dynasty Points economy (CFB 27+), and only
+              // when the user hasn't hidden Blueprint in league preferences.
+              ...(isUserTeam && isDynastyBlueprintEnabled(currentDynasty)
                 ? [{ key: 'blueprint', label: 'Blueprint' }]
                 : []),
               { key: 'schedule', label: 'Schedule' },
@@ -3458,6 +3466,60 @@ export default function TeamYear() {
                           <span className="text-xs" style={{ color: accentColorMuted }}>
                             ({award.position})
                           </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* All-American / All-Conference Honors — this team's honorees for
+              the selected season. Pulled straight from
+              dynasty.allAmericansByYear (already tid-tagged per entry), not
+              from the player-record arrays, so cfb27 auto-synced honors show
+              up here immediately without needing the per-player merge used
+              on Player.jsx's Awards tab. */}
+          {(() => {
+            const yearHonors = currentDynasty.allAmericansByYear?.[selectedYear] || {}
+            const teamHonorees = [
+              ...(yearHonors.allAmericans || []).map(e => ({ ...e, honorType: 'All-American' })),
+              ...(yearHonors.allConference || []).map(e => ({ ...e, honorType: 'All-Conference' })),
+            ].filter(e => (e.schoolTid ?? resolveTid(e.school, teamsSource)) === tid)
+
+            if (teamHonorees.length === 0) return null
+
+            const desTier = (d) => d === 'first' ? '1st Team' : d === 'second' ? '2nd Team' : d === 'freshman' ? 'Freshman' : d
+
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-bold uppercase tracking-wider" style={{ color: accentColorMuted }}>{selectedYear} All-Americans / All-Conference</span>
+                </div>
+                <div className="card p-4 flex flex-wrap gap-x-6 gap-y-2 cfb-texture">
+                  {teamHonorees.map((h, idx) => {
+                    const matchingPlayer = matchHonorToPlayer(currentDynasty, h.player, h.school, h.schoolTid)
+                    const linkTo = `${pathPrefix}/${h.honorType === 'All-American' ? 'all-americans' : 'all-conference'}/${selectedYear}`
+                    return (
+                      <div key={`${h.honorType}-${idx}`} className="flex items-center gap-1.5 text-sm">
+                        <img src="/badges/all-american.png" alt="" className="w-auto shrink-0" style={{ height: '1em' }} />
+                        <Link to={linkTo} className="hover:underline" style={{ color: accentColorMuted }}>
+                          {h.honorType} ({desTier(h.designation)}):
+                        </Link>
+                        {matchingPlayer ? (
+                          <Link
+                            to={`${pathPrefix}/player/${matchingPlayer.pid}`}
+                            className="font-semibold hover:underline"
+                            style={{ color: accentColor }}
+                          >
+                            {h.player}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold" style={{ color: accentColor }}>{h.player}</span>
+                        )}
+                        {h.position && (
+                          <span className="text-xs" style={{ color: accentColorMuted }}>({h.position})</span>
                         )}
                       </div>
                     )
@@ -6571,7 +6633,13 @@ export default function TeamYear() {
         // Calculate AP Top 25 finishes
         const apTop25Finishes = yearRecords.filter(yr => yr.finalRank && yr.finalRank <= 25)
 
-        // Calculate All-Americans for this team
+        // Calculate All-Americans for this team. p.allAmericans is the real
+        // per-player field (was previously read as the nonexistent p.honors/
+        // p.awards, so this count was always 0) — merged with honors
+        // re-derived live from dynasty.allAmericansByYear, since cfb27
+        // auto-sync never copies synced honors onto the player record (see
+        // utils/honorMatch.js).
+        const liveHonorsByPidForTeam = computeLiveHonorsByPid(currentDynasty)
         const teamAllAmericans = (currentDynasty.players || []).filter(p => {
           // Check if player was on this team and has all-american honors
           const wasOnTeam = Object.entries(p.teamsByYear || {}).some(([year, team]) => {
@@ -6581,12 +6649,8 @@ export default function TeamYear() {
 
           if (!wasOnTeam) return false
 
-          // Check for all-american honors
-          const honors = p.honors || p.awards || []
-          return honors.some(h => {
-            const honorStr = typeof h === 'string' ? h.toLowerCase() : (h.award || h.type || '').toLowerCase()
-            return honorStr.includes('all-american') || honorStr.includes('all american')
-          })
+          const honors = mergeHonorLists(p.allAmericans || [], liveHonorsByPidForTeam.get(p.pid)?.allAmericans || [])
+          return honors.length > 0
         })
 
         // Get all games for this team to calculate user history

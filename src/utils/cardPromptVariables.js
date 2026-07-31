@@ -56,7 +56,7 @@ const AWARD_NAMES = {
   rimington: 'Rimington Trophy',
   louGroza: 'Lou Groza Award',
   rayGuy: 'Ray Guy Award',
-  returnerOfTheYear: 'Returner of the Year',
+  returnerOfTheYear: 'Jet Award',
   shaunAlexander: 'Shaun Alexander Award',
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
+import { editionHasFeature } from '../../editions'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useToast } from '../../components/ui/Toast'
 import { getEffectiveCharacters, isRealAccount, SOCIAL_UNIVERSE_VERSION } from '../../data/socialModel'
@@ -314,6 +315,29 @@ export default function LeaguePreferences() {
     }
   }
 
+  // Hide Dynasty Blueprint — presentational only. When on, every Blueprint
+  // surface (nav, panel/tab, dashboard budget/support-staff/facility to-dos,
+  // Dynasty Points framing on coach salaries) is hidden. Never deletes any
+  // recorded data — flip it back and everything returns. CFB 27+ only (that's
+  // where Blueprint exists), so the toggle hides itself on CFB 26.
+  const blueprintHidden = !!currentDynasty?.hideDynastyBlueprint
+  const [savingBlueprint, setSavingBlueprint] = useState(false)
+  const toggleBlueprint = async () => {
+    if (isViewOnly) { toast.error('Read-only mode.'); return }
+    if (savingBlueprint) return
+    const next = !blueprintHidden
+    setSavingBlueprint(true)
+    try {
+      await updateDynasty(currentDynasty.id, { hideDynastyBlueprint: next })
+      toast.success(next ? 'Dynasty Blueprint hidden.' : 'Dynasty Blueprint shown.')
+    } catch (err) {
+      console.error('[LeaguePreferences] blueprint toggle failed:', err)
+      toast.error(`Could not update: ${err?.message || 'Unknown error'}`)
+    } finally {
+      setSavingBlueprint(false)
+    }
+  }
+
   if (!currentDynasty) return null
 
   return (
@@ -322,12 +346,87 @@ export default function LeaguePreferences() {
         <h1 className="text-display-md text-txt-primary m-0">League Preferences</h1>
       </div>
 
+      {/* Hide Dynasty Blueprint — CFB 27+ only (Blueprint doesn't exist on CFB
+          26). Presentational; never deletes the recorded data. Kept at the
+          top of League Preferences, above Social Media Universe. */}
+      {editionHasFeature(currentDynasty, 'dynastyPoints') && (
+      <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
+        <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-txt-primary">Hide Dynasty Blueprint</div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={blueprintHidden}
+            onClick={toggleBlueprint}
+            disabled={isViewOnly || savingBlueprint}
+            className="relative inline-flex items-center rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
+            style={{
+              width: 46,
+              height: 26,
+              backgroundColor: blueprintHidden ? 'var(--text-primary)' : 'var(--surface-4)',
+            }}
+            title={blueprintHidden ? 'Show Dynasty Blueprint' : 'Hide Dynasty Blueprint'}
+          >
+            <span
+              className="inline-block rounded-full transition-transform"
+              style={{
+                width: 20,
+                height: 20,
+                background: 'var(--surface-1)',
+                transform: blueprintHidden ? 'translateX(23px)' : 'translateX(3px)',
+              }}
+            />
+          </button>
+        </div>
+      </section>
+      )}
+
+      {/* Scout Staff — opt-in alternative to MaxPlaysCFB ScoutScore. Kept at
+          the top of League Preferences, above Social Media Universe. Default
+          OFF. */}
+      <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
+        <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-txt-primary">Use Scout Staff instead of MaxPlaysCFB ScoutScore</div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={scoutStaffEnabled}
+            onClick={toggleScoutStaff}
+            disabled={isViewOnly || savingScoutStaff}
+            className="relative inline-flex items-center rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
+            style={{
+              width: 46,
+              height: 26,
+              backgroundColor: scoutStaffEnabled ? 'var(--text-primary)' : 'var(--surface-4)',
+            }}
+            title={scoutStaffEnabled ? 'Disable Scout Staff' : 'Enable Scout Staff'}
+          >
+            <span
+              className="inline-block rounded-full transition-transform"
+              style={{
+                width: 20,
+                height: 20,
+                background: 'var(--surface-1)',
+                transform: scoutStaffEnabled ? 'translateX(23px)' : 'translateX(3px)',
+              }}
+            />
+          </button>
+        </div>
+      </section>
+
       <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
         <div className="px-4 py-3 border-b border-surface-4 flex items-start justify-between gap-2 flex-wrap">
           <div>
             <h2 className="font-bold text-txt-primary m-0">Social Media Universe</h2>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* flex-wrap + min-w-0 (not flex-shrink-0): with four buttons this
+              row is wider than a phone screen — without wrapping the last
+              button clips off the card edge. */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
             {!isViewOnly && (
               <button onClick={() => setCreating(true)} className="px-3 py-1.5 rounded-lg text-xs font-semibold" style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}>+ New account</button>
             )}
@@ -336,6 +435,28 @@ export default function LeaguePreferences() {
               <>
                 <button onClick={() => fileRef.current?.click()} className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary">Import</button>
                 <input ref={fileRef} type="file" accept="application/json,.json" onChange={handleImportFile} className="hidden" />
+                {/* Deleting an account only tombstones its id (socialDeletedIds)
+                    — the character data itself is never removed. This clears
+                    the tombstone list, instantly restoring every account
+                    deleted from this page. */}
+                {(currentDynasty?.socialDeletedIds?.length > 0) && (
+                  <button
+                    onClick={async () => {
+                      const n = currentDynasty.socialDeletedIds.length
+                      if (!window.confirm(`Restore ${n} deleted account${n === 1 ? '' : 's'}?\n\nEvery account removed from this page comes back. Nothing else changes.`)) return
+                      try {
+                        await updateDynasty(currentDynasty.id, { socialDeletedIds: [], socialUpdatedAt: Date.now() })
+                        toast.success(`Restored ${n} account${n === 1 ? '' : 's'}.`)
+                      } catch (err) {
+                        console.error('[LeaguePreferences] restore deleted accounts failed:', err)
+                        toast.error('Could not restore accounts — try again.')
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-surface-4 text-txt-secondary hover:text-txt-primary"
+                  >
+                    Restore deleted ({currentDynasty.socialDeletedIds.length})
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -512,40 +633,6 @@ export default function LeaguePreferences() {
             </div>
           )
         })()}
-      </section>
-
-      {/* Scout Staff — opt-in alternative to MaxPlaysCFB ScoutScore. Kept at the
-          very bottom of League Preferences. Default OFF. */}
-      <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
-        <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-txt-primary">Use Scout Staff instead of MaxPlaysCFB ScoutScore</div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={scoutStaffEnabled}
-            onClick={toggleScoutStaff}
-            disabled={isViewOnly || savingScoutStaff}
-            className="relative inline-flex items-center rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
-            style={{
-              width: 46,
-              height: 26,
-              backgroundColor: scoutStaffEnabled ? 'var(--text-primary)' : 'var(--surface-4)',
-            }}
-            title={scoutStaffEnabled ? 'Disable Scout Staff' : 'Enable Scout Staff'}
-          >
-            <span
-              className="inline-block rounded-full transition-transform"
-              style={{
-                width: 20,
-                height: 20,
-                background: 'var(--surface-1)',
-                transform: scoutStaffEnabled ? 'translateX(23px)' : 'translateX(3px)',
-              }}
-            />
-          </button>
-        </div>
       </section>
 
       {editingChar && (
