@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { createStaffAccessor } from './staffDB';
+import { getAllStaffDataForDynasty, createStaffAccessor } from './staffDB';
+import { uploadImage } from '../utils/imageUpload';
 import PlayerDatabase from './PlayerDatabase';
 import ScoutAnalysis from './ScoutAnalysis';
 import ThresholdLookup from './ThresholdLookup';
@@ -74,6 +75,46 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
   const { toast } = useToast();
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams);
   const teamLogo   = currentDynasty?.teams?.[currentDynasty?.currentTid]?.logo || '';
+
+  // One-time cloud migration: earlier builds stored Scout Staff config only in
+  // a device-local IndexedDB ('ScoutStaffComprehensiveDB'). Now it lives on
+  // dynasty.scoutStaff and syncs like everything else. When a dynasty has no
+  // scoutStaff yet but this device still holds legacy local config, lift it up
+  // once so nothing is lost. Fresh dynasties/devices simply start empty.
+  const migratedRef = useRef(new Set());
+  useEffect(() => {
+    const id = currentDynasty?.id;
+    if (!id || isViewOnly) return;
+    if (currentDynasty.scoutStaff !== undefined) return; // already on the cloud model
+    if (migratedRef.current.has(id)) return;
+    migratedRef.current.add(id);
+    (async () => {
+      try {
+        const legacy = await getAllStaffDataForDynasty(id);
+        if (legacy && Object.keys(legacy).length) {
+          // Legacy portraits were stored as base64 data URLs. Re-host them to
+          // the image host so they don't bloat the cloud doc; drop rather than
+          // persist base64 if the re-host fails.
+          for (const k of ['scout_img', 'analyst_img']) {
+            const v = legacy[k];
+            if (typeof v === 'string' && v.startsWith('data:')) {
+              try {
+                const blob = await (await fetch(v)).blob();
+                legacy[k] = await uploadImage(blob);
+              } catch {
+                delete legacy[k];
+              }
+            }
+          }
+          await updateDynasty(id, { scoutStaff: legacy });
+        }
+      } catch (err) {
+        console.warn('[ScoutStaff] legacy staff migration failed:', err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDynasty?.id, currentDynasty?.scoutStaff, isViewOnly]);
+
   const subView = SECTION_TO_VIEW[section] || 'home';
   const [dbHighlightPid, setDbHighlightPid] = useState(null);
   const highlightPid = dbHighlightPid;

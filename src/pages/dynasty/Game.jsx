@@ -132,8 +132,8 @@ function getMascotName(abbr, teamsData = null) {
     'MIZ': 'Missouri Tigers', 'OU': 'Oklahoma Sooners',
     'GSU': 'Georgia State Panthers',
     // FCS teams
-    'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
-    'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
+    'FCSE': 'FCS East Sentinels', 'FCSM': 'FCS Midwest Thunderbirds',
+    'FCSN': 'FCS Northwest Kodiaks', 'FCSW': 'FCS West Rivertoads'
   }
   return mascotMap[abbr] || null
 }

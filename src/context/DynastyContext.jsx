@@ -110,7 +110,7 @@ import { migrateDynastyToEditors, needsEditorsMigration, getMemberTeams, snapsho
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 import { shapeTargetForDatabase } from '../utils/recruitAttributes'
 import { normalizeEditionKey, DEFAULT_EDITION } from '../editions'
-import { getAllStaffDataForDynasty, setAllStaffDataForDynasty } from '../components/staffDB'
+import { getAllStaffDataForDynasty } from '../components/staffDB'
 
 const DynastyContext = createContext()
 
@@ -5266,6 +5266,19 @@ const REAL_FCS_LOGOS = {
   141: '/fcs-logos/fcs-southeast.png',
 }
 
+// Canonical names for the four pre-existing FCS slots. Both the truly-old
+// made-up nicknames (Judicials/Rebels/Stallions/Titans) AND the bare
+// no-nickname names ("FCS East" etc., canonical until the nicknames below
+// were adopted to match the upstream repo's naming) are treated as legacy —
+// any slot still holding one of those gets renamed. A user-customized name
+// passes through untouched.
+const CANONICAL_FCS_NAMES = {
+  137: { name: 'FCS East Sentinels',       legacy: ['FCS East Judicials', 'FCS East'] },
+  138: { name: 'FCS Midwest Thunderbirds', legacy: ['FCS Midwest Rebels', 'FCS Midwest'] },
+  139: { name: 'FCS Northwest Kodiaks',    legacy: ['FCS Northwest Stallions', 'FCS Northwest'] },
+  140: { name: 'FCS West Rivertoads',      legacy: ['FCS West Titans', 'FCS West'] },
+}
+
 function correctFCSLogos(teams) {
   if (!teams) return teams
   let next = teams
@@ -5279,16 +5292,32 @@ function correctFCSLogos(teams) {
   return next
 }
 
+// Idempotent, unconditional — runs on every load (not just the one-shot
+// migration below) so a name-scheme change (like adopting nicknames) reaches
+// dynasties that already ran the gated migration, same as correctFCSLogos.
+function correctFCSNames(teams) {
+  if (!teams) return teams
+  let next = teams
+  for (const [tidStr, { name, legacy }] of Object.entries(CANONICAL_FCS_NAMES)) {
+    const tid = Number(tidStr)
+    const slot = next[tid]
+    if (slot && legacy.includes(slot.name)) {
+      next = { ...next, [tid]: { ...slot, name } }
+    }
+  }
+  return next
+}
+
 export function migrateFCSFiveTeams(dynasty) {
   if (!dynasty) return dynasty
 
   // The main one-shot migration is gated by _fcs5TeamsMigrated, but the
-  // logo correction runs unconditionally below (cheap, idempotent — only
-  // acts on slots still holding an empty or known-wrong logo URL). This
-  // handles dynasties that already ran the gated migration before the
-  // real logos were known.
+  // logo/name corrections run unconditionally below (cheap, idempotent —
+  // only act on slots still holding an empty/known-wrong logo URL or a
+  // legacy name). This handles dynasties that already ran the gated
+  // migration before the real logos/names were known.
   if (dynasty._fcs5TeamsMigrated) {
-    const correctedTeams = correctFCSLogos(dynasty.teams)
+    const correctedTeams = correctFCSNames(correctFCSLogos(dynasty.teams))
     if (correctedTeams !== dynasty.teams) {
       return { ...dynasty, teams: correctedTeams }
     }
@@ -5296,17 +5325,6 @@ export function migrateFCSFiveTeams(dynasty) {
   }
 
   const teams = { ...(dynasty.teams || {}) }
-
-  // Canonical names for the four pre-existing FCS slots. The migration
-  // overwrites the team's `name` with these only if the current name
-  // matches one of the legacy made-up forms (so user-renamed FCS teams
-  // are left alone).
-  const canonicalNames = {
-    137: { name: 'FCS East',      legacy: ['FCS East Judicials'] },
-    138: { name: 'FCS Midwest',   legacy: ['FCS Midwest Rebels'] },
-    139: { name: 'FCS Northwest', legacy: ['FCS Northwest Stallions'] },
-    140: { name: 'FCS West',      legacy: ['FCS West Titans'] },
-  }
 
   // Rename old 4-letter abbrs to CFB26's 5-letter codes (only when the
   // dynasty still holds the legacy 4-letter form).
@@ -5317,9 +5335,9 @@ export function migrateFCSFiveTeams(dynasty) {
     teams[139] = { ...teams[139], abbr: 'FCSNW' }
   }
 
-  // Strip made-up nicknames from any FCS slot still holding the legacy
-  // form. User-customized names pass through untouched.
-  for (const [tidStr, { name, legacy }] of Object.entries(canonicalNames)) {
+  // Strip made-up/legacy nicknames from any FCS slot still holding one.
+  // User-customized names pass through untouched.
+  for (const [tidStr, { name, legacy }] of Object.entries(CANONICAL_FCS_NAMES)) {
     const tid = Number(tidStr)
     const slot = teams[tid]
     if (slot && legacy.includes(slot.name)) {
@@ -16368,19 +16386,20 @@ export function DynastyProvider({ children }) {
     const exportData = { ...dynasty }
     delete exportData._firestoreId
 
-    // Scout Staff's config (staff hires, Program Outlook settings — starter
-    // targets, leaving flags, recruit strategy, etc.) lives in a separate
-    // local-only IndexedDB store, not on the dynasty object, so it's pulled
-    // in here explicitly — otherwise a restored backup would come back with
-    // the Recruiting Database's prospects intact but Scout Staff reset to
-    // a blank slate.
-    try {
-      const scoutStaffData = await getAllStaffDataForDynasty(dynasty.id)
-      if (Object.keys(scoutStaffData).length > 0) {
-        exportData._scoutStaffData = scoutStaffData
+    // Scout Staff config now lives on dynasty.scoutStaff, so it's already in
+    // exportData above for any dynasty that's gone through the one-time cloud
+    // migration (see ScoutStaff.jsx). Safety net for a dynasty that hasn't
+    // been reopened since that migration shipped: fall back to reading the
+    // legacy local-only store directly so nothing is silently left out.
+    if (!exportData.scoutStaff) {
+      try {
+        const scoutStaffData = await getAllStaffDataForDynasty(dynasty.id)
+        if (Object.keys(scoutStaffData).length > 0) {
+          exportData.scoutStaff = scoutStaffData
+        }
+      } catch (err) {
+        console.warn('Failed to include Scout Staff data in export:', err)
       }
-    } catch (err) {
-      console.warn('Failed to include Scout Staff data in export:', err)
     }
 
     // Convert to JSON string with pretty formatting
@@ -16458,9 +16477,16 @@ export function DynastyProvider({ children }) {
       isPublic: oldIsPublic,
       googleSheetsByTeam: oldGoogleSheets,
       favorite: oldFavorite, // Don't carry over starred status
-      _scoutStaffData: importedScoutStaffData, // restored separately below, not a dynasty field
+      _scoutStaffData: importedScoutStaffData, // legacy backups only; migrated onto scoutStaff below
       ...cleanDynastyData
     } = dynastyData
+
+    // Legacy backups stored Scout Staff config under _scoutStaffData (a separate
+    // local IndexedDB store). It now lives on dynasty.scoutStaff, so lift an old
+    // backup's config onto the dynasty object when the new field isn't present.
+    if (importedScoutStaffData && Object.keys(importedScoutStaffData).length > 0 && !cleanDynastyData.scoutStaff) {
+      cleanDynastyData.scoutStaff = importedScoutStaffData
+    }
 
     // Set timestamps to now (import time, not old export time)
     const now = Date.now()
@@ -16541,11 +16567,6 @@ export function DynastyProvider({ children }) {
 
       await indexedDBStorage.saveDynasties(migratedDynasties)
       setDynasties(migratedDynasties)
-
-      if (importedScoutStaffData && Object.keys(importedScoutStaffData).length > 0) {
-        try { await setAllStaffDataForDynasty(newId, importedScoutStaffData) }
-        catch (err) { console.warn('Failed to restore Scout Staff data on import:', err) }
-      }
 
       reportProgress('complete', 'Import complete!', 100)
     } else {
@@ -16682,11 +16703,6 @@ export function DynastyProvider({ children }) {
           const gameProgress = 65 + Math.round((batchEnd / gameCount) * 30)
           reportProgress('games', `Importing games (${batchEnd}/${gameCount})...`, gameProgress, `${batchEnd} of ${gameCount} games`)
         }
-      }
-
-      if (importedScoutStaffData && Object.keys(importedScoutStaffData).length > 0) {
-        try { await setAllStaffDataForDynasty(result.id, importedScoutStaffData) }
-        catch (err) { console.warn('Failed to restore Scout Staff data on import:', err) }
       }
 
       // For local state, include players and games

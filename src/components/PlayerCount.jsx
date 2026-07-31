@@ -45,7 +45,7 @@ ARCHETYPE_REGISTRY.forEach(({ position, archetype }) => {
 });
 
 export default function PlayerCount({ onSelectBucket = null, actionsRef = null, onReady = null } = {}) {
-  const { currentDynasty } = useDynasty();
+  const { currentDynasty, updateDynasty } = useDynasty();
   const [selectedPos, setSelectedPos] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
   const [selectedStar, setSelectedStar] = useState('5');
@@ -59,7 +59,7 @@ export default function PlayerCount({ onSelectBucket = null, actionsRef = null, 
   const [scoutName, setScoutName] = useState('National Scout');
 
   useEffect(() => {
-    const { getStaffData } = createStaffAccessor(currentDynasty?.id ?? null);
+    const { getStaffData } = createStaffAccessor(currentDynasty, updateDynasty);
     async function loadScout() {
       const img  = await getStaffData('scout_img');
       const name = await getStaffData('scout_name');

@@ -1163,7 +1163,7 @@ export const TEAMS = {
   137: {
     tid: 137,
     abbr: "FCSE",
-    name: "FCS East",
+    name: "FCS East Sentinels",
     primaryColor: "#1B2A4A",
     secondaryColor: "#C9A227",
     logo: "/fcs-logos/fcs-east.png",
@@ -1172,7 +1172,7 @@ export const TEAMS = {
   138: {
     tid: 138,
     abbr: "FCSMW",
-    name: "FCS Midwest",
+    name: "FCS Midwest Thunderbirds",
     primaryColor: "#5C1A1B",
     secondaryColor: "#2EC4B6",
     logo: "/fcs-logos/fcs-midwest.png",
@@ -1181,7 +1181,7 @@ export const TEAMS = {
   139: {
     tid: 139,
     abbr: "FCSNW",
-    name: "FCS Northwest",
+    name: "FCS Northwest Kodiaks",
     primaryColor: "#0D2B2E",
     secondaryColor: "#FFC72C",
     logo: "/fcs-logos/fcs-northwest.png",
@@ -1190,7 +1190,7 @@ export const TEAMS = {
   140: {
     tid: 140,
     abbr: "FCSW",
-    name: "FCS West",
+    name: "FCS West Rivertoads",
     primaryColor: "#1A1A1A",
     secondaryColor: "#E91E8C",
     logo: "/fcs-logos/fcs-west.png",

@@ -78,8 +78,8 @@ const getMascotName = (abbr, teamsData = null) => {
     'GAST': 'Georgia State Panthers', 'OKLA': 'Oklahoma Sooners', 'RUT': 'Rutgers Scarlet Knights',
     'SAM': 'Sam Houston State Bearkats', 'TUL': 'Tulane Green Wave', 'TXTECH': 'Texas Tech Red Raiders',
     'UF': 'Florida Gators', 'UM': 'Miami Hurricanes',
-    'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
-    'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
+    'FCSE': 'FCS East Sentinels', 'FCSM': 'FCS Midwest Thunderbirds',
+    'FCSN': 'FCS Northwest Kodiaks', 'FCSW': 'FCS West Rivertoads'
   }
   return mascotMap[abbr] || null
 }

@@ -11,7 +11,7 @@ import GemBustIcon from './GemBustIcon';
 import { PROFILES, POSITIONS } from './ThresholdLookup';
 import { archetypeBaseScore, normalizeArch, computeScore } from './archetypeWeights';
 import { recruitingPosLabel } from '../utils/recruitAttributes';
-import { isPlayerOnRoster } from '../context/DynastyContext';
+import { isPlayerOnRoster, useDynasty } from '../context/DynastyContext';
 import { buildRevealedPool } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap } from '../utils/devPrediction';
 import { getContrastTextColor } from '../utils/colorUtils';
@@ -1294,7 +1294,8 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ScoutAnalysis({ players = [], removedRecruits = [], onToggleBoardRemoved = null, teamColors, teamLogo, dynasty, committedRecruits = [], onOutlookReady, jumpToPos = null, resetToOverviewKey = null, actionsRef = null, onReady = null }) {
-  const { getStaffData, saveStaffData } = createStaffAccessor(dynasty?.id ?? null);
+  const { updateDynasty } = useDynasty();
+  const { getStaffData, saveStaffData } = createStaffAccessor(dynasty, updateDynasty);
   const navigate = useNavigate();
 
   // One Recruiting Plan pill (named target or generic "1 HS"/"1 Portal" slot) —

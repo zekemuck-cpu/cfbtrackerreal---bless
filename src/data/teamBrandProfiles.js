@@ -2721,11 +2721,12 @@ const FCS_TEAMS = {
     shortNickname: "Hawks",
     confidence: "medium"
   },
-  "FCS Northwest": {
+  "FCS Northwest Kodiaks": {
     // Updated to match the real bundled logo file (public/fcs-logos/
     // fcs-northwest.png) — the old stallion-head design doesn't match;
     // it's a bear head inside a mountain peak with pine trees. Nickname
-    // ("Grizzlies") inferred from the imagery, not confirmed in-game.
+    // ("Kodiaks") — imagery kept as our bundled logo, nickname adopted to
+    // match the upstream repo's naming.
     primaryPMS: null,
     primaryHex: "#0D2B2E",
     secondaryPMS: null,
@@ -2739,11 +2740,11 @@ const FCS_TEAMS = {
     isFictional: true,
     homeJerseyColor: "charcoal",
     awayJerseyColor: "white",
-    graphicNotes: "Generic in-game FCS opponent (mascot inferred: Grizzlies). Dark charcoal/navy (#0D2B2E) paired with gold (#FFC72C) for the pine trees, gray for the bear, and a white outer outline. The bear-in-a-mountain mark is the only logo — no secondary logo, no wordmark fallback.",
-    shortNickname: "Grizzlies",
+    graphicNotes: "Generic in-game FCS opponent (mascot: Kodiaks). Dark charcoal/navy (#0D2B2E) paired with gold (#FFC72C) for the pine trees, gray for the bear, and a white outer outline. The bear-in-a-mountain mark is the only logo — no secondary logo, no wordmark fallback.",
+    shortNickname: "Kodiaks",
     confidence: "medium"
   },
-  "FCS Midwest": {
+  "FCS Midwest Thunderbirds": {
     // Updated for this year's redesigned in-game logo — the old
     // donkey/mule-and-lightning-bolt mark ("Rebels") no longer matches what
     // the game actually renders. Confirmed via a real score graphic attempt
@@ -2767,11 +2768,12 @@ const FCS_TEAMS = {
     shortNickname: "Thunderbirds",
     confidence: "medium"
   },
-  "FCS East": {
+  "FCS East Sentinels": {
     // Updated to match the real bundled logo file (public/fcs-logos/
     // fcs-east.png) — the old robed-magistrate design doesn't match; it's a
-    // colonial minuteman head in a tricorn hat. Nickname ("Patriots")
-    // inferred from the imagery, not confirmed in-game.
+    // colonial minuteman head in a tricorn hat. Nickname ("Sentinels") —
+    // imagery kept as our bundled logo, nickname adopted to match the
+    // upstream repo's naming.
     primaryPMS: null,
     primaryHex: "#1B2A4A",
     secondaryPMS: null,
@@ -2785,15 +2787,16 @@ const FCS_TEAMS = {
     isFictional: true,
     homeJerseyColor: "navy",
     awayJerseyColor: "white",
-    graphicNotes: "Generic in-game FCS opponent (mascot inferred: Patriots/Minutemen). Navy blue (#1B2A4A) paired with gold (#C9A227), a tan flesh tone for the face, and a white outer outline. The soldier head is the only mark — no secondary logo, no wordmark fallback.",
-    shortNickname: "Patriots",
+    graphicNotes: "Generic in-game FCS opponent (mascot: Sentinels). Navy blue (#1B2A4A) paired with gold (#C9A227), a tan flesh tone for the face, and a white outer outline. The soldier head is the only mark — no secondary logo, no wordmark fallback.",
+    shortNickname: "Sentinels",
     confidence: "medium"
   },
-  "FCS West": {
+  "FCS West Rivertoads": {
     // Updated to match the real bundled logo file (public/fcs-logos/
     // fcs-west.png) — the old lightning-bolt design doesn't match; it's an
-    // aggressive pink frog/toad head. Nickname ("Toads") inferred from the
-    // imagery, not confirmed in-game.
+    // aggressive pink frog/toad head. Nickname ("Rivertoads") — imagery
+    // kept as our bundled logo, nickname adopted to match the upstream
+    // repo's naming.
     primaryPMS: null,
     primaryHex: "#E91E8C",
     secondaryPMS: null,
@@ -2807,8 +2810,8 @@ const FCS_TEAMS = {
     isFictional: true,
     homeJerseyColor: "black",
     awayJerseyColor: "hot pink",
-    graphicNotes: "Generic in-game FCS opponent (mascot inferred: Toads). Hot pink/magenta (#E91E8C) is the dominant color, with black used for outlines and shading. The frog head is the only mark — no secondary logo, no wordmark fallback.",
-    shortNickname: "Toads",
+    graphicNotes: "Generic in-game FCS opponent (mascot: Rivertoads). Hot pink/magenta (#E91E8C) is the dominant color, with black used for outlines and shading. The frog head is the only mark — no secondary logo, no wordmark fallback.",
+    shortNickname: "Rivertoads",
     confidence: "medium"
   }
 }
@@ -2840,6 +2843,10 @@ const TEAM_NAME_ALIASES = {
   'Monroe Warhawks': 'Louisiana Monroe Warhawks',
   'Massachusetts Minutemen': 'UMass Minutemen',
   "Lafayette Ragin' Cajuns": 'Louisiana Ragin Cajuns',
+  'FCS East': 'FCS East Sentinels',
+  'FCS Midwest': 'FCS Midwest Thunderbirds',
+  'FCS Northwest': 'FCS Northwest Kodiaks',
+  'FCS West': 'FCS West Rivertoads',
 }
 
 /**

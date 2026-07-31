@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createStaffAccessor } from './staffDB';
 import { normalizeArch } from './archetypeWeights';
 import { recruitingPosLabel } from '../utils/recruitAttributes';
+import { useDynasty } from '../context/DynastyContext';
 import {
   DEV_TRAITS, getFormAttrs, buildRevealedPool, getAllTierProfiles,
   countBoundaries, gapToStrong,
@@ -667,7 +668,8 @@ function dynamicBadgeText(profile, attrEntries, direction = 'above') {
 }
 
 export default function ThresholdLookup({ players = [], teamColors, teamLogo, dynastyId = null, jumpTarget = null, actionsRef = null, onReady = null }) {
-  const { getStaffData } = createStaffAccessor(dynastyId);
+  const { currentDynasty } = useDynasty();
+  const { getStaffData } = createStaffAccessor(currentDynasty);
   const { toast } = useToast();
   const p = teamColors?.primary || '#374151';
   const teamAccent = p;

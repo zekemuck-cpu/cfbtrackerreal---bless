@@ -3,11 +3,8 @@ import { computeScore } from './archetypeWeights';
 import { recruitingPosLabel } from '../utils/recruitAttributes';
 import { buildRevealedPool } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap } from '../utils/devPrediction';
-
-// =========================================================================
-// LIGHTWEIGHT INDEXEDDB MANAGER (Permanently Bypasses the 5MB Quota Limit)
-// =========================================================================
 import { createStaffAccessor } from './staffDB';
+import { useDynasty } from '../context/DynastyContext';
 import RecruitingPlanRow from './RecruitingPlanRow';
 import GemBustIcon from './GemBustIcon';
 import { getContrastTextColor } from '../utils/colorUtils';
@@ -202,7 +199,8 @@ export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, 
   // Program Outlook should always land on Overview when reached via a plain
   // nav button.
   const goToAnalysisOverview = onGoToAnalysisOverview || (() => {});
-  const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(dynastyId);
+  const { currentDynasty, updateDynasty } = useDynasty();
+  const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(currentDynasty, updateDynasty);
   const p = teamColors?.primary   || '#374151';
   const s = teamColors?.secondary || '#ffffff';
 

@@ -1204,7 +1204,6 @@ function EditModal({ player, pool, weightsMap, maxRank, onSave, onClose, onDelet
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function PlayerDatabase({ players, roleContext, teamColors, teamLogo, onDelete, onEdit, onGoToInput, dynastyId = null, highlightPid = null, actionsRef = null, onReady = null }) {
-  const { getStaffData } = createStaffAccessor(dynastyId);
   const p = teamColors?.primary || '#374151';
   const teamAccent = p;
   const teamBgText = getContrastTextColor(teamAccent);
@@ -1225,6 +1224,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   // (paste/upload a TSV) — see RecruitingDatabaseImportModal.jsx; there is no
   // live Google Sheet sync.
   const { currentDynasty, updateDynasty, updateRecruitingDatabasePlayers } = useDynasty();
+  const { getStaffData } = createStaffAccessor(currentDynasty, updateDynasty);
   const auth = useAuthErrorHandler();
   const { toast } = useToast();
   const [showHelpPanel, setShowHelpPanel] = useState(false);

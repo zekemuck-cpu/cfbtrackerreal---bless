@@ -109,8 +109,8 @@ const getMascotName = (abbr, teamsData = null) => {
     'UH': 'Houston Cougars', 'UL': 'Lafayette Ragin\' Cajuns', 'UM': 'Miami Hurricanes',
     'UMD': 'Maryland Terrapins', 'UT': 'Tennessee Volunteers', 'VAN': 'Vanderbilt Commodores',
     // FCS teams
-    'FCSE': 'FCS East Patriots', 'FCSM': 'FCS Midwest Thunderbirds',
-    'FCSN': 'FCS Northwest Grizzlies', 'FCSW': 'FCS West Toads'
+    'FCSE': 'FCS East Sentinels', 'FCSM': 'FCS Midwest Thunderbirds',
+    'FCSN': 'FCS Northwest Kodiaks', 'FCSW': 'FCS West Rivertoads'
   }
   return mascotMap[abbr] || null
 }

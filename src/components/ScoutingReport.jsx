@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getStaffData } from './staffDB';
+import { createStaffAccessor } from './staffDB';
+import { useDynasty } from '../context/DynastyContext';
 
 // --- CONSTANTS ---
 export const RECRUIT_FORM_OVERRIDES = {
@@ -73,6 +74,7 @@ export const OPTIONS_REGISTRY = [
 ];
 
 export default function ScoutingReport({ setView, players, setPlayers }) {
+  const { currentDynasty } = useDynasty();
   const [form, setForm] = useState({
     name: '', position: 'QB', archetype: 'Pocket Passer', devTrait: 'Normal', stars: '5',
     attrs: Array(10).fill('')
@@ -81,13 +83,14 @@ export default function ScoutingReport({ setView, players, setPlayers }) {
   const [scoutName, setScoutName] = useState('National Scout');
 
     useEffect(() => {
+    const { getStaffData } = createStaffAccessor(currentDynasty);
     async function loadScout() {
       try {
         const img = await getStaffData('scout_img');
         const name = await getStaffData('scout_name');
-        
+
         console.log("Database fetch result:", { img, name }); // DEBUG: Check console
-        
+
         if (img) setScoutImg(img);
         if (name) setScoutName(name);
       } catch (err) {
@@ -95,7 +98,7 @@ export default function ScoutingReport({ setView, players, setPlayers }) {
       }
     }
     loadScout();
-  }, []);
+  }, [currentDynasty]);
 
   const currentOptions = OPTIONS_REGISTRY.find(item => item.position === form.position);
   const availableArchetypes = currentOptions ? currentOptions.archetypes : [];
