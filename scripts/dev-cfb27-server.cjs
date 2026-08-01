@@ -29,6 +29,22 @@ const path = require('path');
 const crypto = require('crypto');
 const { extractFullSave } = require('../api/_lib/cfb27Extract/extractPlayers.cjs');
 
+// This is a long-running process serving many requests across a dev
+// session, unlike the real Vercel functions it stands in for (each of
+// those runs in its own isolated invocation, so an unhandled rejection
+// there only kills that one request). The Admin SDK's BulkWriter can
+// surface a permanently-failed write as a rejection outside the awaited
+// bulkWriter.close() call (a known gotcha, more likely against the
+// emulator if it's still stabilizing right after startup) — without this
+// handler that takes the whole server down and every subsequent request
+// fails until it's manually restarted. Log and keep serving instead.
+process.on('unhandledRejection', (err) => {
+  console.error('[dev-cfb27-server] Unhandled rejection (server staying up):', err?.message || err);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[dev-cfb27-server] Uncaught exception (server staying up):', err?.message || err);
+});
+
 // Minimal .env.local loader (this is a plain Node script, not part of
 // Vite's build, so it doesn't get Vite's automatic env loading). Only cares
 // about FIREBASE_SERVICE_ACCOUNT / VITE_USE_FIREBASE_EMULATOR — good enough
