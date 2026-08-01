@@ -21,6 +21,8 @@ import {
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -40,6 +42,8 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -60,6 +64,29 @@ export default function DraftResultsModal({ isOpen, onClose, onSave, currentYear
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
   }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear, currentDynasty])
 
+  // Pre-fill the local grid with THIS team's already-saved draft results for
+  // the year so the modal opens ready to edit. The parser reads
+  // row[0]=Player, row[1]=Draft Round and requires BOTH non-blank, so we emit
+  // only entries that have both a name and a round — round-trip safe.
+  const initialText = useMemo(() => {
+    const tid = getCurrentTeamTid(currentDynasty)
+    const teamAbbr =
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const fromTid = tid != null
+      ? currentDynasty?.teams?.[tid]?.byYear?.[currentYear]?.draftResults
+      : null
+    const legacy = currentDynasty?.draftResultsByTeamYear
+    const fromLegacy =
+      (tid != null ? legacy?.[tid]?.[currentYear] : null) ??
+      (teamAbbr ? legacy?.[teamAbbr]?.[currentYear] : null)
+    const results = fromTid ?? fromLegacy ?? []
+    return results
+      .filter(r => r?.playerName && r?.draftRound)
+      .map(r => `${r.playerName}\t${r.draftRound}`)
+      .join('\n')
+  }, [currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentDynasty?.draftResultsByTeamYear, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Draft Results`,
     roster: userRoster,
@@ -76,8 +103,7 @@ CRITICAL RULES — read before anything else
 5. No header row, no totals, no commentary INSIDE the data block.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Draft Results"
-Paste at cell A2 of the "Draft Results" tab
+SECTION: "Draft Results"
 ═══════════════════════════════════════════════════════════
 
 Col | Header (protected)  | Your output                              | Format
@@ -102,7 +128,7 @@ NOT allowed: "Round 1", "R1", "1st round", "1", "1st", "1st-round", "first round
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== DRAFT RESULTS — paste at cell A2 of "Draft Results" tab ===
+=== DRAFT RESULTS ===
 <Player Name>\t<Draft Round>
 <Player Name>\t<Draft Round>
 ...
@@ -121,6 +147,8 @@ FINAL CHECK before you send
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -156,8 +184,15 @@ FINAL CHECK before you send
 
   // Create draft results sheet when modal opens
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !noDraftDeclarees) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !noDraftDeclarees && !creationAttemptedRef.current) {
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -202,7 +237,7 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, noDraftDeclarees, currentYear])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote, noDraftDeclarees, currentYear])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -210,8 +245,19 @@ FINAL CHECK before you send
       setShowDeletedNote(false)
       setNoDraftDeclarees(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits Player<TAB>DraftRound rows, exactly the two
+  // columns the parser reads as row[0]/row[1] — no pre-filled columns, so the
+  // pasted rows map straight through with no normalization.
+  const handleLocalImport = async (text) => {
+    const draftResults = await readDraftResultsFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows: splitTsv(text) })
+    await onSave(draftResults)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -365,6 +411,16 @@ FINAL CHECK before you send
               </button>
             </div>
           </div>
+        ) : useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Draft Results"
+            columns={['Player', 'Draft Round']}
+            initialText={initialText}
+          />
         ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">

@@ -28,6 +28,8 @@ const ImageUpload = forwardRef(function ImageUpload({
   compact = false,
   disabled = false,
   hideDropzone = false,
+  // Hide the built-in "Paste from Clipboard" button when an external control
+  // (e.g. a 3-step Copy → Open AI → Paste row) drives the paste instead.
   hidePasteButton = false,
   preserveTransparency = false,
 }, ref) {
@@ -258,6 +260,7 @@ const ImageUpload = forwardRef(function ImageUpload({
 
   useImperativeHandle(ref, () => ({
     triggerFileSelect: () => fileInputRef.current?.click(),
+    pasteFromClipboard: handleClipboardPaste,
     handleDragOver,
     handleDragLeave,
     handleDrop,

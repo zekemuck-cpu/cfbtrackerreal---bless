@@ -86,14 +86,6 @@ export default function Contact() {
 
         {/* Discord server — the headline CTA */}
         <div className="relative mb-4">
-          {/* Celebration bubble — pops out above the logo */}
-          <div
-            className="absolute -top-3 left-9 sm:left-12 z-10 px-3 py-1.5 rounded-full bg-white text-[#404EED] text-[11px] sm:text-xs font-bold shadow-lg pointer-events-none"
-          >
-            Discord link is now fixed!
-            <div className="absolute -bottom-1 left-4 w-2.5 h-2.5 bg-white rotate-45" />
-          </div>
-
         <a
           href={DISCORD_INVITE_URL}
           target="_blank"

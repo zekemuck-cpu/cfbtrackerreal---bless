@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDynasty, getUserGamePerspective, GAME_TYPES } from '../../context/DynastyContext'
-import { getGameTeamInfo } from '../../data/teamRegistry'
+import { getGameTeamInfo, getCurrentTeamName } from '../../data/teamRegistry'
 import { getTeamLogo, getMascotName } from '../../data/teams'
 import { weekSortKey } from '../../utils/compareUtils'
 import { gameWeekLabel } from '../../utils/weekLabel'
@@ -29,6 +29,10 @@ export default function TeamHistory() {
   if (!currentDynasty) return null
 
   const teams = currentDynasty?.teams
+
+  // Live-resolve the user's current team name from currentTid, never the stored
+  // `teamName` snapshot. Fall back to the snapshot only for legacy pre-tid saves.
+  const currentTeamName = getCurrentTeamName(currentDynasty) || currentDynasty.teamName
 
   const isWin = (game) => game.perspective?.userWon === true
   const isLoss = (game) => game.perspective && !game.perspective.userWon
@@ -97,7 +101,7 @@ export default function TeamHistory() {
     seasons.push({
       year,
       role: roleDisplay,
-      school: currentDynasty.teamName,
+      school: currentTeamName,
       conference: currentDynasty.conference,
       wins,
       losses,
@@ -130,7 +134,7 @@ export default function TeamHistory() {
   return (
     <div className="space-y-4">
       <PageHero
-        eyebrow={currentDynasty.teamName}
+        eyebrow={currentTeamName}
         title="Team History"
         meta={
           <>

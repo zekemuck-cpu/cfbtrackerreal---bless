@@ -258,16 +258,21 @@ export default function Awards() {
   const TrophyCard = ({ awardKey, awardData }) => {
     const display = AWARD_DISPLAY[awardKey]
     const img = AWARD_IMAGES[awardKey]
-    const mascotName = getMascotName(awardData.team, currentDynasty?.teams || currentDynasty?.customTeams)
+    // Resolve team identity LIVE from the durable tid the award row stores; only
+    // fall back to the stored abbr snapshot for legacy rows that have no tid.
+    const teamTid = awardData.tid != null
+      ? Number(awardData.tid)
+      : resolveTid(awardData.team, currentDynasty?.teams || TEAMS)
+    const teamAbbrLive = currentDynasty?.teams?.[teamTid]?.abbr || awardData.team
+    const mascotName = getMascotName(teamAbbrLive, currentDynasty?.teams || currentDynasty?.customTeams)
     const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
     const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
     const primary = colors?.primary || '#3a3f47'
     const pillText = getContrastTextColor(primary)
-    const matchingPlayer = findPlayerByName(awardData.player, awardData.team, displayYear)
+    const matchingPlayer = findPlayerByName(awardData.player, teamAbbrLive, displayYear)
     const isCoachAward = display.category === 'coach'
-    const schoolName = getSchoolName(mascotName) || awardData.team
-    const teamTid = resolveTid(awardData.team, currentDynasty?.teams || TEAMS)
-    const teamAbbrVal = currentDynasty?.teams?.[teamTid]?.abbr || awardData.team
+    const schoolName = getSchoolName(mascotName) || teamAbbrLive
+    const teamAbbrVal = teamAbbrLive
     const isHeisman = awardKey === 'heisman'
     const to = (matchingPlayer && !isCoachAward)
       ? `${pathPrefix}/player/${matchingPlayer.pid}`

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { isAuthError } from '../utils/authErrors'
+import { isAuthError, describeSheetError } from '../utils/authErrors'
 
 /**
  * Standard auth-error machinery for sheet-driven modals. Replaces the
@@ -52,12 +52,20 @@ export function useAuthErrorHandler() {
     return false
   }, [])
 
+  // Build the toast string for a NON-auth sheet error (call only after
+  // handleError returned false). Surfaces the real Google reason and a
+  // correct rate-limit / Drive-full message instead of the old blanket
+  // "Could not create the sheet. Refresh your session" — which was wrong
+  // for every non-auth cause and was the dead end users kept hitting.
+  const describeError = useCallback((err, action) => describeSheetError(err, action), [])
+
   return {
     showAuthError,
     closeAuthError,
     retry,
     retryCount,
     handleError,
+    describeError,
     // Direct setters for the rare modal that needs to force-open or
     // suppress the dialog outside the handleError flow.
     setShowAuthError,

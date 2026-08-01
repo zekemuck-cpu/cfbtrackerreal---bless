@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
+import { useDynasty, calculateTeamRecordFromGames, getTeamRecord, getCustomConferencesForYear, getTeamRankForWeek, getConferenceDivisionsForYear, getTeamDivisionForDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
@@ -8,7 +8,6 @@ import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
-import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../../data/conferenceTeams'
 import { getConferenceTrophy } from '../../utils/trophyEngine'
 import {
@@ -264,8 +263,54 @@ export default function ConferenceStandings() {
     const src = currentDynasty?.teams || currentDynasty?.customTeams || {}
     return new Set(Object.values(src).map(t => t?.abbr).filter(Boolean))
   }, [currentDynasty?.teams, currentDynasty?.customTeams])
+  // tid is the stable team identity — a user-edited abbr must not drop a
+  // team from its conference card or collide row keys. Membership is decided
+  // by tid via this live-tid set. The alignment maps (customConfsForYear /
+  // DEFAULT_CONFERENCE_TEAMS) are abbr-keyed, so each alignment abbr is
+  // resolved to a tid ONCE against the live teams and compared here; we keep
+  // the abbr path only when a tid can't be resolved (unknown team) so a
+  // genuinely-unknown alignment entry never silently disappears.
+  const liveTeamTids = useMemo(() => {
+    const src = currentDynasty?.teams || currentDynasty?.customTeams || {}
+    const set = new Set()
+    for (const [key, t] of Object.entries(src)) {
+      const tid = t?.tid != null ? Number(t.tid) : Number(key)
+      if (Number.isFinite(tid)) set.add(tid)
+    }
+    return set
+  }, [currentDynasty?.teams, currentDynasty?.customTeams])
+  // Resolve an alignment abbr to a tid STRICTLY from the league file
+  // (dynasty.teams). The static team registry only spawns NEW dynasties; once a
+  // dynasty exists, its teams map is the sole source of truth. A user-edited
+  // abbr must never be re-resolved through the registry, where the same string
+  // can point at a different team (e.g. this dynasty's "UL" is Louisville, but
+  // the registry's "UL" is Louisiana — that collision was rendering Louisville
+  // as the Ragin' Cajuns). tid is the stable identity; abbrs are just labels.
+  const abbrToTidLive = useMemo(() => {
+    const src = currentDynasty?.teams || currentDynasty?.customTeams || {}
+    const map = new Map()
+    for (const [key, t] of Object.entries(src)) {
+      const tid = t?.tid != null ? Number(t.tid) : Number(key)
+      if (!Number.isFinite(tid)) continue
+      const abbr = t?.abbr ? String(t.abbr).trim().toUpperCase() : null
+      if (abbr && !map.has(abbr)) map.set(abbr, tid)
+    }
+    return map
+  }, [currentDynasty?.teams, currentDynasty?.customTeams])
+  const resolveTidLive = (abbr) => {
+    if (abbr == null) return null
+    const tid = abbrToTidLive.get(String(abbr).trim().toUpperCase())
+    return tid != null ? tid : null
+  }
+  const abbrIsLive = (abbr) => {
+    if (abbr == null) return false
+    const tid = resolveTidLive(abbr)
+    if (tid != null) return liveTeamTids.has(Number(tid))
+    // tid unresolvable (unknown team) — keep the abbr path so nothing vanishes
+    return liveTeamAbbrs.has(abbr)
+  }
   const conferenceHasLiveTeams = (abbrs) =>
-    Array.isArray(abbrs) && abbrs.some(a => liveTeamAbbrs.has(a))
+    Array.isArray(abbrs) && abbrs.some(a => abbrIsLive(a))
 
   const orderIndex = (name) => {
     const i = CONFERENCE_ORDER.indexOf(name)
@@ -287,9 +332,20 @@ export default function ConferenceStandings() {
     </Button>
   ) : null
 
+  const heroSearch = (
+    <div className="w-44 sm:w-56">
+      <Input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder="Search conferences..."
+        size="sm"
+      />
+    </div>
+  )
+
   const hero = (
     <PageHero
-      eyebrow="Standings"
       title={
         availableYears.length > 0 ? (
           <TitleWithYear
@@ -302,7 +358,12 @@ export default function ConferenceStandings() {
           "Conference Standings"
         )
       }
-      actions={heroActions}
+      actions={
+        <>
+          {heroSearch}
+          {heroActions}
+        </>
+      }
     />
   )
 
@@ -346,7 +407,7 @@ export default function ConferenceStandings() {
     const mascotName = teamFromTid?.name || getMascotName(teamAbbr, teamsSource)
     const logo = mascotName ? getTeamLogo(mascotName, teamsSource) : null
     const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#666', secondary: '#fff' }
-    const linkTid = team.tid != null ? Number(team.tid) : resolveTid(teamAbbr, teamsSource || TEAMS)
+    const linkTid = team.tid != null ? Number(team.tid) : resolveTidLive(teamAbbr)
     // Coverage-aware source-of-truth: pick whichever record covers more
     // games — calc-from-games or the saved standings row. Same rule the
     // team page uses (TeamYear.jsx ~1402). Without this, a single
@@ -519,8 +580,15 @@ export default function ConferenceStandings() {
   const buildConferenceRoster = (conferenceName) => {
     // Only show teams that exist in the dynasty (source of truth), so removed
     // teams never appear even if saved standings / alignment still reference them.
+    // Membership by tid (stable identity). Saved rows carry tid on modern
+    // writes — prefer it; fall back to abbr membership only for legacy rows
+    // that predate tid stamping (or degenerate null-team rows).
     const saved = getConferenceData(yearStandings, conferenceName)
-      .filter(row => row?.team == null || liveTeamAbbrs.has(row.team))
+      .filter(row =>
+        row?.tid != null
+          ? liveTeamTids.has(Number(row.tid))
+          : (row?.team == null || abbrIsLive(row.team))
+      )
     if (saved.length > 0) return saved
 
     const confMap = customConfsForYear || DEFAULT_CONFERENCE_TEAMS
@@ -532,12 +600,24 @@ export default function ConferenceStandings() {
         break
       }
     }
-    return teamAbbrs
-      .filter(abbr => liveTeamAbbrs.has(abbr))
-      .map(abbr => {
-        const tid = resolveTid(abbr, teamsSource || TEAMS)
-        return { team: abbr, tid: tid != null ? Number(tid) : null, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 }
-      })
+    // Resolve each alignment abbr to a tid ONCE and dedup by tid, so a
+    // renamed team (or two alignment abbrs collapsing to one tid) yields a
+    // single stub row. Unknown teams (tid unresolvable) keep the abbr path
+    // so they don't vanish.
+    const seenTids = new Set()
+    const rows = []
+    for (const abbr of teamAbbrs) {
+      const rawTid = resolveTidLive(abbr)
+      const liveTid = rawTid != null && liveTeamTids.has(Number(rawTid)) ? Number(rawTid) : null
+      if (liveTid != null) {
+        if (seenTids.has(liveTid)) continue
+        seenTids.add(liveTid)
+        rows.push({ team: abbr, tid: liveTid, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 })
+      } else if (liveTeamAbbrs.has(abbr)) {
+        rows.push({ team: abbr, tid: null, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 })
+      }
+    }
+    return rows
   }
 
   // Conference card component
@@ -564,12 +644,6 @@ export default function ConferenceStandings() {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div
-              className="label-xs text-txt-tertiary"
-              style={{ letterSpacing: '1.5px', fontSize: '9px' }}
-            >
-              CONFERENCE
-            </div>
             <h3 className="font-display font-bold text-txt-primary text-base truncate leading-tight">
               {conferenceName}
             </h3>
@@ -655,8 +729,9 @@ export default function ConferenceStandings() {
                 // shared helper (handles both numeric and string year keys).
                 return getTeamRankForWeek(currentDynasty, tid, displayYear, 0)
               }
-              const enriched = teams.map(t => {
-                const tid = t.tid != null ? Number(t.tid) : resolveTid(t.team, teamsSrc || TEAMS)
+              const renderRows = (list) => {
+              const enriched = list.map(t => {
+                const tid = t.tid != null ? Number(t.tid) : resolveTidLive(t.team)
                 // Use the same coverage-aware helper as the row render
                 // above. Without it the sort would happily reorder a
                 // 9-4 stored team behind a 1-0 sparse-calc team, which
@@ -716,11 +791,45 @@ export default function ConferenceStandings() {
                 : (a, b) => (a.rank || 0) - (b.rank || 0)
               return enriched.sort(sortFn).map((team, idx) => (
                 <TeamRow
-                  key={`${team.team}-${idx}`}
+                  key={team.tid ?? `${team.team}-${idx}`}
                   team={team}
                   rank={anyLive ? idx + 1 : (team.rank || idx + 1)}
                 />
               ))
+              }
+
+              // If this conference is split into divisions, group the teams under
+              // two division sub-headers (still one column). Teams whose stored
+              // division matches the SECOND name go to division 2; everyone else
+              // (including no/other division) defaults to division 1 — matching
+              // how the alignment modal seeds a split.
+              const divs = getConferenceDivisionsForYear(currentDynasty, displayYear)?.[conferenceName]
+              if (divs && divs.length === 2) {
+                const secondName = divs[1]
+                return [0, 1].map((idx) => {
+                  const list = teams.filter(t => {
+                    const d = getTeamDivisionForDynasty(currentDynasty, t.tid != null ? t.tid : t.team, displayYear)
+                    return idx === 1 ? d === secondName : d !== secondName
+                  })
+                  return (
+                    <div key={idx}>
+                      <div
+                        className="flex items-center justify-between px-3 py-1"
+                        style={{ backgroundColor: 'var(--surface-2)', borderBottom: '1px solid var(--surface-4)' }}
+                      >
+                        <span className="label-xs text-txt-secondary font-bold truncate" style={{ letterSpacing: '1px', fontSize: '10px' }}>
+                          {divs[idx]}
+                        </span>
+                        <span className="text-[10px] tabular text-txt-tertiary flex-shrink-0">{list.length}</span>
+                      </div>
+                      {list.length
+                        ? renderRows(list)
+                        : <div className="px-3 py-2 text-[11px] text-txt-tertiary text-center">No teams</div>}
+                    </div>
+                  )
+                })
+              }
+              return renderRows(teams)
             })()}
           </div>
         ) : (
@@ -740,16 +849,6 @@ export default function ConferenceStandings() {
   return (
     <div className={pageWrapperClass}>
       {hero}
-
-      <div className="max-w-md">
-        <Input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search conferences..."
-          size="md"
-        />
-      </div>
 
       <div ref={containerRef} className="grid grid-cols-1 lg:grid-cols-2 gap-6 stagger-reveal">
         {filteredConferences.map(conferenceName => (
@@ -792,18 +891,19 @@ export default function ConferenceStandings() {
       <ConferencesModal
         isOpen={showConferencesModal}
         onClose={() => setShowConferencesModal(false)}
-        onSave={async (data) => {
+        onSave={async (data, divData) => {
           const isMultiYear = Object.keys(data).every(key => /^\d{4}$/.test(key))
-          // saveConferenceAlignment fans the bulk map out to each
-          // team's per-year `byYear[year].conference` field, AND
-          // continues writing the legacy customConferencesByYear /
-          // customConferences stores for backward compat.
+          // saveConferenceAlignment fans the bulk map out to each team's per-year
+          // `byYear[year].conference` (+ `.division`) field. divData is keyed by
+          // year: { [year]: { divisions, teamDivisions } }.
           if (isMultiYear) {
             for (const [yearKey, mapForYear] of Object.entries(data)) {
-              await saveConferenceAlignment(currentDynasty.id, Number(yearKey), mapForYear)
+              const opts = divData?.[yearKey] || {}
+              await saveConferenceAlignment(currentDynasty.id, Number(yearKey), mapForYear, opts)
             }
           } else {
-            await saveConferenceAlignment(currentDynasty.id, currentDynasty.currentYear, data)
+            const opts = divData?.[currentDynasty.currentYear] || {}
+            await saveConferenceAlignment(currentDynasty.id, currentDynasty.currentYear, data, opts)
           }
         }}
         teamColors={teamColors}

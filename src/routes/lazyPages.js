@@ -1,11 +1,36 @@
 import { lazy } from 'react'
 
+// Retry a dynamic import a couple of times before giving up. React.lazy
+// memoizes the FIRST settled promise forever — a single transient network
+// blip (wifi flicker, backgrounded PWA waking up) used to permanently
+// poison that page for the rest of the session: every visit re-threw the
+// cached rejection and the page rendered blank ("the Coach Career page
+// just randomly disappears"). Retrying inside the factory means the
+// memoized promise only rejects after several genuine failures, and the
+// RouteErrorBoundary + stale-chunk reload handle that terminal case.
+function retryImport(factory, retries = 2, delayMs = 750) {
+  return new Promise((resolve, reject) => {
+    const attempt = (remaining) => {
+      factory().then(resolve).catch((err) => {
+        if (remaining <= 0) {
+          reject(err)
+          return
+        }
+        setTimeout(() => attempt(remaining - 1), delayMs)
+      })
+    }
+    attempt(retries)
+  })
+}
+
 // Wraps React.lazy with a `.preload()` method so we can warm chunks on hover
 // or during idle time. Vite dedupes concurrent dynamic imports, so calling
-// preload() multiple times is cheap.
+// preload() multiple times is cheap. Preload failures are swallowed — they
+// are an optimization, and the click-time lazy factory retries anyway; a
+// hover-time rejection must never surface as an unhandled error.
 function lazyWithPreload(factory) {
-  const Comp = lazy(factory)
-  Comp.preload = factory
+  const Comp = lazy(() => retryImport(factory))
+  Comp.preload = () => factory().catch(() => {})
   return Comp
 }
 
@@ -14,8 +39,10 @@ export const Roster = lazyWithPreload(() => import('../pages/dynasty/Roster'))
 export const Rankings = lazyWithPreload(() => import('../pages/dynasty/Rankings'))
 export const Stats = lazyWithPreload(() => import('../pages/dynasty/Stats'))
 export const CoachCareer = lazyWithPreload(() => import('../pages/dynasty/CoachCareer'))
+export const CoachBuild = lazyWithPreload(() => import('../pages/dynasty/CoachBuild'))
 export const Coaches = lazyWithPreload(() => import('../pages/dynasty/Coaches'))
 export const Players = lazyWithPreload(() => import('../pages/dynasty/Players'))
+export const ComparePlayers = lazyWithPreload(() => import('../pages/dynasty/ComparePlayers'))
 export const Player = lazyWithPreload(() => import('../pages/dynasty/Player'))
 export const PlayerEdit = lazyWithPreload(() => import('../pages/dynasty/PlayerEdit'))
 export const PlayersByState = lazyWithPreload(() => import('../pages/dynasty/PlayersByState'))
@@ -37,6 +64,7 @@ export const ConferenceStandings = lazyWithPreload(() => import('../pages/dynast
 export const CFPBracket = lazyWithPreload(() => import('../pages/dynasty/CFPBracket'))
 export const WeeklyScores = lazyWithPreload(() => import('../pages/dynasty/WeeklyScores'))
 export const CardCollection = lazyWithPreload(() => import('../pages/dynasty/CardCollection'))
+export const ManageRivalries = lazyWithPreload(() => import('../pages/dynasty/ManageRivalries'))
 export const Game = lazyWithPreload(() => import('../pages/dynasty/Game'))
 export const GameEdit = lazyWithPreload(() => import('../pages/dynasty/GameEdit'))
 export const SocialCharacter = lazyWithPreload(() => import('../pages/dynasty/SocialCharacter'))
@@ -50,7 +78,6 @@ export const CoachEdit = lazyWithPreload(() => import('../pages/dynasty/CoachEdi
 export const DevTools = lazyWithPreload(() => import('../pages/dynasty/DevTools'))
 export const ImageGallery = lazyWithPreload(() => import('../pages/admin/ImageGallery'))
 export const ScoutStaff = lazyWithPreload(() => import('../components/ScoutStaff'))
-export const CoachBuild = lazyWithPreload(() => import('../pages/dynasty/CoachBuild'))
 export const SchemeBuilder = lazyWithPreload(() => import('../pages/dynasty/SchemeBuilder'))
 export const TopClasses = lazyWithPreload(() => import('../pages/dynasty/TopClasses'))
 export const PlayersOfWeek = lazyWithPreload(() => import('../pages/dynasty/PlayersOfWeek'))
@@ -82,6 +109,7 @@ export const preloadByNavName = {
   'Around the Country': WeeklyScores.preload,
   'All Teams': Teams.preload,
   'All Players': Players.preload,
+  'Compare Players': ComparePlayers.preload,
   'Danger Zone': DangerZone.preload,
   'AI Prompts': PromptStudio.preload,
   'Dynasty Blueprint': TeamYear.preload,

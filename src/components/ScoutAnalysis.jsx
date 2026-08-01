@@ -1129,6 +1129,9 @@ function buildPositionHub(pos, posPlayers, archList, rosterCtx, availableSpots, 
   const assembledText = '';
   const unmentioned = [];
   if (false) {
+    // Declared so this block is correct if the `if (false)` guard is ever
+    // lifted — it was referencing `sentences` without ever declaring it.
+    const sentences = [];
     const unmLeaving = [];
     const unmCommits = unmentioned.filter(p => p.isIncoming);
     const unmDepth    = unmentioned.filter(p => !p.isLeaving && !p.isIncoming);
@@ -1373,18 +1376,13 @@ export default function ScoutAnalysis({ players = [], removedRecruits = [], onTo
   );
 
   useEffect(() => {
-    // dynasty.id starts out null/undefined on a hard refresh (currentDynasty
-    // hydrates asynchronously) — this effect used to have an empty deps
-    // array, so if it fired before dynasty.id was ready, getStaffData above
-    // was permanently stuck using the unprefixed accessor from that first
-    // render (a stale closure — redefining getStaffData on every render
-    // doesn't help once this effect has already run). Every override below
-    // (cut/draft/transfer flags, starter thresholds, preferred archetypes,
-    // etc.) would then silently read as empty despite being saved correctly,
-    // since saves always happen well after dynasty.id is loaded. Depending on
-    // dynasty?.id and bailing until it's real fixes the race, and as a bonus
-    // correctly reloads this dynasty's own overrides if dynasty ever changes
-    // out from under this component without it unmounting.
+    // dynasty starts out null/undefined on a hard refresh (currentDynasty
+    // hydrates asynchronously). With an empty deps array this effect used to
+    // run once on that first render and permanently close over getStaffData
+    // built from the not-yet-ready dynasty, so every override below read as
+    // empty despite being saved correctly (saves always happen after the
+    // dynasty is loaded). Bail until dynasty?.id is real and re-run when it
+    // becomes available (or the dynasty changes out from under us).
     if (!dynasty?.id) return;
     async function load() {
       // Fire every staffDB read in parallel instead of chaining them one

@@ -22,11 +22,24 @@ import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { PageHero, Card, Button, Badge, EmptyState, TeamLogo } from '../../components/ui'
 import { getTeamLogoByTid } from '../../data/teams'
+import { getContrastTextColor } from '../../utils/colorUtils'
+
+// Same broadcast sheen the team-page header uses: a diagonal highlight plus a
+// soft vertical darken, layered over the team's primary color.
+const TEAM_SHEEN =
+  'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.42) 100%)'
 import { getCoachStints } from '../../data/coachStats'
 import {
   createInviteDoc,
   deleteInviteDoc,
   subscribeToInvites,
+  addEditorAtomic,
+  removeMemberAtomic,
+  setCoCommishAtomic,
+  setMemberTeamsAtomic,
+  addLocalCoachAtomic,
+  removeLocalCoachAtomic,
+  leaveDynasty as leaveDynastyAtomic,
 } from '../../services/dynastyService'
 import {
   getEditors,
@@ -54,10 +67,30 @@ import {
   buildInviteUrl,
   getCoachingStaffForUid,
   setCoachingStaffForUid,
+  getLocalCoachIds,
+  getLocalCoachOwner,
+  isLocalCoachId,
+  createLocalCoachId,
+  addLocalCoachToMap,
+  removeLocalCoachFromMap,
   ROLE_COMMISH,
   ROLE_COCOMMISH,
   ROLE_MEMBER,
 } from '../../data/leagueModel'
+import {
+  getCoaches,
+  getCoach,
+  getCoachesControlledBy,
+  getCurrentTeamTidForCoach,
+  applyControlledCoachTeam,
+  deriveMemberTeamsIndex,
+  removeCoachSeason,
+  setCoachSeason,
+  deleteCoach,
+  generateCid,
+  COACH_ROLES,
+  COACH_ROLE_LABELS,
+} from '../../data/coachModel'
 import MemberTimelineEditor from '../../components/MemberTimelineEditor'
 
 function shortenUid(uid) {
@@ -87,7 +120,7 @@ export default function LeagueSettings() {
   const [pendingUid, setPendingUid] = useState('')
   const [busyUid, setBusyUid] = useState(null)
   const [nameDrafts, setNameDrafts] = useState({})
-  const [timelineUid, setTimelineUid] = useState(null)
+  const [timelineCid, setTimelineCid] = useState(null)
   const [staffDraft, setStaffDraft] = useState(null) // { hcName, ocName, dcName } | null
   const [invites, setInvites] = useState([])
   // Default expiration for newly-generated invites. Stored client-side
@@ -147,7 +180,11 @@ export default function LeagueSettings() {
     if (rb === ROLE_COCOMMISH) return 1
     return 0
   })
-  const totalMembers = 1 + otherEditors.length
+  // The roster counts CONTROLLED coaches (each member's separately-tracked
+  // careers), so a solo owner running two coaches reads as two.
+  const controlledCoachCount = Object.values(getCoaches(currentDynasty))
+    .filter(c => c && c.controlledBy != null).length
+  const totalMembers = Math.max(1 + otherEditors.length, controlledCoachCount)
 
   const teamOptions = Object.entries(teamsSource)
     .filter(([, t]) => t && t.name)
@@ -171,7 +208,7 @@ export default function LeagueSettings() {
     }
     setBusyUid('__add__')
     try {
-      await updateDynasty(currentDynasty.id, { editors: addEditor(currentDynasty, uid) })
+      await addEditorAtomic(currentDynasty.id, uid)
       toast.success('Member added.')
       setPendingUid('')
     } catch (err) {
@@ -194,11 +231,7 @@ export default function LeagueSettings() {
     if (!ok) return
     setBusyUid(uid)
     try {
-      await updateDynasty(currentDynasty.id, {
-        editors: removeEditor(currentDynasty, uid),
-        coCommishes: removeCoCommish(currentDynasty, uid),
-        ...dropMemberMetadata(currentDynasty, uid),
-      })
+      await removeMemberAtomic(currentDynasty.id, uid)
       toast.info('Member removed.')
     } catch (err) {
       console.error('[Members] remove failed:', err)
@@ -326,11 +359,7 @@ export default function LeagueSettings() {
     if (!ok) return
     setBusyUid(user.uid)
     try {
-      await updateDynasty(currentDynasty.id, {
-        editors: removeEditor(currentDynasty, user.uid),
-        coCommishes: removeCoCommish(currentDynasty, user.uid),
-        ...dropMemberMetadata(currentDynasty, user.uid),
-      })
+      await leaveDynastyAtomic(currentDynasty.id, user.uid)
       toast.info('You left the dynasty.')
       // Drop them back to the dynasty list — they can't view this one anymore.
       window.location.href = '/'
@@ -373,37 +402,69 @@ export default function LeagueSettings() {
     }
   }
 
-  // Both the live memberTeams map and the per-year history snapshot
-  // are written together — one call per change. The history stamp uses
-  // the dynasty's current year, so the Coach Career page can later
-  // rebuild who controlled what without revisiting Firestore.
-  const writeMemberTeamsAndStamp = async (uid, nextMemberTeams) => {
-    const teamsForUid = nextMemberTeams[uid] || []
-    const nextHistory = stampHistoryForYear(
-      currentDynasty.memberTeamHistory,
-      uid,
-      currentDynasty.currentYear,
-      teamsForUid,
-    )
+  // ── Coach writes ─────────────────────────────────────────────────
+  // coaches[cid] is the source of truth. We persist the full coaches map
+  // plus the re-derived security index (merged over the existing one so no
+  // member ever loses game-write access), dual-mode via updateDynasty. The
+  // legacy uid-keyed maps are left untouched as a frozen pre-migration
+  // snapshot. `_coachesControlMigrated` rides along so the load-migration
+  // stays a no-op once the user has touched a coach.
+  const writeCoaches = async (nextCoaches) => {
+    const memberTeams = {
+      ...(currentDynasty.memberTeams || {}),
+      ...deriveMemberTeamsIndex({ ...currentDynasty, coaches: nextCoaches }),
+    }
     await updateDynasty(currentDynasty.id, {
-      memberTeams: nextMemberTeams,
-      memberTeamHistory: nextHistory,
+      coaches: nextCoaches,
+      memberTeams,
+      _coachesControlMigrated: true,
     })
   }
 
-  const handleAddTeam = async (uid, tidStr) => {
-    if (!canManage) return
+  const newCoach = (uid) => ({
+    cid: generateCid(),
+    name: 'New Coach',
+    controlledBy: uid,
+    status: 'active',
+    departedYear: null,
+    byYear: {},
+  })
+
+  // Assign a team to a member: fill one of their teamless coaches if any,
+  // else create a NEW coach for that team (separate tracked career per team).
+  // Anyone may manage their OWN coaches; commish/co-commish manage anyone's.
+  const handleAssignTeam = async (uid, tidStr) => {
+    if (!canManage && uid !== user.uid) return
     const tid = Number(tidStr)
     if (!Number.isFinite(tid)) return
-    const role = getRole(currentDynasty, uid)
-    const cap = maxTeamsForRole(role)
+    // A member can't take a team another coach already controls — only the
+    // commish can reassign across coaches.
+    if (!canManage) {
+      const taken = Object.values(getCoaches(currentDynasty)).some(c =>
+        c && c.controlledBy != null && c.controlledBy !== user.uid &&
+        Number(getCurrentTeamTidForCoach(c, currentDynasty.currentYear)) === tid
+      )
+      if (taken) {
+        toast.error('That team is controlled by another coach. Ask the commissioner to reassign it.')
+        return
+      }
+    }
     setBusyUid(uid)
     try {
-      // For capped roles (members), `Add` always REPLACES.
-      const next = cap === Infinity
-        ? addMemberTeam(currentDynasty, uid, tid)
-        : setMemberTeam(currentDynasty, uid, tid)
-      await writeMemberTeamsAndStamp(uid, next)
+      const year = currentDynasty.currentYear
+      const mine = getCoachesControlledBy(currentDynasty, uid)
+      const teamless = mine.find(c => getCurrentTeamTidForCoach(c, year) == null)
+      let base = getCoaches(currentDynasty)
+      let cid
+      if (teamless) {
+        cid = teamless.cid
+      } else {
+        const c = newCoach(uid)
+        base = { ...base, [c.cid]: c }
+        cid = c.cid
+      }
+      const { coaches } = applyControlledCoachTeam({ ...currentDynasty, coaches: base }, cid, year, tid)
+      await writeCoaches(coaches)
     } catch (err) {
       console.error('[Members] assign team failed:', err)
       toast.error('Failed to assign team.')
@@ -412,15 +473,119 @@ export default function LeagueSettings() {
     }
   }
 
-  const handleRemoveTeam = async (uid, tid) => {
-    if (!canManage) return
+  const handleAddCoach = async (uid) => {
+    if (!canManage && uid !== user.uid) return
     setBusyUid(uid)
     try {
-      const next = removeMemberTeam(currentDynasty, uid, tid)
-      await writeMemberTeamsAndStamp(uid, next)
+      const c = newCoach(uid)
+      await writeCoaches({ ...getCoaches(currentDynasty), [c.cid]: c })
+      toast.success('Coach added. Assign it a team.')
     } catch (err) {
-      console.error('[Members] remove team failed:', err)
-      toast.error('Failed to remove team.')
+      console.error('[Members] add coach failed:', err)
+      toast.error('Failed to add coach.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  // Set (or clear) a specific coach's team for the current season — the
+  // per-coach team picker on each card. tidStr '' clears the team.
+  const handleSetCoachTeam = async (cid, tidStr) => {
+    const coach = getCoach(currentDynasty, cid)
+    if (!coach) return
+    if (!canManage && coach.controlledBy !== user.uid) return
+    const year = currentDynasty.currentYear
+    const tid = tidStr === '' ? null : Number(tidStr)
+    if (tidStr !== '' && !Number.isFinite(tid)) return
+    // Members can't take a team another coach already controls.
+    if (tid != null && !canManage) {
+      const taken = Object.values(getCoaches(currentDynasty)).some(c =>
+        c && c.controlledBy != null && c.cid !== cid &&
+        Number(getCurrentTeamTidForCoach(c, year)) === tid
+      )
+      if (taken) {
+        toast.error('That team is controlled by another coach. Ask the commissioner to reassign it.')
+        return
+      }
+    }
+    setBusyUid(cid)
+    try {
+      if (tid == null) {
+        await writeCoaches({ ...getCoaches(currentDynasty), [cid]: removeCoachSeason(coach, year) })
+      } else {
+        const { coaches } = applyControlledCoachTeam(currentDynasty, cid, year, tid)
+        await writeCoaches(coaches)
+      }
+    } catch (err) {
+      console.error('[Members] set coach team failed:', err)
+      toast.error('Failed to update team.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  // Set a coach's POSITION (HC/OC/DC) for the current season. Writes
+  // byYear[year].role on the coach entity — the single source of truth that
+  // Coach Career, the team-page staff list, and the Timeline all read, so
+  // the position updates everywhere at once.
+  const handleSetCoachRole = async (cid, role) => {
+    const coach = getCoach(currentDynasty, cid)
+    if (!coach) return
+    if (!canManage && coach.controlledBy !== user.uid) return
+    if (!COACH_ROLES.includes(role)) return
+    const year = currentDynasty.currentYear
+    setBusyUid(cid)
+    try {
+      await writeCoaches({ ...getCoaches(currentDynasty), [cid]: setCoachSeason(coach, year, { role }) })
+    } catch (err) {
+      console.error('[Members] set coach position failed:', err)
+      toast.error('Failed to update position.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  const handleRemoveCoach = async (cid) => {
+    const coach = getCoach(currentDynasty, cid)
+    if (!coach) return
+    if (!canManage && coach.controlledBy !== user.uid) return
+    const label = coach.name || 'this coach'
+    const ok = await confirm({
+      title: 'Remove coach?',
+      message: `Delete ${label} and the record tracked under them? This can't be undone.`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    })
+    if (!ok) return
+    setBusyUid(cid)
+    try {
+      await writeCoaches(deleteCoach(getCoaches(currentDynasty), cid))
+      setTimelineCid(prev => (prev === cid ? null : prev))
+      toast.info('Coach removed.')
+    } catch (err) {
+      console.error('[Members] remove coach failed:', err)
+      toast.error('Failed to remove coach.')
+    } finally {
+      setBusyUid(null)
+    }
+  }
+
+  const handleRenameCoach = async (cid) => {
+    const draft = nameDrafts[cid]
+    const coach = getCoach(currentDynasty, cid)
+    if (!coach) return
+    const current = coach.name || ''
+    if (draft === undefined || draft.trim() === current) {
+      setNameDrafts(prev => ({ ...prev, [cid]: undefined }))
+      return
+    }
+    setBusyUid(cid)
+    try {
+      await writeCoaches({ ...getCoaches(currentDynasty), [cid]: { ...coach, name: draft.trim() } })
+      setNameDrafts(prev => ({ ...prev, [cid]: undefined }))
+    } catch (err) {
+      console.error('[Members] rename coach failed:', err)
+      toast.error('Failed to save name.')
     } finally {
       setBusyUid(null)
     }
@@ -430,9 +595,7 @@ export default function LeagueSettings() {
     if (!canManageCo) return
     setBusyUid(uid)
     try {
-      await updateDynasty(currentDynasty.id, {
-        coCommishes: addCoCommish(currentDynasty, uid),
-      })
+      await setCoCommishAtomic(currentDynasty.id, uid, true)
       toast.success('Promoted to co-commish.')
     } catch (err) {
       console.error('[Members] promote failed:', err)
@@ -453,9 +616,7 @@ export default function LeagueSettings() {
     if (!ok) return
     setBusyUid(uid)
     try {
-      await updateDynasty(currentDynasty.id, {
-        coCommishes: removeCoCommish(currentDynasty, uid),
-      })
+      await setCoCommishAtomic(currentDynasty.id, uid, false)
       toast.info('Demoted to member.')
     } catch (err) {
       console.error('[Members] demote failed:', err)
@@ -482,7 +643,14 @@ export default function LeagueSettings() {
       toast.success(`${label} is now the commish.`)
     } catch (err) {
       console.error('[Members] transfer commish failed:', err)
-      toast.error(err.message || 'Failed to transfer commish role.')
+      // The rules only allow transferring ownership to a PREMIUM member
+      // (otherwise the dynasty's writes would brick — audit C4). A
+      // permission-denied here almost always means the target isn't
+      // premium; surface that instead of a raw Firestore error.
+      const denied = /insufficient permissions|permission-denied/i.test(err?.message || '')
+      toast.error(denied
+        ? `${label} must have their own premium subscription before they can become commish.`
+        : (err.message || 'Failed to transfer commish role.'))
     } finally {
       setBusyUid(null)
     }
@@ -490,211 +658,226 @@ export default function LeagueSettings() {
 
   // ── render ────────────────────────────────────────────────────────
 
+  // A coach card styled like the team-page header: the whole row is the
+  // coach's team color with the broadcast sheen, contrast-aware text sits
+  // directly on the color, and the logo is in a white circle. Teamless
+  // coaches fall back to a neutral surface. Inline team picker + Timeline +
+  // delete.
+  const renderCoachLine = (coach) => {
+    const cid = coach.cid
+    const canEdit = canManage || coach.controlledBy === user.uid
+    const busy = busyUid === cid
+    const cy = currentDynasty.currentYear
+    const tid = getCurrentTeamTidForCoach(coach, cy)
+    const team = tid != null ? teamsSource[tid] : null
+    // Coaching position (HC/OC/DC) for the current season — defaults to HC.
+    const coachRole = coach.byYear?.[cy]?.role ?? coach.byYear?.[String(cy)]?.role ?? 'HC'
+    const logo = tid != null ? getTeamLogoByTid(tid, teamsSource) : null
+    const teamColor = (tid != null && teamsSource[tid]?.primaryColor) || null
+    const onColor = !!teamColor
+    const textColor = onColor
+      ? getContrastTextColor(teamColor, teamsSource[tid]?.secondaryColor)
+      : null
+    const lightText = (textColor || '').toLowerCase() === '#ffffff'
+    // Subtle, contrast-correct overlay for the controls (pill/buttons) so they
+    // read on any team color: light film on dark teams, dark film on light ones.
+    const chip = onColor ? (lightText ? 'bg-white/15' : 'bg-black/10') : 'bg-surface-1'
+    const chipHover = onColor ? (lightText ? 'hover:bg-white/25' : 'hover:bg-black/20') : 'hover:bg-surface-3'
+    const draftValue = nameDrafts[cid] !== undefined ? nameDrafts[cid] : (coach.name || '')
+    return (
+      <div
+        key={cid}
+        className={`coach-card flex items-center gap-3 rounded-xl pl-2 pr-2 py-2 overflow-hidden border ${onColor ? 'border-black/15' : 'bg-surface-2 border-surface-4'}`}
+        style={onColor ? { backgroundColor: teamColor, backgroundImage: TEAM_SHEEN, color: textColor } : undefined}
+      >
+        {/* Team logo in a white circle. */}
+        <span
+          className="flex items-center justify-center rounded-full bg-white flex-shrink-0 shadow-sm ring-1 ring-black/10"
+          style={{ width: 36, height: 36 }}
+        >
+          {logo
+            ? <img src={logo} alt="" className="w-7 h-7 object-contain" />
+            : <span className="w-3 h-3 rounded-full bg-surface-4 inline-block" aria-hidden="true" />}
+        </span>
+
+        {/* Coach name sits directly on the color. */}
+        {canEdit ? (
+          <input
+            type="text"
+            value={draftValue}
+            placeholder="Coach name"
+            onChange={e => setNameDrafts(prev => ({ ...prev, [cid]: e.target.value }))}
+            onBlur={() => handleRenameCoach(cid)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
+              if (e.key === 'Escape') { setNameDrafts(prev => ({ ...prev, [cid]: undefined })); e.target.blur() }
+            }}
+            disabled={busy}
+            // Inline transparent beats the global `input { background: surface-2 }`
+            // rule (6 :not() clauses outrank Tailwind's bg-transparent), so the
+            // name reads as plain text on the team color, not a dark field.
+            style={{ backgroundColor: 'transparent', ...(onColor ? { color: textColor } : {}) }}
+            className={`flex-1 min-w-0 font-display font-bold focus:outline-none text-base leading-tight ${onColor ? (lightText ? 'placeholder-white/55' : 'placeholder-black/45') : 'text-txt-primary placeholder-txt-muted'}`}
+          />
+        ) : (
+          <span className={`flex-1 min-w-0 truncate font-display font-bold text-base ${onColor ? '' : 'text-txt-primary'}`} style={onColor ? { color: textColor } : undefined}>
+            {coach.name || 'Coach'}
+          </span>
+        )}
+
+        {/* Team picker — click to assign or change; the native select overlays. */}
+        {canEdit ? (
+          <label
+            className={`relative inline-flex items-center gap-1.5 flex-shrink-0 pl-2 pr-1.5 py-1 rounded-lg transition-colors cursor-pointer ${chip} ${chipHover} ${onColor ? '' : 'border border-surface-4'}`}
+            style={onColor ? { color: textColor } : undefined}
+          >
+            <span className={`text-xs font-semibold truncate max-w-[150px] ${onColor ? '' : (team ? 'text-txt-secondary' : 'text-txt-muted')}`}>
+              {team?.name || 'Assign team'}
+            </span>
+            <svg className="w-3.5 h-3.5 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <select
+              value={tid ?? ''}
+              onChange={e => handleSetCoachTeam(cid, e.target.value)}
+              disabled={busy}
+              aria-label="Set coach's team"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            >
+              <option value="">No team</option>
+              {teamOptions.map(t => (
+                <option key={t.tid} value={t.tid}>{t.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className={`text-xs flex-shrink-0 ${onColor ? 'opacity-90' : 'text-txt-tertiary'}`} style={onColor ? { color: textColor } : undefined}>{team?.name || 'No team'}</span>
+        )}
+
+        {/* Position picker (HC/OC/DC) — sits right next to the team. Writes
+            byYear[year].role, the same field every coach display reads. */}
+        {canEdit && tid != null ? (
+          <label
+            className={`relative inline-flex items-center gap-1 flex-shrink-0 pl-2 pr-1.5 py-1 rounded-lg transition-colors cursor-pointer ${chip} ${chipHover} ${onColor ? '' : 'border border-surface-4'}`}
+            style={onColor ? { color: textColor } : undefined}
+            title={COACH_ROLE_LABELS[coachRole] || coachRole}
+          >
+            <span className={`text-xs font-semibold ${onColor ? '' : 'text-txt-secondary'}`}>{coachRole}</span>
+            <svg className="w-3.5 h-3.5 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+            <select
+              value={coachRole}
+              onChange={e => handleSetCoachRole(cid, e.target.value)}
+              disabled={busy}
+              aria-label="Set coach's position"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            >
+              {COACH_ROLES.map(r => (
+                <option key={r} value={r}>{COACH_ROLE_LABELS[r] || r}</option>
+              ))}
+            </select>
+          </label>
+        ) : (tid != null && (
+          <span
+            className={`text-xs font-semibold flex-shrink-0 ${onColor ? 'opacity-90' : 'text-txt-tertiary'}`}
+            style={onColor ? { color: textColor } : undefined}
+            title={COACH_ROLE_LABELS[coachRole] || coachRole}
+          >
+            {coachRole}
+          </span>
+        ))}
+
+        {canEdit && (
+          <div className="flex items-center gap-0.5 flex-shrink-0" style={onColor ? { color: textColor } : undefined}>
+            <button
+              type="button"
+              onClick={() => setTimelineCid(cid)}
+              disabled={busy}
+              className={`px-2 py-1 rounded-md text-xs font-semibold transition-colors disabled:opacity-50 ${onColor ? chipHover : 'text-txt-tertiary hover:text-txt-primary hover:bg-surface-3'}`}
+            >
+              Timeline
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRemoveCoach(cid)}
+              disabled={busy}
+              aria-label="Remove coach"
+              title="Remove coach"
+              className={`p-1.5 rounded-md transition-colors disabled:opacity-50 ${onColor ? chipHover : 'text-txt-muted hover:text-red-400 hover:bg-surface-3'}`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const renderRow = (uid) => {
     const role = getRole(currentDynasty, uid)
     if (!role) return null
     const isYou = uid === user.uid
-    const label = getMemberLabel(currentDynasty, uid)
-    const draftValue = nameDrafts[uid] !== undefined ? nameDrafts[uid] : label
-    const teams = getMemberTeams(currentDynasty, uid)
-    const assignedSet = new Set(teams.map(Number))
-    const availableTeamOptions = teamOptions.filter(t => !assignedSet.has(t.tid))
-    const cap = maxTeamsForRole(role)
-    const canAddMore = canManage && availableTeamOptions.length > 0 && (cap === Infinity || teams.length < cap)
+    const myCoaches = getCoachesControlledBy(currentDynasty, uid)
     const isBusy = busyUid === uid
     const canActOnThis = canActOnUser(currentDynasty, user.uid, uid)
     const canPromote = canManageCo && isCloudDynasty && role === ROLE_MEMBER
     const canDemote = canManageCo && isCloudDynasty && role === ROLE_COCOMMISH
     const canTransfer = canManageCo && isCloudDynasty && role !== ROLE_COMMISH
+    const canEditCoaches = canManage || isYou
 
-    const placeholder = role === ROLE_COMMISH ? 'Commish'
-                       : role === ROLE_COCOMMISH ? 'Co-Commish'
-                       : 'Member'
-
-    // Stint summary: most-recent stint's date range as a sub-line.
-    // Same source the Coaches leaderboard uses, so the two surfaces
-    // tell the same story.
-    const stints = getCoachStints(currentDynasty, uid)
-    const lastStint = stints.length > 0 ? stints[stints.length - 1] : null
-    const stintLine = lastStint ? (
-      lastStint.endYear >= currentDynasty.currentYear
-        ? `${lastStint.startYear}–NOW ${lastStint.years} ${lastStint.years === 1 ? 'season' : 'seasons'}`
-        : `${lastStint.startYear}–${lastStint.endYear}`
-    ) : null
-
-    // Primary team for the rail-side logo. Uses the most-recent stint
-    // when set, falls back to the live memberTeams entry.
-    const primaryTid = lastStint?.tid ?? teams[0] ?? null
-    // Team-color accent for the member card — their primary team's color,
-    // matching the broadcast team-strip language used across the app.
-    const memberColor = (primaryTid != null && teamsSource[primaryTid]?.primaryColor) || '#3a3d47'
-
-    const hasAnyAction = (canManage || isYou) || (
-      canManage && role !== ROLE_COMMISH && (canPromote || canDemote || canTransfer || canActOnThis)
-    )
+    const hasAnyAction = canManage && role !== ROLE_COMMISH && (canPromote || canDemote || canTransfer || canActOnThis)
 
     return (
-      <div
-        key={uid}
-        className="member-row group relative flex items-start gap-3 py-3 sm:py-3.5 pl-3 pr-2 rounded-lg overflow-hidden bg-surface-2"
-        style={{
-          backgroundImage: `linear-gradient(90deg, ${memberColor}1f 0%, ${memberColor}0a 16%, transparent 42%)`,
-        }}
-      >
-        {/* Logo rail — primary team (most recent stint) or empty slot. */}
-        <div className="flex-shrink-0 pt-0.5">
-          {primaryTid != null ? (
-            <TeamLogo tid={primaryTid} teams={teamsSource} size="md" />
-          ) : (
-            <div className="w-9 h-9 rounded-full bg-surface-3" aria-hidden="true" />
-          )}
-        </div>
+      <div key={uid} className="member-group">
+        {/* Member header — just the user's ID (copyable), plus access actions. */}
+        <div className="flex items-center gap-2 flex-wrap mb-2">
+          <button
+            type="button"
+            onClick={() => navigator.clipboard?.writeText(uid).then(() => toast.success('User ID copied'), () => {})}
+            className="font-mono text-[11px] text-txt-muted hover:text-txt-tertiary transition-colors truncate max-w-full"
+            title="Copy user ID"
+          >
+            {uid}
+          </button>
 
-        <div className="min-w-0 flex-1">
-          {/* Name row — inline-editable, role chip + (you) marker. */}
-          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-            {(canManage || isYou) ? (
-              <input
-                type="text"
-                value={draftValue}
-                placeholder={isYou ? 'You' : placeholder}
-                onChange={e => setNameDrafts(prev => ({ ...prev, [uid]: e.target.value }))}
-                onBlur={() => handleRename(uid)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') { e.preventDefault(); e.target.blur() }
-                  if (e.key === 'Escape') {
-                    setNameDrafts(prev => ({ ...prev, [uid]: undefined }))
-                    e.target.blur()
-                  }
-                }}
-                disabled={isBusy}
-                className="font-display font-bold text-txt-primary bg-transparent border-b border-transparent hover:border-surface-4 focus:border-surface-5 focus:outline-none px-1 -mx-1 py-0 text-base leading-tight min-w-[140px]"
-              />
-            ) : (
-              <span className="font-display font-bold text-txt-primary text-base leading-tight">
-                {label || (isYou ? 'You' : placeholder)}
-              </span>
-            )}
-            <Badge variant={ROLE_BADGE_VARIANT[role]}>{ROLE_LABEL[role]}</Badge>
-            {isYou && (
-              <span
-                className="label-xs text-txt-tertiary"
-                style={{ letterSpacing: '1.5px', fontSize: '9px' }}
-              >
-                YOU
-              </span>
-            )}
-          </div>
-
-          {/* Stint sub-line — same source as Coaches leaderboard. */}
-          {stintLine && (
-            <div
-              className="label-xs text-txt-tertiary tabular mb-2"
-              style={{ letterSpacing: '1.2px', fontSize: '10px' }}
-            >
-              {stintLine}
+          {hasAnyAction && (
+            <div className="flex items-center gap-1 ml-auto">
+              {canPromote && (
+                <Button variant="outline" size="sm" onClick={() => handlePromote(uid)} disabled={isBusy}>Promote</Button>
+              )}
+              {canDemote && (
+                <Button variant="outline" size="sm" onClick={() => handleDemote(uid)} disabled={isBusy}>Demote</Button>
+              )}
+              {canTransfer && (
+                <Button variant="outline" size="sm" onClick={() => handleMakeCommish(uid)} disabled={isBusy}>Make Commish</Button>
+              )}
+              {canActOnThis && (
+                <Button variant="outline" size="sm" onClick={() => handleRemove(uid)} disabled={isBusy}>Remove</Button>
+              )}
             </div>
           )}
-
-          {/* Team chips. */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {teams.length === 0 && !canManage && (
-              <span className="text-[11px] text-txt-muted italic">No team assigned</span>
-            )}
-            {teams.map(tid => {
-              const team = teamsSource[tid]
-              const teamName = team?.name || `Team ${tid}`
-              const logo = getTeamLogoByTid(tid, teamsSource)
-              return (
-                <span
-                  key={tid}
-                  className="inline-flex items-center gap-1.5 pl-1.5 pr-1 py-0.5 rounded-md bg-surface-2 border border-surface-4 text-xs"
-                >
-                  {logo && <img src={logo} alt="" className="w-4 h-4 object-contain" />}
-                  <span className="font-semibold text-txt-primary">{teamName}</span>
-                  {canManage && (
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTeam(uid, tid)}
-                      disabled={isBusy}
-                      aria-label={`Remove ${teamName}`}
-                      className="ml-0.5 px-1 text-txt-muted hover:text-red-400 transition-colors disabled:opacity-50"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
-                </span>
-              )
-            })}
-            {canAddMore && (
-              <select
-                value=""
-                onChange={e => {
-                  if (e.target.value) handleAddTeam(uid, e.target.value)
-                  e.target.value = ''
-                }}
-                disabled={isBusy}
-                className="text-[11px] px-2 py-1 rounded-md bg-surface-1 border border-surface-4 text-txt-tertiary hover:text-txt-primary hover:bg-surface-3 transition-colors cursor-pointer focus:outline-none focus:border-surface-5"
-              >
-                <option value="">{teams.length === 0 ? 'Assign team…' : '+ Add'}</option>
-                {availableTeamOptions.map(t => (
-                  <option key={t.tid} value={t.tid}>{t.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {/* UID — quiet, copy-on-click affordance. */}
-          <div className="mt-2 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard?.writeText(uid).then(
-                  () => toast.success('UID copied'),
-                  () => {},
-                )
-              }}
-              className="font-mono text-[10px] text-txt-muted hover:text-txt-tertiary transition-colors truncate max-w-[280px]"
-              title="Copy UID"
-            >
-              {uid}
-            </button>
-          </div>
         </div>
 
-        {/* Right-side action cluster. Compact buttons; only Edit Timeline
-            shows for self-rows. */}
-        {hasAnyAction && (
-          <div className="flex flex-col gap-1 flex-shrink-0">
-            {(isYou || canActOnThis) && (
-              <Button variant="outline" size="sm" onClick={() => setTimelineUid(uid)} disabled={isBusy}>
-                Timeline
-              </Button>
-            )}
-            {canManage && role !== ROLE_COMMISH && canPromote && (
-              <Button variant="outline" size="sm" onClick={() => handlePromote(uid)} disabled={isBusy}>
-                Promote
-              </Button>
-            )}
-            {canManage && role !== ROLE_COMMISH && canDemote && (
-              <Button variant="outline" size="sm" onClick={() => handleDemote(uid)} disabled={isBusy}>
-                Demote
-              </Button>
-            )}
-            {canManage && role !== ROLE_COMMISH && canTransfer && (
-              <Button variant="outline" size="sm" onClick={() => handleMakeCommish(uid)} disabled={isBusy}>
-                Make Commish
-              </Button>
-            )}
-            {canManage && role !== ROLE_COMMISH && canActOnThis && (
-              <Button variant="outline" size="sm" onClick={() => handleRemove(uid)} disabled={isBusy}>
-                Remove
-              </Button>
-            )}
-          </div>
-        )}
+        {/* Coaches — each a separate tracked career on its own team. */}
+        <div className="space-y-2">
+          {myCoaches.length === 0 && !canEditCoaches && (
+            <span className="text-xs text-txt-muted italic">No coach assigned</span>
+          )}
+          {myCoaches.map(coach => renderCoachLine(coach))}
+          {canEditCoaches && (
+            <button
+              type="button"
+              onClick={() => handleAddCoach(uid)}
+              disabled={isBusy}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-surface-4 text-xs font-semibold text-txt-tertiary hover:text-txt-primary hover:border-surface-5 hover:bg-surface-2 transition-colors disabled:opacity-50"
+            >
+              + Add coach
+            </button>
+          )}
+        </div>
       </div>
     )
   }
@@ -709,92 +892,27 @@ export default function LeagueSettings() {
 
   return (
     <div className="space-y-4 page-enter">
-      <PageHero
-        eyebrow="Dynasty"
-        title="Members"
-      />
-
-      {/* Broadcast stat strip — 3-up on desktop, stacks on mobile.
-          Mirrors the rest of the redesigned dynasty pages so members
-          gets the same visual rhythm as Coach Career / Coaches. */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <div
-          className="px-3 py-2.5 rounded-lg bg-surface-2 flex flex-col gap-0.5"
-          style={{ border: '1px solid var(--surface-4)' }}
-        >
-          <span
-            className="label-xs text-txt-tertiary"
-            style={{ letterSpacing: '1.5px', fontSize: '9px', fontWeight: 700 }}
-          >
-            COACHES
-          </span>
-          <span
-            className="font-display font-black tabular text-txt-primary leading-none"
-            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
-          >
-            {totalMembers}
-          </span>
-        </div>
-        <div
-          className="px-3 py-2.5 rounded-lg bg-surface-2 flex flex-col gap-0.5"
-          style={{ border: '1px solid var(--surface-4)' }}
-        >
-          <span
-            className="label-xs text-txt-tertiary"
-            style={{ letterSpacing: '1.5px', fontSize: '9px', fontWeight: 700 }}
-          >
-            PENDING INVITES
-          </span>
-          <span
-            className="font-display font-black tabular text-txt-primary leading-none"
-            style={{
-              fontSize: 'clamp(20px, 3vw, 28px)',
-              color: visibleInvitesCount > 0 ? 'var(--text-primary)' : 'var(--text-muted)',
-            }}
-          >
-            {visibleInvitesCount}
-          </span>
-        </div>
-        <div
-          className="px-3 py-2.5 rounded-lg bg-surface-2 flex flex-col gap-0.5"
-          style={{ border: '1px solid var(--surface-4)' }}
-        >
-          <span
-            className="label-xs text-txt-tertiary"
-            style={{ letterSpacing: '1.5px', fontSize: '9px', fontWeight: 700 }}
-          >
-            SEASONS TRACKED
-          </span>
-          <span
-            className="font-display font-black tabular text-txt-primary leading-none"
-            style={{ fontSize: 'clamp(20px, 3vw, 28px)' }}
-          >
-            {totalSeasons}
-          </span>
-        </div>
-      </div>
-
       <Card>
-        <header className="flex items-baseline justify-between mb-2">
+        <header className="flex items-baseline justify-between mb-1">
           <h3
             className="label-sm text-txt-primary"
             style={{ letterSpacing: '2px', fontSize: '11px', fontWeight: 700 }}
           >
-            ROSTER
+            COACHES
           </h3>
           <span
             className="label-xs text-txt-tertiary tabular"
             style={{ letterSpacing: '1.5px', fontSize: '9px' }}
           >
-            {totalMembers} {totalMembers === 1 ? 'COACH' : 'COACHES'}
+            {controlledCoachCount} {controlledCoachCount === 1 ? 'COACH' : 'COACHES'}
           </span>
         </header>
-        <p className="text-xs text-txt-tertiary mb-3">
+        <p className="text-xs text-txt-tertiary mb-4">
           {canManage
-            ? 'Click a name to rename. Each member coaches one team; commish and co-commishes can hold multiple to shepherd teams without an assigned coach.'
-            : 'Click your own name to rename it. Team assignments are managed by the commish.'}
+            ? 'Each coach is a separately tracked career with its own name, team, and record. Add a coach for every team you run.'
+            : 'Edit your coach name and team below. Other assignments are managed by the commish.'}
         </p>
-        <div className="space-y-2">
+        <div className="space-y-6">
           {renderRow(currentDynasty.userId)}
           {sortedOthers.map(uid => renderRow(uid))}
         </div>
@@ -807,7 +925,7 @@ export default function LeagueSettings() {
               className="label-sm text-txt-primary"
               style={{ letterSpacing: '2px', fontSize: '11px', fontWeight: 700 }}
             >
-              INVITE A COACH
+              INVITE A USER
             </h3>
             {visibleInvitesCount > 0 && (
               <span
@@ -925,18 +1043,13 @@ export default function LeagueSettings() {
       )}
 
       {canManage && !isCloudDynasty && (
-        <Card>
-          <h3
-            className="label-sm text-txt-primary mb-1"
-            style={{ letterSpacing: '2px', fontSize: '11px', fontWeight: 700 }}
-          >
-            SHARING
-          </h3>
-          <p className="text-xs text-txt-tertiary">
-            Local dynasties are stored only on this device. To share with another account, upgrade
-            to Premium and convert this dynasty to cloud.
-          </p>
-        </Card>
+        <p className="text-xs text-txt-muted px-1">
+          This dynasty is stored only on this device. To invite another user,{' '}
+          <Link to="/account" className="text-txt-secondary underline hover:text-txt-primary transition-colors">
+            upgrade to Premium
+          </Link>{' '}
+          and convert it to cloud.
+        </p>
       )}
 
       {myRole !== ROLE_COMMISH && (
@@ -1012,11 +1125,11 @@ export default function LeagueSettings() {
         </Card>
       )}
 
-      {timelineUid && (
+      {timelineCid && (
         <MemberTimelineEditor
-          isOpen={timelineUid != null}
-          onClose={() => setTimelineUid(null)}
-          uid={timelineUid}
+          isOpen={timelineCid != null}
+          onClose={() => setTimelineCid(null)}
+          cid={timelineCid}
         />
       )}
     </div>

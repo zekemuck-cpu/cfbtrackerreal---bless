@@ -13,12 +13,18 @@ import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import {
   createTrainingResultsSheet,
   readTrainingResultsFromSheet,
+  parseTrainingResultsLocal,
   deleteGoogleSheet,
   getSheetEmbedUrl,
   sheetExists
 } from '../services/sheetsService'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import { buildAttributesStructure } from '../utils/attributeEntry'
+import { arePlayerAttributesEnabled } from '../editions'
+import AttributePasteGrid from './AttributePasteGrid'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
@@ -26,8 +32,17 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-export default function TrainingResultsModal({ isOpen, onClose, onSave, currentYear, teamColors, players }) {
+export default function TrainingResultsModal({ isOpen, onClose, onSave, onImportAttributes, currentYear, teamColors, players }) {
   const { currentDynasty, updateDynasty } = useDynasty()
+  // CFB 27: offer a "Full attributes" entry mode (local paste of the whole
+  // rating set) alongside the Overalls-only Google sheet. Gated on the edition
+  // attributes feature; defaults to the existing Overalls flow.
+  // Full-attribute entry: edition supports it AND ratings aren't hidden via the
+  // "Hide all ratings" league preference. When hidden, this flow is Overalls-only.
+  const attributesEnabled = arePlayerAttributesEnabled(currentDynasty)
+  const [mode, setMode] = useState('overalls') // 'overalls' | 'attributes'
+  // Within Overalls mode, local paste is the DEFAULT; Google is the fallback.
+  const [useLocal, setUseLocal] = useState(true)
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -90,7 +105,7 @@ CRITICAL: OVR column = NEW (post-training) overall = Column 4.
 
 ═══════════════════════════════════════════════════════════
 
-This sheet has ONE tab: "Training Results". The user will paste your output at cell A2 and the app matches rows by PLAYER NAME — row order does not matter. Output ALL FOUR columns for every player on the YOUR TEAM ROSTER block below.
+This sheet has ONE tab: "Training Results". The app matches rows by PLAYER NAME — row order does not matter. Output ALL FOUR columns for every player on the YOUR TEAM ROSTER block below.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
@@ -101,12 +116,12 @@ CRITICAL RULES — read before anything else
 4. Column 2 (Position) MUST match the roster's position string exactly (QB, HB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P).
 5. Column 3 (Past OVR) = New OVR − OVR delta. The OVR column in the screenshot shows the post-training overall alongside a green gain. Example: OVR reads "83 (+2)" → New OVR = 83, Past OVR = 83 − 2 = 81. When no delta is shown (player's overall did not change), delta = 0, so Past OVR = New OVR. Leave BLANK only when the player does not appear in any screenshot at all.
 6. Column 4 (New OVR) = the OVR number shown in the training results screenshot for this player. Integer 40–99. Leave BLANK only if the player does not appear on any screenshot.
-7. NO header row INSIDE the data. NO commentary INSIDE the data. NO blank lines between rows. Each row has exactly 3 tab characters. The paste-target label above the fence is required (see TSV delivery rules above).
+7. NO header row INSIDE the data. NO commentary INSIDE the data. NO blank lines between rows. Each row has exactly 3 tab characters.
 8. INTEGERS only in columns C and D. No decimals, no commas, no quotes, no units, no "+/-" signs, no color coding.
 9. NEVER GUESS. If a player does not appear in any of the screenshots provided, leave both Column 3 and Column 4 blank for that player.
 
 ═══════════════════════════════════════════════════════════
-REQUIRED OUTPUT FORMAT — fenced TSV block, preceded by the required paste-target label line above the fence (see TSV delivery rules above); no other prose
+REQUIRED OUTPUT FORMAT — a single fenced TSV block, no other prose
 ═══════════════════════════════════════════════════════════
 \`\`\`tsv
 Alex Guess	QB	87	90
@@ -117,8 +132,7 @@ Marcus Porter	WR
 \`\`\`
 
 (Column 3 = New OVR − OVR delta; when no delta shown, delta = 0 so Past OVR = New OVR.
- Column 4 blank only if the player does not appear in any screenshot.
- Paste the whole block at A2.)
+ Column 4 blank only if the player does not appear in any screenshot.)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
@@ -129,13 +143,43 @@ FINAL CHECK before you send
 [ ] Column 2 positions use canonical abbreviations
 [ ] Column 3 (Past OVR): integer 40–99, computed as New OVR − OVR delta (use 0 when no delta shown → Past OVR = New OVR); blank only when player absent from all screenshots
 [ ] Column 4 (New OVR): integer 40–99 for every player visible in any screenshot; blank only for players absent from all screenshots
-[ ] No header row, no prose INSIDE the data, no commas, no +/- signs (the paste-target label above the fence is required, see TSV delivery rules above)
+[ ] No header row, no prose INSIDE the data, no commas, no +/- signs
 [ ] Output wrapped in a single \`\`\`tsv ... \`\`\` fence`,
+    includeTeamMap: false,
+  }), [currentYear, userRoster])
+
+  // Pre-fill the local (Overalls) grid with this team's already-saved training
+  // results for the year so the modal opens ready to edit. The parser reads
+  // row[0]=Player, row[1]=Position, row[2]=Past OVR, row[3]=New OVR and requires
+  // a name + a valid New OVR (40–99), so we emit only saved rows that satisfy
+  // that. Round-trip safe: re-importing unchanged re-stores the same results.
+  const initialText = useMemo(() => {
+    const saved = currentDynasty?.trainingResultsByYear?.[currentYear] || []
+    return saved
+      .filter(r => r?.playerName && Number(r?.newOverall) >= 40 && Number(r?.newOverall) <= 99)
+      .map(r => {
+        const past = (r.pastOverall != null && r.pastOverall !== '') ? String(r.pastOverall) : ''
+        return `${r.playerName}\t${r.position || ''}\t${past}\t${r.newOverall}`
+      })
+      .join('\n')
+  }, [currentDynasty?.trainingResultsByYear, currentYear])
+
+  // Full-attributes prompt — the AI emits each player's complete rating set in
+  // one cell, plus Position + OVR. Used by the local paste grid.
+  const attributesPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Training Results — Full Attributes`,
+    roster: userRoster,
+    structure: buildAttributesStructure('training'),
     includeTeamMap: false,
   }), [currentYear, userRoster])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  // Single-attempt guard: a failed creation must not auto-retry (that loop
+  // spam-created sheets). One attempt per modal-open; an explicit retry bumps
+  // auth.retryCount, which re-arms exactly one more attempt.
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -171,8 +215,16 @@ FINAL CHECK before you send
 
   // Create training results sheet when modal opens
   useEffect(() => {
+    // An explicit retry (Refresh after re-auth, or Regenerate) re-arms one attempt.
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && mode === 'overalls' && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        // Mark attempted before the first await so a failure can't loop back in.
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -202,7 +254,7 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create training results sheet:', error)
-          auth.handleError(error)
+          if (!auth.handleError(error)) toast.error(auth.describeError(error, 'create the sheet'))
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -211,15 +263,26 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, players, currentYear])
+  }, [isOpen, useLocal, user, mode, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote, players, currentYear])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the Training Results AI prompt already emits the full
+  // self-describing 4-column rows, matched by name — so parseTrainingResultsLocal
+  // returns the SAME shape the Google reader does and onSave applies unchanged.
+  const handleLocalImport = async (text) => {
+    const results = parseTrainingResultsLocal(splitTsv(text))
+    await onSave(results)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -344,7 +407,44 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Offseason" title="Training Results" onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {attributesEnabled && (
+          <div className="mb-3 inline-flex self-start rounded-md border border-surface-5 overflow-hidden text-sm">
+            <button
+              type="button"
+              onClick={() => setMode('overalls')}
+              className={`px-3 py-1.5 font-semibold transition-colors ${mode === 'overalls' ? 'bg-surface-3 text-txt-primary' : 'text-txt-secondary hover:bg-surface-2'}`}
+            >
+              Overalls
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('attributes')}
+              className={`px-3 py-1.5 font-semibold transition-colors border-l border-surface-5 ${mode === 'attributes' ? 'bg-surface-3 text-txt-primary' : 'text-txt-secondary hover:bg-surface-2'}`}
+            >
+              Full Attributes
+            </button>
+          </div>
+        )}
+        {mode === 'attributes' ? (
+          <AttributePasteGrid
+            players={players}
+            year={currentYear}
+            aiPrompt={attributesPrompt}
+            onImport={async (entries) => { await onImportAttributes?.(entries) }}
+            onClose={handleClose}
+            hint="Paste the AI reply: one line per player — name, position, OVR, then the ratings cell (AWR 88, SPD 90, …)."
+          />
+        ) : useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Training Results"
+            columns={['Player', 'Position', 'Past OVR', 'New OVR']}
+            initialText={initialText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

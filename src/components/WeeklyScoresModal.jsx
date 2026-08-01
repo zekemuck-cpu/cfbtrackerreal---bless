@@ -13,21 +13,30 @@ import SheetModalFooter from './ui/SheetModalFooter'
 import {
   createWeeklyScoresSheet,
   readWeeklyScoresFromSheet,
+  normalizeWeeklyScoreRows,
   deleteGoogleSheet,
   getSheetEmbedUrl,
   WEEKLY_SCORES_MAX_ROWS,
 } from '../services/sheetsService'
-import { getCurrentTeamTid } from '../data/teamRegistry'
+import { getCurrentTeamTid, getTeamNameLabel, getTeamNameOptions, getTidFromAbbr, getTeamNameAliases } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
 import { getCustomConferencesForYear } from '../context/DynastyContext'
 import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../data/conferenceTeams'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
+
+// Header labels for the weekly-scores grid. Seven columns, mirroring the
+// Google Sheet layout the parser reads: game rows fill both sides; bye-rank
+// rows put the team + rank in the first two and leave the rest blank. Kept
+// short so all seven fit (and scroll) on a phone.
+const WEEKLY_SCORES_COLUMNS = ['Home', 'Rk', 'Score', 'Away', 'Rk', 'Score', 'Neutral']
 
 /**
  * WeeklyScoresModal — paste-and-sync entry for league-wide regular-season
@@ -58,11 +67,18 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => localStorage.getItem('sheetEmbedPreference') === 'true')
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const creatingSheetRef = useRef(false)
+  // Single-attempt guard: a failed creation must not auto-retry (that loop
+  // spam-created sheets). One attempt per modal-open; an explicit retry bumps
+  // auth.retryCount, which re-arms exactly one more attempt.
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   // Which week's rankByWeek slot to write the screenshot's poll into.
   // Defaults to the dynasty's currentWeek (= what the user sees in CFB26
@@ -93,7 +109,7 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
 
   const userTid = currentDynasty ? getCurrentTeamTid(currentDynasty) : null
   const userTeam = userTid ? currentDynasty?.teams?.[userTid] : null
-  const userAbbr = userTeam?.abbr || null
+  const userAbbr = getTeamNameLabel(currentDynasty?.teams, userTeam?.tid) || userTeam?.abbr || null
 
   // Build a conference→[teams] block keyed off the dynasty's actual
   // alignment for the year. Custom conferences (teambuilder dynasties
@@ -112,11 +128,14 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
       'American', 'Conference USA', 'MAC', 'Mountain West', 'Pac-12', 'Sun Belt',
       'Independent',
     ]
+    // The conference maps store team abbreviations; render each as its NAME
+    // label (tid-rooted) so the alignment block matches the names-based prompt.
+    const toName = (abbr) => getTeamNameLabel(currentDynasty?.teams, getTidFromAbbr(abbr, currentDynasty)) || abbr
     const seen = new Set()
     for (const conf of order) {
       const teams = Array.isArray(confMap[conf]) ? confMap[conf].filter(Boolean) : null
       if (!teams || teams.length === 0) continue
-      lines.push(`  ${conf}: ${teams.join(', ')}`)
+      lines.push(`  ${conf}: ${teams.map(toName).join(', ')}`)
       seen.add(conf)
     }
     // Anything else in the map that wasn't in the canonical order
@@ -124,7 +143,7 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
     for (const [conf, teams] of Object.entries(confMap)) {
       if (seen.has(conf)) continue
       if (!Array.isArray(teams) || teams.length === 0) continue
-      lines.push(`  ${conf}: ${teams.join(', ')}`)
+      lines.push(`  ${conf}: ${teams.map(toName).join(', ')}`)
     }
     return lines.join('\n')
   }, [currentDynasty, year])
@@ -161,7 +180,7 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
         if (!rbw) continue
         const v = rbw[wk] ?? rbw[String(wk)]
         if (typeof v !== 'number' || v < 1 || v > 25) continue
-        if (!slots.has(v)) slots.set(v, team.abbr)
+        if (!slots.has(v)) slots.set(v, getTeamNameLabel(teams, team.tid) || team.abbr)
       }
       return slots
     }
@@ -177,9 +196,31 @@ export default function WeeklyScoresModal({ isOpen, onClose, year, week, teamCol
         }
       }
     }
+    // Preseason fallback. Entering Week 0/1 scores, the "prior poll" IS the
+    // preseason Top 25 — but that poll lives in preseasonRankingsByYear and is
+    // only mirrored into rankByWeek[0] for dynasties entered through the current
+    // modal (legacy/first-week data often has the array only). Without this the
+    // block reads empty, the prompt tells the AI "no prior poll", and it skips
+    // ranked bye teams entirely. Mirrors getTeamRankForWeek's week<=1 fallback.
+    if (slotMap.size === 0 && weekNum <= 1) {
+      const pre = currentDynasty.preseasonRankingsByYear?.[yearNum]
+        ?? currentDynasty.preseasonRankingsByYear?.[String(yearNum)]
+      if (Array.isArray(pre)) {
+        const m = new Map()
+        for (const e of pre) {
+          const r = Number(e?.rank)
+          if (!Number.isFinite(r) || r < 1 || r > 25 || m.has(r)) continue
+          const label = (e?.tid != null && getTeamNameLabel(teams, e.tid)) || e?.team || ''
+          if (label) m.set(r, label)
+        }
+        if (m.size > 0) { slotMap = m; sourceWeek = 'preseason' }
+      }
+    }
     if (slotMap.size === 0) return ''
     const lines = []
-    if (sourceWeek !== weekNum) {
+    if (sourceWeek === 'preseason') {
+      lines.push('  (carried forward from the preseason Top 25)')
+    } else if (sourceWeek !== weekNum) {
       lines.push(`  (carried forward from Week ${sourceWeek}; entering-Week-${weekNum} poll not yet stored)`)
     }
     for (let r = 1; r <= 25; r++) {
@@ -206,7 +247,7 @@ Treat every visible matchup as in-scope. Specifically:
 
 3. EXPECT A LONG OUTPUT. 50–70 rows for a full week is normal. The sheet supports up to ${WEEKLY_SCORES_MAX_ROWS} rows. A 5-row or 10-row output for a Week with a full slate is almost always wrong. Length is REQUIRED, not laziness.
 
-4. NO SHORTCUTS. Never end with "...", "and so on", "[truncated for brevity]", "etc.". Never summarize. Never say "the rest of the games follow the same pattern." Output every row in full.
+4. LIST EVERY GAME. Please don't abbreviate the list with "...", "and so on", "[truncated for brevity]", "etc.", or "the rest follow the same pattern" — the app needs each game as its own row, so include them all even when the slate is long.
 
 5. ASYMMETRIC COST. Missing a game is a SERIOUS failure (corrupts the user's data). Including a borderline/duplicate row is a MINOR issue (the sheet's importer collapses duplicates by team pair). When in doubt about whether something is a game in scope, INCLUDE it.
 
@@ -247,23 +288,27 @@ Field reports show this catches both bug classes:
 For every game in the screenshots, write ONE worksheet line, in this
 exact pipe-separated order:
 
-  WS<n> | <img> | <leftAbbr> <leftScore> [VS|@|NEUT] <rightAbbr> <rightScore> | HOME=<abbr> | WINNER=<abbr> | NEUTRAL=Y/N
+  WS<n> | <img> | <leftTeam> <leftScore> [VS|@|NEUT] <rightTeam> <rightScore> | HOME=<team> | WINNER=<team> | NEUTRAL=Y/N
+
+Every team you name here is the FULL NAME from the TEAM NAMES list (resolve
+the on-screen logo/code to that list name), the same value you'll output in
+the TSV — so the worksheet and the TSV always agree.
 
 Field by field:
   • WS<n>            sequential — WS1, WS2, WS3 …
   • <img>            which screenshot you read this game from (img1, img2…)
-  • The middle block is what you SAW: which team's logo/abbr was on which
-    side of the screen, and which score sat next to which logo. The
+  • The middle block is what you SAW: which team was on which side of the
+    screen (identified by logo/name), and which score sat next to it. The
     [VS|@|NEUT] marker is the orientation cue you used (vs / @ / neutral
     site). Keep left and right in the order they appeared on screen.
-  • HOME=<abbr>      apply rule 6 (HOME / AWAY ORIENTATION). Cite mentally
+  • HOME=<team>      apply rule 6 (HOME / AWAY ORIENTATION). Cite mentally
                      which evidence drove the decision: "@", "vs", left/
                      right convention, explicit Home/Away tag, neutral
-  • WINNER=<abbr>    the team with the higher score. CRITICAL: the higher
+  • WINNER=<team>    the team with the higher score. CRITICAL: the higher
                      score in the middle block must belong to the team you
                      write here. If your worksheet line says
-                     "AUB 31 @ UGA 21 ... WINNER=UGA" you have a bug —
-                     31 is paired with AUB on screen, AUB won.
+                     "Auburn 31 @ Georgia 21 ... WINNER=Georgia" you have a
+                     bug — 31 is paired with Auburn on screen, Auburn won.
   • NEUTRAL=Y/N      Y if you couldn't determine HOME and the game was at
                      a neutral site; otherwise N.
 
@@ -333,8 +378,9 @@ Pull the rank from the integer prefix. No prefix → unranked → leave the rank
 ═══ SCORES: the result column is winner-first ═══
 
 The TIME(ET)/RESULT column, after a game is played, reads:
-        "WINNER_ABBR  WINNER_SCORE,  LOSER_ABBR  LOSER_SCORE"
-THE WINNER COMES FIRST. The loser comes after the comma.
+        "WINNER_CODE  WINNER_SCORE,  LOSER_CODE  LOSER_SCORE"
+THE WINNER COMES FIRST. The loser comes after the comma. (These codes are for
+reading scores only — you output the full team NAME, not the code.)
 
 Real examples taken straight from CFB26 screenshots:
   • "UK 17, UGA 14"     →  UK won 17, UGA lost 14    (Kentucky beat Georgia)
@@ -346,48 +392,52 @@ Real examples taken straight from CFB26 screenshots:
 
 This is the score-swap defense: you do NOT have to look at logos and try to pair scores visually. The result text directly tells you who won and who lost. If you read the comma-separated string correctly, score-swap cannot happen.
 
-═══ ABBREVIATION MISMATCH: result text ≠ dropdown ═══
+═══ THE RESULT-SCREEN CODES ARE FOR SCORES ONLY — NEVER OUTPUT THEM ═══
 
-CFB26's result-column abbreviations are the game's internal short codes. They MAY NOT match the dropdown abbreviations in your TEAM ABBREVIATIONS mapping. Examples I've personally seen:
+The result column uses short codes (PSU, BUFF, MIST, CUSE). Their ONLY job is
+to tell you which team scored what. You NEVER put these codes in your output.
+What you OUTPUT is the team's FULL NAME, read from the MATCHUP column and copied
+exactly from the TEAM NAMES list.
 
-  Result-text abbr → Dropdown abbr
+The codes often differ from the team's name/abbreviation anyway, so trying to
+use them as identity would break the import. A few you'll see:
+
+  Result-screen code → the team it means
   ────────────────────────────────────
-    CUSE          →  SYR    (Syracuse / 'Cuse)
-    MIST          →  MZST   (Missouri State)
-    JXST          →  JKST   (Jacksonville State)
-    M-OH          →  M-OH   (Miami OH — same)
-    UF            →  UF     (Florida — same)
-    OKLA          →  OU     (Oklahoma — sometimes either form is used)
-    TAMU          →  TAMU   (Texas A&M — same)
-    MASS          →  MASS   (UMass — same)
-    CONN          →  CONN   (UConn — same)
-    BAMA          →  BAMA   (Alabama — same)
-    GASO          →  GASO   (Georgia Southern — same)
-    SCAR          →  SCAR   (South Carolina — same)
-    KENN          →  KENN   (Kennesaw State — same)
+    CUSE  → Syracuse
+    MIST  → Missouri State
+    JXST  → Jacksonville State
+    OKLA  → Oklahoma
+    M-OH  → Miami (OH)
 
-When the result-text abbr doesn't match a dropdown entry, **do NOT use the result-text abbr in the TSV**. Match the team's FULL NAME from the matchup column to the dropdown instead. This is critical — using "CUSE" or "MIST" verbatim breaks the import.
+Identity always comes from the MATCHUP column's full name, never the code.
 
 ═══ THE STEP-BY-STEP STRATEGY (use this for every row) ═══
 
-1. Read the FULL TEAM NAMES from the matchup column. Examples:
+1. Read the two FULL TEAM NAMES from the matchup column. Examples:
    "Missouri State", "Kennesaw State", "Notre Dame", "Fresno State".
-2. Look up each full name in your TEAM ABBREVIATIONS mapping at the bottom of this prompt. Use the dropdown abbr you find there. The matchup column's text is the SOURCE OF TRUTH for team identity.
-3. Read the result text: "XXX score1, YYY score2".
-4. Match each result-text abbr (XXX, YYY) back to one of the two team names in the matchup column. There are only two teams in the row — one of them is XXX, the other is YYY. Use abbr similarity + position-in-the-row as the matching cue.
-5. Pair each team with its score: the team matched to XXX scored score1, the team matched to YYY scored score2.
-6. Apply the "at" rule: LEFT team = AWAY/visitor, RIGHT team = HOME/host. Both team's scores are now known from step 5; just put them in the right columns.
+2. Find each full name in your TEAM NAMES list at the bottom of this prompt and
+   copy the EXACT list name — that is what you output for that team. The matchup
+   column is the SOURCE OF TRUTH for team identity.
+3. Read the result text: "CODE1 score1, CODE2 score2".
+4. Match each result code (CODE1, CODE2) to one of the two teams in the matchup
+   column. There are only two teams — one is CODE1, the other CODE2. Use code
+   similarity + position-in-the-row as the cue.
+5. Pair each team with its score: the team matched to CODE1 scored score1, the
+   team matched to CODE2 scored score2.
+6. Apply the "at" rule: LEFT team = AWAY/visitor, RIGHT team = HOME/host. Both
+   scores are known from step 5; just put them in the right columns.
 
 Example, end-to-end on the "Missouri State at Kennesaw State | MIST 38, KENN 17" row:
   Step 1: Left full name = "Missouri State". Right full name = "Kennesaw State".
-  Step 2: Look up "Missouri State" in dropdown → MZST. Look up "Kennesaw State" → KENN.
+  Step 2: Both are in the TEAM NAMES list verbatim — output "Missouri State" and "Kennesaw State".
   Step 3: Result text = "MIST 38, KENN 17". Winner is MIST with 38; loser is KENN with 17.
-  Step 4: MIST result-abbr corresponds to "Missouri State" (left, the visitor). KENN result-abbr corresponds to "Kennesaw State" (right, the host).
+  Step 4: MIST corresponds to "Missouri State" (left, the visitor). KENN corresponds to "Kennesaw State" (right, the host).
   Step 5: Missouri State scored 38. Kennesaw State scored 17.
-  Step 6: HOME = right team = Kennesaw State = KENN with score 17. AWAY = left team = Missouri State = MZST with score 38.
+  Step 6: HOME = right team = Kennesaw State (17). AWAY = left team = Missouri State (38).
 
-  Worksheet line: WSn | img1 | MZST 38 @ KENN 17 | HOME=KENN | WINNER=MZST | NEUTRAL=N
-  TSV row:        KENN  [blank]  17  MZST  [blank]  38  [blank]
+  Worksheet line: WSn | img1 | Missouri State 38 @ Kennesaw State 17 | HOME=Kennesaw State | WINNER=Missouri State | NEUTRAL=N
+  TSV row:        Kennesaw State  [blank]  17  Missouri State  [blank]  38  [blank]
 
 ═══ Other things on the screen — IGNORE these ═══
 
@@ -399,18 +449,22 @@ Example, end-to-end on the "Missouri State at Kennesaw State | MIST 38, KENN 17"
 CRITICAL RULES — output format
 ═══════════════════════════════════════════════════════════
 1. OUTPUT 7 COLUMNS PER ROW, in this exact order:
-   Col A — HOME TEAM (abbreviation)
+   Col A — HOME TEAM (full name from the TEAM NAMES list)
    Col B — HOME RANK (integer 1–25, or BLANK if unranked)
    Col C — HOME SCORE (integer)
-   Col D — AWAY TEAM (abbreviation)
+   Col D — AWAY TEAM (full name from the TEAM NAMES list)
    Col E — AWAY RANK (integer 1–25, or BLANK if unranked)
    Col F — AWAY SCORE (integer)
    Col G — NEUTRAL? ("Y" if neutral site, otherwise leave BLANK)
 2. ONE ROW PER GAME. The sheet allows up to ${WEEKLY_SCORES_MAX_ROWS} rows. The screenshots are the SOURCE OF TRUTH for how many games to output (see EXHAUSTIVENESS above).
-3. TEAM ABBREVIATIONS ONLY (columns A and D). Use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt. Columns A and D are STRICT dropdowns — wrong text is rejected by the sheet.
+3. TEAM NAMES ONLY (columns A and D). Use ONLY values from the TEAM NAMES list at the bottom of this prompt. Columns A and D are STRICT dropdowns — wrong text is rejected by the sheet.
 4. INTEGERS ONLY for scores — no decimals, no "pts", no commas. "24" never "1,234" never "24.0".
+   SCHEDULE-ONLY MODE: if the user sends the UPCOMING schedule (matchups with no
+   finals yet — e.g. the conference schedule screen), output the SAME rows with
+   BOTH score columns (C and F) left blank. Blank-score rows save as scheduled
+   games. Never invent scores; never write 0-0 for an unplayed game.
 5. RANKS FOR PLAYED TEAMS — transcribe, do not reason.
-   For every team that appears in a game row (Col A or Col D), the rank is EXACTLY what the screenshot shows — the integer prefix next to the team name, or blank if there is no prefix. That's it. You are a transcription machine for these ranks.
+   For every team that appears in a game row (Col A or Col D), the rank is EXACTLY what the screenshot shows — the integer prefix next to the team name, or blank if there is no prefix. Copy the number you see; don't compute or adjust it.
 
    DO NOT adjust a game-row rank because you think a team "should" be higher or lower.
    DO NOT infer or estimate a rank that isn't explicitly shown.
@@ -500,8 +554,8 @@ CRITICAL RULES — output format
    Col C. If TEAM_LEFT goes to Col D (because it was the visitor), then
    SCORE_LEFT goes to Col F. Score moves with the team, period.
 7. NEUTRAL FLAG: column G is "Y" only when the game is explicitly at a neutral site (kickoff games, neutral-site classics, the Army-Navy Game, etc.). For ordinary home games leave column G BLANK. Do NOT write "N". Conference championships are NEVER entered through this weekly-scores flow — they have a dedicated entry modal — so any neutral game you flag here is a regular-season neutral-site game, not a CCG.
-8. FCS OPPONENTS — INCLUDE THEM. EA College Football 26 represents real FCS schools as one of four generic FCS placeholders, and those placeholders ARE in the team mapping at the bottom of this prompt (typically FCSE, FCSM, FCSN, FCSW — but follow whatever appears in your mapping). When a Power-or-Group-of-5 FBS team plays an FCS opponent in Week 0 (or later), that game IS in scope — find the matching FCS placeholder abbreviation in the mapping and write the row. Do NOT drop FCS games — they're part of the user's records.
-9. UNKNOWN ABBREVIATIONS — never invent. If you cannot find a team in the mapping AT ALL after a careful re-scan, OMIT that game (rare — almost everything an in-game screenshot shows is in the mapping, including all FBS teams, FCS placeholders, and any user-renamed teambuilder teams). Re-check the mapping CAREFULLY before omitting — it includes every valid abbreviation for this dynasty.
+8. FCS OPPONENTS — INCLUDE THEM. EA College Football 26 represents real FCS schools as one of four generic FCS placeholders, and those placeholders ARE in the TEAM NAMES list at the bottom of this prompt (e.g. FCS East, FCS Midwest, FCS Northwest, FCS West — but follow whatever appears in your list). When a Power-or-Group-of-5 FBS team plays an FCS opponent in Week 0 (or later), that game IS in scope — find the matching FCS placeholder name in the TEAM NAMES list and write the row. Do NOT drop FCS games — they're part of the user's records.
+9. UNKNOWN TEAMS — never invent. If you cannot find a team in the TEAM NAMES list AT ALL after a careful re-scan, OMIT that game (rare — almost everything an in-game screenshot shows is in the mapping, including all FBS teams, FCS placeholders, and any user-renamed teambuilder teams). Re-check the mapping CAREFULLY before omitting — it includes every valid team name for this dynasty.
 10. SKIP bye weeks. Teams on bye are not games and have no row.
 11. NO HEADER ROW in the output. Do not include "HOME TEAM" / "AWAY TEAM" labels.
 12. ${userAbbr ? `OPTIONAL — the user's own team is ${userAbbr}. If you can see their game in the screenshots, INCLUDE it; if not, that's fine — they enter their own game separately and any duplicate row is harmlessly preserved.` : `If the user's own team plays in this week, include the row anyway — duplicates with their separately-entered game are handled automatically.`}
@@ -516,7 +570,7 @@ Week 15 is the LAST regular-season week. The Army-Navy Game lives here at a neut
 ═══════════════════════════════════════════════════════════
 DYNASTY CONFERENCE MAP — use this, not real-world assumptions
 ═══════════════════════════════════════════════════════════
-This is the conference alignment for the ${year} season in THIS dynasty. Use it to set conference labels and infer in-conference matchups when needed. Each line is "<conference>: <comma-separated team abbreviations>".
+This is the conference alignment for the ${year} season in THIS dynasty. Use it to set conference labels and infer in-conference matchups when needed. Each line is "<conference>: <comma-separated team names>".
 
 ${conferenceMapBlock || '  (no custom conference data — fall back to standard FBS alignment)'}
 
@@ -584,13 +638,19 @@ HOW TO REASON ABOUT BYE-WEEK RANKS:
     • If the prior-week poll is unavailable (shown as empty above), skip the bye block entirely.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Week ${week} Scores" — up to ${WEEKLY_SCORES_MAX_ROWS} game rows + up to 25 bye-rank rows × 7 columns
-Paste your block at cell A2 of the "Week ${week} Scores" tab
+SECTION: "Week ${week} Scores" — up to ${WEEKLY_SCORES_MAX_ROWS} game rows + up to 25 bye-rank rows × 7 columns
 ═══════════════════════════════════════════════════════════
 
 Col A (Home Team) | Col B (Home Rank) | Col C (Home Score) | Col D (Away Team) | Col E (Away Rank) | Col F (Away Score) | Col G (Neutral?)
 ------------------+-------------------+--------------------+-------------------+-------------------+--------------------+-----------------
-team abbr         | 1–25 or BLANK     | integer            | team abbr         | 1–25 or BLANK     | integer            | "Y" or BLANK
+team name         | 1–25 or BLANK     | integer            | team name         | 1–25 or BLANK     | integer            | "Y" or BLANK
+
+⚠ EXACTLY 7 columns (6 tabs) per row. The score comes DIRECTLY after the rank
+with NO blank column between them: Home Score is Col C (right after Home Rank in
+Col B), and Away Score is Col F (right after Away Rank in Col E). Do NOT insert an
+extra empty column between a team's Rank and its Score — a common mistake that
+pushes the away score into Col H and corrupts the import. A team is always the
+triple Team → Rank → Score with no gap.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
@@ -598,54 +658,66 @@ REQUIRED OUTPUT FORMAT
 Output, in order:
   1. The pre-extraction WORKSHEET as a fenced \`\`\`worksheet block
      (one WS line per game, see "PRE-EXTRACTION WORKSHEET" above).
-  2. The TSV block — paste-target marker line, then game rows, then
-     bye-rank rows directly after them. ONE paste covers everything —
-     the user clicks paste once at cell A2 and is done. NO padding,
-     NO separator row needed; the importer classifies each row by
-     content (col D filled = game, col D empty = bye rank).
+  2. The TSV, INSIDE ITS OWN fenced \`\`\`tsv code block — the
+     "=== WEEK ... ===" label line, then game rows, then bye-rank rows
+     directly after them. NO padding, NO separator row needed; the
+     importer classifies each row by content (col D filled = game,
+     col D empty = bye rank).
+
+CRITICAL — the scores MUST be a real fenced \`\`\`tsv code block, NOT a
+human-readable list ("Buffalo 13 Penn State 30"), NOT a markdown table,
+NOT prose sentences. The code fence is the ONLY thing that preserves the
+LITERAL TAB characters between columns and the exact team NAMES — without
+it the tabs collapse to spaces and the paste is unusable. Use the team
+NAMES from the TEAM NAMES list, spelled EXACTLY as they appear there (e.g.
+"Penn State", "TCU", "Miami (FL)"), one tab between every column, one game
+per line. Do NOT output abbreviations, nicknames, or the result-screen
+codes — the full list name only.
 
 \`\`\`worksheet
-WS1 | img1 | <leftAbbr> <leftScore> [VS|@|NEUT] <rightAbbr> <rightScore> | HOME=<abbr> | WINNER=<abbr> | NEUTRAL=Y/N
+WS1 | img1 | <leftTeam> <leftScore> [VS|@|NEUT] <rightTeam> <rightScore> | HOME=<team> | WINNER=<team> | NEUTRAL=Y/N
 WS2 | img1 | ...
 ...
 \`\`\`
 
-=== WEEK ${week} SCORES — paste at cell A2 of "Week ${week} Scores" tab ===
+\`\`\`tsv
+=== WEEK ${week} SCORES ===
 <game1 HomeTeam>\\t<game1 HomeRank>\\t<game1 HomeScore>\\t<game1 AwayTeam>\\t<game1 AwayRank>\\t<game1 AwayScore>\\t<game1 Neutral?>
 <game2 HomeTeam>\\t<game2 HomeRank>\\t<game2 HomeScore>\\t<game2 AwayTeam>\\t<game2 AwayRank>\\t<game2 AwayScore>\\t<game2 Neutral?>
 ... (one row per game — emit the FULL list, no "...")
-<bye1 TeamAbbr>\\t<bye1 Rank>\\t\\t\\t\\t\\t
-<bye2 TeamAbbr>\\t<bye2 Rank>\\t\\t\\t\\t\\t
+<bye1 TeamName>\\t<bye1 Rank>\\t\\t\\t\\t\\t
+<bye2 TeamName>\\t<bye2 Rank>\\t\\t\\t\\t\\t
 ... (one row per ranked bye team; can be empty if no ranked bye teams; up to 25)
+\`\`\`
 
-(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t".)
+(Each \\t above represents a LITERAL TAB character — use actual tab characters in your output, not the text "\\t". Every team value is the FULL NAME exactly as written in the TEAM NAMES list.)
 
 LAYOUT EXAMPLE (concrete shape — 3 games, 2 bye teams):
-  GA\\t1\\t35\\tAUB\\t\\t14\\t            ← game
-  TEX\\t\\t28\\tOU\\t12\\t21\\t            ← game
-  BAMA\\t\\t52\\tTENN\\t8\\t10\\tY         ← game (neutral)
-  MIA\\t1\\t\\t\\t\\t\\t                       ← bye rank: Miami at #1
-  CLEM\\t3\\t\\t\\t\\t\\t                      ← bye rank: Clemson at #3
+  Georgia\\t1\\t35\\tAuburn\\t\\t14\\t            ← game
+  Texas\\t\\t28\\tOklahoma\\t12\\t21\\t          ← game
+  Alabama\\t\\t52\\tTennessee\\t8\\t10\\tY        ← game (neutral)
+  Miami (FL)\\t1\\t\\t\\t\\t\\t                      ← bye rank: Miami at #1
+  Clemson\\t3\\t\\t\\t\\t\\t                        ← bye rank: Clemson at #3
 
 The KEY DIFFERENCE between a game row and a bye row is column D:
-  • Game row: column D is the away-team abbreviation. NEVER blank.
+  • Game row: column D is the away-team name. NEVER blank.
   • Bye row:  column D is BLANK. Only columns A (team) and B (rank)
               are filled. Columns C, E, F, G are all blank.
 
-If you put a team abbr in column D of a row meant to be a bye rank,
+If you put a team name in column D of a row meant to be a bye rank,
 the importer will treat it as a game and silently drop the bye-rank
 information. Be careful.
 
 The WORKSHEET is for audit only — the user reads it but pastes only the
-TSV (everything from the "=== WEEK ..." marker through the last bye row)
-into the sheet.
+contents of the \`\`\`tsv block (everything from the "=== WEEK ..." marker
+through the last bye row) into the sheet.
 
-Example rows (for illustration only — your data should match the screenshots, and you should use ONLY abbreviations that appear in the mapping at the bottom of this prompt):
-TEX\\t7\\t34\\tOU\\t\\t21\\t
-BAMA\\t\\t28\\tUGA\\t3\\t31\\tY
-LSU\\t\\t52\\tFCSE\\t\\t10\\t
+Example rows (for illustration only — your data should match the screenshots, and you should use ONLY team names that appear in the TEAM NAMES list at the bottom of this prompt):
+Texas\\t7\\t34\\tOklahoma\\t\\t21\\t
+Alabama\\t\\t28\\tGeorgia\\t3\\t31\\tY
+LSU\\t\\t52\\tFCS East\\t\\t10\\t
 
-(Row 1: Texas at home, ranked #7. Row 2: Alabama unranked, Georgia ranked #3, neutral site. Row 3: LSU hosts an FCS opponent — FCSE is the placeholder for FCS East in this dynasty's mapping. Use whichever FCS placeholder matches what the screenshot shows.)
+(Row 1: Texas at home, ranked #7. Row 2: Alabama unranked, Georgia ranked #3, neutral site. Row 3: LSU hosts an FCS opponent — "FCS East" is one of this dynasty's FCS placeholders. Use whichever FCS placeholder NAME matches what the screenshot shows, exactly as it appears in the TEAM NAMES list.)
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send the answer — actually run these
@@ -656,8 +728,10 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] FCS GAMES INCLUDED: every FBS-vs-FCS game in the screenshots is a row in your output, mapped to the appropriate FCS placeholder (FCSE / FCSM / FCSN / FCSW or whatever appears in the team mapping below). Skipping a Week 0 FCS warm-up is a known failure mode — confirm you didn't.
 [ ] EVERY SCREENSHOT PROCESSED: if the user sent multiple images (look for "1 of 2", "2 of 2" etc., or simply more than one attachment), confirm you read every one of them, not just the first.
 [ ] NO TRUNCATION: your output does not end with "...", "[and the rest]", "etc.", or any phrase implying you stopped early. The full list goes through.
+[ ] FENCED TSV: the scores are inside a \`\`\`tsv code block — NOT a plain list, prose, or markdown table. If you wrote "North Carolina 45 TCU 42" style lines, you failed this: rewrite as tab-separated team-NAME rows inside the \`\`\`tsv fence.
+[ ] TEAM NAMES, NOT ABBREVIATIONS: every value in columns A and D is a FULL NAME copied exactly from the TEAM NAMES list (e.g. "Penn State", not "PSU"; "Miami (FL)", not "MIA"). The result-screen codes (PSU, BUFF, …) are ONLY for matching scores to teams — never output them.
 [ ] EXACTLY 7 tab-separated values per row (6 tab characters per line) — even when rank/neutral columns are blank, the surrounding tabs MUST still be present.
-[ ] Columns A and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping (re-check before omitting any unfamiliar one).
+[ ] Columns A and D are team NAMES only, from the TEAM NAMES list (re-check before omitting any unfamiliar one).
 [ ] Scores in columns C and F are INTEGERS only — no commas, no decimals, no "pts".
 [ ] Ranks in columns B and E are integers 1–25 or BLANK — never "NR", never "—", never 0.
 [ ] Column G is exactly "Y" or BLANK — never "N", never "neutral", never anything else.
@@ -666,9 +740,9 @@ Don't just glance at this list. Physically execute each check on your draft.
 [ ] SCORE-FOLLOWS-TEAM (per-row, rule 6.5). Pick THREE rows from your draft at random. For each, mentally re-read the screenshot at that exact row position. Confirm that the value in Col C is the score that was visually next to the team you put in Col A — and the value in Col F is the score next to the team in Col D. If your home/away decision swapped which side of the screen Col A came from, the score MUST have swapped with it. Any row that fails this check has the WINNER WRONG — fix it before sending. This is the most common source of "wrong team won" bug reports.
 [ ] WORKSHEET vs TSV (winner consistency). For every TSV row, find the matching WS line. The team with the higher score in the worksheet's middle block (the screen-order summary) MUST equal WINNER on that worksheet line, AND must equal whichever team has the higher score in the TSV row (whether that's Col C or Col F). If any row's TSV winner disagrees with the worksheet's WINNER, you introduced a score-swap during the worksheet→TSV derivation. Fix the TSV row.
 [ ] TEAM COVERAGE (rule F in PRE-EXTRACTION COUNT). Every team you saw in the screenshots is now either (a) in a row of your output, or (b) confirmed on bye. No team silently disappeared. If you can name a team you remember seeing that doesn't appear in EITHER place, you have a missing game — go find it.
-[ ] No header row, no commentary INSIDE the data, no follow-up text (except the optional "X games dropped" note ONLY if N > ${WEEKLY_SCORES_MAX_ROWS}). The paste-target label line above the fence is required (see TSV delivery rules above) and the upstream worksheet fence is permitted as described above.
+[ ] Inside the TSV block: data rows only — no header row, no commentary. Notes outside the block are fine (e.g. an "X games dropped" note if N > ${WEEKLY_SCORES_MAX_ROWS}). The worksheet fence above is expected.
 [ ] BYE BLOCK PRESENT + COMPLETE: IF the PRIOR-WEEK TOP 25 block above has data — count the teams listed there (P). Count how many of them appear in your games block with a rank (G). Your bye block must have EXACTLY P − G rows. Every team in the prior-week top 25 must be accounted for in EXACTLY ONE place: either (a) in a game row with their new rank, or (b) in the bye block with a derived new rank. NO ranked team silently drops out. The total ranked teams across both blocks must equal P (typically 25). If your count is off, go back and find the missing team before sending. IF the PRIOR-WEEK TOP 25 block above is EMPTY ("(no prior-week Top 25 stored)"), emit an EMPTY bye block — do NOT invent bye entries from real-world poll knowledge or memory. The dynasty's stored picture is the only source of truth here.
-[ ] BYE BLOCK COL D EMPTY: every bye row's column D (4th tab-separated cell) is BLANK. If you accidentally put a team abbr in col D of a bye row, the importer treats it as a game with that abbr.
+[ ] BYE BLOCK COL D EMPTY: every bye row's column D (4th tab-separated cell) is BLANK. If you accidentally put a team name in col D of a bye row, the importer treats it as a game.
 [ ] BYE RANKS UNIQUE + IN RANGE: every rank in the bye block is 1-25, no rank repeats, and no rank in the bye block matches a rank already shown for a played team in the games block. The new poll has 25 unique ranks total.`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
@@ -708,7 +782,31 @@ Don't just glance at this list. Physically execute each check on your draft.
     const yearNum = Number(year)
     const weekNum = Number(week)
     const teams = currentDynasty.teams || {}
+    // The poll ranks (played AND bye) are saved to the RANKINGS WEEK slot
+    // (effectiveCurrentRankWeek by default). Read the grid's rank columns from
+    // that SAME slot so the grid is WYSIWYG with what will be saved. Reading
+    // them from each game's stored team1Rank/team2Rank (a DIFFERENT slot — the
+    // entering-week rank) is what made hand-edited ranks look like they reverted
+    // on re-open, since edits landed in the rank-week slot but the prefill kept
+    // showing the entering-week slot.
+    const rankSlot = Number.isFinite(effectiveCurrentRankWeek) && effectiveCurrentRankWeek >= 0
+      ? effectiveCurrentRankWeek : weekNum
+    const rankOf = (tid) => {
+      const t = teams[tid] || teams[String(tid)]
+      const rbw = t?.byYear?.[String(yearNum)]?.rankByWeek ?? t?.byYear?.[yearNum]?.rankByWeek
+      const v = rbw?.[rankSlot] ?? rbw?.[String(rankSlot)]
+      return (typeof v === 'number' && v >= 1 && v <= 25) ? v : null
+    }
     const out = []
+    // Every tid playing this week (incl. the user's game) — so a team that plays
+    // is never also emitted as a bye row.
+    const playingTids = new Set()
+    for (const g of (currentDynasty.games || [])) {
+      if (!g) continue
+      if (Number(g.year) !== yearNum || Number(g.week) !== weekNum) continue
+      if (g.team1Tid != null) playingTids.add(Number(g.team1Tid))
+      if (g.team2Tid != null) playingTids.add(Number(g.team2Tid))
+    }
     for (const g of (currentDynasty.games || [])) {
       if (!g) continue
       if (Number(g.year) !== yearNum || Number(g.week) !== weekNum) continue
@@ -718,30 +816,101 @@ Don't just glance at this list. Physically execute each check on your draft.
       const homeTid = g.homeTeamTid ?? Number(g.team1Tid)
       const isNeutral = g.homeTeamTid == null
       const homeIsTeam1 = !isNeutral && homeTid === Number(g.team1Tid)
-      const homeAbbr = teams[homeIsTeam1 ? g.team1Tid : g.team2Tid]?.abbr || ''
-      const awayAbbr = teams[homeIsTeam1 ? g.team2Tid : g.team1Tid]?.abbr || ''
+      const hTid = homeIsTeam1 ? g.team1Tid : g.team2Tid
+      const aTid = homeIsTeam1 ? g.team2Tid : g.team1Tid
+      const homeAbbr = getTeamNameLabel(teams, hTid) || teams[hTid]?.abbr || ''
+      const awayAbbr = getTeamNameLabel(teams, aTid) || teams[aTid]?.abbr || ''
       const homeScore = homeIsTeam1 ? g.team1Score : g.team2Score
       const awayScore = homeIsTeam1 ? g.team2Score : g.team1Score
-      const homeRankRaw = homeIsTeam1 ? g.team1Rank : g.team2Rank
-      const awayRankRaw = homeIsTeam1 ? g.team2Rank : g.team1Rank
-      const homeRank = typeof homeRankRaw === 'number' ? homeRankRaw : (homeRankRaw ? parseInt(homeRankRaw, 10) : null)
-      const awayRank = typeof awayRankRaw === 'number' ? awayRankRaw : (awayRankRaw ? parseInt(awayRankRaw, 10) : null)
       out.push({
         homeTeam: homeAbbr,
         awayTeam: awayAbbr,
         homeScore: typeof homeScore === 'number' ? homeScore : null,
         awayScore: typeof awayScore === 'number' ? awayScore : null,
-        homeRank: typeof homeRank === 'number' && !isNaN(homeRank) && homeRank >= 1 && homeRank <= 25 ? homeRank : null,
-        awayRank: typeof awayRank === 'number' && !isNaN(awayRank) && awayRank >= 1 && awayRank <= 25 ? awayRank : null,
+        homeRank: rankOf(Number(hTid)),
+        awayRank: rankOf(Number(aTid)),
         neutral: isNeutral,
+        isBye: false,
       })
     }
-    return out
-  }, [isOpen, currentDynasty, year, week, userTid])
+    // Seed bye rows for ranked teams NOT playing this week (e.g. TCU #25 on a
+    // week-1 bye) so they stay visible and editable and survive an edit
+    // round-trip, instead of silently dropping out of the Top 25 on re-save.
+    const byeRows = []
+    for (const [tidKey, t] of Object.entries(teams)) {
+      const tid = Number(tidKey)
+      if (!Number.isFinite(tid)) continue
+      if (playingTids.has(tid)) continue
+      if (tid === userTid) continue
+      const r = rankOf(tid)
+      if (r == null) continue
+      byeRows.push({
+        homeTeam: getTeamNameLabel(teams, tid) || t?.abbr || '',
+        awayTeam: '',
+        homeScore: null,
+        awayScore: null,
+        homeRank: r,
+        awayRank: null,
+        neutral: false,
+        isBye: true,
+      })
+    }
+    byeRows.sort((a, b) => (a.homeRank || 99) - (b.homeRank || 99))
+    return [...out, ...byeRows]
+  }, [isOpen, currentDynasty, year, week, userTid, effectiveCurrentRankWeek])
+
+  // Pre-fill the local grid with the week's existing CPU games so the modal
+  // opens ready to edit instead of blank. The parser (readWeeklyScoresFromSheet)
+  // is content-classified and reads a game row as
+  // [HomeTeam, HomeRank, HomeScore, AwayTeam, AwayRank, AwayScore, Neutral].
+  // existingForPrefill already resolves home/away orientation, scores, ranks,
+  // and the neutral flag, so we serialize those seven columns per game (blank
+  // cell where a value is missing).
+  //
+  // Ranked bye teams ARE pre-seeded now (as bye rows: team + rank, no opponent),
+  // read back from the saved poll (rankByWeek[rankSlot]) so a ranked team on a
+  // bye stays visible/editable and survives an edit round-trip instead of
+  // silently dropping out of the Top 25 when the user re-opens and re-saves.
+  const initialWeeklyText = useMemo(() => {
+    const gameLines = existingForPrefill.map((g) => {
+      const homeRank = g.homeRank != null ? String(g.homeRank) : ''
+      const awayRank = g.awayRank != null ? String(g.awayRank) : ''
+      const homeScore = g.homeScore != null ? String(g.homeScore) : ''
+      const awayScore = g.awayScore != null ? String(g.awayScore) : ''
+      const neutral = g.neutral ? 'Y' : ''
+      return [g.homeTeam || '', homeRank, homeScore, g.awayTeam || '', awayRank, awayScore, neutral].join('\t')
+    })
+    return gameLines.join('\n')
+  }, [existingForPrefill])
+
+  // Team-name options for the Home/Away combobox cells. Same label builder the
+  // prefill uses (getTeamNameLabel), so pre-filled cells like "Wyoming" match an
+  // option and render as a picked value rather than off-list free text. The
+  // combobox is a typeahead aid, not a hard gate: a user can type to search and
+  // pick a real team, and an AI paste of raw abbreviations (e.g. "WYO") is kept
+  // verbatim — the importer's getTidFromAbbr resolves both abbrs and name labels,
+  // so pasting still works untouched. FCS opponents are included since a weekly
+  // slate can have FBS-vs-FCS games.
+  const teamNameOptions = useMemo(
+    () => getTeamNameOptions(currentDynasty?.teams, { includeFCS: true }),
+    [currentDynasty?.teams],
+  )
+  const weeklyComboboxColumns = useMemo(
+    () => ({ Home: teamNameOptions, Away: teamNameOptions }),
+    [teamNameOptions],
+  )
 
   useEffect(() => {
+    // An explicit retry (Refresh after re-auth, or Regenerate) re-arms one attempt.
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        // Mark attempted before the first await so a failure can't loop back in.
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -767,16 +936,96 @@ Don't just glance at this list. Physically execute each check on your draft.
     }
     createSheet()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, year, week])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote, year, week])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
       setSheetId(null)
       setSheetTitle(null)
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Shared save core: runs the dropped-rows confirm + the count-drop guard,
+  // then writes via saveWeeklyScores. Returns true if the games were saved,
+  // false if the user cancelled a guard. Both the Google-sheet sync and the
+  // local-paste import funnel parsed games through here so the guards stay
+  // identical. (Throws are surfaced by the caller.)
+  const commitWeeklyGames = async (games) => {
+    // Surface dropped rows BEFORE saving — the parser collects rows
+    // it couldn't classify (unknown abbrs, malformed scores, etc.)
+    // so they don't silently vanish. User confirms before continuing.
+    const dropped = Array.isArray(games?.droppedRows) ? games.droppedRows : []
+    if (dropped.length > 0) {
+      const lines = dropped.slice(0, 8).map(d => {
+        if (d.kind === 'game' && d.reason === 'unknown-abbr') {
+          const which = d.missing === 'both' ? 'both teams' : d.missing === 'home' ? `home "${d.home}"` : `away "${d.away}"`
+          return `• Game ${d.home} vs ${d.away}: ${which} not in team registry`
+        }
+        if (d.kind === 'game' && d.reason === 'malformed-score') {
+          const parts = []
+          if (d.rawHome) parts.push(`home "${d.rawHome}"`)
+          if (d.rawAway) parts.push(`away "${d.rawAway}"`)
+          return `• Game ${d.home} vs ${d.away}: malformed score (${parts.join(', ') || 'unparseable'})`
+        }
+        if (d.kind === 'bye' && d.reason === 'unknown-abbr') {
+          return `• Bye row #${d.rank}: "${d.team}" not in team registry`
+        }
+        return `• ${d.kind} dropped (${d.reason})`
+      })
+      const more = dropped.length > 8 ? `\n…and ${dropped.length - 8} more` : ''
+      const proceed = await confirm({
+        title: `${dropped.length} row${dropped.length === 1 ? '' : 's'} will be dropped`,
+        message: `These rows couldn't be parsed and won't be saved:\n\n${lines.join('\n')}${more}\n\nFix the data and try again, or continue without these rows.`,
+        confirmLabel: 'Save anyway',
+        variant: 'danger',
+      })
+      if (!proceed) return false
+    }
+
+    // "Significant drop in count" guard. If this save would replace
+    // a previously-saved week's games with substantially fewer rows
+    // (≥10 fewer or ≤80% of prior), confirm before silently shrinking
+    // the data. Only enforced when prior save had a meaningful count.
+    const priorCount = Number(currentDynasty?.weeklyScoresEntered?.[year]?.[week]?.gameCount) || 0
+    const newCount = games.filter(g => typeof g.homeScore === 'number' && typeof g.awayScore === 'number').length
+    if (priorCount >= 20 && newCount < priorCount * 0.8 && (priorCount - newCount) >= 10) {
+      const ok = await confirm({
+        title: 'Game count dropped sharply',
+        message: `Previous save had ${priorCount} games for Week ${week}. This save has ${newCount}. Continuing will replace the existing data with fewer rows.`,
+        confirmLabel: 'Continue',
+        variant: 'danger',
+      })
+      if (!ok) return false
+    }
+
+    await saveWeeklyScores(currentDynasty.id, games, year, week, rankWeek)
+    const schedCount = games.filter(g => g.homeScore == null && g.awayScore == null && g.homeTid && g.awayTid).length
+    const parts = []
+    if (newCount > 0 || schedCount === 0) parts.push(`${newCount} game${newCount === 1 ? '' : 's'}`)
+    if (schedCount > 0) parts.push(`${schedCount} scheduled matchup${schedCount === 1 ? '' : 's'}`)
+    toast.success(`Saved ${parts.join(' + ')} for Week ${week}.`)
+    return true
+  }
+
+  // Local paste import: the AI emits the SAME 7-column game rows + bye-rank
+  // rows the sheet produces, classified by content (col D filled = game,
+  // col D empty = bye). The parser is position-independent, so the pasted
+  // rows feed straight in — no pre-filled columns, no normalization. Routes
+  // through commitWeeklyGames so the dropped-row + count-drop guards apply.
+  const handleLocalImport = async (text) => {
+    const games = await readWeeklyScoresFromSheet(
+      null,
+      null,
+      currentDynasty?.teams || currentDynasty?.customTeams,
+      { rows: splitTsv(text) },
+    )
+    const saved = await commitWeeklyGames(games)
+    if (saved) onClose()
+  }
 
   const handleSave = async (alsoDelete) => {
     if (!sheetId || !sheetTitle) return
@@ -788,63 +1037,12 @@ Don't just glance at this list. Physically execute each check on your draft.
         currentDynasty?.teams || currentDynasty?.customTeams,
       )
 
-      // Surface dropped rows BEFORE saving — the parser collects rows
-      // it couldn't classify (unknown abbrs, malformed scores, etc.)
-      // so they don't silently vanish. User confirms before continuing.
-      const dropped = Array.isArray(games?.droppedRows) ? games.droppedRows : []
-      if (dropped.length > 0) {
-        const lines = dropped.slice(0, 8).map(d => {
-          if (d.kind === 'game' && d.reason === 'unknown-abbr') {
-            const which = d.missing === 'both' ? 'both teams' : d.missing === 'home' ? `home "${d.home}"` : `away "${d.away}"`
-            return `• Game ${d.home} vs ${d.away}: ${which} not in team registry`
-          }
-          if (d.kind === 'game' && d.reason === 'malformed-score') {
-            const parts = []
-            if (d.rawHome) parts.push(`home "${d.rawHome}"`)
-            if (d.rawAway) parts.push(`away "${d.rawAway}"`)
-            return `• Game ${d.home} vs ${d.away}: malformed score (${parts.join(', ') || 'unparseable'})`
-          }
-          if (d.kind === 'bye' && d.reason === 'unknown-abbr') {
-            return `• Bye row #${d.rank}: "${d.team}" not in team registry`
-          }
-          return `• ${d.kind} dropped (${d.reason})`
-        })
-        const more = dropped.length > 8 ? `\n…and ${dropped.length - 8} more` : ''
-        const proceed = await confirm({
-          title: `${dropped.length} row${dropped.length === 1 ? '' : 's'} will be dropped`,
-          message: `These rows couldn't be parsed and won't be saved:\n\n${lines.join('\n')}${more}\n\nFix the sheet and try again, or continue without these rows.`,
-          confirmLabel: 'Save anyway',
-          variant: 'danger',
-        })
-        if (!proceed) {
-          setDeletingSheet(false)
-          setSyncing(false)
-          return
-        }
+      const saved = await commitWeeklyGames(games)
+      if (!saved) {
+        setDeletingSheet(false)
+        setSyncing(false)
+        return
       }
-
-      // "Significant drop in count" guard. If this save would replace
-      // a previously-saved week's games with substantially fewer rows
-      // (≥10 fewer or ≤80% of prior), confirm before silently shrinking
-      // the data. Only enforced when prior save had a meaningful count.
-      const priorCount = Number(currentDynasty?.weeklyScoresEntered?.[year]?.[week]?.gameCount) || 0
-      const newCount = games.filter(g => typeof g.homeScore === 'number' && typeof g.awayScore === 'number').length
-      if (priorCount >= 20 && newCount < priorCount * 0.8 && (priorCount - newCount) >= 10) {
-        const ok = await confirm({
-          title: 'Game count dropped sharply',
-          message: `Previous save had ${priorCount} games for Week ${week}. This save has ${newCount}. Continuing will replace the existing data with fewer rows.`,
-          confirmLabel: 'Continue',
-          variant: 'danger',
-        })
-        if (!ok) {
-          setDeletingSheet(false)
-          setSyncing(false)
-          return
-        }
-      }
-
-      await saveWeeklyScores(currentDynasty.id, games, year, week, rankWeek)
-      toast.success(`Saved ${newCount} game${newCount === 1 ? '' : 's'} for Week ${week}.`)
 
       if (alsoDelete) {
         try { await deleteGoogleSheet(sheetId) } catch (e) { console.error('Failed to delete sheet:', e) }
@@ -978,7 +1176,7 @@ Don't just glance at this list. Physically execute each check on your draft.
         <div className="flex items-center justify-between px-5 sm:px-7 py-4 border-b border-surface-4">
           <div className="flex flex-col">
             <h2 className="text-xl sm:text-2xl font-bold text-txt-primary tracking-tight tabular-nums">
-              {year} Week {week}
+              {year} Week {week} Scores
             </h2>
           </div>
           <button
@@ -993,7 +1191,36 @@ Don't just glance at this list. Physically execute each check on your draft.
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isLoading ? (
+          {useLocal && !showDeletedNote ? (
+            <div className="flex-1 flex flex-col overflow-hidden px-5 sm:px-7 py-4">
+              <p className="mb-3 text-[11px] leading-snug sm:text-sm sm:leading-relaxed text-txt-secondary">
+                Screenshot <strong className="text-txt-primary">all of this week's scores</strong> and send them with the prompt. The AI reads every final and <strong className="text-txt-primary">derives the Top 25 automatically</strong> from them. Ranked teams on bye are auto derived from the past week's rankings. The AI makes its best judgement to fill in the entire Top 25.
+              </p>
+              <LocalDataEntry
+                aiPrompt={aiPrompt}
+                onImport={handleLocalImport}
+                onUseGoogle={() => setUseLocal(false)}
+                onCancel={onClose}
+                importLabel="Import Scores"
+                initialText={initialWeeklyText}
+                columns={WEEKLY_SCORES_COLUMNS}
+                comboboxColumns={weeklyComboboxColumns}
+                comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+                normalizeRows={normalizeWeeklyScoreRows}
+                instructions={"Screenshot this week's full scoreboard — every game and its final score. It doesn't have to be perfect, just clear and complete. The AI reads the scores AND derives the Top 25 from them, so there's no separate rankings screenshot."}
+              >
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <label htmlFor="weekly-rank-week" className="label-xs text-txt-tertiary">
+                    Rankings week
+                  </label>
+                  {rankWeekSelect}
+                  <p className="basis-full text-xs text-txt-tertiary leading-relaxed">
+                    Which week's slot the derived Top 25 lands in. Defaults to your dynasty's current week.
+                  </p>
+                </div>
+              </LocalDataEntry>
+            </div>
+          ) : isLoading ? (
             <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center">
                 <div

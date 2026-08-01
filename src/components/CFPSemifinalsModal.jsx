@@ -4,7 +4,7 @@ import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContex
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo, stripMascotFromName } from '../data/teams'
 import { getBowlLogo } from '../data/bowlGames'
-import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { TEAMS, getGameTeamInfo, getTeamNameLabel } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { useToast } from './ui/Toast'
 import { DEFAULT_BOWL_CONFIG } from '../data/cfpConstants'
@@ -121,7 +121,7 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
     if (!teamData) return null
 
     const abbr = teamData.abbr
-    const mascotName = mascotMap[abbr] || teamData.name
+    const mascotName = teamData.name || mascotMap[abbr]
     const logo = teamData.logo || (mascotName ? getTeamLogo(mascotName, teams) : null)
 
     // Extract just the school name (remove mascot suffix). Delegates
@@ -194,23 +194,19 @@ export default function CFPSemifinalsModal({ isOpen, onClose, onSave, currentYea
       const teams = currentDynasty?.teams || TEAMS
       const getGameWinner = (game) => {
         if (!game) return ''
-        // Try winner field first
-        if (game.winner) return game.winner
-        // Derive from winnerTid for unified format
+        // Prefer the tid-derived NAME (tid-rooted); fall back to any stored string.
         if (game.winnerTid) {
-          const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
-          return winnerInfo?.abbr || ''
+          return getTeamNameLabel(teams, game.winnerTid) || getGameTeamInfo(teams, game.winnerTid)?.abbr || ''
         }
+        if (game.winner) return game.winner
         // Fallback: compute from scores - MUST have actual score values (not null/undefined/'')
         const score1 = game.team1Score
         const score2 = game.team2Score
         const hasValidScores = score1 !== undefined && score1 !== null && score1 !== '' &&
                                score2 !== undefined && score2 !== null && score2 !== ''
         if (hasValidScores) {
-          const t1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
-          const t2Info = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid) : null
-          const t1 = t1Info?.abbr || game.team1 || ''
-          const t2 = t2Info?.abbr || game.team2 || ''
+          const t1 = (game.team1Tid ? getTeamNameLabel(teams, game.team1Tid) : null) || (game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : null) || game.team1 || ''
+          const t2 = (game.team2Tid ? getTeamNameLabel(teams, game.team2Tid) : null) || (game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : null) || game.team2 || ''
           const winner = Number(score1) > Number(score2) ? t1 : t2
           console.log(`[getGameWinner] ${game.id}: t1Tid=${game.team1Tid}→${t1}, t2Tid=${game.team2Tid}→${t2}, scores=${score1}-${score2}, winner=${winner}`)
           return winner

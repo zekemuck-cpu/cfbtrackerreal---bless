@@ -1,11 +1,12 @@
 // staffDB.js
 //
-// Scout Staff configuration store. Staff hires (National Scout / Data
-// Analyst) and the Program Outlook settings live ON the dynasty object under
-// `dynasty.scoutStaff` — a plain { key: value } map — so they persist through
-// the app's normal updateDynasty() save path (Firestore for cloud dynasties,
-// IndexedDB for local ones) and travel with dynasty backups automatically.
-// They are NO LONGER written to the separate device-local IndexedDB database.
+// Scout Staff configuration store. As of the cloud migration, the staff hires
+// (National Scout / Data Analyst) and the Program Outlook settings live ON the
+// dynasty object under `dynasty.scoutStaff` — a plain { key: value } map — so
+// they persist through the app's normal updateDynasty() save path (Firestore
+// for cloud dynasties, IndexedDB for local ones) and travel with dynasty
+// backups automatically. They are NO LONGER written to the separate device-
+// local IndexedDB database.
 //
 // The legacy local database ('ScoutStaffComprehensiveDB') is still read ONCE by
 // the migration in ScoutStaff (via getAllStaffDataForDynasty) to lift any

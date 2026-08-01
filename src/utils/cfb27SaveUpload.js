@@ -18,6 +18,24 @@ const API_BASE = import.meta.env.VITE_API_BASE || ''
  * @param {AbortSignal} [opts.signal]
  * @returns {Promise<{ players: object[], teamCount: number, tableRowCount: number }>}
  */
+// Turn a failed API response into an error that actually says what happened.
+// A handler error arrives as JSON with an `error` key, but a PLATFORM failure
+// (Vercel HTML 404 for a missing route, an HTML 500 from a function that
+// couldn't boot) has no JSON at all — the old code swallowed it and reported a
+// bare "Could not start upload", which is indistinguishable between "route is
+// gone", "function crashed", and "you're not premium". Keep the status and a
+// snippet of the raw body so one screenshot is enough to diagnose.
+async function describeFailure(res, what) {
+  const raw = await res.text().catch(() => '')
+  let parsed = null
+  try { parsed = JSON.parse(raw) } catch { /* not JSON — platform-level failure */ }
+  if (parsed?.error) return new Error(parsed.error)
+  const snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 160)
+  return new Error(
+    `${what} — HTTP ${res.status}${snippet ? `: ${snippet}` : ''}`
+  )
+}
+
 export async function uploadAndParseCfb27Save(file, { onProgress, signal } = {}) {
   const user = auth.currentUser
   if (!user) throw new Error('Sign in to import a save file')
@@ -32,14 +50,14 @@ export async function uploadAndParseCfb27Save(file, { onProgress, signal } = {})
     signal,
   })
   if (!presignRes.ok) {
-    const info = await presignRes.json().catch(() => ({}))
-    throw new Error(info?.error || `Could not start upload (${presignRes.status})`)
+    throw await describeFailure(presignRes, 'Could not start upload')
   }
   const { uploadUrl, key, headers } = await presignRes.json()
 
   const putRes = await fetch(uploadUrl, { method: 'PUT', body: file, headers, signal })
   if (!putRes.ok) {
-    throw new Error(`Upload failed (${putRes.status}) — try again`)
+    // R2 rejection (expired signature, size/permission) — its body is XML.
+    throw await describeFailure(putRes, 'Upload to storage failed')
   }
 
   onProgress?.('parsing')
@@ -51,8 +69,7 @@ export async function uploadAndParseCfb27Save(file, { onProgress, signal } = {})
     signal,
   })
   if (!parseRes.ok) {
-    const info = await parseRes.json().catch(() => ({}))
-    throw new Error(info?.error || `Could not parse save (${parseRes.status})`)
+    throw await describeFailure(parseRes, 'Could not parse save')
   }
 
   return parseRes.json()

@@ -20,6 +20,9 @@ import {
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { getTeamNameOptions, getTeamNameLabel, getTeamNameAliases } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -32,6 +35,7 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+  const teamAbbrs = useMemo(() => getTeamNameOptions(currentDynasty?.teams, { includeFCS: false }), [currentDynasty?.teams])
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
@@ -48,6 +52,8 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -75,10 +81,35 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
       .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
   }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentYear])
 
+  // Pre-fill the local grid with THIS team's already-saved transfer
+  // destinations for the year so the modal opens ready to edit. The parser
+  // reads row[0]=Player, row[1]=New Team and requires BOTH non-blank, so we
+  // emit only entries with a name and a destination — round-trip safe.
+  // Mirror handleTransferDestinationsSave's year: it flips to the prior season
+  // once we're at/after Signing Day (offseason week >= 5).
+  const initialText = useMemo(() => {
+    const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 5
+    const dataYear = isAfterYearFlip ? Number(currentYear) - 1 : Number(currentYear)
+    const tid = currentDynasty?.currentTid
+    const teamAbbr = getTeamNameLabel(currentDynasty?.teams, tid) || currentDynasty?.teamName
+    const fromTid = tid != null
+      ? currentDynasty?.teams?.[tid]?.byYear?.[dataYear]?.transferDestinations
+      : null
+    const legacy = currentDynasty?.transferDestinationsByTeamYear
+    const fromLegacy =
+      (tid != null ? legacy?.[tid]?.[dataYear] : null) ??
+      (teamAbbr ? legacy?.[teamAbbr]?.[dataYear] : null)
+    const dests = fromTid ?? fromLegacy ?? []
+    return dests
+      .filter(d => d?.playerName && d?.newTeam)
+      .map(d => `${d.playerName}\t${d.newTeam}`)
+      .join('\n')
+  }, [currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, currentDynasty?.transferDestinationsByTeamYear, currentDynasty?.currentPhase, currentDynasty?.currentWeek, currentYear])
+
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} Transfer Destinations`,
     roster: userRoster,
-    structure: `This sheet has ONE tab: "Transfer Destinations". It has 2 columns total (A = Player Name, B = New Team). Row 1 is the protected header row. Column A (Player Name) is PRE-FILLED with outgoing transfers and PROTECTED — do NOT output column A. Column B is the only editable column — a STRICT dropdown of team abbreviations.
+    structure: `This sheet has ONE tab: "Transfer Destinations". It has 2 columns total (A = Player Name, B = New Team). Row 1 is the protected header row. Column A (Player Name) is PRE-FILLED with outgoing transfers and PROTECTED — do NOT output column A. Column B is the only editable column — a STRICT dropdown of team names.
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
@@ -86,15 +117,15 @@ CRITICAL RULES — read before anything else
 1. Output ONLY column B. NEVER output column A, the header row, or any commentary.
 2. Output format is a SINGLE column of values — one value per line — NO tabs, NO extra columns.
 3. Row order must match the pre-filled Player Name rows EXACTLY from top to bottom as shown in the screenshot. If the sheet shows N pre-filled players, output EXACTLY N lines (even if some are blank).
-4. Every non-blank value MUST be a team abbreviation from the team-abbreviation mapping provided at the bottom of this prompt (format: ABBR = Full Name). Examples: BAMA, OSU, UGA, TEX.
+4. Every non-blank value MUST be a team name from the TEAM NAMES list provided at the bottom of this prompt. Examples: Alabama, Ohio State, Georgia, Texas.
 5. NEVER use full team names ("Alabama"), nicknames ("Crimson Tide"), mascots ("Tide"), city names, or conference names. The column is a STRICT dropdown — wrong spelling / wrong casing / free text will be silently rejected.
-6. Case must match the mapping exactly — abbreviations are typically all-uppercase but follow the mapping below.
+6. Team names must match the TEAM NAMES list below exactly.
 7. BLANK LINE if the destination is unknown — leave the line empty (an empty string between two newlines). Do NOT guess, NOT use "UNK", "N/A", "TBD", or "-".
-8. No header row, no commentary or explanation INSIDE the data, no totals. The paste-target label above the fence is required (see TSV delivery rules above).
+8. No header row, no commentary or explanation INSIDE the data, no totals.
 9. If the screenshot shows the player has withdrawn / is no longer transferring, leave that line blank.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Transfer Destinations" — paste at cell B2 of the "Transfer Destinations" tab
+SECTION: "Transfer Destinations"
 ═══════════════════════════════════════════════════════════
 
 Column layout:
@@ -102,38 +133,88 @@ Column layout:
 Col | Header (row 1, protected) | Pre-filled / protected?          | Your value
 ----+---------------------------+----------------------------------+-----------------------------------
  A  | Player Name               | Pre-filled (outgoing transfers) — PROTECTED | DO NOT OUTPUT
- B  | New Team                  | Empty — EDITABLE dropdown        | Team abbreviation from mapping (or BLANK)
+ B  | New Team                  | Empty — EDITABLE dropdown        | Team name from mapping (or BLANK)
 
 ───────────────────────────────────────────────────────────
 COLUMN B — New Team — Allowed values:
-Any team abbreviation from the team-abbreviation mapping provided at the bottom of this prompt (format: ABBR = Full Name). Use the abbreviation exactly as shown (e.g. BAMA for Alabama, OSU for Ohio State, MIA for Miami (FL), M-OH for Miami (OH)).
+Any team name from the TEAM NAMES list provided at the bottom of this prompt. Use the team name exactly as shown (e.g. Alabama, Ohio State, Miami (FL), Miami (OH)).
 
 Leave the line BLANK if the destination is not visible/known in the screenshots — a blank is the correct answer for unknown.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== TRANSFER DESTINATIONS — paste at cell B2 of "Transfer Destinations" tab ===
-<team abbr or blank>
-<team abbr or blank>
-<team abbr or blank>
+=== TRANSFER DESTINATIONS ===
+<team name or blank>
+<team name or blank>
+<team name or blank>
 …one line per pre-filled player, in the EXACT order shown in the screenshots
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
 [ ] Exactly N lines, where N = number of pre-filled Player Name rows visible in the screenshots
-[ ] Every non-blank value is an exact match for an abbreviation in the mapping (case-sensitive)
+[ ] Every non-blank value is an exact team name in the TEAM NAMES list (case-sensitive)
 [ ] No full team names, nicknames, mascots, cities, conferences
 [ ] No tabs, no commas, no other columns
 [ ] Blank lines used for unknown destinations — nothing invented, no "UNK"/"N/A"/"TBD"
-[ ] No header row, no commentary INSIDE the data, no totals (the paste-target label above the fence is required, see TSV delivery rules above)`,
+[ ] No header row, no commentary INSIDE the data, no totals`,
+    includeTeamMap: true,
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, userRoster, currentDynasty?.teams])
+
+  // LOCAL-PASTE prompt: self-describing rows, no pre-filled column to align
+  // against. The AI emits one line per transferring player whose destination
+  // it can see, as PlayerName<TAB>NewTeam — so a paste carries its own
+  // identity and the parser/save match by name (omitted players are unchanged).
+  const localAiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Transfer Destinations`,
+    roster: userRoster,
+    structure: `Output ONE line per outgoing transfer whose NEW TEAM you can see in the screenshots. Each line is SELF-DESCRIBING — it carries the player's own name, so there is NO pre-filled column to line up against and NO fixed row order.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Each line has EXACTLY 2 tab-separated fields: PlayerName<TAB>NewTeam.
+2. NO header row. NO blank lines. NO commentary, totals, or labels INSIDE the data.
+3. OMIT any player whose destination you cannot see — do NOT pad with blank lines, do NOT guess, do NOT write "UNK"/"N/A"/"TBD". A player with no known destination simply has no line.
+4. Output ONE line PER PLAYER who has a known new team. The order does not matter.
+5. PlayerName: the full player name exactly as it should appear (use the roster block below to expand abbreviated names like "A. Guess").
+6. NewTeam: a team name from the TEAM NAMES list at the bottom (e.g. Alabama, Ohio State, Georgia, Miami (OH)). NEVER an abbreviation, nickname, mascot, city, or conference. Match the team name exactly as written in the list.
+7. If the screenshot shows a player withdrew / is no longer transferring, OMIT them entirely.
+
+═══════════════════════════════════════════════════════════
+PER-LINE OUTPUT (2 tab-separated fields)
+═══════════════════════════════════════════════════════════
+<Player Name><TAB><New Team Abbr>
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== TRANSFER DESTINATIONS ===
+<Player Name>\\t<New Team Abbr>
+<Player Name>\\t<New Team Abbr>
+…one line per transfer with a known destination; omit unknowns entirely
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has exactly 2 tab-separated fields (one tab)
+[ ] Every New Team value is an exact name from the list (case-sensitive)
+[ ] No full team names, nicknames, mascots, cities, conferences
+[ ] No blank lines, no header row, no commentary INSIDE the data
+[ ] Only players whose destination is visible — nothing invented, no "UNK"/"N/A"/"TBD"`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, userRoster, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  // Single-attempt guard: a FAILED creation must not silently re-fire (the
+  // runaway loop that spam-created sheets). One attempt per modal-open; an
+  // explicit retry bumps auth.retryCount and re-arms exactly one more.
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -212,8 +293,17 @@ FINAL CHECK before you send
 
   // Create sheet when modal opens (only if no existing sheet for this season)
   useEffect(() => {
+    // An explicit retry re-arms one fresh attempt by bumping auth.retryCount.
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !noTransfers) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !noTransfers && !creationAttemptedRef.current) {
+        // Mark attempted BEFORE any await so a rejection can't loop back in
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -257,7 +347,7 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create transfer destinations sheet:', error)
-          auth.handleError(error)
+          if (!auth.handleError(error)) toast.error(auth.describeError(error, 'create the sheet'))
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -266,7 +356,7 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, noTransfers, currentYear])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote, noTransfers, currentYear])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -274,12 +364,15 @@ FINAL CHECK before you send
       setShowDeletedNote(false)
       setNoTransfers(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
 
-  // Restore sheetId from dynasty when modal re-opens (e.g. after app reload)
+  // Restore sheetId from dynasty when modal re-opens (e.g. after app reload).
+  // Skipped while the local paste path is active so it can't pull in a Google sheet.
   useEffect(() => {
-    if (isOpen && !sheetId && !creatingSheet && !creatingSheetRef.current) {
+    if (isOpen && !useLocal && !sheetId && !creatingSheet && !creatingSheetRef.current) {
       if (
         currentDynasty?.transferDestinationsSheetId &&
         currentDynasty?.transferDestinationsSheetYear === currentYear
@@ -299,7 +392,17 @@ FINAL CHECK before you send
         })()
       }
     }
-  }, [isOpen])
+  }, [isOpen, useLocal])
+
+  // Local paste import: the AI emits PlayerName<TAB>NewTeam rows — exactly the
+  // two columns the parser reads as row[0]/row[1], so the split rows map
+  // straight through. Downstream save matches by player name, so omitting
+  // players with unknown destinations leaves them unchanged.
+  const handleLocalImport = async (text) => {
+    const destinations = await readTransferDestinationsFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows: splitTsv(text) })
+    await onSave(destinations)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -459,6 +562,18 @@ FINAL CHECK before you send
               </button>
             </div>
           </div>
+        ) : useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={localAiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Transfer Destinations"
+            columns={['Player', 'New Team']}
+            comboboxColumns={{ 'New Team': teamAbbrs }}
+            comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+            initialText={initialText}
+          />
         ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">

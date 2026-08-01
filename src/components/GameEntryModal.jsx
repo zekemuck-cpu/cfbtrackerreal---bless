@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDynasty, getCurrentTeamRatings, getCurrentRoster, GAME_TYPES, getCurrentCustomConferences, getCurrentSchedule } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
-import { getTeamLogo, getMascotName } from '../data/teams'
+import { getTeamLogo, getMascotName, getTeamLogoByTid } from '../data/teams'
 import { getModalColors } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr, getGameTeamInfo, TEAMS, getAbbrFromTeamName } from '../data/teamRegistry'
@@ -1314,8 +1314,8 @@ export default function GameEntryModal({
 
     // Use custom conferences for auto-detection
     const customConferences = getCurrentCustomConferences(currentDynasty)
-    const teamConference = getTeamConference(teamAbbrForSave, customConferences)
-    const opponentConference = getTeamConference(opponentAbbr, customConferences)
+    const teamConference = getTeamConference(teamAbbrForSave, customConferences, teamsSource)
+    const opponentConference = getTeamConference(opponentAbbr, customConferences, teamsSource)
 
     // Conference game if both teams are in the same conference (and not independents)
     // Conference Championship games are always conference games
@@ -1664,7 +1664,7 @@ export default function GameEntryModal({
           <div className="min-w-0 flex-1">
             <h2 className="text-base sm:text-2xl font-bold truncate" style={{ color: 'var(--text-primary)' }}>
               {isConferenceChampionship || effectiveGame?.isConferenceChampionship
-                ? `${effectiveGame?.conference || getTeamConference(effectiveTeamAbbr) || 'Conference'} Championship`
+                ? `${effectiveGame?.conference || getTeamConference(effectiveTeamAbbr, getCurrentCustomConferences(currentDynasty), teamsSource) || 'Conference'} Championship`
                 : effectiveGame?.isCFPChampionship
                   ? 'National Championship'
                   : effectiveGame?.isCFPSemifinal
@@ -1681,8 +1681,8 @@ export default function GameEntryModal({
               const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
               if (isCPUGame) {
                 // CPU vs CPU game - show both teams
-                const team1Name = getMascotName(effectiveGame?.team1, teamsData) || getOpponentTeamName(effectiveGame?.team1)
-                const team2Name = getMascotName(effectiveGame?.team2, teamsData) || getOpponentTeamName(effectiveGame?.team2)
+                const team1Name = getMascotName(effectiveGame?.team1Tid, teamsData) || getMascotName(effectiveGame?.team1, teamsData) || getOpponentTeamName(effectiveGame?.team1)
+                const team2Name = getMascotName(effectiveGame?.team2Tid, teamsData) || getMascotName(effectiveGame?.team2, teamsData) || getOpponentTeamName(effectiveGame?.team2)
                 return (
                   <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 truncate" style={{ color: 'var(--text-secondary)' }}>
                     {team1Name} vs {team2Name}
@@ -1762,10 +1762,11 @@ export default function GameEntryModal({
                   // Use effectiveTeamAbbr (from viewingTeamAbbr prop or user's current team) for non-CPU games
                   const teamsSourceLocal = currentDynasty?.teams || TEAMS
                   const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSourceLocal, effectiveGame.team1Tid)?.abbr : null
-                  const team1Abbr = isCPUGame ? (effectiveGame?.team1 || team1AbbrFromTid) : effectiveTeamAbbr
+                  // tid-first: prefer the live tid-derived abbr, fall back to the stored string only when no tid
+                  const team1Abbr = isCPUGame ? (team1AbbrFromTid || effectiveGame?.team1) : effectiveTeamAbbr
                   // Ensure opponent is an abbreviation (convert full name if needed)
                   const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSourceLocal, effectiveGame.team2Tid)?.abbr : null
-                  const rawOpponent = isCPUGame ? (effectiveGame?.team2 || team2AbbrFromTid) : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
+                  const rawOpponent = isCPUGame ? (team2AbbrFromTid || effectiveGame?.team2) : (gameData.opponent || passedOpponent || scheduledGame?.opponent)
                   const team2Abbr = getAbbrFromTeamName(rawOpponent) || rawOpponent
 
                   const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
@@ -1774,13 +1775,18 @@ export default function GameEntryModal({
                   const team1DisplayName = team1MascotName || (isCPUGame ? getOpponentTeamName(team1Abbr) : effectiveTeamName) || 'Team 1'
                   const team2DisplayName = team2MascotName || (team2Abbr ? getOpponentTeamName(team2Abbr) : 'Team 2')
 
-                  // Get team logos
-                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName, teamsData) : (isCPUGame ? null : getTeamLogo(effectiveTeamName, teamsData))
-                  const team2Logo = team2MascotName ? getTeamLogo(team2MascotName, teamsData) : null
+                  // Get team logos — resolve live from the same tid the colors use
+                  // (getGameTeamInfo(...team1Tid) below), fall back to the mascot/abbr path.
+                  const team1Logo = getTeamLogoByTid(effectiveGame?.team1Tid, teamsData) || (team1MascotName ? getTeamLogo(team1MascotName, teamsData) : (isCPUGame ? null : getTeamLogo(effectiveTeamName, teamsData)))
+                  const team2Logo = getTeamLogoByTid(effectiveGame?.team2Tid, teamsData) || (team2MascotName ? getTeamLogo(team2MascotName, teamsData) : null)
 
-                  // Get team colors (check tid-based teams first)
-                  const team1Info = team1Abbr ? getGameTeamInfo(teamsData || TEAMS, team1Abbr) : null
-                  const team2Info = team2Abbr ? getGameTeamInfo(teamsData || TEAMS, team2Abbr) : null
+                  // Get team colors (resolve live from tid first, fall back to abbr only when no tid)
+                  const team1Info = effectiveGame?.team1Tid
+                    ? getGameTeamInfo(teamsData || TEAMS, effectiveGame.team1Tid)
+                    : (team1Abbr ? getGameTeamInfo(teamsData || TEAMS, team1Abbr) : null)
+                  const team2Info = effectiveGame?.team2Tid
+                    ? getGameTeamInfo(teamsData || TEAMS, effectiveGame.team2Tid)
+                    : (team2Abbr ? getGameTeamInfo(teamsData || TEAMS, team2Abbr) : null)
                   const team1Colors = isCPUGame
                     ? { primary: team1Info?.primaryColor || teamAbbreviations[team1Abbr]?.backgroundColor || '#666' }
                     : teamColors
@@ -2726,11 +2732,14 @@ export default function GameEntryModal({
                   const teamsSource = currentDynasty?.teams || TEAMS
                   const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
                   const team1AbbrFromTid = effectiveGame?.team1Tid ? getGameTeamInfo(teamsSource, effectiveGame.team1Tid)?.abbr : null
-                  const team1Abbr = effectiveGame?.team1 || team1AbbrFromTid || passedTeam1
+                  // tid-first: prefer the live tid-derived abbr, fall back to stored string only when no tid
+                  const team1Abbr = team1AbbrFromTid || effectiveGame?.team1 || passedTeam1
                   const team1MascotName = team1Abbr ? getMascotName(team1Abbr, teamsData) : null
                   const team1DisplayName = team1MascotName || (team1Abbr ? getOpponentTeamName(team1Abbr) : 'Team 1')
-                  const team1Logo = team1MascotName ? getTeamLogo(team1MascotName, teamsData) : null
-                  const team1Info = team1Abbr ? getGameTeamInfo(teamsData || TEAMS, team1Abbr) : null
+                  const team1Logo = getTeamLogoByTid(effectiveGame?.team1Tid, teamsData) || (team1MascotName ? getTeamLogo(team1MascotName, teamsData) : null)
+                  const team1Info = effectiveGame?.team1Tid
+                    ? getGameTeamInfo(teamsData || TEAMS, effectiveGame.team1Tid)
+                    : (team1Abbr ? getGameTeamInfo(teamsData || TEAMS, team1Abbr) : null)
                   const team1Colors = team1Info ? { textColor: team1Info.secondaryColor } : (team1Abbr ? teamAbbreviations[team1Abbr] : null)
 
                   return (
@@ -2850,11 +2859,14 @@ export default function GameEntryModal({
                   const teamsSource = currentDynasty?.teams || TEAMS
                   const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
                   const team2AbbrFromTid = effectiveGame?.team2Tid ? getGameTeamInfo(teamsSource, effectiveGame.team2Tid)?.abbr : null
-                  const team2Abbr = effectiveGame?.team2 || team2AbbrFromTid || passedTeam2
+                  // tid-first: prefer the live tid-derived abbr, fall back to stored string only when no tid
+                  const team2Abbr = team2AbbrFromTid || effectiveGame?.team2 || passedTeam2
                   const team2MascotName = team2Abbr ? getMascotName(team2Abbr, teamsData) : null
                   const team2DisplayName = team2MascotName || (team2Abbr ? getOpponentTeamName(team2Abbr) : 'Team 2')
-                  const team2Logo = team2MascotName ? getTeamLogo(team2MascotName, teamsData) : null
-                  const team2Info = team2Abbr ? getGameTeamInfo(teamsData || TEAMS, team2Abbr) : null
+                  const team2Logo = getTeamLogoByTid(effectiveGame?.team2Tid, teamsData) || (team2MascotName ? getTeamLogo(team2MascotName, teamsData) : null)
+                  const team2Info = effectiveGame?.team2Tid
+                    ? getGameTeamInfo(teamsData || TEAMS, effectiveGame.team2Tid)
+                    : (team2Abbr ? getGameTeamInfo(teamsData || TEAMS, team2Abbr) : null)
                   const team2Colors = team2Info ? { textColor: team2Info.secondaryColor } : (team2Abbr ? teamAbbreviations[team2Abbr] : null)
 
                   return (

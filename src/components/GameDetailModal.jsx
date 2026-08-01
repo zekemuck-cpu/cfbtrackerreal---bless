@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
-import { teamAbbreviations } from '../data/teamAbbreviations'
+import { getTeamLogo, getMascotName as getMascotNameFromTeams, getTeamLogoByTid } from '../data/teams'
 import { getTeamColors } from '../data/teamColors'
 import { getModalColors } from '../utils/colorUtils'
 import { useDynasty, getUserGamePerspective, getRecordAsOfGame, getTeamConferenceForDynasty } from '../context/DynastyContext'
@@ -46,8 +45,13 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
   // CPU games are identified by having team1/team2 but no perspective (user wasn't coaching either team)
   const hasUnifiedFormat = game.team1Tid && game.team2Tid
   const isCPUGame = !!game.viewingTeam || (!perspective && (hasUnifiedFormat || (!game.userTeam && game.team1 && game.team2)))
-  const displayTeam = isCPUGame ? game.viewingTeam : userTeam
-  const displayTeamAbbr = isCPUGame ? game.viewingTeamAbbr : getAbbrFromTeamName(userTeam)
+  // Durable tids for the display (user) side and the opponent side. tid-first,
+  // stored-string fallback only for legacy CPU games that have no tids.
+  const displayTid = perspective?.userTid ?? game.team1Tid
+  const opponentTid = perspective?.opponentTid ?? game.team2Tid
+  const displayTeam = getMascotName(displayTid, teams) || (isCPUGame ? game.viewingTeam : userTeam)
+  const displayTeamAbbr = (displayTid != null ? getGameTeamInfo(teams, displayTid)?.abbr : null)
+    || (isCPUGame ? game.viewingTeamAbbr : getAbbrFromTeamName(userTeam))
 
   // Get the user's team conference - fallback computation if not stored in game
   const userTeamAbbr = getAbbrFromTeamName(userTeam)
@@ -75,10 +79,11 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
   }
 
   const opponentAbbrResolved = getOpponentAbbr()
-  const opponentTeamInfo = teamAbbreviations[opponentAbbrResolved]
   // First try to get mascot from abbreviation, if that fails check if opponent IS a mascot name
   let opponentMascot = getMascotName(opponentAbbrResolved)
-  let opponentLogo = opponentMascot ? getTeamLogo(opponentMascot, teams) : null
+  // Resolve the opponent logo live from the in-scope tid (reflects rename + custom
+  // logo); fall back to the abbr/mascot path for legacy games without a tid.
+  let opponentLogo = getTeamLogoByTid(opponentTid, teams) || (opponentMascot ? getTeamLogo(opponentMascot, teams) : null)
 
   // If no mascot found by abbreviation, try using opponent directly as mascot name
   if (!opponentLogo) {
@@ -90,12 +95,21 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
 
   // Also try getting abbreviation from display name for colors
   const opponentAbbr = opponentMascot ? getAbbrFromTeamName(opponentMascot) : opponentAbbrResolved
-  const opponentColors = opponentMascot ? getTeamColors(opponentMascot, teams) : { primary: '#666', secondary: '#fff' }
+  // Colors resolve live from dynasty.teams[opponentTid]; fall back to the
+  // mascot-name lookup for legacy games without a tid.
+  const opponentColors = (opponentTid != null && teams?.[opponentTid])
+    ? { primary: teams[opponentTid].primaryColor || '#666', secondary: teams[opponentTid].secondaryColor || '#fff' }
+    : (opponentMascot ? getTeamColors(opponentMascot, teams) : { primary: '#666', secondary: '#fff' })
+
+  // Live tid-first opponent display name (fall back to stored strings for legacy games w/o tid)
+  const opponentTeamName = getMascotName(opponentTid, teams) || opponentMascot || game.opponent
 
   // Get display team info (user's team or viewing team for CPU games)
   const displayTeamLogo = getTeamLogo(displayTeam, teams)
   const displayTeamColors = isCPUGame
-    ? (getMascotName(displayTeamAbbr) ? getTeamColors(getMascotName(displayTeamAbbr), teams) : teamColors)
+    ? ((displayTid != null && teams?.[displayTid])
+        ? { primary: teams[displayTid].primaryColor || '#374151', secondary: teams[displayTid].secondaryColor || '#FFFFFF' }
+        : (getMascotName(displayTeamAbbr) ? getTeamColors(getMascotName(displayTeamAbbr), teams) : teamColors))
     : teamColors
 
   // Get user team ratings
@@ -162,16 +176,18 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
   // Helper function to render a team
   const renderTeam = (side) => {
     const isDisplayTeam = side === 'user'
-    const teamName = isDisplayTeam ? displayTeam : (opponentMascot || game.opponent)
+    const teamName = isDisplayTeam ? displayTeam : opponentTeamName
     const logo = isDisplayTeam ? displayTeamLogo : opponentLogo
     const colors = isDisplayTeam ? displayTeamColors : opponentColors
     const rank = isDisplayTeam ? game.userRank : game.opponentRank
     const score = isDisplayTeam ? userScore : opponentScore
     const isWinner = isDisplayTeam ? userWon : !userWon
 
-    // Get team abbreviation for linking
-    const teamAbbr = isDisplayTeam ? displayTeamAbbr : game.opponent
-    const teamLink = `/dynasty/${currentDynasty?.id}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${game.year}`
+    // Team-page link tid: tid-first, resolveTid on the stored string only as fallback
+    const linkTid = isDisplayTeam
+      ? (displayTid ?? resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS))
+      : (opponentTid ?? resolveTid(game.opponent, currentDynasty?.teams || TEAMS))
+    const teamLink = `/dynasty/${currentDynasty?.id}/team/${linkTid}/${game.year}`
 
     // For user's team, show record. For CPU games, don't show record
     let recordDisplay = null
@@ -474,7 +490,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                     // User is home, so opponent (away) is on top
                     <div className="grid gap-1 sm:gap-2 mt-2" style={{ gridTemplateColumns: `minmax(60px, 100px) repeat(${4 + (game.overtimes?.length || 0)}, minmax(28px, 1fr)) minmax(40px, 60px)` }}>
                       <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: opponentColors.primary }}>
-                        {opponentMascot || game.opponent}
+                        {opponentTeamName}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
                         <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
@@ -497,7 +513,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                     // User is away, so user is on top
                     <div className="grid gap-1 sm:gap-2 mt-2" style={{ gridTemplateColumns: `minmax(60px, 100px) repeat(${4 + (game.overtimes?.length || 0)}, minmax(28px, 1fr)) minmax(40px, 60px)` }}>
                       <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                        {userTeam}
+                        {displayTeam}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
                         <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
@@ -523,7 +539,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                     // User is home, so user is on bottom
                     <div className="grid gap-1 sm:gap-2 mt-2" style={{ gridTemplateColumns: `minmax(60px, 100px) repeat(${4 + (game.overtimes?.length || 0)}, minmax(28px, 1fr)) minmax(40px, 60px)` }}>
                       <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                        {userTeam}
+                        {displayTeam}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
                         <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
@@ -546,7 +562,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                     // User is away, so opponent (home) is on bottom
                     <div className="grid gap-1 sm:gap-2 mt-2" style={{ gridTemplateColumns: `minmax(60px, 100px) repeat(${4 + (game.overtimes?.length || 0)}, minmax(28px, 1fr)) minmax(40px, 60px)` }}>
                       <div className="text-xs sm:text-sm font-semibold truncate" style={{ color: opponentColors.primary }}>
-                        {opponentMascot || game.opponent}
+                        {opponentTeamName}
                       </div>
                       {['Q1', 'Q2', 'Q3', 'Q4'].map(q => (
                         <div key={q} className="text-xs sm:text-sm text-center font-medium rounded px-1 sm:px-2 py-1" style={{ backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)' }}>
@@ -612,7 +628,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                 ) : (
                   <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: 'var(--surface-3)' }}>
                     <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: 'var(--text-secondary)' }}>
-                      {opponentMascot || game.opponent}
+                      {opponentTeamName}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       {game.opponentOverall && (
@@ -679,7 +695,7 @@ export default function GameDetailModal({ isOpen, onClose, game, userTeam, teamC
                 ) : (
                   <div className="rounded-lg p-2 sm:p-4" style={{ backgroundColor: 'var(--surface-3)' }}>
                     <div className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-center truncate" style={{ color: 'var(--text-secondary)' }}>
-                      {opponentMascot || game.opponent}
+                      {opponentTeamName}
                     </div>
                     <div className="space-y-1 sm:space-y-2">
                       {game.opponentOverall && (

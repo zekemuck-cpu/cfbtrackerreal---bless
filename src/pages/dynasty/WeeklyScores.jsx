@@ -431,12 +431,20 @@ export default function WeeklyScores() {
     return latestPlayedWeekForYear(currentDynasty?.games, displayYear) ?? 16
   })()
 
+  // Coach Carousel tab — only during the National Championship + offseason weeks
+  // (week 20 is the NC slot and the offseason landing week). Also shown once a
+  // season has recorded staff moves, so the deep-link from the dashboard works.
+  const staffMovesData = currentDynasty?.staffMovesByYear?.[displayYear] || currentDynasty?.staffMovesByYear?.[String(displayYear)]
+  const staffMoves = Array.isArray(staffMovesData?.moves) ? staffMovesData.moves : []
+  const showCoachCarousel = displayWeek >= 20 || staffMoves.length > 0
+
   // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
   // dashboard's recap to-do land directly on the recap view, and so the
   // user's choice survives navigating into a game and back.
   const rawTab = searchParams.get('tab')
   const tabParam = displayWeek === -1 ? 'recap'
     : (rawTab === 'recap' || rawTab === 'preview' || rawTab === 'social' || rawTab === 'sportsbook') ? rawTab
+    : (rawTab === 'coachCarousel' && showCoachCarousel) ? 'coachCarousel'
     : 'scores'
   const setTab = (next) => {
     setSearchParams(prev => {
@@ -638,6 +646,31 @@ export default function WeeklyScores() {
       if (wk == null) continue
       if (!map.has(wk)) map.set(wk, [])
       map.get(wk).push(g)
+    }
+    // Collapse duplicate matchups within a week. A schedule saved twice can leave
+    // two placeholder records for the same (week, tid-pair) where only one later
+    // received the real score, so the same game would render twice (a FINAL tile
+    // AND a 0-0 SCHEDULED tile). Two FBS teams never play twice in one week, so
+    // keep only the "most played" copy per tid-pair (a real score / isPlayed beats
+    // a 0-0 placeholder).
+    const pairKey = (g) => {
+      const a = Number(g.team1Tid), b = Number(g.team2Tid)
+      return `${Math.min(a, b)}-${Math.max(a, b)}`
+    }
+    const playedRank = (g) => {
+      const t1 = Number(g.team1Score), t2 = Number(g.team2Score)
+      const scored = (Number.isFinite(t1) && t1 > 0) || (Number.isFinite(t2) && t2 > 0)
+      return (g.isPlayed ? 2 : 0) + (scored ? 1 : 0)
+    }
+    for (const [wk, list] of map) {
+      if (list.length < 2) continue
+      const byPair = new Map()
+      for (const g of list) {
+        const k = pairKey(g)
+        const prev = byPair.get(k)
+        if (!prev || playedRank(g) > playedRank(prev)) byPair.set(k, g)
+      }
+      if (byPair.size !== list.length) map.set(wk, Array.from(byPair.values()))
     }
     return map
   }, [allGames, displayYear])
@@ -935,6 +968,7 @@ export default function WeeklyScores() {
                 ...(hasPlayoffPreview ? [{ key: 'preview', label: 'Preview' }] : []),
                 ...(displayWeek !== -1 ? [{ key: 'social', label: 'Social' }] : []),
                 ...(displayWeek !== -1 ? [{ key: 'sportsbook', label: 'Sportsbook' }] : []),
+                ...(showCoachCarousel ? [{ key: 'coachCarousel', label: 'Coach Carousel' }] : []),
               ].map(tab => {
                 const isActive = tabParam === tab.key
                 return (
@@ -1137,6 +1171,72 @@ export default function WeeklyScores() {
           <div className="max-w-2xl mx-auto">
             <SocialFeed posts={weekPosts} charactersById={charactersById} platform={platform} gamesById={gamesById} teams={teams} dynasty={currentDynasty} year={displayYear} />
           </div>
+        )
+      })()}
+
+      {tabParam === 'coachCarousel' && (() => {
+        const moves = staffMoves
+        const coachIndex = {}
+        for (const c of Object.values(currentDynasty?.coaches || {})) {
+          if (c?.name) coachIndex[c.name.trim().toLowerCase()] = c.cid
+        }
+        const SchoolCell = ({ tid, abbr }) => {
+          if (tid == null && !abbr) return <span className="text-txt-tertiary">—</span>
+          return (
+            <div className="flex items-center gap-2 min-w-0">
+              {tid != null && <TeamLogo tid={tid} teams={teams} size="xs" className="flex-shrink-0" />}
+              <span className="truncate">{abbr || '—'}</span>
+            </div>
+          )
+        }
+        if (moves.length === 0) {
+          return (
+            <Card>
+              <EmptyState
+                title={`No staff moves recorded for ${displayYear} yet`}
+                message={isViewOnly
+                  ? 'Read-only. The dynasty owner can enter the coaching carousel.'
+                  : 'Enter the coaching carousel from the dashboard during the National Championship phase.'}
+              />
+            </Card>
+          )
+        }
+        return (
+          <Card padding="none">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wider text-txt-tertiary border-b border-surface-4">
+                    <th className="text-left font-semibold px-4 py-3">Name</th>
+                    <th className="text-left font-semibold px-3 py-3">Prev Pos</th>
+                    <th className="text-left font-semibold px-3 py-3">Prev School</th>
+                    <th className="text-left font-semibold px-3 py-3">Pos</th>
+                    <th className="text-left font-semibold px-3 py-3">New School</th>
+                    <th className="text-left font-semibold px-4 py-3">Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {moves.map((m, i) => {
+                    const cid = coachIndex[(m.name || '').trim().toLowerCase()]
+                    return (
+                      <tr key={i} className="border-b border-surface-3 last:border-0">
+                        <td className="px-4 py-2.5 font-semibold text-txt-primary whitespace-nowrap">
+                          {cid
+                            ? <Link to={`${pathPrefix}/coach/${cid}`} className="hover:underline">{m.name}</Link>
+                            : m.name}
+                        </td>
+                        <td className="px-3 py-2.5 text-txt-secondary whitespace-nowrap">{m.prevRole || '—'}</td>
+                        <td className="px-3 py-2.5 text-txt-secondary"><SchoolCell tid={m.prevTeamTid} abbr={m.prevTeamAbbr} /></td>
+                        <td className="px-3 py-2.5 text-txt-secondary whitespace-nowrap">{m.newRole || '—'}</td>
+                        <td className="px-3 py-2.5 text-txt-secondary"><SchoolCell tid={m.newTeamTid} abbr={m.newTeamAbbr} /></td>
+                        <td className="px-4 py-2.5 text-txt-tertiary whitespace-nowrap">{m.reason || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )
       })()}
 

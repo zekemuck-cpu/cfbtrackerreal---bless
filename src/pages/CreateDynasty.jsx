@@ -25,6 +25,8 @@ import { EDITIONS, DEFAULT_EDITION, getEditionConfig } from '../editions'
 
 const newBlankTeambuilder = () => ({
   name: '',
+  teamName: '',
+  nickname: '',
   abbreviation: '',
   logoUrl: '',
   primaryColor: '#FF5500',
@@ -49,6 +51,9 @@ export default function CreateDynasty() {
     // an edition default (a manually-typed custom year is preserved).
     startYear: String(getEditionConfig(DEFAULT_EDITION).releaseYear),
     gameEdition: DEFAULT_EDITION,
+    // Off by default: when on (cfb27 only), seed every team's full roster
+    // (~9,000 players) at creation. Slow, so it's an explicit opt-in.
+    seedAllRosters: false,
     // Console = the plain manual tracker. PC = the auto-sync tracker (roster,
     // ratings, stats, schedule, recruiting, etc. all pulled from a save file).
     // Defaults to Console — PC requires an explicit, deliberate choice (or
@@ -81,6 +86,10 @@ export default function CreateDynasty() {
   }, [mode, teambuilders.length])
 
   const [creating, setCreating] = useState(false)
+  // Live creation progress: { message, pct }. Driven by createDynasty's
+  // onProgress so the user sees roster loading / player saving instead of a
+  // frozen "Creating Dynasty…" button.
+  const [progress, setProgress] = useState(null)
 
   // ── CFB 27 PC save import (PC players only — console players never see
   // this used; it's a full alternative to entering everything by hand: the
@@ -314,6 +323,8 @@ export default function CreateDynasty() {
       if (!abbr) continue
       out[abbr] = {
         name: t.name.trim(),
+        teamName: (t.teamName || '').trim(),
+        nickname: (t.nickname || '').trim(),
         abbreviation: abbr,
         logoUrl: t.logoUrl,
         backgroundColor: t.primaryColor,
@@ -329,6 +340,7 @@ export default function CreateDynasty() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setCreating(true)
+    setProgress({ message: 'Setting up teams…', pct: 2 })
 
     try {
       let dynastyData = { ...formData }
@@ -393,12 +405,14 @@ export default function CreateDynasty() {
         if (top25.length) dynastyData.cfb27PreseasonTop25 = top25
       }
 
-      const newDynasty = await createDynasty(dynastyData)
+      const newDynasty = await createDynasty(dynastyData, { onProgress: setProgress })
+      setProgress({ message: 'Done!', pct: 100 })
       navigate(`/dynasty/${newDynasty.id}`)
     } catch (error) {
       console.error('Failed to create dynasty:', error)
       toast.error(`Failed to create dynasty: ${error.message}`)
       setCreating(false)
+      setProgress(null)
     }
   }
 
@@ -736,6 +750,40 @@ export default function CreateDynasty() {
             />
           </div>
 
+          {formData.gameEdition === 'cfb27' && (
+            <label className="flex items-start gap-3 rounded-md border border-surface-4 bg-surface-2 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.seedAllRosters}
+                onChange={(e) => setFormData({ ...formData, seedAllRosters: e.target.checked })}
+                disabled={creating}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span className="text-sm">
+                <span className="font-semibold text-txt-primary">Load all team rosters</span>
+                <span className="block text-txt-secondary">
+                  Fills in every FBS team's full roster (~9,000 players), not just yours.
+                  This makes creating the dynasty much slower. Leave off to load only your team.
+                </span>
+              </span>
+            </label>
+          )}
+
+          {creating && (
+            <div className="pt-4 space-y-2" aria-live="polite">
+              <div className="flex items-center justify-between text-sm text-txt-secondary">
+                <span>{progress?.message || 'Creating dynasty…'}</span>
+                <span className="tabular">{progress?.pct != null ? `${Math.min(100, Math.round(progress.pct))}%` : ''}</span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-surface-3 overflow-hidden">
+                <div
+                  className="h-full bg-txt-primary transition-all duration-300 ease-out"
+                  style={{ width: `${Math.max(2, Math.min(100, progress?.pct ?? 2))}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4">
             <Button
               type="submit"
@@ -745,7 +793,7 @@ export default function CreateDynasty() {
             >
               {creating ? 'Creating Dynasty...' : 'Create Dynasty'}
             </Button>
-            <Button type="button" variant="outline" onClick={() => navigate('/')}>
+            <Button type="button" variant="outline" onClick={() => navigate('/')} disabled={creating}>
               Cancel
             </Button>
           </div>

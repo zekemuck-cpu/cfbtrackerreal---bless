@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
-import { isTargetPlayer, getTargetStatus } from '../utils/recruitingTargets'
+import { isTargetPlayer, getTargetStatus, isMyTarget } from '../utils/recruitingTargets'
 import { useEdition } from '../editions/useEdition'
 import { isDynastyBlueprintEnabled } from '../editions'
 import { Button, Input } from './ui'
@@ -30,6 +30,7 @@ import {
 } from '../data/dynastyPointsModel'
 import { sumPlayerNil, setPlayerNil, getPlayerNil } from '../data/playerNilModel'
 import { groupForPosition } from '../data/positionGroups'
+import PanelErrorBoundary from './PanelErrorBoundary'
 import SupportStaffEditor from './SupportStaffEditor'
 import FacilitiesEditor from './FacilitiesEditor'
 import NilSheet from './NilSheet'
@@ -139,7 +140,7 @@ function Donut({ segments, budget, unspent, size = 200, stroke = 24 }) {
   )
 }
 
-export default function DynastyBlueprintPanel({ year, tid }) {
+function DynastyBlueprintPanelInner({ year, tid }) {
   const { currentDynasty, updateDynasty, updatePlayer, isViewOnly } = useDynasty()
   const { config } = useEdition()
   const { toast } = useToast()
@@ -162,7 +163,7 @@ export default function DynastyBlueprintPanel({ year, tid }) {
 
   // Hydrate the form whenever the season (or its stored data) changes.
   useEffect(() => {
-    const stored = getSeasonEntry(currentDynasty, selectedYear)
+    const stored = getSeasonEntry(currentDynasty, selectedYear, tid)
     if (!stored) {
       setForm(blankForm)
       return
@@ -176,14 +177,17 @@ export default function DynastyBlueprintPanel({ year, tid }) {
       rosterNil: a.rosterNil ?? '',
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedYear, currentDynasty?.lastModified])
+  }, [selectedYear, tid, currentDynasty?.lastModified])
 
+  // Edition enables Dynasty Points AND the user hasn't hidden Blueprint. Also
+  // covers a stale deep-link to ?tab=blueprint after hiding — the panel just
+  // renders nothing.
   if (!isDynastyBlueprintEnabled(currentDynasty)) return null
 
   // Coaching staff for this team-season (derived from dynasty.coaches).
   const staff = tid != null ? getStaffForTeamYear(currentDynasty, tid, selectedYear) : []
   // Support staff recorded for this season (hired preseason-only in-game).
-  const supportStaff = getSupportStaff(currentDynasty, selectedYear)
+  const supportStaff = getSupportStaff(currentDynasty, selectedYear, tid)
   // The Staff allocation lane is AUTO-DERIVED: every coach's salary + every
   // support-staff cost this season. Add/edit either and the budget updates live.
   const coachSalaryTotal = staff.reduce((sum, { record }) => sum + (Number(record.salary) || 0), 0)
@@ -255,7 +259,7 @@ export default function DynastyBlueprintPanel({ year, tid }) {
   // Support staff are stored on the season's Blueprint entry. Merge-write so
   // the budget/allocations on that entry are preserved (and vice-versa).
   const writeSupportStaff = async (next) => {
-    await updateDynasty(currentDynasty.id, { dynastyPoints: setSupportStaff(currentDynasty, selectedYear, next) })
+    await updateDynasty(currentDynasty.id, { dynastyPoints: setSupportStaff(currentDynasty, selectedYear, next, tid) })
   }
 
   const handleAddSupportStaff = async (item) => {
@@ -283,9 +287,9 @@ export default function DynastyBlueprintPanel({ year, tid }) {
   const facilityTiers = config?.dynastyPoints?.facilities?.tiers ?? []
   const equipmentEffects = config?.dynastyPoints?.facilities?.equipmentEffects ?? []
   const equipmentTiers = config?.dynastyPoints?.facilities?.equipmentTiers ?? []
-  const facilities = getFacilities(currentDynasty, selectedYear)
-  const facilityEquipment = getFacilityEquipment(currentDynasty, selectedYear)
-  const carriedFacilityTier = getCarriedFacilityTier(currentDynasty, selectedYear)
+  const facilities = getFacilities(currentDynasty, selectedYear, tid)
+  const facilityEquipment = getFacilityEquipment(currentDynasty, selectedYear, tid)
+  const carriedFacilityTier = getCarriedFacilityTier(currentDynasty, selectedYear, tid)
   // The active tier (explicit for this year, else carried from a prior season).
   const activeFacilityTier = facilityTiers.find((t) => t.key === (facilities.tier || carriedFacilityTier)) || null
 
@@ -293,7 +297,7 @@ export default function DynastyBlueprintPanel({ year, tid }) {
   const writeFacilities = async (patch) => {
     if (isViewOnly) return
     try {
-      await updateDynasty(currentDynasty.id, { dynastyPoints: setFacilities(currentDynasty, selectedYear, patch) })
+      await updateDynasty(currentDynasty.id, { dynastyPoints: setFacilities(currentDynasty, selectedYear, patch, tid) })
     } catch (err) {
       console.error('[DynastyBlueprintPanel] facilities write failed:', err)
       toast.error('Failed to save facilities.')
@@ -302,6 +306,7 @@ export default function DynastyBlueprintPanel({ year, tid }) {
   const handleSelectTier = (tier) => writeFacilities({ tier })
   const handleSetGrade = (grade) => writeFacilities({ grade })
   const handleAddEquipment = (item) => writeFacilities({ equipment: [...facilityEquipment, item] })
+  const handleUpdateEquipment = (idx, item) => writeFacilities({ equipment: facilityEquipment.map((eq, i) => (i === idx ? item : eq)) })
   const handleRemoveEquipment = (idx) => writeFacilities({ equipment: facilityEquipment.filter((_, i) => i !== idx) })
 
   // ── NIL (per-player; both lanes auto-derive from these, like Staff) ──────
@@ -314,9 +319,24 @@ export default function DynastyBlueprintPanel({ year, tid }) {
   // the roster) or a roster player in Y (no longer a target) — so nothing is
   // double-counted, and the carry-forward (offer → enroll-year roster NIL) lands
   // cleanly in the next season's Roster NIL.
-  const isOpenOrOurs = (p, y) => isTargetPlayer(p) && Number(p.targetYear) === y && getTargetStatus(p, tid) !== 'committed_elsewhere'
+  // isMyTarget: in a shared league every member's targets live in the same
+  // players array, so NIL spend must only count this team's board.
+  const isOpenOrOurs = (p, y) => isTargetPlayer(p) && isMyTarget(p, tid) && Number(p.targetYear) === y && getTargetStatus(p, tid) !== 'committed_elsewhere'
   const recruitTargets = tid == null ? [] : allPlayers.filter((p) => isOpenOrOurs(p, selectedYear))
-  const rosterPlayers = tid == null ? [] : allPlayers.filter((p) => isPlayerOnRoster(p, tid, selectedYear, currentDynasty))
+  // Roster NIL: normally the players on the roster in `selectedYear`. But at end
+  // of season the "Set {nextYear} Roster NIL" flow opens the blueprint for
+  // nextYear BEFORE the year is advanced — and returning players don't get
+  // teamsByYear[nextYear] until the advance-week carryover, so only committed
+  // recruits (who get it at commit time) would show. When selectedYear is that
+  // not-yet-advanced next year, also include the current (selectedYear-1) roster
+  // so you can set NIL for returning players before they carry over. Recruits
+  // already resolve via the nextYear membership, and returning players are never
+  // targets, so the two lanes still can't double-count.
+  const isProjectedNextYear = selectedYear === Number(currentDynasty?.currentYear) + 1
+  const rosterPlayers = tid == null ? [] : allPlayers.filter((p) =>
+    isPlayerOnRoster(p, tid, selectedYear, currentDynasty) ||
+    (isProjectedNextYear && isPlayerOnRoster(p, tid, selectedYear - 1, currentDynasty))
+  )
   const recruitingNilTotal = sumPlayerNil(recruitTargets, selectedYear)
   const rosterNilTotal = sumPlayerNil(rosterPlayers, selectedYear)
 
@@ -389,7 +409,7 @@ export default function DynastyBlueprintPanel({ year, tid }) {
           recruitingNil: recruitingNilTotal, // auto: sum of target NIL offers
           rosterNil: rosterNilTotal,    // auto: sum of roster NIL
         },
-      })
+      }, tid)
       await updateDynasty(currentDynasty.id, { dynastyPoints: nextDynastyPoints })
       if (!silent) toast.success(`Saved ${selectedYear} Blueprint`)
     } catch (err) {
@@ -659,6 +679,7 @@ export default function DynastyBlueprintPanel({ year, tid }) {
                 onSelectTier={handleSelectTier}
                 onSetGrade={handleSetGrade}
                 onAddEquipment={handleAddEquipment}
+                onUpdateEquipment={handleUpdateEquipment}
                 onRemoveEquipment={handleRemoveEquipment}
                 isViewOnly={isViewOnly}
               />
@@ -730,5 +751,17 @@ export default function DynastyBlueprintPanel({ year, tid }) {
         </div>
       </div>
     </div>
+  )
+}
+
+// Wrap the panel so a single malformed data record (a bad player/coach/NIL
+// entry) can't black out the whole team page. The dynasty routes are only
+// under <Suspense>, which does not catch render throws — without this a throw
+// here left the user on a blank screen until a full reload.
+export default function DynastyBlueprintPanel(props) {
+  return (
+    <PanelErrorBoundary name="DynastyBlueprintPanel" label="the Dynasty Blueprint">
+      <DynastyBlueprintPanelInner {...props} />
+    </PanelErrorBoundary>
   )
 }

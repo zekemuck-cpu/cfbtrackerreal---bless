@@ -6,8 +6,11 @@ import { proxyImageUrl } from '../../utils/imageProxy'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { getTeamLogo } from '../../data/teams'
 import RosterHistoryModal from '../../components/RosterHistoryModal'
+import PlayerAvatar from '../../components/PlayerAvatar'
 import { PageHero, Card, EmptyState, Input, Select, Badge, Button } from '../../components/ui'
 import { isOpenTarget } from '../../utils/recruitingTargets'
+import { getTeamLogoByTid } from '../../data/teams'
+import { getTidFromAbbr } from '../../data/teamRegistry'
 
 const POSITION_GROUPS = {
   'All': [],
@@ -284,6 +287,11 @@ export default function Players() {
                   ].map(Number).filter(Number.isFinite)
                   const lastYearPlayed = playedYears.length ? Math.max(...playedYears) : null
 
+                  // Team logo fallback for players without a photo.
+                  const rowTid = player.teamsByYear?.[currentDynasty.currentYear]
+                    ?? (typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team, currentDynasty))
+                  const rowTeamLogo = getTeamLogoByTid(rowTid, currentDynasty.teams)
+
                   return (
                     <tr
                       key={player.pid || player.id || idx}
@@ -296,30 +304,12 @@ export default function Players() {
                           className="font-semibold hover:underline flex items-center gap-2 group"
                           style={{ color: 'var(--text-primary)' }}
                         >
-                          {player.pictureUrl ? (
-                            <img
-                              src={proxyImageUrl(player.pictureUrl, 300)}
-                              alt=""
-                              className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                              style={{ border: '1px solid var(--surface-4)' }}
-                              onError={(e) => { e.currentTarget.style.display = 'none' }}
-                            />
-                          ) : teamLogo ? (
-                            <span
-                              className="w-8 h-8 rounded-full bg-white p-1 flex-shrink-0 flex items-center justify-center"
-                            >
-                              <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-                            </span>
-                          ) : (
-                            <span
-                              className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center"
-                              style={{ backgroundColor: 'var(--surface-3)' }}
-                            >
-                              <span className="text-[10px] font-bold text-txt-secondary uppercase">
-                                {(player.position || player.name?.charAt(0) || '').slice(0, 2)}
-                              </span>
-                            </span>
-                          )}
+                          <PlayerAvatar
+                            photoUrl={player.pictureUrl}
+                            teamLogo={rowTeamLogo}
+                            name={player.name}
+                            size={32}
+                          />
                           <span className="transition-transform duration-200 group-hover:translate-x-0.5">{player.name}</span>
                         </Link>
                       </td>

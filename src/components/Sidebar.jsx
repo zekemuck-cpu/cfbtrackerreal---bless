@@ -5,11 +5,12 @@ import { getEditionKey, isPcAutoDynasty } from '../editions'
 import { getTeamConference } from '../data/conferenceTeams'
 import { TEAMS, getTidFromTeamName } from '../data/teamRegistry'
 import { isEditor } from '../data/leagueModel'
+import { getCoaches } from '../data/coachModel'
 import ShareDynastyModal from './ShareDynastyModal'
 import { useToast } from './ui'
 import { preloadByNavName } from '../routes/lazyPages'
 import { useAuth } from '../context/AuthContext'
-import { getEditionConfig, isDynastyBlueprintEnabled } from '../editions'
+import { isDynastyBlueprintEnabled } from '../editions'
 import {
   DndContext, MouseSensor, TouchSensor, KeyboardSensor,
   useSensor, useSensors, closestCenter,
@@ -21,6 +22,11 @@ import { CSS } from '@dnd-kit/utilities'
 // across dynasties / param changes) under a single global key so the user's
 // chosen order follows them to every dynasty on this device.
 const SIDEBAR_ORDER_KEY = 'sidebarNavOrder'
+// Per-device set of nav item *names* the user has hidden from their sidebar.
+// Same rationale as the order key: a single global key so a person's choices
+// follow them across every dynasty on this device, and different people (on
+// their own devices) keep whatever they want visible.
+const SIDEBAR_HIDDEN_KEY = 'sidebarNavHidden'
 
 const loadSidebarOrder = () => {
   try {
@@ -29,6 +35,16 @@ const loadSidebarOrder = () => {
     return Array.isArray(parsed) ? parsed : null
   } catch {
     return null
+  }
+}
+
+const loadSidebarHidden = () => {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_HIDDEN_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
   }
 }
 
@@ -73,6 +89,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   // `reordering` flips the main nav into drag mode; `locking` drives the
   // brief lock-in pulse when entering that mode.
   const [navOrder, setNavOrder] = useState(() => loadSidebarOrder())
+  const [hiddenNav, setHiddenNav] = useState(() => loadSidebarHidden())
   const [reordering, setReordering] = useState(false)
   const [locking, setLocking] = useState(false)
   const lockTimerRef = useRef(null)
@@ -97,8 +114,24 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     try { localStorage.setItem(SIDEBAR_ORDER_KEY, JSON.stringify(names)) } catch {}
   }
 
+  const persistHidden = (names) => {
+    setHiddenNav(names)
+    try { localStorage.setItem(SIDEBAR_HIDDEN_KEY, JSON.stringify(names)) } catch {}
+  }
+
+  const hideItem = (name) => {
+    if (hiddenNav.includes(name)) return
+    persistHidden([...hiddenNav, name])
+  }
+
+  const showItem = (name) => {
+    persistHidden(hiddenNav.filter((n) => n !== name))
+  }
+
+  // Reset restores the default order AND un-hides everything — a clean slate.
   const resetOrder = () => {
     setNavOrder(null)
+    persistHidden([])
     try { localStorage.removeItem(SIDEBAR_ORDER_KEY) } catch {}
   }
 
@@ -106,15 +139,11 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   const teamsSource = currentDynasty?.teams || TEAMS
   const teamTid = currentDynasty?.currentTid || getTidFromTeamName(currentDynasty?.teamName, teamsSource)
 
-  // Get team abbreviation from tid - this will be the custom abbr for teambuilder teams
-  const team = teamsSource[teamTid]
-  const teamAbbr = team?.abbr || ''
-
-  // For conference lookup, use the ORIGINAL team's abbreviation (from static TEAMS)
-  const originalTeamAbbr = TEAMS[teamTid]?.abbr || teamAbbr
-
+  // Conference lookup resolves live from the tid against dynasty.teams so a
+  // renamed/realigned (teambuilder) team's conference override is honored,
+  // instead of a stale static-abbr hop.
   const customConferences = getCurrentCustomConferences(currentDynasty)
-  const userConference = getTeamConference(originalTeamAbbr, customConferences) || 'SEC'
+  const userConference = getTeamConference(teamTid, customConferences, teamsSource) || 'SEC'
   const conferenceUrlParam = encodeURIComponent(userConference.replace(/\s+/g, '-'))
 
   const handleExport = () => {
@@ -150,16 +179,17 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   // Action buttons inside the page are gated separately by role.
   const userCanSeeMembers = !isViewOnly && user && isEditor(currentDynasty, user.uid)
 
-  // Coaches leaderboard appears only when the dynasty has more than one
-  // member. For solo dynasties it's redundant with the Coach Career page.
-  const totalEditors = (currentDynasty?.editors?.length || 0)
-    + (currentDynasty?.userId && !(currentDynasty.editors || []).includes(currentDynasty.userId) ? 1 : 0)
-  const showCoachesLink = totalEditors > 1
+  // Coaches leaderboard appears only when the dynasty tracks more than one
+  // controlled coach. For solo single-coach dynasties it's redundant with
+  // the Coach Career page.
+  const controlledCoachCount = Object.values(getCoaches(currentDynasty))
+    .filter(c => c && c.controlledBy != null).length
+  const showCoachesLink = controlledCoachCount > 1
 
   // Edition-gated nav: the Dynasty Blueprint hub only exists for editions
-  // that enable the Dynasty Points economy (CFB 27+), and only when the user
-  // hasn't hidden it via the "Hide Dynasty Blueprint" league preference.
-  const editionConfig = getEditionConfig(currentDynasty)
+  // that enable the Dynasty Points economy (CFB 27+), and is hidden when the
+  // user has turned Blueprint off in league preferences. CFB 26 dynasties
+  // never see the link either.
   const showBlueprint = isDynastyBlueprintEnabled(currentDynasty) && !isViewOnly
 
   // Scheme Builder's formation/play/scheme data is sourced from CFB 27's rule
@@ -167,11 +197,17 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   // (it's ruleset content, not synced data).
   const showSchemeBuilder = getEditionKey(currentDynasty) === 'cfb27'
 
-  // Injury Report / Players of the Week / Heisman Watch are only ever
-  // populated by CFB27 Sync from Save — no manual-entry path exists for any
-  // of them, so (unlike Scheme Builder above) they must gate on PC, not just
-  // the CFB27 edition — a Console CFB27 dynasty would otherwise show these
-  // and they'd sit permanently empty.
+  // Injury Report / Players of the Week / Heisman Watch / Records are only
+  // ever populated by CFB27 Sync from Save — no manual-entry path exists for
+  // any of them, so (unlike Scheme Builder above) they must gate on PC, not
+  // just the CFB27 edition — a Console CFB27 dynasty would otherwise show
+  // these and they'd sit permanently empty.
+  //
+  // Records specifically reads dynasty.leagueStatRecords, written ONLY by
+  // cfb27SaveSync; its own empty state reads "Run Sync from Save", an action
+  // a console dynasty has no way to perform. Season Stats and Team Stats are
+  // deliberately NOT gated here — those derive from games/boxScore, which a
+  // manually-tracked dynasty fills in itself.
   const isPcAuto = isPcAutoDynasty(currentDynasty)
 
   const navItems = [
@@ -194,14 +230,16 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'Team Stats', path: `${pathPrefix}/team-stats` },
     { name: 'Bowl History', path: `${pathPrefix}/bowl-history` },
     { name: 'CC History', path: `${pathPrefix}/conference-championship-history` },
-    { name: 'Records', path: `${pathPrefix}/records` },
+    ...(isPcAuto ? [{ name: 'Records', path: `${pathPrefix}/records` }] : []),
     { name: 'Awards', path: `${pathPrefix}/awards` },
     ...(isPcAuto ? [{ name: 'Players of the Week', path: `${pathPrefix}/players-of-week/${currentYear}` }] : []),
     ...(isPcAuto ? [{ name: 'Heisman Watch', path: `${pathPrefix}/heisman-watch/${currentYear}` }] : []),
     { name: 'All-Americans', path: `${pathPrefix}/all-americans` },
     { name: 'All-Conference', path: `${pathPrefix}/all-conference/${currentYear}/${conferenceUrlParam}` },
     { name: 'All Teams', path: `${pathPrefix}/teams` },
+    ...(!isViewOnly ? [{ name: 'Manage Rivalries', path: `${pathPrefix}/rivalries` }] : []),
     { name: 'All Players', path: `${pathPrefix}/players` },
+    { name: 'Compare Players', path: `${pathPrefix}/compare` },
     { name: 'Card Collection', path: `${pathPrefix}/cards` },
     ...(showCoachesLink ? [{ name: 'Coaches', path: `${pathPrefix}/coaches` }] : []),
     ...(!isViewOnly ? [{ name: 'AI Prompts', path: `${pathPrefix}/ai-prompts` }] : []),
@@ -219,6 +257,12 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   // pinned so the reorder controls keep a stable home.
   const mainItems = navItems.filter((item) => !item.isAdmin)
   const orderedMain = applySidebarOrder(mainItems, navOrder)
+  // Split the ordered main list into what's shown vs. what the user has parked
+  // in the Hidden section. Hidden entries keep their slot in the saved order so
+  // un-hiding drops them right back where they were.
+  const hiddenSet = new Set(hiddenNav)
+  const visibleMain = orderedMain.filter((i) => !hiddenSet.has(i.name))
+  const hiddenMain = orderedMain.filter((i) => hiddenSet.has(i.name))
 
   const handleDragEnd = ({ active, over }) => {
     if (!over || active.id === over.id) return
@@ -317,18 +361,42 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
       >
         <nav className="px-2 pt-4 pb-24 lg:pb-16">
           {reordering ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={orderedMain.map((i) => i.name)} strategy={verticalListSortingStrategy}>
-                <div className={`flex flex-col ${locking ? 'animate-pulse' : ''}`}>
-                  {orderedMain.map((item) => (
-                    <SortableNavRow key={item.name} name={item.name} />
-                  ))}
+            <>
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={visibleMain.map((i) => i.name)} strategy={verticalListSortingStrategy}>
+                  <div className={`flex flex-col ${locking ? 'animate-pulse' : ''}`}>
+                    {visibleMain.map((item) => (
+                      <SortableNavRow key={item.name} name={item.name} onHide={() => hideItem(item.name)} />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+
+              {/* Hidden section — only visible while editing. Items parked here
+                  are removed from the live sidebar; "Show" returns them to their
+                  saved position. */}
+              <div className="mt-4 pt-3" style={{ borderTop: '1px dashed var(--surface-4)' }}>
+                <div className="px-2 mb-1.5">
+                  <span className="label-xs text-txt-tertiary">
+                    Hidden{hiddenMain.length > 0 ? ` (${hiddenMain.length})` : ''}
+                  </span>
                 </div>
-              </SortableContext>
-            </DndContext>
+                {hiddenMain.length === 0 ? (
+                  <p className="px-2 text-[11px] leading-snug text-txt-tertiary">
+                    Tap “Hide” on any item to remove it from your sidebar. It stays here and can be shown again anytime.
+                  </p>
+                ) : (
+                  <div className="flex flex-col">
+                    {hiddenMain.map((item) => (
+                      <HiddenNavRow key={item.name} name={item.name} onShow={() => showItem(item.name)} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
             <div className="flex flex-col">
-              {orderedMain.map((item) => {
+              {visibleMain.map((item) => {
                 const active = isActive(item.path)
                 return (
                   <Link
@@ -452,7 +520,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                   }}
                   title={isPremium ? 'Share this dynasty' : 'Premium required'}
                 >
-                  Share Dynasty
+                  View-Only Link
                   {!isPremium && (
                     <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--surface-4)', color: 'var(--accent-warning)' }}>
                       Premium
@@ -469,6 +537,23 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
                 </button>
               </>
             )}
+
+            {/* Install Mobile App — only on the mobile layout (below lg), where
+                adding to the home screen actually applies. */}
+            <Link
+              to="/install"
+              onClick={handleNavClick}
+              className="lg:hidden w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-txt-primary hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--surface-3)',
+                border: '1px solid var(--surface-5)',
+              }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a1 1 0 001-1V4a1 1 0 00-1-1H8a1 1 0 00-1 1v16a1 1 0 001 1z" />
+              </svg>
+              Install Mobile App
+            </Link>
 
             {/* Contact — loud & proud so bug reports and feature requests get through */}
             <Link
@@ -503,7 +588,7 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
 // A single draggable nav row shown while reordering. The burger handle (three
 // stacked lines) carries the drag listeners; `touch-action: none` on it lets
 // the TouchSensor grab without the scroll container stealing the gesture.
-function SortableNavRow({ name }) {
+function SortableNavRow({ name, onHide }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: name })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -520,7 +605,7 @@ function SortableNavRow({ name }) {
         backgroundColor: 'var(--surface-2)',
         border: '1px dashed var(--surface-4)',
       }}
-      className="flex items-center gap-2 my-0.5 pl-2 pr-3 py-2 rounded-md select-none"
+      className="flex items-center gap-2 my-0.5 pl-2 pr-2 py-2 rounded-md select-none"
     >
       <button
         type="button"
@@ -534,7 +619,36 @@ function SortableNavRow({ name }) {
         <span className="block w-3.5 h-px bg-current" />
         <span className="block w-3.5 h-px bg-current" />
       </button>
-      <span className="text-sm font-medium text-txt-primary truncate">{name}</span>
+      <span className="flex-1 text-sm font-medium text-txt-primary truncate">{name}</span>
+      <button
+        type="button"
+        onClick={onHide}
+        aria-label={`Hide ${name}`}
+        className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-txt-tertiary hover:text-txt-primary px-1.5 py-1 rounded hover:bg-surface-3 transition-colors"
+      >
+        Hide
+      </button>
+    </div>
+  )
+}
+
+// A hidden nav item shown in the Hidden section while editing. "Show" returns it
+// to its saved slot in the live sidebar.
+function HiddenNavRow({ name, onShow }) {
+  return (
+    <div
+      className="flex items-center gap-2 my-0.5 pl-3 pr-2 py-2 rounded-md select-none"
+      style={{ backgroundColor: 'var(--surface-2)', border: '1px dashed var(--surface-4)', opacity: 0.85 }}
+    >
+      <span className="flex-1 text-sm font-medium text-txt-secondary truncate">{name}</span>
+      <button
+        type="button"
+        onClick={onShow}
+        aria-label={`Show ${name}`}
+        className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-txt-tertiary hover:text-txt-primary px-1.5 py-1 rounded hover:bg-surface-3 transition-colors"
+      >
+        Show
+      </button>
     </div>
   )
 }

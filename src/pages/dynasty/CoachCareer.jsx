@@ -15,18 +15,15 @@ import AllCoachesModal from '../../components/AllCoachesModal'
 const CFB_GRADIENT =
   'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.40) 100%)'
 import {
-  getEditors,
   getMemberLabel,
-  getMemberTeamsForYear,
   getCoachNameForUid,
-  getMemberPhoto,
-  setMemberPhotoValue,
   setMemberLabelValue,
   canManageMembers,
   getRole,
   ROLE_COMMISH,
   ROLE_COCOMMISH,
 } from '../../data/leagueModel'
+import { getCoaches, getCoachesControlledBy, synthOwnerCoachFromCoachTeamByYear } from '../../data/coachModel'
 import ImageUpload from '../../components/ImageUpload'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { mapCoachPortraitUrl } from '../../data/cfb27SaveImport'
@@ -148,104 +145,138 @@ export default function CoachCareer() {
   // member's career instead. ?uid=... in the URL deep-links into a
   // specific coach's career (used by the Coaches leaderboard).
   const [searchParams, setSearchParams] = useSearchParams()
-  const uidFromUrl = searchParams.get('uid')
-  const [selectedUid, setSelectedUid] = useState(
-    () => uidFromUrl || user?.uid || currentDynasty?.userId || null,
-  )
-  // Sync state when the URL param changes (e.g. when navigating from the
+  const coachFromUrl = searchParams.get('coach')
+  const uidFromUrl = searchParams.get('uid') // legacy deep-link → primary coach
+  const [selectedCid, setSelectedCid] = useState(null)
+  // Sync state when the ?coach= URL param changes (e.g. navigating from the
   // Coaches leaderboard while already on this page).
   useEffect(() => {
-    if (uidFromUrl && uidFromUrl !== selectedUid) {
-      setSelectedUid(uidFromUrl)
-    }
-  }, [uidFromUrl]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (coachFromUrl) setSelectedCid(coachFromUrl)
+  }, [coachFromUrl])
 
   if (!currentDynasty) return null
 
   const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
   const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
 
-  // Build the user picker options: commish first, then co-commishes,
-  // then members. Each entry shows the member label (or a sensible
-  // default) so the dropdown is human-readable.
-  const allEditors = (() => {
+  // Picker options: one row per CONTROLLED coach entity. Owner's coaches
+  // first, then co-commish, then members; alphabetical within a tier. Each
+  // option carries the controller uid so we can mark "(you)" and still
+  // resolve legacy ?uid= deep-links.
+  const coachOptions = (() => {
     const ownerUid = currentDynasty.userId
-    const editors = getEditors(currentDynasty)
-    const ordered = ownerUid ? [ownerUid, ...editors.filter(u => u !== ownerUid)] : [...editors]
-    // Stable sort: commish → cocommish → member.
-    return ordered.sort((a, b) => {
-      const order = { [ROLE_COMMISH]: 0, [ROLE_COCOMMISH]: 1 }
-      const ra = order[getRole(currentDynasty, a)] ?? 2
-      const rb = order[getRole(currentDynasty, b)] ?? 2
-      return ra - rb
-    })
+    const coaches = Object.values(getCoaches(currentDynasty)).filter(c => c && c.controlledBy != null)
+    const rank = (c) => {
+      if (c.controlledBy === ownerUid) return 0
+      const r = getRole(currentDynasty, c.controlledBy)
+      return r === ROLE_COCOMMISH ? 1 : 2
+    }
+    coaches.sort((a, b) => rank(a) - rank(b) || (a.name || '').localeCompare(b.name || ''))
+    const options = coaches.map(c => ({
+      cid: c.cid,
+      uid: c.controlledBy,
+      coach: c,
+      role: getRole(currentDynasty, c.controlledBy),
+      label: c.name || getCoachNameForUid(currentDynasty, c.controlledBy) || 'Coach',
+      isYou: !!user?.uid && c.controlledBy === user.uid,
+    }))
+    // If the OWNER has no linked coach entity (carousel dynasties where every
+    // coach is controlledBy:null, or a lost owner→coach linkage), synthesize
+    // their coach from coachTeamByYear so the Career page + Trophy Room always
+    // populate. Only fires when the owner isn't already represented.
+    if (ownerUid && !options.some(o => o.uid === ownerUid)) {
+      const synth = synthOwnerCoachFromCoachTeamByYear(currentDynasty)
+      if (synth) {
+        options.unshift({
+          cid: synth.cid,
+          uid: ownerUid,
+          coach: synth,
+          role: getRole(currentDynasty, ownerUid),
+          label: synth.name || getCoachNameForUid(currentDynasty, ownerUid) || 'Coach',
+          isYou: !!user?.uid && ownerUid === user.uid,
+        })
+      }
+    }
+    return options
   })()
 
-  const userOptions = allEditors.map(uid => {
-    const role = getRole(currentDynasty, uid)
-    return {
-      uid,
-      role,
-      // Single source of truth — same name everywhere.
-      label: getCoachNameForUid(currentDynasty, uid),
-      isYou: user?.uid === uid,
+  // Resolve which coach is being viewed: explicit ?coach=, else legacy
+  // ?uid= mapped to that user's first coach, else the saved selection, else
+  // the logged-in user's first coach, else the first coach overall.
+  const effectiveSelectedCid = (() => {
+    if (coachFromUrl && coachOptions.some(o => o.cid === coachFromUrl)) return coachFromUrl
+    if (uidFromUrl) {
+      const byUid = coachOptions.find(o => o.uid === uidFromUrl)
+      if (byUid) return byUid.cid
     }
-  })
+    if (selectedCid && coachOptions.some(o => o.cid === selectedCid)) return selectedCid
+    const mine = coachOptions.find(o => o.uid === user?.uid)
+    if (mine) return mine.cid
+    return coachOptions[0]?.cid || null
+  })()
 
-  // If the saved selection no longer applies (member was removed,
-  // for example), fall back to the logged-in user.
-  const effectiveSelectedUid = userOptions.some(o => o.uid === selectedUid)
-    ? selectedUid
-    : (user?.uid || currentDynasty.userId)
-
-  const selectedOption = userOptions.find(o => o.uid === effectiveSelectedUid) || null
+  const selectedOption = coachOptions.find(o => o.cid === effectiveSelectedCid) || null
+  const selectedCoach = selectedOption?.coach || null
+  const selectedControllerUid = selectedCoach?.controlledBy ?? null
+  // The uid whose league-level record (member label) this career edits. Coach
+  // entities carry their own name; the member label is still uid-keyed.
+  const effectiveSelectedUid = selectedControllerUid ?? user?.uid ?? currentDynasty.userId
   // Before falling all the way back to the generic "Coach" placeholder, try
   // the real in-game coach name synced from the save (dynasty.userCoachPortrait,
   // see cfb27SaveSync.js) — same scoping as the portrait fallback below (only
   // for your OWN career on a CFB27 PC dynasty; there's no synced signal for
   // which save-file coach corresponds to a teammate's uid in a co-op dynasty).
-  const inGameCoachName = (isPcAutoDynasty(currentDynasty) && user?.uid === effectiveSelectedUid)
+  const inGameCoachName = (isPcAutoDynasty(currentDynasty) && user?.uid && user.uid === effectiveSelectedUid)
     ? (currentDynasty.userCoachPortrait?.name || null)
     : null
   const selectedDisplayName = selectedOption?.label || inGameCoachName || 'Coach'
 
-  // Resolve a uid's tids for a given year. memberTeamHistory[uid] is
-  // the SINGLE SOURCE OF TRUTH whenever it exists at all — even if a
-  // specific year is absent from it (the user explicitly removed that
-  // year via the Members timeline editor and meant for it to be empty).
-  // Only fall back to the legacy owner-only coachTeamByYear when the
-  // user has NEVER been touched by the timeline editor.
-  const getUserTeamsForYear = (uid, year) => {
+  // Teams a COACH ran in a given year — one team per year from byYear (the
+  // source of truth). The legacy coachTeamByYear fallback applies ONLY to a
+  // coach with NO byYear data at all (a truly un-migrated owner coach). A
+  // coach WITH byYear entries is authoritative: an empty year means "not
+  // coaching that year", NOT "inherit the owner's legacy career" — otherwise
+  // every coach the owner controls would show the owner's whole history.
+  const getCoachTeamsForYear = (coach, year) => {
     const yearNum = Number(year)
-    if (!Number.isFinite(yearNum) || !uid) return []
-    // If the user has ANY entry in memberTeamHistory, trust it exclusively.
-    const hasHistory = currentDynasty.memberTeamHistory?.[uid] != null
-    if (hasHistory) {
-      return getMemberTeamsForYear(currentDynasty, uid, yearNum)
-    }
-    // Pre-migration owner-only fallback: read legacy coachTeamByYear.
-    // Applies when this uid is the recorded owner OR when the dynasty has no
-    // recorded owner uid at all (legacy / free single-coach dynasties where
-    // userId was never persisted). Without the second case, the sole coach's
-    // career renders empty because `someUid === undefined` is never true.
-    if (uid === currentDynasty.userId || currentDynasty.userId == null) {
-      const cty = currentDynasty.coachTeamByYear?.[yearNum] || currentDynasty.coachTeamByYear?.[String(yearNum)]
-      if (cty?.tid != null) return [Number(cty.tid)]
-      if (cty?.team) {
-        const tid = getTidFromAbbr(cty.team, currentDynasty)
-        if (tid) return [tid]
-      }
-    }
-    return []
+    if (!Number.isFinite(yearNum) || !coach) return []
+    const tid = Number(coach.byYear?.[yearNum]?.teamTid ?? coach.byYear?.[String(yearNum)]?.teamTid)
+    if (Number.isFinite(tid)) return [tid]
+
+    // No byYear entry for THIS year. The owner's durable per-year record
+    // (coachTeamByYear) still knows the team they coached that season, so consult
+    // it as a fallback. This previously only fired when byYear was ENTIRELY empty
+    // — but a coach migrated AFTER the offseason year-flip has byYear anchored to
+    // the current (post-flip) year and MISSING the just-finished season, so that
+    // season's games (and its bowl/conf/national trophies) were dropped and the
+    // Trophy Room came up blank. Resolve strictly by tid.
+    const isOwnerCoach = coach.controlledBy === currentDynasty.userId || currentDynasty.userId == null
+    if (!isOwnerCoach) return []
+    const cty = currentDynasty.coachTeamByYear?.[yearNum] || currentDynasty.coachTeamByYear?.[String(yearNum)]
+    let ctyTid = null
+    if (cty?.tid != null) ctyTid = Number(cty.tid)
+    else if (cty?.team) { const t = getTidFromAbbr(cty.team, currentDynasty); if (t != null) ctyTid = Number(t) }
+    if (ctyTid == null || !Number.isFinite(ctyTid)) return []
+
+    // Guard: don't attribute the owner's PRIMARY-career team to a SECONDARY coach
+    // the owner also controls. Accept the coachTeamByYear team only when this
+    // coach has NO byYear at all (un-migrated owner), OR actually coached that
+    // same tid in a year it DOES have — i.e. it's this coach's own team.
+    const hasByYear = coach.byYear && Object.keys(coach.byYear).length > 0
+    if (!hasByYear) return [ctyTid]
+    const coachTids = new Set(
+      Object.values(coach.byYear).map(e => Number(e?.teamTid)).filter(Number.isFinite)
+    )
+    return coachTids.has(ctyTid) ? [ctyTid] : []
   }
 
-  // Project a game into the existing perspective shape from the angle
-  // of one of `uid`'s teams that played in it. Returns null when
-  // none of the user's teams participated that year.
-  const buildPerspectiveForUid = (game, uid) => {
+  // Project a game into the existing perspective shape from the angle of
+  // the coach's team that played in it. Returns null when the coach's team
+  // that year didn't participate.
+  const buildPerspectiveForCoach = (game, coach) => {
     const yearNum = Number(game.year)
     if (!Number.isFinite(yearNum)) return null
-    const userTids = getUserTeamsForYear(uid, yearNum)
+    const userTids = getCoachTeamsForYear(coach, yearNum)
     if (userTids.length === 0) return null
     const matchedTid = userTids.find(tid =>
       Number(game.team1Tid) === Number(tid) || Number(game.team2Tid) === Number(tid)
@@ -354,29 +385,42 @@ export default function CoachCareer() {
 
   const buildCoachingHistory = () => {
     const history = []
-    const uid = effectiveSelectedUid
-    if (!uid) return history
+    const coach = selectedCoach
+    if (!coach) return history
+    // The controller uid drives the owner-only legacy fallbacks below.
+    const uid = coach.controlledBy
 
     const userGames = (currentDynasty.games || [])
       .map(g => {
         if (!isGamePlayed(g)) return null
-        const perspective = buildPerspectiveForUid(g, uid)
+        const perspective = buildPerspectiveForCoach(g, coach)
         if (!perspective) return null
         return { ...g, perspective }
       })
       .filter(Boolean)
 
+    // Group games by the coach's team TID — the stable identity. Keying by
+    // tid (not an abbr string) means a teambuilder rename can't split one
+    // stint into two, nor merge two teams that happen to share an abbr.
+    // teamTidByKey carries the numeric tid alongside each bucket so the
+    // stint below can resolve its live abbr/name/logo/colors from it.
     const gamesByTeam = {}
+    const teamTidByKey = {}
     userGames.forEach(game => {
       let teamKey = null
-      if (game.perspective?.userTid) {
-        const teamData = currentDynasty.teams?.[game.perspective.userTid]
-        teamKey = teamData?.abbr || getAbbrFromTeamName(teamData?.name)
+      let teamTid = null
+      if (game.perspective?.userTid != null) {
+        teamTid = Number(game.perspective.userTid)
+        teamKey = String(teamTid)
       }
-      // Owner-only legacy fallback — older dynasties may not have
-      // tids on every game record. Also applies when no owner uid was
-      // recorded (legacy/free single-coach dynasties).
-      const isOwnerOrOwnerless = uid === currentDynasty.userId || currentDynasty.userId == null
+      // Owner-only legacy fallback — older dynasties may not have tids on
+      // every game record. Gated on the coach having NO byYear data (a truly
+      // un-migrated owner coach); a coach WITH byYear is authoritative, so we
+      // never attribute the owner's legacy games to a second coach they run.
+      // This path has no tid, so the bucket stays keyed by abbr (teamTid null).
+      const coachHasByYear = selectedCoach?.byYear && Object.keys(selectedCoach.byYear).length > 0
+      const isOwnerOrOwnerless = !coachHasByYear &&
+        (uid === currentDynasty.userId || currentDynasty.userId == null)
       if (!teamKey && isOwnerOrOwnerless) {
         const gameYear = Number(game.year)
         const coachTeamEntry = currentDynasty.coachTeamByYear?.[gameYear] || currentDynasty.coachTeamByYear?.[String(gameYear)]
@@ -389,6 +433,7 @@ export default function CoachCareer() {
 
       if (!gamesByTeam[teamKey]) {
         gamesByTeam[teamKey] = []
+        teamTidByKey[teamKey] = teamTid
       }
       gamesByTeam[teamKey].push(game)
     })
@@ -399,7 +444,19 @@ export default function CoachCareer() {
       return abbr
     }
 
-    const teamStints = Object.entries(gamesByTeam).map(([teamAbbr, games]) => {
+    const teamStints = Object.entries(gamesByTeam).map(([teamKey, games]) => {
+      // teamTid is carried from the grouping key; null ONLY on the legacy
+      // owner-only abbr fallback path (those games have no tid). Abbr and
+      // name resolve LIVE from the tid so a teambuilder rename reflects
+      // immediately; the legacy path keeps its abbr key verbatim.
+      const teamTid = teamTidByKey[teamKey]
+      const teamAbbr = teamTid != null
+        ? (teamsData?.[teamTid]?.abbr || teamKey)
+        : teamKey
+      const teamName = teamTid != null
+        ? (teamsData?.[teamTid]?.name || teamAbbr)
+        : getTeamFullName(teamKey)
+
       const years = games.map(g => Number(g.year)).filter(y => !isNaN(y) && y > 1900 && y < 3000)
       const startYear = years.length > 0 ? Math.min(...years) : (currentDynasty.startYear || 2024)
       const endYear = years.length > 0 ? Math.max(...years) : (currentDynasty.currentYear || 2024)
@@ -438,16 +495,10 @@ export default function CoachCareer() {
 
       const cfpYears = new Set(cfpGames.map(g => g.year)).size
 
-      // Pass dynasty so TB abbrs (not in static FBS map) resolve via
-      // dynasty.teams[tid].abbr. Without this, tid for STONY/etc. is
-      // null, the stint is never flagged isCurrent, and the placeholder
-      // current-stint code path injects a duplicate "2030" card.
-      const teamTid = getTidFromAbbr(teamAbbr, currentDynasty)
-
       return {
         teamAbbr,
         teamTid,
-        teamName: getTeamFullName(teamAbbr),
+        teamName,
         startYear,
         endYear,
         wins,
@@ -474,7 +525,7 @@ export default function CoachCareer() {
     // currentTid (which the override layer may have already remapped
     // to the viewer's own team).
     const myCurrentTids = new Set(
-      getUserTeamsForYear(uid, currentDynasty.currentYear).map(Number)
+      getCoachTeamsForYear(coach, currentDynasty.currentYear).map(Number)
     )
     teamStints.forEach(stint => {
       const isCurrentTeam = stint.teamTid != null && myCurrentTids.has(Number(stint.teamTid))
@@ -568,7 +619,7 @@ export default function CoachCareer() {
   // that any member whose name happens to match the awards data gets
   // attributed. memberLabels[uid] is the canonical source; fallback
   // chain handled by getCoachNameForUid.
-  const coachName = getCoachNameForUid(currentDynasty, effectiveSelectedUid, '')
+  const coachName = selectedCoach?.name || getCoachNameForUid(currentDynasty, selectedControllerUid, '')
 
   coachingHistory.forEach(stint => {
     const stintAwards = []
@@ -635,7 +686,13 @@ export default function CoachCareer() {
       return coachingHistory.flatMap(s => s.games || [])
     }
     if (!selectedTeamForModal) return []
-    const stint = coachingHistory.find(s => s.teamName === selectedTeamForModal)
+    // selectedTeamForModal holds the stint's tid (or its name on the legacy
+    // no-tid path). Match by tid first so a rename can't break the lookup.
+    const stint = coachingHistory.find(s =>
+      s.teamTid != null
+        ? Number(s.teamTid) === Number(selectedTeamForModal)
+        : s.teamName === selectedTeamForModal
+    )
     if (!stint) return []
     if (gamesModalType === 'favorite') return stint.favoriteGames || []
     if (gamesModalType === 'underdog') return stint.underdogGames || []
@@ -694,21 +751,20 @@ export default function CoachCareer() {
     ? ((displayWins / (displayWins + displayLosses)) * 100).toFixed(1)
     : '0.0'
 
-  // Coach photo for the career being viewed. Stored per-uid in
-  // memberPhotos, same shape as memberLabels. You can edit your own
-  // photo; commish/co-commish can edit anyone's. A manually-set photo
-  // always wins; otherwise, when viewing your OWN career on a CFB27 PC
-  // dynasty, fall back to your actual in-game coach's real headshot.
-  // Sourced from dynasty.userCoachPortrait (cfb27SaveSync.js), which reads
-  // the Coach row flagged IsUserControlled directly — NOT looked up through
-  // teams[tid]'s coachingStaff map by team+position, which can point at a
-  // different coach entirely (verified against a real save: a team's
-  // "headCoach" position slot held someone else, not the row actually
-  // flagged as the human). Not attempted for a teammate's career in a co-op
-  // dynasty — there's no synced signal for which save-file coach
-  // corresponds to which OTHER member's uid, only which one is "the
-  // currently-controlling human."
-  const manualCoachPhotoUrl = getMemberPhoto(currentDynasty, effectiveSelectedUid)
+  // Coach photo for the career being viewed — now stored ON the coach
+  // entity (coach.photo). You can edit a coach you control; commish/
+  // co-commish can edit anyone's. A manually-set photo always wins;
+  // otherwise, when viewing your OWN career on a CFB27 PC dynasty, fall back
+  // to your actual in-game coach's real headshot. Sourced from
+  // dynasty.userCoachPortrait (cfb27SaveSync.js), which reads the Coach row
+  // flagged IsUserControlled directly — NOT looked up through teams[tid]'s
+  // coachingStaff map by team+position, which can point at a different coach
+  // entirely (verified against a real save: a team's "headCoach" position slot
+  // held someone else, not the row actually flagged as the human). Not
+  // attempted for a teammate's career in a co-op dynasty — there's no synced
+  // signal for which save-file coach corresponds to which OTHER member's uid,
+  // only which one is "the currently-controlling human."
+  const manualCoachPhotoUrl = selectedCoach?.photo || ''
   const inGameCoachPhotoUrl = (() => {
     if (manualCoachPhotoUrl) return null
     if (!isPcAutoDynasty(currentDynasty)) return null
@@ -717,8 +773,8 @@ export default function CoachCareer() {
     return assetName ? (mapCoachPortraitUrl(assetName) || null) : null
   })()
   const coachPhotoUrl = manualCoachPhotoUrl || inGameCoachPhotoUrl
-  const canEditPhoto = !!user?.uid && (
-    user.uid === effectiveSelectedUid || canManageMembers(currentDynasty, user.uid)
+  const canEditPhoto = !!user?.uid && !!selectedCoach && (
+    user.uid === selectedControllerUid || canManageMembers(currentDynasty, user.uid)
   )
 
   const openPhotoModal = () => {
@@ -727,11 +783,15 @@ export default function CoachCareer() {
   }
 
   const savePhoto = async () => {
-    if (savingPhoto) return
+    if (savingPhoto || !selectedCoach) return
     setSavingPhoto(true)
     try {
-      const next = setMemberPhotoValue(currentDynasty, effectiveSelectedUid, photoDraft)
-      await updateDynasty(currentDynasty.id, { memberPhotos: next })
+      const url = (photoDraft || '').trim()
+      const nextCoach = { ...selectedCoach }
+      if (url) nextCoach.photo = url
+      else delete nextCoach.photo
+      const nextCoaches = { ...getCoaches(currentDynasty), [selectedCoach.cid]: nextCoach }
+      await updateDynasty(currentDynasty.id, { coaches: nextCoaches })
       setShowPhotoModal(false)
     } catch (err) {
       console.error('Failed to save coach photo', err)
@@ -782,25 +842,6 @@ export default function CoachCareer() {
           the page leads with one cohesive lockup instead of two. */}
       <section className="media-card overflow-hidden reveal">
         <div className="px-3 py-3 sm:px-6 sm:py-5">
-          {userOptions.length > 1 && (
-            <div className="label-xs text-txt-tertiary mb-2 flex items-center gap-2 flex-wrap" style={{ letterSpacing: '2.5px', fontSize: '10px' }}>
-              <span className="text-txt-tertiary normal-case" style={{ letterSpacing: '0' }}>Viewing</span>
-              <select
-                value={effectiveSelectedUid || ''}
-                onChange={e => setSelectedUid(e.target.value)}
-                aria-label="Switch career view"
-                className="text-xs font-semibold px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-primary cursor-pointer focus:outline-none focus:border-surface-5 normal-case"
-                style={{ letterSpacing: '0' }}
-              >
-                {userOptions.map(opt => (
-                  <option key={opt.uid} value={opt.uid}>
-                    {opt.label}{opt.isYou ? ' (you)' : ''}
-                    {opt.role === ROLE_COMMISH ? ' Commish' : opt.role === ROLE_COCOMMISH ? ' Co-Commish' : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           {/* Identity + stat strip — single row on desktop (stats push
               right of the name), wraps below on mobile. Saves a full
               row of vertical space vs the prior stacked layout, and the
@@ -840,7 +881,10 @@ export default function CoachCareer() {
               </button>
             )}
             <div className="min-w-0">
-              <div className="flex items-center gap-3 flex-wrap">
+              {/* Name doubles as the coach switcher when more than one coach
+                  is tracked: a chevron hints it's clickable and an invisible
+                  native <select> overlays the whole lockup. */}
+              <div className="relative inline-flex items-center gap-2 max-w-full">
                 <h1
                   onClick={canEditPhoto ? openNameModal : undefined}
                   role={canEditPhoto ? 'button' : undefined}
@@ -856,6 +900,29 @@ export default function CoachCareer() {
                 >
                   {selectedDisplayName}
                 </h1>
+                {coachOptions.length > 1 && (
+                  <>
+                    <svg
+                      className="flex-shrink-0 text-txt-tertiary self-center"
+                      style={{ width: 'clamp(20px, 2.6vw, 28px)', height: 'clamp(20px, 2.6vw, 28px)' }}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                    <select
+                      value={effectiveSelectedCid || ''}
+                      onChange={e => setSelectedCid(e.target.value)}
+                      aria-label="Switch career view"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    >
+                      {coachOptions.map(opt => (
+                        <option key={opt.cid} value={opt.cid}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
               </div>
               <div
                 className="label-xs text-txt-tertiary mt-1.5 tabular-nums"
@@ -965,13 +1032,13 @@ export default function CoachCareer() {
                     const yearLabel = stint.startYear === stint.endYear
                       ? `${stint.startYear}`
                       : `${stint.startYear}–${stint.isCurrent ? 'NOW' : stint.endYear}`
-                    const stintAnchorId = `stint-${stint.teamAbbr}-${stint.startYear}`
+                    const stintAnchorId = `stint-${stint.teamTid ?? stint.teamAbbr}-${stint.startYear}`
                     const arcPrimary = teamsData?.[stint.teamTid]?.primaryColor || '#3a3d47'
                     const arcTxt = getContrastTextColor(arcPrimary)
                     return (
                       <button
                         type="button"
-                        key={`arc-${stint.teamAbbr}-${stint.startYear}`}
+                        key={`arc-${stint.teamTid ?? stint.teamAbbr}-${stint.startYear}`}
                         onClick={() => {
                           document.getElementById(stintAnchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
                         }}
@@ -1236,8 +1303,8 @@ export default function CoachCareer() {
 
         return (
           <div
-            key={`${stint.teamName}-${stint.startYear}`}
-            id={`stint-${stint.teamAbbr}-${stint.startYear}`}
+            key={`${stint.teamTid ?? stint.teamName}-${stint.startYear}`}
+            id={`stint-${stint.teamTid ?? stint.teamAbbr}-${stint.startYear}`}
             className={`media-card relative overflow-hidden ${stint.isCurrent ? '' : 'opacity-95'}`}
             style={{ scrollMarginTop: '88px' }}
           >
@@ -1259,7 +1326,7 @@ export default function CoachCareer() {
               )}
               <div className="min-w-0 flex-1 relative">
                 <Link
-                  to={`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${stint.endYear}`}
+                  to={`${pathPrefix}/team/${stint.teamTid != null ? stint.teamTid : resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${stint.endYear}`}
                   className="hover:opacity-90 transition-opacity m-0 leading-[0.95] uppercase break-words block"
                   style={{
                     fontFamily: "'Bebas Neue', sans-serif",
@@ -1300,7 +1367,7 @@ export default function CoachCareer() {
                   key: 'record',
                   value: stint.overallRecord,
                   label: `RECORD ${winPct}%`,
-                  onClick: () => openGamesModal('all', stint.teamName),
+                  onClick: () => openGamesModal('all', stint.teamTid ?? stint.teamName),
                 })
                 if (stint.nationalChampionships > 0) {
                   cells.push({
@@ -1308,7 +1375,7 @@ export default function CoachCareer() {
                     value: stint.nationalChampionships,
                     label: stint.nationalChampionships === 1 ? 'NATL TITLE' : 'NATL TITLES',
                     accent: true,
-                    onClick: () => openGamesModal('cfp', stint.teamName),
+                    onClick: () => openGamesModal('cfp', stint.teamTid ?? stint.teamName),
                   })
                 }
                 if (stint.confChampionships > 0) {
@@ -1316,7 +1383,7 @@ export default function CoachCareer() {
                     key: 'conf',
                     value: stint.confChampionships,
                     label: stint.confChampionships === 1 ? 'CONF TITLE' : 'CONF TITLES',
-                    onClick: () => openGamesModal('confChamp', stint.teamName),
+                    onClick: () => openGamesModal('confChamp', stint.teamTid ?? stint.teamName),
                   })
                 }
                 if (stint.playoffAppearances > 0) {
@@ -1324,7 +1391,7 @@ export default function CoachCareer() {
                     key: 'cfp',
                     value: stint.playoffAppearances,
                     label: stint.playoffAppearances === 1 ? 'CFP APP' : 'CFP APPS',
-                    onClick: () => openGamesModal('cfp', stint.teamName),
+                    onClick: () => openGamesModal('cfp', stint.teamTid ?? stint.teamName),
                   })
                 }
                 if (showsBowls) {
@@ -1332,7 +1399,7 @@ export default function CoachCareer() {
                     key: 'bowls',
                     value: `${bowlWins}-${bowlLosses}`,
                     label: 'BOWLS',
-                    onClick: () => openGamesModal('bowl', stint.teamName),
+                    onClick: () => openGamesModal('bowl', stint.teamTid ?? stint.teamName),
                   })
                 }
                 return (
@@ -1825,7 +1892,7 @@ function YearByYearTable({ stint, currentDynasty, pathPrefix, navigate }) {
               return (
                 <tr
                   key={yr.year}
-                  onClick={() => navigate(`${pathPrefix}/team/${resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${yr.year}`)}
+                  onClick={() => navigate(`${pathPrefix}/team/${stint.teamTid != null ? stint.teamTid : resolveTid(stint.teamAbbr, currentDynasty?.teams || TEAMS)}/${yr.year}`)}
                   className="cursor-pointer hover:bg-surface-3 transition-colors"
                   style={{
                     borderBottom: idx < years.length - 1 ? '1px solid var(--surface-4)' : 'none',

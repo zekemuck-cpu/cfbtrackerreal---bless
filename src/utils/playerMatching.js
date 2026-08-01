@@ -10,65 +10,42 @@
  * - Same name + ≥6 seasons apart = New player (impossible to be same due to eligibility rules)
  */
 
-import { teamAbbreviations } from '../data/teamAbbreviations'
-import { getAbbrFromTeamName, TEAMS } from '../data/teamRegistry'
+import { getTidFromAbbr } from '../data/teamRegistry'
 
 // Normalize player name for comparison - handles whitespace, case, and special characters
+//
+// Comparison-only (always lowercased — never used for display), so it can be
+// aggressive about punctuation that varies between data sources. Periods and
+// commas are dropped so a suffix entered as "Jr." matches "Jr" (and "A.J."
+// matches "AJ"). Without this, a box-score row for "John Smith Jr" failed to
+// attach to a roster "John Smith Jr." — the stats silently didn't log — and,
+// conversely, inconsistent suffixes could split one player into two.
 export const normalizePlayerName = (name) => {
   if (!name) return ''
   return name
-    .trim()
     .toLowerCase()
-    .replace(/\s+/g, ' ')        // Collapse multiple spaces to single space
     .replace(/['']/g, "'")       // Normalize curly apostrophes to straight
     .replace(/[""]/g, '"')       // Normalize curly quotes to straight
+    .replace(/\./g, '')          // Drop periods so "Jr." == "Jr" and "A.J." == "AJ"
+    .replace(/,/g, ' ')          // Comma to space so "Smith, Jr" == "Smith Jr"
+    .replace(/\s+/g, ' ')        // Collapse whitespace (incl. gaps left above)
+    .trim()
 }
 
-// Normalize team to uppercase abbreviation for comparison
-// Handles tids (numbers), full names ("Kentucky Wildcats"), and abbreviations ("UK").
-// Pass dynastyTeams so a teambuilder team's renamed abbr/name resolves correctly
-// — without it, a TB-replaced slot resolves back to the original FBS abbr and
-// honor matches silently mis-link.
+// Normalize any team ref (tid number, tid-as-string, abbr, or full name) to a
+// NUMERIC tid for comparison. Matching honors↔players on tid (not abbr) avoids
+// false matches when two teams share an abbr, and correctly matches legacy rows
+// that stored an OLD abbr from before a teambuilder rename — the abbr string may
+// have drifted, but the tid is stable.
+// Pass dynastyTeams so a teambuilder team's renamed abbr/name resolves to the
+// live tid. Returns null when the ref can't be resolved to a tid.
 const normalizeTeamForComparison = (team, dynastyTeams = null) => {
-  if (!team && team !== 0) return ''
+  if (!team && team !== 0) return null
 
-  // Handle tid (number) - convert to abbreviation
-  if (typeof team === 'number') {
-    const teamData = dynastyTeams?.[team] || TEAMS[team]
-    return teamData?.abbr?.toUpperCase() || ''
-  }
-
-  // Handle string that's actually a number (tid as string)
-  if (typeof team === 'string' && /^\d+$/.test(team)) {
-    const tid = parseInt(team, 10)
-    const teamData = dynastyTeams?.[tid] || TEAMS[tid]
-    return teamData?.abbr?.toUpperCase() || ''
-  }
-
-  const upperTeam = team.toUpperCase()
-
-  // Check dynasty.teams first so a custom abbr from teambuilder resolves
-  // before we fall back to the static FBS abbreviation map.
-  if (dynastyTeams) {
-    for (const t of Object.values(dynastyTeams)) {
-      if (t?.abbr?.toUpperCase() === upperTeam) return upperTeam
-    }
-  }
-
-  // Then check if it's already a static abbreviation
-  if (teamAbbreviations[upperTeam]) {
-    return upperTeam
-  }
-
-  // Try to get abbreviation from display name (consults dynasty.teams first
-  // for teambuilder names)
-  const abbr = getAbbrFromTeamName(team, dynastyTeams)
-  if (abbr) {
-    return abbr.toUpperCase()
-  }
-
-  // Fallback: return as-is
-  return upperTeam
+  // getTidFromAbbr already handles tid (number), tid-as-string, abbr (dynasty
+  // first, then static + EA aliases) and full-name fallback in one path.
+  const tid = getTidFromAbbr(team, dynastyTeams)
+  return tid != null ? tid : null
 }
 
 // Get all years a player has records for (from all honor types and roster)
@@ -151,7 +128,9 @@ const getPlayerTeams = (player, dynastyTeams = null) => {
     player.teams.forEach(t => teams.add(normalizeTeamForComparison(t, dynastyTeams)))
   }
 
-  return Array.from(teams)
+  // Set now holds numeric tids; drop any unresolved (null) entries so an
+  // unknown team can never collide-match another unknown team.
+  return Array.from(teams).filter(t => t != null)
 }
 
 // Check if a year is within 5 seasons of any year in the player's history
@@ -200,8 +179,9 @@ export const findMatchingPlayer = (name, team, year, players, dynastyTeams = nul
 
     // Check if within eligibility window (5 seasons)
     if (isWithinEligibilityWindow(year, existingYears)) {
-      // Same team = exact match (auto-link)
-      if (existingTeams.includes(normalizedTeam)) {
+      // Same team = exact match (auto-link). Compare by tid; guard null so an
+      // unresolved incoming team never matches an unresolved existing entry.
+      if (normalizedTeam != null && existingTeams.includes(normalizedTeam)) {
         return {
           player,
           matchType: 'exact',

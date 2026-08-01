@@ -98,13 +98,27 @@ export function getEditionKey(dynasty) {
 // "Sync from Save"-derived behavior (auto-filled schedule/ratings/recruiting,
 // the Edit-button removals, the Sportsbook/Gameday Picks power model, the
 // sync-only nav pages, etc.) must gate on this, never on edition alone.
-// Dynasties created before the Console/PC selector existed have no
-// `platform` field at all — every one of them is a real PC dynasty (the
-// feature didn't exist for anyone else yet), so a missing `platform`
-// defaults to 'pc'. Only an explicit 'console' turns this off.
+//
+// OPT-IN, NOT OPT-OUT. This requires an explicit `platform: 'pc'`; anything
+// else — including a missing `platform` — is treated as console/manual. That
+// direction is deliberate and must not be inverted:
+//
+//   • DEFAULT_EDITION is 'cfb27', so essentially every dynasty in the wild
+//     resolves to CFB 27, and none created before the Console/PC selector
+//     shipped carries a `platform` field at all.
+//   • PC auto-sync has never existed in production, so a dynasty with no
+//     `platform` is by definition someone tracking a console dynasty by hand.
+//   • If a missing `platform` read as PC, every one of those dynasties would
+//     silently flip into auto-sync mode: manual entry to-dos replaced by
+//     read-only links, Edit buttons removed, sync-only nav pages appearing —
+//     i.e. their existing workflow would break with no action on their part.
+//
+// `platform: 'pc'` is set at creation (the Console/PC selector, or a CFB27
+// save import which dictates its own platform) and re-stamped by every
+// Sync from Save, so a genuine PC dynasty is always positively marked.
 export function isPcAutoDynasty(dynasty) {
   if (getEditionKey(dynasty) !== 'cfb27') return false
-  return dynasty?.platform !== 'console'
+  return dynasty?.platform === 'pc'
 }
 
 // Given a dynasty OR an edition key, return the resolved config bundle.
@@ -134,4 +148,25 @@ export function editionHasFeature(dynastyOrKey, feature) {
 // everything returns exactly as it was.
 export function isDynastyBlueprintEnabled(dynasty) {
   return editionHasFeature(dynasty, 'dynastyPoints') && dynasty?.hideDynastyBlueprint !== true
+}
+
+// Whether FULL per-player attribute (rating) ENTRY is on: the edition supports
+// it AND the user hasn't turned ratings off via the "Hide all ratings" league
+// preference (`dynasty.hideAllRatings`). Gate the Training Results / Recruit
+// Overalls full-attribute entry sections on this so, when hidden, those flows
+// capture Overall only. Displays (the player Attributes tab, Compare Players)
+// gate on the raw `hideAllRatings` flag instead — they must still show scouted
+// data on editions without the full-attribute feature.
+export function arePlayerAttributesEnabled(dynasty) {
+  return editionHasFeature(dynasty, 'attributes') && dynasty?.hideAllRatings !== true
+}
+
+// True when a dynasty (or edition key) resolves to CFB 27. Gate CFB 27-only
+// features on this — e.g. Scout Staff, which doesn't work correctly against
+// CFB 26 data — so they never surface on CFB 26 / untagged saves.
+export function isCfb27(dynastyOrKey) {
+  const key = typeof dynastyOrKey === 'string'
+    ? normalizeEditionKey(dynastyOrKey)
+    : getEditionKey(dynastyOrKey)
+  return key === 'cfb27'
 }

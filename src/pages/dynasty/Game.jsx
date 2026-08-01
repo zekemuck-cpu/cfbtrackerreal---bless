@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getAbbrFromTeamName, getColorsFromTid } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo, getColorsFromTid } from '../../data/teamRegistry'
 import { getTeamColors } from '../../data/teamColors'
 import { useDynasty, getUserGamePerspective, GAME_TYPES, getRecordAsOfGame, getTeamRatingsForYear, getCustomConferencesForYear, getTeamRankForWeek, isPlayerOnRoster } from '../../context/DynastyContext'
 import { saveGamesToSubcollection } from '../../services/dynastyService'
@@ -34,7 +34,7 @@ import SocialFeed from '../../components/SocialFeed'
 import GameContentTools from '../../components/GameContentTools'
 import { isPcAutoDynasty } from '../../editions'
 import { DEFAULT_SOCIAL_PLATFORM, getEffectiveCharacters } from '../../data/socialModel'
-import { sortPlaysChronologically, collapsePatRowsIntoTDs } from '../../utils/scoringPlayOrder'
+import { sortPlaysChronologically, collapsePatRowsIntoTDs, resolveScoringTeamTids, buildScorerTidResolver } from '../../utils/scoringPlayOrder'
 import {
   PageHero,
   Card,
@@ -1059,6 +1059,10 @@ export default function Game() {
   let displayTeam, displayTeamAbbr, opponent, opponentAbbr
   let displayTeamLogo, displayTeamColors, opponentLogo, opponentColors
   let userScore, opponentScore, userWon
+  // Durable tids for the display (user) side and the opponent side, hoisted so
+  // downstream attribution (getTeamData) can match by tid instead of by abbr,
+  // which can collide between teambuilder teams and real FBS teams.
+  let displaySideTid = null, opponentSideTid = null
 
   if (isCPUGame) {
     // CPU game - pick a viewing team (winner or team1). Tid-based identity
@@ -1092,6 +1096,9 @@ export default function Game() {
       isDisplayTeam1 = viewingAbbr === team1Abbr
     }
 
+    displaySideTid = isDisplayTeam1 ? game.team1Tid : game.team2Tid
+    opponentSideTid = isDisplayTeam1 ? game.team2Tid : game.team1Tid
+
     displayTeamAbbr = isDisplayTeam1 ? team1Abbr : team2Abbr
     displayTeam = getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
 
@@ -1112,6 +1119,9 @@ export default function Game() {
     // User game - use perspective
     const userTeamInfo = getGameTeamInfo(teams, perspective.userTid)
     const oppTeamInfo = getGameTeamInfo(teams, perspective.opponentTid)
+
+    displaySideTid = perspective.userTid ?? game.team1Tid ?? null
+    opponentSideTid = perspective.opponentTid ?? game.team2Tid ?? null
 
     displayTeamAbbr = userTeamInfo?.abbr || getCurrentTeamAbbr(currentDynasty)
     displayTeam = userTeamInfo?.name || getMascotName(displayTeamAbbr, currentDynasty?.teams || currentDynasty?.customTeams) || displayTeamAbbr
@@ -1276,7 +1286,7 @@ export default function Game() {
       location = game.location
     } else if (game.homeTeamTid) {
       // Get displayTeam's tid and check if it matches homeTeamTid
-      const displayTid = resolveTid(displayTeamAbbr, teams)
+      const displayTid = displaySideTid
       location = game.homeTeamTid === displayTid ? 'home' : 'away'
     } else {
       location = 'neutral' // Default for postseason
@@ -1297,8 +1307,8 @@ export default function Game() {
   }
 
   // Get user and opponent tids
-  const userTid = perspective?.userTid || resolveTid(displayTeamAbbr, teams)
-  const oppTid = perspective?.opponentTid || resolveTid(opponentAbbr, teams)
+  const userTid = perspective?.userTid || displaySideTid
+  const oppTid = perspective?.opponentTid || opponentSideTid
 
   // Get seeds for user/opponent. We CANNOT trust game.seed1 → user,
   // game.seed2 → opp, because seed1/seed2 align with team1/team2 in
@@ -1376,14 +1386,17 @@ export default function Game() {
   }
 
   // Get logos
+  // The dynasty's realignment-aware conference map for this game's year — the
+  // single source of truth. Used for BOTH the CCG label and regular-matchup logo
+  // so a realigned team never shows its old conference.
+  const customConfs = currentDynasty ? getCustomConferencesForYear(currentDynasty, game.year) : null
   // game.conference is the authoritative value for CCGs (set at save time).
   // currentDynasty?.conference is a stale root-level field — do NOT use it.
-  const confName = game.conference || (displayTeamAbbr ? getTeamConference(displayTeamAbbr) : null)
+  const confName = game.conference || (displayTeamAbbr ? getTeamConference(displayTeamAbbr, customConfs, currentDynasty?.teams) : null)
   const bowlLogo = game.bowlName ? getBowlLogo(game.bowlName) : null
   const confLogo = game.isConferenceChampionship && confName ? getConferenceLogo(confName) : null
   // For regular conference matchups (both teams in the same conference), surface
   // the conference logo in the header so it reads like an ESPN scoreboard.
-  const customConfs = currentDynasty ? getCustomConferencesForYear(currentDynasty, game.year) : null
   const userConf = displayTeamAbbr ? getTeamConference(displayTeamAbbr, customConfs, currentDynasty?.teams) : null
   const oppConf = opponentAbbr ? getTeamConference(opponentAbbr, customConfs, currentDynasty?.teams) : null
   const isConferenceMatchup = !!(userConf && oppConf && userConf === oppConf) && !game.isConferenceChampionship && !game.bowlName
@@ -1461,7 +1474,10 @@ export default function Game() {
       // Determine if this side corresponds to team1 or team2
       const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
       const team1Abbr = team1Info?.abbr || game.team1
-      const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
+      const sideTid = isDisplayTeam ? displaySideTid : opponentSideTid
+      const isTeam1 = (sideTid != null && game.team1Tid != null)
+        ? Number(sideTid) === Number(game.team1Tid)
+        : (isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr))
       overall = isTeam1 ? game.team1Overall : game.team2Overall
       offense = isTeam1 ? game.team1Offense : game.team2Offense
       defense = isTeam1 ? game.team1Defense : game.team2Defense
@@ -1471,17 +1487,26 @@ export default function Game() {
       offense = isTeam1 ? game.team1Offense : (game.team2Offense ?? game.opponentOffense ?? null)
       defense = isTeam1 ? game.team1Defense : (game.team2Defense ?? game.opponentDefense ?? null)
     } else {
-      // For unified format: user ratings in team1*, opponent ratings in team2*
-      // For legacy format: opponent ratings in opponent* fields
-      overall = isDisplayTeam
+      // User game. Ratings live in team1*/team2* (tid-aligned), with the
+      // legacy opponent* fields as a fallback for the opponent side. Map by
+      // tid — NOT by "isDisplayTeam ? team1 : team2". The user is not always
+      // team1: CFP / bowl / neutral games entered through the bracket store
+      // team1/team2 by matchup orientation, so a user stored as team2 would
+      // otherwise show the opponent's ratings on their own side (and vice
+      // versa). The legacy fallback assumes user=team1 only when no tid.
+      const sideTid = isDisplayTeam ? displaySideTid : opponentSideTid
+      const sideIsTeam1 = sideTid != null && game.team1Tid != null
+        ? Number(sideTid) === Number(game.team1Tid)
+        : isDisplayTeam
+      overall = sideIsTeam1
         ? (game.team1Overall ?? null)
-        : (game.team2Overall ?? game.opponentOverall ?? null)
-      offense = isDisplayTeam
+        : (game.team2Overall ?? (isDisplayTeam ? null : game.opponentOverall) ?? null)
+      offense = sideIsTeam1
         ? (game.team1Offense ?? null)
-        : (game.team2Offense ?? game.opponentOffense ?? null)
-      defense = isDisplayTeam
+        : (game.team2Offense ?? (isDisplayTeam ? null : game.opponentOffense) ?? null)
+      defense = sideIsTeam1
         ? (game.team1Defense ?? null)
-        : (game.team2Defense ?? game.opponentDefense ?? null)
+        : (game.team2Defense ?? (isDisplayTeam ? null : game.opponentDefense) ?? null)
     }
 
     // Resolve tid for this side so downstream comparisons (quarter scores,
@@ -1493,7 +1518,10 @@ export default function Game() {
       const team2Tid = game.team2Tid
       const team1Info = team1Tid ? getGameTeamInfo(teams, team1Tid) : null
       const team1Abbr = team1Info?.abbr || game.team1
-      const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
+      const sideTid = isDisplayTeam ? displaySideTid : opponentSideTid
+      const isTeam1 = (sideTid != null && team1Tid != null)
+        ? Number(sideTid) === Number(team1Tid)
+        : (isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr))
       tid = isTeam1 ? team1Tid : team2Tid
     } else if (perspectiveResolved) {
       const opponentTidForGame = isTeam1User ? game.team2Tid : game.team1Tid
@@ -1519,7 +1547,10 @@ export default function Game() {
       if (isCPUGame) {
         const team1Info = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid) : null
         const team1Abbr = team1Info?.abbr || game.team1
-        const isTeam1 = isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr)
+        const sideTid = isDisplayTeam ? displaySideTid : opponentSideTid
+        const isTeam1 = (sideTid != null && game.team1Tid != null)
+          ? Number(sideTid) === Number(game.team1Tid)
+          : (isDisplayTeam ? (displayTeamAbbr === team1Abbr) : (opponentAbbr === team1Abbr))
         record = isTeam1 ? game.team1Record : game.team2Record
       } else if (isDisplayTeam && userRecord) {
         record = `${userRecord.overall} (${userRecord.conference})`
@@ -1598,7 +1629,7 @@ export default function Game() {
   // page (with a query param so it auto-scrolls to this game). For
   // championship / bowl / CFP rounds the whole cluster keeps its
   // single navigation target as before.
-  const eventIsRivalryTrophy = !!rivalryTrophy && eventLogo === rivalryTrophy.image
+  const eventIsRivalryTrophy = !!rivalryTrophy?.image && eventLogo === rivalryTrophy.image
   const eventLogoBlock = eventLogo ? (
     <div
       className="flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-md flex items-center justify-center p-1"
@@ -1913,7 +1944,7 @@ export default function Game() {
                   the open space between this cluster, the quarter table,
                   and the right cluster. */}
               <div className={`flex items-center gap-6 ${!leftData.isWinner ? 'opacity-75' : ''}`}>
-                <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-4">
+                <Link to={`${pathPrefix}/team/${leftData.tid}/${game.year}`} className="group flex items-center gap-4">
                   <div className="relative flex-shrink-0">
                     <div
                       className="w-16 h-16 rounded-full flex items-center justify-center p-2  shadow-xl bg-white"
@@ -1974,8 +2005,23 @@ export default function Game() {
                   const isLeftTeam1 = leftData.tid != null && game.team1Tid != null
                     ? Number(leftData.tid) === Number(game.team1Tid)
                     : leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
-                  const leftQuarterKey = isNewFormat ? (isLeftTeam1 ? 'team1' : 'team2') : (leftTeam === 'user' ? 'team' : 'opponent')
-                  const rightQuarterKey = isNewFormat ? (isLeftTeam1 ? 'team2' : 'team1') : (leftTeam === 'user' ? 'opponent' : 'team')
+                  // Legacy {team,opponent} quarters (written by GameEntryModal,
+                  // e.g. the CFP bracket entry) are tid-ordered: team = team1's
+                  // line, opponent = team2's — its swap-back always stores
+                  // team=team1. So when the game carries tids, map the legacy
+                  // keys by tid too. Mapping them by leftTeam ('user'/display)
+                  // mis-assigns the linescore whenever the displayed team is
+                  // team2 (e.g. a CFP game viewed from the winner's side),
+                  // flipping the quarters relative to the tid-based totals.
+                  // Only truly-old games with no team1Tid keep the display-
+                  // relative mapping (there, team = the user's line).
+                  const hasTeamTids = game.team1Tid != null && game.team2Tid != null
+                  const leftQuarterKey = isNewFormat
+                    ? (isLeftTeam1 ? 'team1' : 'team2')
+                    : hasTeamTids ? (isLeftTeam1 ? 'team' : 'opponent') : (leftTeam === 'user' ? 'team' : 'opponent')
+                  const rightQuarterKey = isNewFormat
+                    ? (isLeftTeam1 ? 'team2' : 'team1')
+                    : hasTeamTids ? (isLeftTeam1 ? 'opponent' : 'team') : (leftTeam === 'user' ? 'opponent' : 'team')
                   const leftQuarters = game.quarters[leftQuarterKey] || {}
                   const rightQuarters = game.quarters[rightQuarterKey] || {}
 
@@ -2056,7 +2102,7 @@ export default function Game() {
                     {rightData.score}
                   </div>
                 </div>
-                <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-4">
+                <Link to={`${pathPrefix}/team/${rightData.tid}/${game.year}`} className="group flex items-center gap-4">
                   <div className="text-right">
                     {rightData.rank && !isCFPGame && (
                       <div className="text-amber-400 text-xs font-bold">#{rightData.rank}</div>
@@ -2098,7 +2144,7 @@ export default function Game() {
         <div className="px-1 py-3 sm:px-8 sm:py-8 md:py-10">
           <div className="flex items-center justify-between gap-1 sm:gap-6 md:gap-10 max-w-full">
             {/* Left Team */}
-            <Link to={`${pathPrefix}/team/${resolveTid(leftData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 min-w-0">
+            <Link to={`${pathPrefix}/team/${leftData.tid}/${game.year}`} className="group flex-1 min-w-0">
               <div className="flex flex-col items-center sm:flex-row sm:items-center gap-1 sm:gap-4">
                 {/* Logo - larger for hero effect */}
                 <div className="relative flex-shrink-0">
@@ -2150,8 +2196,17 @@ export default function Game() {
                   const isLeftTeam1 = leftData.tid != null && game.team1Tid != null
                     ? Number(leftData.tid) === Number(game.team1Tid)
                     : leftData.abbr === (game.team1Tid ? (currentDynasty?.teams?.[game.team1Tid]?.abbr || TEAMS[game.team1Tid]?.abbr) : game.team1)
-                  const leftKey = isNewFormat ? (isLeftTeam1 ? 'team1' : 'team2') : (leftTeam === 'user' ? 'team' : 'opponent')
-                  const rightKey = isNewFormat ? (isLeftTeam1 ? 'team2' : 'team1') : (leftTeam === 'user' ? 'opponent' : 'team')
+                  // Legacy {team,opponent} quarters are tid-ordered (team=team1);
+                  // map by tid when the game has tids so the displayed-from-team2
+                  // case (CFP viewed from the winner) doesn't flip the linescore.
+                  // See the matching block in the hero quarter table above.
+                  const hasTeamTids = game.team1Tid != null && game.team2Tid != null
+                  const leftKey = isNewFormat
+                    ? (isLeftTeam1 ? 'team1' : 'team2')
+                    : hasTeamTids ? (isLeftTeam1 ? 'team' : 'opponent') : (leftTeam === 'user' ? 'team' : 'opponent')
+                  const rightKey = isNewFormat
+                    ? (isLeftTeam1 ? 'team2' : 'team1')
+                    : hasTeamTids ? (isLeftTeam1 ? 'opponent' : 'team') : (leftTeam === 'user' ? 'opponent' : 'team')
                   const lq = game.quarters[leftKey] || {}
                   const rq = game.quarters[rightKey] || {}
                   const cell = (v) => (v === '' || v === null || v === undefined ? 0 : v)
@@ -2222,7 +2277,7 @@ export default function Game() {
                 )
               })() : (
                 <div className="flex flex-col items-center py-2 sm:py-4">
-                  {rivalryTrophy ? (
+                  {rivalryTrophy?.image ? (
                     <>
                       <img
                         src={rivalryTrophy.image}
@@ -2242,6 +2297,15 @@ export default function Game() {
                         </div>
                       )}
                     </>
+                  ) : rivalryTrophy ? (
+                    // Trophy with no image (a user-created rivalry that never got
+                    // artwork) — a bare <img src={undefined}> renders as a broken
+                    // icon, so fall back to a text pill.
+                    <div className="px-2 py-1 sm:px-4 sm:py-2 rounded-full bg-yellow-500/20 border border-yellow-500/30">
+                      <span className="text-xs sm:text-sm font-bold text-yellow-400">
+                        {rivalryTrophy.trophyName || rivalryTrophy.rivalryName || 'RIVALRY'}
+                      </span>
+                    </div>
                   ) : (
                     <div className="flex flex-col items-center gap-1.5">
                       <div className="px-2 py-1 sm:px-4 sm:py-2 rounded-full bg-yellow-500/20 border border-yellow-500/30">
@@ -2259,7 +2323,7 @@ export default function Game() {
             </div>
 
             {/* Right Team */}
-            <Link to={`${pathPrefix}/team/${resolveTid(rightData.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex-1 min-w-0">
+            <Link to={`${pathPrefix}/team/${rightData.tid}/${game.year}`} className="group flex-1 min-w-0">
               <div className="flex flex-col items-center sm:flex-row-reverse sm:items-center gap-1 sm:gap-4">
                 {/* Logo - larger for hero effect */}
                 <div className="relative flex-shrink-0">
@@ -2592,7 +2656,7 @@ export default function Game() {
             }
 
             // ---- Ratings block (compact) ----
-            const userTid = game.userTid || resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS)
+            const userTid = game.userTid || (perspective?.userTid ?? displaySideTid)
             const storedUserRatings = getTeamRatingsForYear(currentDynasty, userTid, game.year)
             const userRatings = {
               ovr: game.team1Overall ?? storedUserRatings?.overall,
@@ -2777,7 +2841,7 @@ export default function Game() {
                           return (
                             <Link
                               key={idx}
-                              to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`}
+                              to={`${pathPrefix}/team/${team.tid}/${game.year}`}
                               className="cfb-texture group flex items-center gap-3 py-2 pl-2 pr-3 overflow-hidden hover:brightness-110 transition-all"
                               style={{ backgroundColor: color, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)' }}
                             >
@@ -2893,32 +2957,27 @@ export default function Game() {
               collapsePatRowsIntoTDs(game.boxScore.scoringSummary)
             )
 
-            // Tid-based "is this play on the left side?" check. Each play's
-            // team is stored as an abbr; we resolve via the game's two team
-            // tids (and current registry abbrs) and compare tids instead of
-            // strings — survives teambuilder abbr drift. Falls back to abbr
-            // compare for legacy games missing a tid.
+            // Attribute every scoring play to one of the game's two tids,
+            // rooted entirely in the user's file (dynasty.teams[tid].abbr +
+            // the scorers' tid-based roster membership), never the base
+            // registry. play.team is stored as whatever abbr the AI paste
+            // transcribed off the game screen (e.g. "UMD"), which need not
+            // match the file's abbr for that tid (cfb27 "TERPS"); resolving
+            // by tid is what keeps the whole game from piling onto one side.
             const lTid = leftData.tid != null ? Number(leftData.tid) : null
             const rTid = rightData.tid != null ? Number(rightData.tid) : null
-            const lAbbrU = leftData.abbr?.toUpperCase()
-            const rAbbrU = rightData.abbr?.toUpperCase()
-            const isPlayOnLeftSide = (play) => {
-              const playU = play.team?.toUpperCase()
-              if (lTid != null && rTid != null && lAbbrU && rAbbrU) {
-                const playTid = playU === lAbbrU ? lTid : (playU === rAbbrU ? rTid : null)
-                if (playTid != null) return playTid === lTid
-              }
-              return playU === lAbbrU
-            }
+            const teamTidMap = resolveScoringTeamTids(chronoPlays, {
+              team1Tid: lTid,
+              team2Tid: rTid,
+              teams: currentDynasty?.teams,
+              getScorerTid: buildScorerTidResolver(currentDynasty?.players, game?.year),
+            })
+            const playTidOf = (play) => teamTidMap.get(play.team?.toUpperCase())
+            const isPlayOnLeftSide = (play) => playTidOf(play) === lTid
 
-            // Resolve a play's team to current-registry data (abbr, logo, colors).
-            // play.team is the abbr stored at game time; if a teambuilder team
-            // was renamed since, that stale abbr won't resolve via the registry
-            // helpers. Map play.team → tid via the game's two teams, then look
-            // up by tid for stable colors / logos.
+            // Resolve a play's team to file data (abbr, logo, colors) by tid.
             const resolvePlayTeamData = (play) => {
-              const playU = play.team?.toUpperCase()
-              const tid = playU === lAbbrU ? lTid : playU === rAbbrU ? rTid : null
+              const tid = playTidOf(play)
               const sideData = tid === lTid ? leftData : tid === rTid ? rightData : null
               return {
                 abbr: sideData?.abbr || play.team,
@@ -3703,10 +3762,10 @@ export default function Game() {
                               className="cfb-texture flex items-center gap-2 px-3 py-2.5 overflow-hidden"
                               style={{ backgroundColor: leftTeamData_bs.colors.primary, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)' }}
                             >
-                              <Link to={`${pathPrefix}/team/${resolveTid(leftTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 min-w-0">
+                              <Link to={`${pathPrefix}/team/${leftData.tid}/${game.year}`} className="group flex items-center gap-2 min-w-0">
                                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 shadow-sm">
                                   <img
-                                    src={leftTeamData_bs.logo || getTeamLogo(getMascotName(leftTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || leftTeamData_bs.abbr)}
+                                    src={leftData.logo}
                                     alt={leftTeamData_bs.name}
                                     className="w-full h-full object-contain"
                                   />
@@ -3727,10 +3786,10 @@ export default function Game() {
                               className="cfb-texture flex items-center gap-2 px-3 py-2.5 overflow-hidden"
                               style={{ backgroundColor: rightTeamData_bs.colors.primary, backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)' }}
                             >
-                              <Link to={`${pathPrefix}/team/${resolveTid(rightTeamData_bs.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-2 min-w-0">
+                              <Link to={`${pathPrefix}/team/${rightData.tid}/${game.year}`} className="group flex items-center gap-2 min-w-0">
                                 <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center flex-shrink-0 p-0.5 shadow-sm">
                                   <img
-                                    src={rightTeamData_bs.logo || getTeamLogo(getMascotName(rightTeamData_bs.abbr, currentDynasty?.teams || currentDynasty?.customTeams) || rightTeamData_bs.abbr)}
+                                    src={rightData.logo}
                                     alt={rightTeamData_bs.name}
                                     className="w-full h-full object-contain"
                                   />
@@ -3759,12 +3818,10 @@ export default function Game() {
         // Team stats are stored byTid; pull each side's slot directly.
         const leftTeamStats  = getTeamStatsForTid(game, leftData.tid,  teams) || {}
         const rightTeamStats = getTeamStatsForTid(game, rightData.tid, teams) || {}
-        const leftTeamAbbr   = getAbbrFromTeamName(leftTeamStats.teamAbbr)  || leftTeamStats.teamAbbr  || leftData.abbr
-        const rightTeamAbbr  = getAbbrFromTeamName(rightTeamStats.teamAbbr) || rightTeamStats.teamAbbr || rightData.abbr
 
-        // Get team colors
-        const leftTeamColors = getTeamColorsRobust(leftTeamAbbr) || leftData.colors
-        const rightTeamColors = getTeamColorsRobust(rightTeamAbbr) || rightData.colors
+        // Team identity/colors come straight from the tid-resolved leftData/rightData.
+        const leftTeamColors = leftData.colors
+        const rightTeamColors = rightData.colors
 
         // Helper to format possession time
         const formatPossession = (mins, secs) => {
@@ -3877,18 +3934,18 @@ export default function Game() {
             >
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-white p-1 shadow-sm">
-                  <img src={getTeamLogoRobust(leftTeamAbbr, currentDynasty?.teams)} alt="" className="w-full h-full object-contain" />
+                  <img src={leftData.logo} alt="" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-sm font-bold text-white hidden sm:inline" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                  {getMascotName(leftTeamAbbr, currentDynasty?.teams) || leftTeamAbbr}
+                  {leftData.name}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold text-white hidden sm:inline" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.5)' }}>
-                  {getMascotName(rightTeamAbbr, currentDynasty?.teams) || rightTeamAbbr}
+                  {rightData.name}
                 </span>
                 <div className="w-8 h-8 rounded-full bg-white p-1 shadow-sm">
-                  <img src={getTeamLogoRobust(rightTeamAbbr, currentDynasty?.teams)} alt="" className="w-full h-full object-contain" />
+                  <img src={rightData.logo} alt="" className="w-full h-full object-contain" />
                 </div>
               </div>
             </div>
@@ -3903,7 +3960,7 @@ export default function Game() {
 
           {/* Ratings Tab */}
           {activeTab === 'ratings' && (() => {
-            const userTid = game.userTid || resolveTid(displayTeamAbbr, currentDynasty?.teams || TEAMS)
+            const userTid = game.userTid || (perspective?.userTid ?? displaySideTid)
             const storedUserRatings = getTeamRatingsForYear(currentDynasty, userTid, game.year)
             const userRatings = {
               ovr: game.team1Overall ?? storedUserRatings?.overall,
@@ -3931,7 +3988,7 @@ export default function Game() {
                   const defBetter = (ratings.def || 0) > ((idx === 0 ? rightRatings : leftRatings).def || 0)
 
                   return (
-                    <Link key={idx} to={`${pathPrefix}/team/${resolveTid(team.abbr, currentDynasty?.teams || TEAMS)}/${game.year}`} className="group flex items-center gap-3 p-3 rounded-xl bg-surface-2/50 hover:bg-surface-2 transition-colors">
+                    <Link key={idx} to={`${pathPrefix}/team/${team.tid}/${game.year}`} className="group flex items-center gap-3 p-3 rounded-xl bg-surface-2/50 hover:bg-surface-2 transition-colors">
                       <div className="w-12 h-12 rounded-xl flex items-center justify-center p-1.5 shadow-md flex-shrink-0 bg-white ">
                         {team.logo && <img src={team.logo} alt="" className="w-full h-full object-contain" />}
                       </div>

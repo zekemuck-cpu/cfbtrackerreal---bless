@@ -14,11 +14,17 @@ import SheetToolbar from './SheetToolbar'
 import {
   createRecruitOverallsSheet,
   readRecruitOverallsFromSheet,
+  parseRecruitOverallsLocal,
   deleteGoogleSheet,
   getSheetEmbedUrl,
   sheetExists
 } from '../services/sheetsService'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import { buildAttributesStructure } from '../utils/attributeEntry'
+import { arePlayerAttributesEnabled } from '../editions'
+import AttributePasteGrid from './AttributePasteGrid'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 import SheetLoadingHint from './SheetLoadingHint'
 
 const isMobileDevice = () => {
@@ -26,8 +32,16 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentYear, teamColors, recruits }) {
+export default function RecruitOverallsModal({ isOpen, onClose, onSave, onImportAttributes, currentYear, teamColors, recruits }) {
   const { currentDynasty, updateDynasty } = useDynasty()
+  // CFB 27: "Full attributes" local-paste mode alongside the Overalls Google
+  // sheet. Gated on the edition attributes feature; defaults to Overalls.
+  // Full-attribute entry: edition supports it AND ratings aren't hidden via the
+  // "Hide all ratings" league preference. When hidden, this flow is Overalls-only.
+  const attributesEnabled = arePlayerAttributesEnabled(currentDynasty)
+  const [mode, setMode] = useState('overalls') // 'overalls' | 'attributes'
+  // Within Overalls mode, local paste is the DEFAULT; Google is the fallback.
+  const [useLocal, setUseLocal] = useState(true)
   const { user, signOut } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -46,7 +60,7 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
   const [regenerating, setRegenerating] = useState(false)
 
   const aiPrompt = useMemo(() => buildAIPrompt({
-    title: `${currentYear} Incoming Freshmen Overalls`,
+    title: `${currentYear} Signed Recruit Overalls`,
     roster: (recruits || []).map(p => ({
       name: p.name,
       jerseyNumber: p.jerseyNumber,
@@ -56,20 +70,23 @@ export default function RecruitOverallsModal({ isOpen, onClose, onSave, currentY
     structure: `WHERE TO FIND THE DATA IN EA CFB
 ═══════════════════════════════════════════════════════════
 Recruit overalls appear on NATIONAL SIGNING DAY (before Training Results).
-Browse each position group depth chart — incoming
-freshmen are shown with Year = "Fr". Their OVR column is their initial overall.
 
-TWO ways to find recruits in the screenshots:
-1. Look for any player with Year = "Fr" in the position group screens — those
-   are the incoming freshmen (your new recruits). Their abbreviated name (e.g.
-   "D.Ware") resolves to a full name using the YOUR INCOMING RECRUITING CLASS
-   roster block below.
-2. Cross-reference the YOUR INCOMING RECRUITING CLASS roster block directly —
-   every player listed there should appear somewhere in the position group
-   screens as a "Fr" player.
+The YOUR INCOMING RECRUITING CLASS block below is the definitive list of the
+commits you signed this class — the SOURCE OF TRUTH for who to record. Your job
+is to find each of those exact players in the screenshots and read their overall
+(and jersey #). Do NOT filter by the class/year shown on the depth chart: a
+commit can appear as "Fr", "RS Fr", or any other year. Include a player because
+their name is in the commit list, not because of the year beside them.
 
-The OVR column shows each recruit's starting overall — a plain integer.
-The jersey number may be visible on the depth chart row.
+HOW TO FIND EACH COMMIT in the screenshots:
+1. Browse the position group depth charts and match each name against the commit
+   list below — EA's abbreviated names (e.g. "D.Ware") resolve to a full name there.
+2. Walk the commit list itself and locate every player on it somewhere in the
+   screenshots; each recruit in the block should have a depth-chart row.
+
+The OVR column shows each recruit's starting overall — a plain integer. The
+jersey number may be visible on the depth-chart row. If a commit is nowhere in
+the screenshots, leave their overall blank (never guess).
 
 ═══════════════════════════════════════════════════════════
 
@@ -86,11 +103,10 @@ CRITICAL RULES — read before anything else
 5. INTEGERS only. No decimals, no quotes, no units.
 6. BLANK for unknown values — never guess, never use 0, "-", or "N/A". For a line where Overall is known but Jersey # is not, output: 85\\t (tab then nothing).
 7. Overall range: 40–99. Jersey # range: 0–99.
-8. No header row, no commentary INSIDE the data. ONE TSV block, preceded by the required paste-target label line above the fence (see TSV delivery rules above).
+8. No header row, no commentary INSIDE the data. Output ONLY the fenced tsv block, nothing before or after it.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Recruit Overalls"
-Paste at cell E2 of the "Recruit Overalls" tab
+SECTION: "Recruit Overalls"
 ═══════════════════════════════════════════════════════════
 
 Col | Header (protected)  | Your output                                | Format
@@ -105,7 +121,7 @@ Col | Header (protected)  | Your output                                | Format
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== RECRUIT OVERALLS — paste at cell E2 of "Recruit Overalls" tab ===
+=== RECRUIT OVERALLS ===
 <Overall>\\t<Jersey #>
 <Overall>\\t<Jersey #>
 ...
@@ -124,8 +140,99 @@ FINAL CHECK before you send
     includeTeamMap: false,
   }), [currentYear, recruits])
 
+  // Local-paste prompt — the Google flow emits only cols E/F in a FIXED row
+  // order (it leans on the sheet's pre-filled Name column). Local paste has no
+  // pre-filled names, so this variant LEADS each row with the recruit's name
+  // and matches by name, making paste order irrelevant.
+  const localAiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Signed Recruit Overalls`,
+    roster: (recruits || []).map(p => ({
+      name: p.name,
+      jerseyNumber: p.jerseyNumber,
+      position: p.position,
+    })),
+    rosterLabel: 'YOUR INCOMING RECRUITING CLASS (match abbreviated names like "A. Guess" to full names)',
+    structure: `WHERE TO FIND THE DATA IN EA CFB
+═══════════════════════════════════════════════════════════
+Recruit overalls appear on NATIONAL SIGNING DAY (before Training Results).
+
+The YOUR INCOMING RECRUITING CLASS block below is the definitive list of the
+commits you signed this class — the SOURCE OF TRUTH for who to record. Find each
+of those exact players in the screenshots and read their overall (and jersey #).
+Do NOT filter by the class/year shown on the depth chart: a commit can appear as
+"Fr", "RS Fr", or any other year. Include a player because their name is in the
+commit list, not because of the year beside them. Browse the position group
+depth charts and match each name to the block (abbreviated names like "D.Ware"
+resolve to a full name there). The OVR column is their initial overall; the
+jersey number may be visible on the depth-chart row.
+
+═══════════════════════════════════════════════════════════
+OUTPUT — one SELF-DESCRIBING line per recruit (the app matches by NAME, so
+row order does NOT matter)
+═══════════════════════════════════════════════════════════
+1. Each line has EXACTLY 3 tab-separated fields (2 tabs):
+   Name<TAB>Overall<TAB>Jersey #
+2. Name MUST be the FULL name from the YOUR INCOMING RECRUITING CLASS block —
+   never an abbreviation. Only output recruits that appear in that block.
+3. Overall: integer 40–99. Jersey #: integer 0–99, or BLANK if not visible
+   (output the name and overall, then a trailing tab with nothing after it).
+4. NO header row, NO commentary inside the data, NO commas, NO decimals,
+   NO units.
+5. NEVER guess. Omit a recruit entirely if you cannot see their overall.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== RECRUIT OVERALLS ===
+<Name>\\t<Overall>\\t<Jersey #>
+<Name>\\t<Overall>\\t<Jersey #>
+...
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has exactly 2 tab characters (3 fields)
+[ ] Field 1 is a FULL name from the recruiting-class block (no initials)
+[ ] Every Overall is an integer 40–99
+[ ] Every Jersey # is an integer 0–99, or blank
+[ ] No commas, no decimals, no quotes, no units`,
+    includeTeamMap: false,
+  }), [currentYear, recruits])
+
+  // Pre-fill the local Overalls grid with recruits who already have a saved
+  // overall, so re-opening the modal shows existing entries instead of a blank
+  // grid. Column order mirrors parseRecruitOverallsLocal: Name, Overall, Jersey.
+  // The parser keeps only overalls in 40–99, so only round-trippable rows are
+  // emitted here (a not-yet-entered recruit has no valid overall and is skipped).
+  const initialText = useMemo(() => {
+    return (recruits || [])
+      .map(p => {
+        const ovr = parseInt(p.overall, 10)
+        if (!Number.isFinite(ovr) || ovr < 40 || ovr > 99) return null
+        const jersey = p.jerseyNumber != null ? String(p.jerseyNumber).trim() : ''
+        return `${p.name || ''}\t${ovr}\t${jersey}`
+      })
+      .filter(Boolean)
+      .join('\n')
+  }, [recruits])
+
+  // Full-attributes prompt — the AI emits each recruit's complete rating set in
+  // one cell, plus Position + OVR. Used by the local paste grid.
+  const attributesPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Signed Recruits — Full Attributes`,
+    roster: (recruits || []).map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position })),
+    rosterLabel: 'YOUR INCOMING RECRUITING CLASS (match abbreviated names like "A. Guess" to full names)',
+    structure: buildAttributesStructure('recruits'),
+    includeTeamMap: false,
+  }), [currentYear, recruits])
+
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  // Single-attempt guard: a FAILED creation must not silently re-fire (the
+  // runaway loop that spam-created sheets). One attempt per modal-open; an
+  // explicit retry bumps auth.retryCount and re-arms exactly one more.
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -161,8 +268,17 @@ FINAL CHECK before you send
 
   // Create recruit overalls sheet when modal opens
   useEffect(() => {
+    // An explicit retry re-arms one fresh attempt by bumping auth.retryCount.
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && mode === 'overalls' && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        // Mark attempted BEFORE any await so a rejection can't loop back in
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -192,7 +308,7 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create recruit overalls sheet:', error)
-          auth.handleError(error)
+          if (!auth.handleError(error)) toast.error(auth.describeError(error, 'create the sheet'))
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -201,15 +317,26 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, recruits, currentYear])
+  }, [isOpen, useLocal, user, mode, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote, recruits, currentYear])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: parseRecruitOverallsLocal returns { name, overall,
+  // jerseyNumber } — the fields handleRecruitOverallsSave matches on — so the
+  // Google reader and the local paste feed onSave the same shape.
+  const handleLocalImport = async (text) => {
+    const results = parseRecruitOverallsLocal(splitTsv(text))
+    await onSave(results)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -334,8 +461,44 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Recruiting" title="Incoming Freshmen Overalls" onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-
-        {isLoading ? (
+        {attributesEnabled && (
+          <div className="mb-3 inline-flex self-start rounded-md border border-surface-5 overflow-hidden text-sm">
+            <button
+              type="button"
+              onClick={() => setMode('overalls')}
+              className={`px-3 py-1.5 font-semibold transition-colors ${mode === 'overalls' ? 'bg-surface-3 text-txt-primary' : 'text-txt-secondary hover:bg-surface-2'}`}
+            >
+              Overalls
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('attributes')}
+              className={`px-3 py-1.5 font-semibold transition-colors border-l border-surface-5 ${mode === 'attributes' ? 'bg-surface-3 text-txt-primary' : 'text-txt-secondary hover:bg-surface-2'}`}
+            >
+              Full Attributes
+            </button>
+          </div>
+        )}
+        {mode === 'attributes' ? (
+          <AttributePasteGrid
+            players={recruits}
+            year={currentYear}
+            aiPrompt={attributesPrompt}
+            onImport={async (entries) => { await onImportAttributes?.(entries) }}
+            onClose={handleClose}
+            hint="Paste the AI reply: one line per recruit — name, position, OVR, then the ratings cell (AWR 88, SPD 90, …)."
+          />
+        ) : useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={localAiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Overalls"
+            columns={['Recruit', 'Overall', 'Jersey #']}
+            initialText={initialText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

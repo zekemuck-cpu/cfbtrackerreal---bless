@@ -4,7 +4,12 @@ import ImageUpload from './ImageUpload'
 import { getContrastTextColor, getModalColors } from '../utils/colorUtils'
 import { getSelectableTeamsList, getTeamName } from '../data/teamAbbreviations'
 import { TEAMS, getOriginalTeamAbbr } from '../data/teamRegistry'
+import { stripMascotFromName } from '../data/teams'
 import { useToast } from './ui/Toast'
+
+// Combine a school name + nickname into the full display name, e.g.
+// ("Springfield", "Tigers") -> "Springfield Tigers". Tolerates an empty nickname.
+const combineName = (teamName, nickname) => [String(teamName || '').trim(), String(nickname || '').trim()].filter(Boolean).join(' ')
 
 /**
  * Modal for editing a team's identity (name, abbr, colors, logo).
@@ -32,7 +37,8 @@ export default function TeambuilderEditModal({
   const isCustomTB = !!team?.isCustom
   const { toast } = useToast()
   const [formData, setFormData] = useState({
-    name: '',
+    teamName: '',
+    nickname: '',
     abbreviation: '',
     primaryColor: '#FF5500',
     secondaryColor: '#FFFFFF',
@@ -54,8 +60,13 @@ export default function TeambuilderEditModal({
   // Initialize form data when team changes / when entering add mode
   useEffect(() => {
     if (team) {
+      // Prefer the explicit split; fall back to deriving it from the full name
+      // for custom teams saved before the split existed.
+      const school = team.teamName || stripMascotFromName(team.name || '') || ''
+      const nick = team.nickname != null ? team.nickname : String(team.name || '').slice(school.length).trim()
       setFormData({
-        name: team.name || '',
+        teamName: school,
+        nickname: nick,
         abbreviation: team.abbr || '',
         primaryColor: team.primaryColor || '#FF5500',
         secondaryColor: team.secondaryColor || '#FFFFFF',
@@ -64,7 +75,8 @@ export default function TeambuilderEditModal({
       setAbbrError('')
     } else if (isAddMode && isOpen) {
       setFormData({
-        name: '',
+        teamName: '',
+        nickname: '',
         abbreviation: '',
         primaryColor: '#FF5500',
         secondaryColor: '#FFFFFF',
@@ -121,7 +133,7 @@ export default function TeambuilderEditModal({
 
   const isValid = () => {
     return (
-      formData.name.trim().length > 0 &&
+      formData.teamName.trim().length > 0 &&
       formData.abbreviation.length >= 2 &&
       formData.abbreviation.length <= 4 &&
       formData.primaryColor.length > 0 &&
@@ -136,8 +148,12 @@ export default function TeambuilderEditModal({
 
     setSaving(true)
     try {
+      const teamName = formData.teamName.trim()
+      const nickname = formData.nickname.trim()
       await onSave({
-        name: formData.name.trim(),
+        name: combineName(teamName, nickname),
+        teamName,
+        nickname,
         abbreviation: formData.abbreviation.toUpperCase(),
         primaryColor: formData.primaryColor,
         secondaryColor: formData.secondaryColor,
@@ -161,6 +177,7 @@ export default function TeambuilderEditModal({
   const modalColors = useMemo(() => getModalColors(teamColors), ['var(--text-primary)', 'var(--surface-3)'])
   const textColor = 'var(--surface-1)'
   const primaryTextColor = 'var(--surface-1)'
+  const previewName = combineName(formData.teamName, formData.nickname)
 
   if (typeof document === 'undefined') return null
 
@@ -202,30 +219,55 @@ export default function TeambuilderEditModal({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Team Name */}
-            <div>
-              <label
-                className="block text-sm font-medium mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Team Name *
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleChange('name', e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none"
-                style={{
-                  borderColor: 'var(--surface-4)',
-                  color: 'var(--text-primary)',
-                  backgroundColor: 'var(--surface-3)'
-                }}
-                placeholder="e.g. Springfield Tigers"
-                required
-              />
-              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-                Full team name including mascot
-              </p>
+            {/* Team Name + Nickname (stored split; combined into the full name) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Team Name *
+                </label>
+                <input
+                  type="text"
+                  value={formData.teamName}
+                  onChange={(e) => handleChange('teamName', e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                  style={{
+                    borderColor: 'var(--surface-4)',
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--surface-3)'
+                  }}
+                  placeholder="e.g. Springfield"
+                  required
+                />
+                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  School / location (no mascot)
+                </p>
+              </div>
+              <div>
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  Nickname
+                </label>
+                <input
+                  type="text"
+                  value={formData.nickname}
+                  onChange={(e) => handleChange('nickname', e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                  style={{
+                    borderColor: 'var(--surface-4)',
+                    color: 'var(--text-primary)',
+                    backgroundColor: 'var(--surface-3)'
+                  }}
+                  placeholder="e.g. Tigers"
+                />
+                <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  Mascot (shows as "{combineName(formData.teamName, formData.nickname) || 'Springfield Tigers'}")
+                </p>
+              </div>
             </div>
 
             {/* Abbreviation */}
@@ -337,7 +379,7 @@ export default function TeambuilderEditModal({
             </div>
 
             {/* Preview Card */}
-            {formData.name && (
+            {previewName && (
               <div
                 className="mt-4 p-4 rounded-lg border-2"
                 style={{
@@ -350,7 +392,7 @@ export default function TeambuilderEditModal({
                   {formData.logoUrl ? (
                     <img
                       src={formData.logoUrl}
-                      alt={formData.name}
+                      alt={previewName}
                       className="w-12 h-12 object-contain rounded"
                       onError={(e) => { e.target.style.display = 'none' }}
                     />
@@ -367,7 +409,7 @@ export default function TeambuilderEditModal({
                   )}
                   <div>
                     <p className="font-bold" style={{ color: formData.primaryColor }}>
-                      {formData.name || 'Team Name'}
+                      {previewName || 'Team Name'}
                     </p>
                     <p className="text-sm" style={{ color: getContrastTextColor(formData.secondaryColor) }}>
                       {formData.abbreviation || 'ABBR'}

@@ -163,7 +163,12 @@ function CardThumbnail({ card, idx, onEdit, onDelete }) {
   const isLegacy = card.styleId === undefined && card.templateId !== undefined
   const style = !isLegacy ? getCardStyle(card.styleId) : null
   const label = card.label || (style?.label) || (isLegacy ? 'Legacy card' : 'Untitled card')
-  const sub = card.year ? String(card.year) : (isLegacy ? 'PNG template' : '—')
+  // Always surface which style/prompt made this card — when a custom label
+  // hides the style name, the sub-line carries it.
+  const sub = [
+    card.year ? String(card.year) : null,
+    style?.label && label !== style.label ? style.label : null,
+  ].filter(Boolean).join(' · ') || (isLegacy ? 'PNG template' : '—')
 
   // Pick the best available preview image. Legacy cards use photoUrl;
   // new cards use frontImageUrl. Either may be missing → show a styled

@@ -491,10 +491,17 @@ const FUTURES_ONFIELD_WEIGHT = 0.15
 
 function calcSeededPower(dynasty, tid, year, week = 99, powerMap = null) {
   const rank = currentPollRank(dynasty, tid, year)
-  const rankPower = rank != null ? rankToPower(rank) : 20
   const ovr = teamOvr(dynasty, tid, year)
-  const ovrPower = ovr != null ? ovrToPower(ovr) : 20
   const onField = powerFor(dynasty, tid, year, week, powerMap)
+  // Neither signal on record for this team — fall back to pure on-field power.
+  // The weighting above assumes rank and OVR are live, synced data; in a
+  // manually-tracked dynasty where the user never enters polls or team
+  // ratings, defaulting both to the neutral 20 would flatten every team to
+  // ~the same number and leave the futures boards undifferentiated. On-field
+  // results are the only real signal there, so use them outright.
+  if (rank == null && ovr == null) return onField
+  const rankPower = rank != null ? rankToPower(rank) : 20
+  const ovrPower = ovr != null ? ovrToPower(ovr) : 20
   return rankPower * FUTURES_RANK_WEIGHT + ovrPower * FUTURES_OVR_WEIGHT + onField * FUTURES_ONFIELD_WEIGHT
 }
 

@@ -4,11 +4,11 @@ import { buildCFPProjection, getSeedAutoBidTids } from '../../utils/cfpProjectio
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, stripMascotFromName } from '../../data/teams'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { getBowlLogo } from '../../data/bowlGames'
-import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot, getBowlForSeed } from '../../data/cfpConstants'
+import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot, getBowlForSeed, CFP_NY6_BOWLS } from '../../data/cfpConstants'
 import { InlineYearSelect } from '../../components/ui'
 import GameEntryModal from '../../components/GameEntryModal'
 
@@ -116,15 +116,110 @@ const getShortName = (abbr) => {
   return shortNameMap[abbr] || abbr
 }
 
+// Editable team slot (team dropdown + score input). Defined at MODULE scope so
+// its identity is stable across renders — an inline component would be a new
+// function every render, so React would remount it (and its <input>) on each
+// keystroke, dropping focus. Everything it needs is passed via props.
+function EditableTeamSlot({ side, slotId, tid, score, visual, teamOptions, onChange, slotWidth, slotHeight }) {
+  const tidField = side === 'top' ? 'team1Tid' : 'team2Tid'
+  const scoreField = side === 'top' ? 'team1Score' : 'team2Score'
+  return (
+    <div
+      className="relative flex items-center gap-2 pl-2.5 pr-2 rounded-lg overflow-hidden"
+      style={{ backgroundColor: visual.bg, width: `${slotWidth}px`, height: `${slotHeight}px`, boxShadow: '0 2px 8px rgba(0,0,0,0.40)' }}
+    >
+      <span className="font-display font-black tabular-nums w-6 text-center flex-shrink-0" style={{ color: visual.txt, opacity: 0.85, fontSize: '1.3rem' }}>
+        {visual.seed || ''}
+      </span>
+      {visual.logo && (
+        <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+          <img src={visual.logo} alt="" className="w-6 h-6 object-contain" />
+        </div>
+      )}
+      <select
+        value={tid ?? ''}
+        onChange={(e) => onChange(slotId, tidField, e.target.value === '' ? null : Number(e.target.value))}
+        className="flex-1 min-w-0 rounded px-1.5 py-1 text-sm font-semibold border border-white/30 focus:outline-none focus:border-white/70"
+        style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: '#ffffff' }}
+      >
+        <option value="" style={{ backgroundColor: '#111827', color: '#f9fafb' }}>— TBD —</option>
+        {teamOptions.map(o => (
+          <option key={o.tid} value={o.tid} style={{ backgroundColor: '#111827', color: '#f9fafb' }}>{o.label}</option>
+        ))}
+      </select>
+      <input
+        type="number"
+        inputMode="numeric"
+        value={score}
+        placeholder="–"
+        onChange={(e) => onChange(slotId, scoreField, e.target.value)}
+        className="w-12 flex-shrink-0 text-center rounded px-1 py-1 text-lg font-black tabular-nums border border-white/25 focus:outline-none focus:border-white/70"
+        style={{ backgroundColor: 'rgba(0,0,0,0.35)', color: '#ffffff' }}
+      />
+    </div>
+  )
+}
+
+// Inline bowl-assignment dropdown, shown at each bowl-logo position in edit
+// mode. Lets the user pick which NY6 bowl hosts that CFP slot. Module scope so
+// its identity is stable across renders (keeps the native select usable).
+function BowlPicker({ value, onChange, options, style }) {
+  return (
+    <select
+      value={value || ''}
+      onChange={(e) => onChange(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
+      title="Bowl game for this slot"
+      className="absolute z-20 rounded border font-semibold cursor-pointer"
+      style={{
+        ...style,
+        width: 104,
+        transform: 'translateY(-2px)',
+        fontSize: 11,
+        padding: '2px 4px',
+        backgroundColor: 'rgba(10,12,20,0.9)',
+        color: '#fff',
+        borderColor: 'rgba(255,255,255,0.45)',
+      }}
+    >
+      {options.map(b => (
+        <option key={b} value={b} style={{ backgroundColor: '#111827', color: '#f9fafb' }}>{b}</option>
+      ))}
+    </select>
+  )
+}
+
+// Positioned editable matchup (two stacked editable slots). Module scope for
+// the same stable-identity reason as EditableTeamSlot above.
+function EditMatchup({ slotId, style, resolved, teamVisual, teamOptions, onChange, slotGap, slotWidth, slotHeight }) {
+  if (!resolved) return null
+  return (
+    <div className="absolute flex flex-col" style={{ gap: `${slotGap}px`, ...style }}>
+      <EditableTeamSlot side="top" slotId={slotId} tid={resolved.top.tid} score={resolved.top.score} visual={teamVisual(resolved.top.tid)} teamOptions={teamOptions} onChange={onChange} slotWidth={slotWidth} slotHeight={slotHeight} />
+      <EditableTeamSlot side="bottom" slotId={slotId} tid={resolved.bottom.tid} score={resolved.bottom.score} visual={teamVisual(resolved.bottom.tid)} teamOptions={teamOptions} onChange={onChange} slotWidth={slotWidth} slotHeight={slotHeight} />
+    </div>
+  )
+}
+
 export default function CFPBracket() {
   const { id, year: urlYear } = useParams()
   const navigate = useNavigate()
-  const { currentDynasty, updateDynasty, addGame, isViewOnly } = useDynasty()
+  const { currentDynasty, updateDynasty, updateGame, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingGameData, setEditingGameData] = useState(null)
   const [bracketScale, setBracketScale] = useState(0.7)
+  // Inline bracket editor. `editMode` flips every slot into a team picker +
+  // score input; `draft` holds only the user's per-slot overrides (missing
+  // fields fall back to the seed/auto-advance derivation). See resolveBracket.
+  const [editMode, setEditMode] = useState(false)
+  const [draft, setDraft] = useState({})
+  // Per-slot bowl overrides (keys: seed1..seed4 for the QF hosts, sf1/sf2 for
+  // the semifinals) chosen inline from the bracket in edit mode.
+  const [bowlDraft, setBowlDraft] = useState({})
+  const [savingBracket, setSavingBracket] = useState(false)
+  const [bracketEditError, setBracketEditError] = useState(null)
 
   // Scale bracket based on screen size
   useEffect(() => {
@@ -171,6 +266,10 @@ export default function CFPBracket() {
   }
   const storedSeeds = currentDynasty.cfpSeedsByYear?.[displayYear] || []
   const bowlConfig = currentDynasty.cfpBowlConfigByYear?.[displayYear] || DEFAULT_BOWL_CONFIG
+  // Bowl config with the in-edit overrides applied, so the bracket logos and
+  // the game bowl names update live as the user changes the dropdowns.
+  const effectiveBowlConfig = { ...bowlConfig, ...bowlDraft }
+  const handleBowlChange = (key, value) => setBowlDraft(prev => ({ ...prev, [key]: value }))
   const textColor = 'var(--surface-1)'
 
   // Defensive fallback: if cfpSeedsByYear is empty for this year but
@@ -303,11 +402,12 @@ export default function CFPBracket() {
     return seedEntry.team || null
   }
 
-  // Get bowl name for a bye seed from config (for QF games)
-  const getQFBowlName = (byeSeed) => getBowlForSeed(byeSeed, bowlConfig)
+  // Get bowl name for a bye seed from config (for QF games). Reads the
+  // effective config so inline edits are reflected immediately.
+  const getQFBowlName = (byeSeed) => getBowlForSeed(byeSeed, effectiveBowlConfig)
 
   // Get bowl name for semifinals from config
-  const getSFBowlName = (sfNum) => bowlConfig?.[`sf${sfNum}`] || DEFAULT_BOWL_CONFIG[`sf${sfNum}`]
+  const getSFBowlName = (sfNum) => effectiveBowlConfig?.[`sf${sfNum}`] || DEFAULT_BOWL_CONFIG[`sf${sfNum}`]
 
   // UNIFIED: Get CFP results from games[] array with gameType filter
   const userTeamAbbr = getCurrentTeamAbbr(currentDynasty)
@@ -632,6 +732,14 @@ export default function CFPBracket() {
     const mascotName = customEntry?.name || (resolvedAbbr ? mascotMap[resolvedAbbr] : null)
     const logo = customEntry?.logo || (mascotName ? getTeamLogo(mascotName, dynastyTeams) : null)
 
+    // Display name (school, no mascot). When a live team resolves — either by
+    // tid or by matching the dynasty.teams entry — derive the name from the
+    // live entry so a user-renamed/teambuilder team shows its current name.
+    // Fall back to the static shortNameMap only when no live team is found.
+    const displayName = customEntry?.name
+      ? (stripMascotFromName(customEntry.name) || customEntry.name)
+      : getShortName(resolvedAbbr)
+
     // Team name should always link to the team page. When the parent
     // Matchup is itself a Link, we render via a button + programmatic
     // navigation (avoids nested anchors, which break HTML semantics and
@@ -654,7 +762,7 @@ export default function CFPBracket() {
       if (!resolvedAbbr) {
         return <span className={nameClass} style={{ ...nameStyle, opacity: 0.8 }}>TBD</span>
       }
-      const label = getShortName(resolvedAbbr) + (isAutoBid ? '*' : '')
+      const label = displayName + (isAutoBid ? '*' : '')
       if (linkTid == null) {
         return <span className={nameClass} style={nameStyle}>{label}</span>
       }
@@ -727,10 +835,273 @@ export default function CFPBracket() {
     )
   }
 
+  // ===== Inline bracket editor plumbing =====
+  // Fixed slot topology. Sides are VISUAL top/bottom (team1 = top slot as
+  // rendered below). Seeds/feeds mirror the exact Matchup wiring in the render.
+  const FR_SEED_SIDES = {
+    cfpfr1: { top: 12, bottom: 5 }, cfpfr2: { top: 9, bottom: 8 },
+    cfpfr3: { top: 11, bottom: 6 }, cfpfr4: { top: 10, bottom: 7 },
+  }
+  const QF_BYE_SEED = { cfpqf1: 1, cfpqf2: 4, cfpqf3: 3, cfpqf4: 2 }
+  const QF_FEED_FR = { cfpqf1: 'cfpfr2', cfpqf2: 'cfpfr1', cfpqf3: 'cfpfr3', cfpqf4: 'cfpfr4' }
+  const SF_FEED_QF = { cfpsf1: { top: 'cfpqf2', bottom: 'cfpqf1' }, cfpsf2: { top: 'cfpqf3', bottom: 'cfpqf4' } }
+  const ALL_CFP_SLOTS = ['cfpfr1', 'cfpfr2', 'cfpfr3', 'cfpfr4', 'cfpqf1', 'cfpqf2', 'cfpqf3', 'cfpqf4', 'cfpsf1', 'cfpsf2', 'cfpnc']
+
+  const slotExistingGame = (slotId) => {
+    if (slotId.startsWith('cfpfr')) { const p = FR_SEED_SIDES[slotId]; return getFirstRoundGame(p.top, p.bottom) }
+    if (slotId.startsWith('cfpqf')) return getQFGameBySlot(slotId)
+    if (slotId.startsWith('cfpsf')) return getSFGameBySlot(slotId)
+    return getChampGame()
+  }
+  const existingScoreForTid = (game, tid) => {
+    if (!game || tid == null) return undefined
+    if (Number(game.team1Tid) === Number(tid)) return game.team1Score
+    if (Number(game.team2Tid) === Number(tid)) return game.team2Score
+    return undefined
+  }
+
+  // Resolve the full 11-slot bracket for BOTH the editable render and Save.
+  //
+  // Precedence per side (highest first):
+  //   1. draft override — the user's explicit pick in this edit session
+  //   2. the slot's OWN stored game team (stored order: team1 = top slot)
+  //   3. auto-advance winner / seed default — ONLY for genuinely empty sides
+  //
+  // Preferring the stored game over auto-advance is critical: users log
+  // playoff games directly and out of order, so a Semifinal/Championship can
+  // be recorded before the Quarterfinals that feed it. Deriving those slots
+  // purely from upstream winners (as before) blanked recorded games whenever
+  // an upstream game had no score yet. Now recorded games are shown as-is and
+  // auto-advance only fills slots that have no team.
+  const resolveBracket = () => {
+    const R = {}
+    const dget = (slot, field) => draft[slot]?.[field]
+    const sideScore = (slot, tid, field) => {
+      const d = dget(slot, field)
+      if (d !== undefined) return d
+      const s = existingScoreForTid(slotExistingGame(slot), tid)
+      return (s === undefined || s === null) ? '' : s
+    }
+    const winnerTidOf = (slot) => {
+      const r = R[slot]
+      if (!r || r.top.tid == null || r.bottom.tid == null) return null
+      if (r.top.score === '' || r.bottom.score === '') return null
+      const n1 = Number(r.top.score), n2 = Number(r.bottom.score)
+      if (!Number.isFinite(n1) || !Number.isFinite(n2) || n1 === n2) return null
+      return n1 > n2 ? r.top.tid : r.bottom.tid
+    }
+    // field is 'team1Tid' (top) or 'team2Tid' (bottom). Stored team wins over
+    // the fallback so recorded participants are never dropped.
+    const resolveSide = (slot, field, fallbackTid) => {
+      const d = dget(slot, field)
+      if (d !== undefined) return d
+      const g = slotExistingGame(slot)
+      const stored = g && g[field] != null ? Number(g[field]) : null
+      if (stored != null) return stored
+      return fallbackTid ?? null
+    }
+    const build = (slot, topFallback, botFallback) => {
+      const topTid = resolveSide(slot, 'team1Tid', topFallback)
+      const botTid = resolveSide(slot, 'team2Tid', botFallback)
+      R[slot] = {
+        top: { tid: topTid ?? null, score: sideScore(slot, topTid, 'team1Score') },
+        bottom: { tid: botTid ?? null, score: sideScore(slot, botTid, 'team2Score') },
+      }
+    }
+    for (const slot of ['cfpfr1', 'cfpfr2', 'cfpfr3', 'cfpfr4']) {
+      const p = FR_SEED_SIDES[slot]
+      build(slot, getTidBySeed(p.top), getTidBySeed(p.bottom))
+    }
+    for (const slot of ['cfpqf1', 'cfpqf2', 'cfpqf3', 'cfpqf4']) {
+      build(slot, winnerTidOf(QF_FEED_FR[slot]), getTidBySeed(QF_BYE_SEED[slot]))
+    }
+    for (const slot of ['cfpsf1', 'cfpsf2']) {
+      const f = SF_FEED_QF[slot]
+      build(slot, winnerTidOf(f.top), winnerTidOf(f.bottom))
+    }
+    build('cfpnc', winnerTidOf('cfpsf1'), winnerTidOf('cfpsf2'))
+    return R
+  }
+  const resolvedBracket = resolveBracket()
+
+  // Team dropdown options — every team in the dynasty, sorted by name.
+  const teamOptions = Object.entries(teams || {})
+    .filter(([, t]) => t && (t.name || t.abbr))
+    .map(([tid, t]) => ({ tid: Number(tid), label: t.name || t.abbr }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  // Resolve display bits (colors, logo, seed) for a tid in the editable slot.
+  const teamVisual = (tid) => {
+    const t = tid != null ? teams?.[tid] : null
+    const abbr = t?.abbr || (tid != null ? getGameTeamInfo(teams, tid)?.abbr : null)
+    const td = abbr ? teamAbbreviations[abbr] : null
+    const bg = t?.primaryColor || td?.backgroundColor || '#374151'
+    const txt = t?.secondaryColor || td?.textColor || '#E5E7EB'
+    const mascot = t?.name || (abbr ? mascotMap[abbr] : null)
+    const logo = t?.logo || (mascot ? getTeamLogo(mascot, teams) : null)
+    return { bg, txt, logo, seed: getSeedByTid(tid) }
+  }
+
+  const handleSlotChange = (slotId, field, value) => {
+    setDraft(prev => ({ ...prev, [slotId]: { ...prev[slotId], [field]: value } }))
+  }
+
+  const handleCancelEdit = () => {
+    setDraft({})
+    setBowlDraft({})
+    setEditMode(false)
+    setBracketEditError(null)
+  }
+
+  // Persist every filled slot back to games[], stamping durable CFP identity
+  // (cfpSlot + flags + gameType) so the bracket and game pages read correctly.
+  const handleSaveBracket = async () => {
+    setSavingBracket(true)
+    setBracketEditError(null)
+    try {
+      const R = resolvedBracket
+      const abbrOf = (tid) => (tid != null ? (getGameTeamInfo(teams, tid)?.abbr || null) : null)
+      const slotClass = (slot) => {
+        if (slot.startsWith('cfpfr')) return { gameType: GAME_TYPES.CFP_FIRST_ROUND, flag: 'isCFPFirstRound', round: 'first_round', week: 'Bowl', bowlWeek: 'week1' }
+        if (slot.startsWith('cfpqf')) return { gameType: GAME_TYPES.CFP_QUARTERFINAL, flag: 'isCFPQuarterfinal', round: 'quarterfinal', week: 'Bowl', bowlWeek: 'week2' }
+        if (slot.startsWith('cfpsf')) return { gameType: GAME_TYPES.CFP_SEMIFINAL, flag: 'isCFPSemifinal', round: 'semifinal', week: 'Bowl', bowlWeek: null }
+        return { gameType: GAME_TYPES.CFP_CHAMPIONSHIP, flag: 'isCFPChampionship', round: 'championship', week: 'NatChamp', bowlWeek: null }
+      }
+      const slotBowlName = (slot) => {
+        if (slot.startsWith('cfpqf')) return getQFBowlName(QF_BYE_SEED[slot])
+        if (slot === 'cfpsf1') return getSFBowlName(1)
+        if (slot === 'cfpsf2') return getSFBowlName(2)
+        if (slot === 'cfpnc') return 'National Championship'
+        return null
+      }
+
+      // Fields that materially define a CFP game — used to decide whether a
+      // slot actually changed, so untouched games are never re-saved.
+      const COMPARE_KEYS = [
+        'team1Tid', 'team2Tid', 'team1Score', 'team2Score', 'winnerTid', 'team1', 'team2', 'winner',
+        'cfpSlot', 'cfpRound', 'gameType', 'isCFPFirstRound', 'isCFPQuarterfinal', 'isCFPSemifinal',
+        'isCFPChampionship', 'isBowlGame', 'cfpSeed1', 'cfpSeed2', 'seed1', 'seed2', 'bowlName',
+        'bowlWeek', 'homeTeamTid', 'week', 'year',
+      ]
+      const unchanged = (a, b) => COMPARE_KEYS.every(k => (a?.[k] ?? null) === (b?.[k] ?? null))
+
+      const existingGames = currentDynasty.games || []
+      const changedExisting = []  // built games that already have a shell
+      const newShells = []        // built games with no existing shell yet
+
+      for (const slot of ALL_CFP_SLOTS) {
+        const r = R[slot]
+        const t1 = r.top.tid ?? null
+        const t2 = r.bottom.tid ?? null
+        const s1 = r.top.score === '' || r.top.score == null ? null : Number(r.top.score)
+        const s2 = r.bottom.score === '' || r.bottom.score == null ? null : Number(r.bottom.score)
+        // Only write slots that actually carry data; leave empty slots alone.
+        if (t1 == null && t2 == null && s1 == null && s2 == null) continue
+
+        const cls = slotClass(slot)
+        const gameId = getCFPGameId(slot, displayYear)
+        const idx = existingGames.findIndex(g => g && (g.cfpSlot === slot || g.id === gameId))
+        const base = idx >= 0 ? existingGames[idx] : {}
+        const seed1 = getSeedByTid(t1)
+        const seed2 = getSeedByTid(t2)
+        const winnerTid = (t1 != null && t2 != null && s1 != null && s2 != null && s1 !== s2) ? (s1 > s2 ? t1 : t2) : null
+        const bn = slotBowlName(slot)
+        const g = {
+          ...base,
+          id: gameId,
+          cfpSlot: slot,
+          cfpRound: cls.round,
+          year: displayYear,
+          week: cls.week,
+          gameType: cls.gameType,
+          isCFPFirstRound: cls.flag === 'isCFPFirstRound',
+          isCFPQuarterfinal: cls.flag === 'isCFPQuarterfinal',
+          isCFPSemifinal: cls.flag === 'isCFPSemifinal',
+          isCFPChampionship: cls.flag === 'isCFPChampionship',
+          isBowlGame: false,
+          isConferenceChampionship: false,
+          team1Tid: t1,
+          team2Tid: t2,
+          team1: abbrOf(t1),
+          team2: abbrOf(t2),
+          team1Score: s1,
+          team2Score: s2,
+          cfpSeed1: seed1 ?? null,
+          cfpSeed2: seed2 ?? null,
+          seed1: seed1 ?? null,
+          seed2: seed2 ?? null,
+          winnerTid,
+          winner: abbrOf(winnerTid),
+          // First round is hosted by the higher seed (lower number); later
+          // rounds are neutral-site.
+          homeTeamTid: slot.startsWith('cfpfr') && seed1 != null && seed2 != null ? (seed1 < seed2 ? t1 : t2) : null,
+          ...(bn ? { bowlName: bn } : {}),
+          ...(cls.bowlWeek ? { bowlWeek: cls.bowlWeek } : {}),
+        }
+
+        if (idx < 0) newShells.push(g)
+        else if (!unchanged(g, base)) changedExisting.push(g)
+      }
+
+      const bowlConfigChanged = Object.keys(bowlDraft).length > 0
+
+      if (changedExisting.length === 0 && newShells.length === 0 && !bowlConfigChanged) {
+        // Nothing actually changed — just close the editor.
+        setDraft({})
+        setBowlDraft({})
+        setEditMode(false)
+        return
+      }
+
+      // Persist the bowl-slot assignments (cfpBowlConfigByYear) when changed.
+      // skipGamesSubcollection so this dynasty-doc write never rewrites games.
+      if (bowlConfigChanged) {
+        await updateDynasty(currentDynasty.id, {
+          cfpBowlConfigByYear: { ...(currentDynasty.cfpBowlConfigByYear || {}), [displayYear]: effectiveBowlConfig },
+        }, { skipGamesSubcollection: true })
+      }
+
+      if (changedExisting.length > 0 || newShells.length > 0) {
+        if (newShells.length === 0) {
+          // Fast path: only existing shells changed. Batch just those games to
+          // the subcollection in a single write instead of rewriting all 500+.
+          // (Changing a bowl assignment re-stamps that QF/SF game's bowlName,
+          // so those games land here too.)
+          const [primary, ...rest] = changedExisting
+          await updateGame(currentDynasty.id, primary, { cfpGamesToPropagate: rest })
+        } else {
+          // Rare: one or more slots have no shell yet (hand-building a bracket
+          // before the games exist). updateGame's propagate path can't create
+          // new docs, so fall back to a full games-array save for correctness.
+          const games = [...existingGames]
+          for (const g of [...changedExisting, ...newShells]) {
+            const idx = games.findIndex(x => x && x.id === g.id)
+            if (idx >= 0) games[idx] = g
+            else games.push(g)
+          }
+          await updateDynasty(currentDynasty.id, { games })
+        }
+      }
+
+      setDraft({})
+      setBowlDraft({})
+      setEditMode(false)
+    } catch (e) {
+      console.error('[CFP inline edit] save failed', e)
+      setBracketEditError(e?.message || 'Save failed')
+    } finally {
+      setSavingBracket(false)
+    }
+  }
+
   // Matchup component - two team slots stacked
   // Now uses Link to game page instead of onClick modal
   // slotId is the CFP slot ID (e.g., cfpfr1, cfpqf1, cfpsf1, cfpnc)
-  const Matchup = ({ team1, team2, seed1, seed2, style, round, bowl, gameData, slotId }) => {
+  const Matchup = ({ team1, team2, seed1, seed2, teamTid1, teamTid2, style, round, bowl, gameData, slotId }) => {
+    // In edit mode the editable slots are drawn by a separate module-scope
+    // <EditMatchup> overlay (stable identity keeps input focus), so the view
+    // matchup renders nothing here.
+    if (editMode && slotId) return null
     // Map scores AND tids correctly. gameData stores team1/team2 in
     // entry order, which may not match the visual top/bottom slots
     // we render here — so we have to detect a swap and pivot every
@@ -784,10 +1155,16 @@ export default function CFPBracket() {
 
     // Pass tid through when available so TeamSlot can resolve registry
     // data without depending on the (possibly stale) abbr string.
+    // When there's no gameData (projected / TBD matchups), tid1/tid2 are
+    // undefined — fall back to the tid passed alongside the seed/winner so
+    // TeamSlot resolves identity (name/logo/colors) from tid, not a fragile
+    // abbr scan. Behavior is identical when gameData supplies the tids.
+    const resolvedTid1 = tid1 != null ? tid1 : teamTid1
+    const resolvedTid2 = tid2 != null ? tid2 : teamTid2
     const matchupContent = (
       <>
-        <TeamSlot team={team1} teamTid={tid1} seed={seed1} score={score1} isWinner={winner === team1} isParentClickable={isClickable} />
-        <TeamSlot team={team2} teamTid={tid2} seed={seed2} score={score2} isWinner={winner === team2} isParentClickable={isClickable} />
+        <TeamSlot team={team1} teamTid={resolvedTid1} seed={seed1} score={score1} isWinner={winner === team1} isParentClickable={isClickable} />
+        <TeamSlot team={team2} teamTid={resolvedTid2} seed={seed2} score={score2} isWinner={winner === team2} isParentClickable={isClickable} />
       </>
     )
 
@@ -1229,10 +1606,10 @@ export default function CFPBracket() {
           <div className="relative" style={{ height: `${BRACKET_HEIGHT}px`, width: `${BRACKET_WIDTH}px` }}>
 
             {/* ===== FIRST ROUND ===== */}
-            <Matchup team1={s12} team2={s5} seed1={12} seed2={5} style={{ top: R1_M1, left: COL1 }} round="First Round" gameData={getFirstRoundGame(5, 12)} slotId="cfpfr1" />
-            <Matchup team1={s9} team2={s8} seed1={9} seed2={8} style={{ top: R1_M2, left: COL1 }} round="First Round" gameData={getFirstRoundGame(8, 9)} slotId="cfpfr2" />
-            <Matchup team1={s11} team2={s6} seed1={11} seed2={6} style={{ top: R1_M3, left: COL1 }} round="First Round" gameData={getFirstRoundGame(6, 11)} slotId="cfpfr3" />
-            <Matchup team1={s10} team2={s7} seed1={10} seed2={7} style={{ top: R1_M4, left: COL1 }} round="First Round" gameData={getFirstRoundGame(7, 10)} slotId="cfpfr4" />
+            <Matchup team1={s12} team2={s5} teamTid1={getTidBySeed(12)} teamTid2={getTidBySeed(5)} seed1={12} seed2={5} style={{ top: R1_M1, left: COL1 }} round="First Round" gameData={getFirstRoundGame(5, 12)} slotId="cfpfr1" />
+            <Matchup team1={s9} team2={s8} teamTid1={getTidBySeed(9)} teamTid2={getTidBySeed(8)} seed1={9} seed2={8} style={{ top: R1_M2, left: COL1 }} round="First Round" gameData={getFirstRoundGame(8, 9)} slotId="cfpfr2" />
+            <Matchup team1={s11} team2={s6} teamTid1={getTidBySeed(11)} teamTid2={getTidBySeed(6)} seed1={11} seed2={6} style={{ top: R1_M3, left: COL1 }} round="First Round" gameData={getFirstRoundGame(6, 11)} slotId="cfpfr3" />
+            <Matchup team1={s10} team2={s7} teamTid1={getTidBySeed(10)} teamTid2={getTidBySeed(7)} seed1={10} seed2={7} style={{ top: R1_M4, left: COL1 }} round="First Round" gameData={getFirstRoundGame(7, 10)} slotId="cfpfr4" />
 
             {/* First Round → QF connectors (bracket from 2 teams to 1 output) */}
             {/* R1_M1: 12 vs 5 → QF top slot */}
@@ -1261,39 +1638,41 @@ export default function CFPBracket() {
 
             {/* ===== QUARTERFINALS ===== */}
             {/* Position 1: #4 seed vs 5/12 winner */}
-            <Matchup team1={getFirstRoundWinner(5, 12)} team2={s4} seed1={getWinnerSeed(5, 12)} seed2={4} style={{ top: QF_M1, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(4)} gameData={getQFGameBySlot('cfpqf2')} slotId="cfpqf2" />
+            <Matchup team1={getFirstRoundWinner(5, 12)} team2={s4} teamTid1={getFirstRoundWinnerTid(5, 12)} teamTid2={getTidBySeed(4)} seed1={getWinnerSeed(5, 12)} seed2={4} style={{ top: QF_M1, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(4)} gameData={getQFGameBySlot('cfpqf2')} slotId="cfpqf2" />
             {/* Position 2: #1 seed vs 8/9 winner */}
-            <Matchup team1={getFirstRoundWinner(8, 9)} team2={s1} seed1={getWinnerSeed(8, 9)} seed2={1} style={{ top: QF_M2, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(1)} gameData={getQFGameBySlot('cfpqf1')} slotId="cfpqf1" />
+            <Matchup team1={getFirstRoundWinner(8, 9)} team2={s1} teamTid1={getFirstRoundWinnerTid(8, 9)} teamTid2={getTidBySeed(1)} seed1={getWinnerSeed(8, 9)} seed2={1} style={{ top: QF_M2, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(1)} gameData={getQFGameBySlot('cfpqf1')} slotId="cfpqf1" />
             {/* Position 3: #3 seed vs 6/11 winner */}
-            <Matchup team1={getFirstRoundWinner(6, 11)} team2={s3} seed1={getWinnerSeed(6, 11)} seed2={3} style={{ top: QF_M3, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(3)} gameData={getQFGameBySlot('cfpqf3')} slotId="cfpqf3" />
+            <Matchup team1={getFirstRoundWinner(6, 11)} team2={s3} teamTid1={getFirstRoundWinnerTid(6, 11)} teamTid2={getTidBySeed(3)} seed1={getWinnerSeed(6, 11)} seed2={3} style={{ top: QF_M3, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(3)} gameData={getQFGameBySlot('cfpqf3')} slotId="cfpqf3" />
             {/* Position 4: #2 seed vs 7/10 winner */}
-            <Matchup team1={getFirstRoundWinner(7, 10)} team2={s2} seed1={getWinnerSeed(7, 10)} seed2={2} style={{ top: QF_M4, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(2)} gameData={getQFGameBySlot('cfpqf4')} slotId="cfpqf4" />
+            <Matchup team1={getFirstRoundWinner(7, 10)} team2={s2} teamTid1={getFirstRoundWinnerTid(7, 10)} teamTid2={getTidBySeed(2)} seed1={getWinnerSeed(7, 10)} seed2={2} style={{ top: QF_M4, left: COL2 }} round="Quarterfinal" bowl={getQFBowlName(2)} gameData={getQFGameBySlot('cfpqf4')} slotId="cfpqf4" />
 
-            {/* QF Bowl Logos - positioned on right side, centered between both team slots */}
-            <img
-              src={getBowlLogo(getQFBowlName(4))}
-              alt={getQFBowlName(4)}
-              className="absolute w-14 h-14 object-contain z-10"
-              style={{ top: QF_M1 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
-            />
-            <img
-              src={getBowlLogo(getQFBowlName(1))}
-              alt={getQFBowlName(1)}
-              className="absolute w-14 h-14 object-contain z-10"
-              style={{ top: QF_M2 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
-            />
-            <img
-              src={getBowlLogo(getQFBowlName(3))}
-              alt={getQFBowlName(3)}
-              className="absolute w-14 h-14 object-contain z-10"
-              style={{ top: QF_M3 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
-            />
-            <img
-              src={getBowlLogo(getQFBowlName(2))}
-              alt={getQFBowlName(2)}
-              className="absolute w-14 h-14 object-contain z-10"
-              style={{ top: QF_M4 + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
-            />
+            {/* QF Bowl Logos - positioned on right side, centered between both
+                team slots. In edit mode each becomes a bowl-assignment dropdown
+                (byeSeed -> config key: 4->seed4, 1->seed1, 3->seed3, 2->seed2). */}
+            {[
+              { byeSeed: 4, key: 'seed4', top: QF_M1 },
+              { byeSeed: 1, key: 'seed1', top: QF_M2 },
+              { byeSeed: 3, key: 'seed3', top: QF_M3 },
+              { byeSeed: 2, key: 'seed2', top: QF_M4 },
+            ].map(({ byeSeed, key, top }) => (
+              editMode ? (
+                <BowlPicker
+                  key={key}
+                  value={getQFBowlName(byeSeed)}
+                  onChange={(v) => handleBowlChange(key, v)}
+                  options={CFP_NY6_BOWLS}
+                  style={{ top: top + MATCHUP_HEIGHT / 2 - 12, left: COL2 + SLOT_WIDTH - 18 }}
+                />
+              ) : (
+                <img
+                  key={key}
+                  src={getBowlLogo(getQFBowlName(byeSeed))}
+                  alt={getQFBowlName(byeSeed)}
+                  className="absolute w-14 h-14 object-contain z-10"
+                  style={{ top: top + MATCHUP_HEIGHT / 2 - 28, left: COL2 + SLOT_WIDTH - 10 }}
+                />
+              )
+            ))}
 
             {/* QF → SF connectors */}
             {/* QF1 + QF2 feed into SF1 */}
@@ -1313,6 +1692,8 @@ export default function CFPBracket() {
             <Matchup
               team1={getQFWinnerBySlot('cfpqf2')}
               team2={getQFWinnerBySlot('cfpqf1')}
+              teamTid1={getQFWinnerTidBySlot('cfpqf2')}
+              teamTid2={getQFWinnerTidBySlot('cfpqf1')}
               seed1={getSeedForWinner(getQFWinnerTidBySlot('cfpqf2'), getQFWinnerBySlot('cfpqf2'))}
               seed2={getSeedForWinner(getQFWinnerTidBySlot('cfpqf1'), getQFWinnerBySlot('cfpqf1'))}
               style={{ top: SF_M1, left: COL3 }}
@@ -1325,6 +1706,8 @@ export default function CFPBracket() {
             <Matchup
               team1={getQFWinnerBySlot('cfpqf3')}
               team2={getQFWinnerBySlot('cfpqf4')}
+              teamTid1={getQFWinnerTidBySlot('cfpqf3')}
+              teamTid2={getQFWinnerTidBySlot('cfpqf4')}
               seed1={getSeedForWinner(getQFWinnerTidBySlot('cfpqf3'), getQFWinnerBySlot('cfpqf3'))}
               seed2={getSeedForWinner(getQFWinnerTidBySlot('cfpqf4'), getQFWinnerBySlot('cfpqf4'))}
               style={{ top: SF_M2, left: COL3 }}
@@ -1334,19 +1717,29 @@ export default function CFPBracket() {
               slotId="cfpsf2"
             />
 
-            {/* SF Bowl Logos */}
-            <img
-              src={getBowlLogo(getSFBowlName(1))}
-              alt={getSFBowlName(1)}
-              className="absolute w-14 h-14 object-contain z-10"
-              style={{ top: SF_M1 + MATCHUP_HEIGHT / 2 - 28, left: COL3 + SLOT_WIDTH - 10 }}
-            />
-            <img
-              src={getBowlLogo(getSFBowlName(2))}
-              alt={getSFBowlName(2)}
-              className="absolute w-14 h-14 object-contain z-10"
-              style={{ top: SF_M2 + MATCHUP_HEIGHT / 2 - 28, left: COL3 + SLOT_WIDTH - 10 }}
-            />
+            {/* SF Bowl Logos — inline bowl-assignment dropdowns in edit mode. */}
+            {[
+              { sfNum: 1, key: 'sf1', top: SF_M1 },
+              { sfNum: 2, key: 'sf2', top: SF_M2 },
+            ].map(({ sfNum, key, top }) => (
+              editMode ? (
+                <BowlPicker
+                  key={key}
+                  value={getSFBowlName(sfNum)}
+                  onChange={(v) => handleBowlChange(key, v)}
+                  options={CFP_NY6_BOWLS}
+                  style={{ top: top + MATCHUP_HEIGHT / 2 - 12, left: COL3 + SLOT_WIDTH - 18 }}
+                />
+              ) : (
+                <img
+                  key={key}
+                  src={getBowlLogo(getSFBowlName(sfNum))}
+                  alt={getSFBowlName(sfNum)}
+                  className="absolute w-14 h-14 object-contain z-10"
+                  style={{ top: top + MATCHUP_HEIGHT / 2 - 28, left: COL3 + SLOT_WIDTH - 10 }}
+                />
+              )
+            ))}
 
             {/* SF → Championship connectors */}
             <HLine top={SF_M1_CENTER} left={CONN_X3} width={VCONN_X3 - CONN_X3} />
@@ -1358,6 +1751,8 @@ export default function CFPBracket() {
             <Matchup
               team1={getSFWinnerBySlot('cfpsf1')}
               team2={getSFWinnerBySlot('cfpsf2')}
+              teamTid1={getSFWinnerTidBySlot('cfpsf1')}
+              teamTid2={getSFWinnerTidBySlot('cfpsf2')}
               seed1={getSeedForWinner(getSFWinnerTidBySlot('cfpsf1'), getSFWinnerBySlot('cfpsf1'))}
               seed2={getSeedForWinner(getSFWinnerTidBySlot('cfpsf2'), getSFWinnerBySlot('cfpsf2'))}
               style={{ top: CHAMP, left: COL4 }}
@@ -1377,10 +1772,80 @@ export default function CFPBracket() {
               />
               <div className="font-display font-black uppercase" style={{ fontSize: '17px', letterSpacing: '0.2em', color: CFP_GOLD }}>National Champion</div>
             </div>
+
+            {/* ===== EDITABLE OVERLAY ===== */}
+            {/* In edit mode the view Matchups render null and these positioned
+                EditMatchups take their place at the exact same coordinates. */}
+            {editMode && [
+              { s: 'cfpfr1', top: R1_M1, left: COL1 }, { s: 'cfpfr2', top: R1_M2, left: COL1 },
+              { s: 'cfpfr3', top: R1_M3, left: COL1 }, { s: 'cfpfr4', top: R1_M4, left: COL1 },
+              { s: 'cfpqf2', top: QF_M1, left: COL2 }, { s: 'cfpqf1', top: QF_M2, left: COL2 },
+              { s: 'cfpqf3', top: QF_M3, left: COL2 }, { s: 'cfpqf4', top: QF_M4, left: COL2 },
+              { s: 'cfpsf1', top: SF_M1, left: COL3 }, { s: 'cfpsf2', top: SF_M2, left: COL3 },
+              { s: 'cfpnc', top: CHAMP, left: COL4 },
+            ].map(({ s, top, left }) => (
+              <EditMatchup
+                key={s}
+                slotId={s}
+                style={{ top, left }}
+                resolved={resolvedBracket[s]}
+                teamVisual={teamVisual}
+                teamOptions={teamOptions}
+                onChange={handleSlotChange}
+                slotGap={SLOT_GAP}
+                slotWidth={SLOT_WIDTH}
+                slotHeight={SLOT_HEIGHT}
+              />
+            ))}
           </div>
         </div>
         </div>
       </div>
+
+      {/* Inline bracket editor controls. Lets the user hand-place any team in
+          any slot and type scores directly on the bracket; winners auto-advance
+          to the next round unless a downstream slot is overridden. */}
+      {!isViewOnly && (
+        <div className="mt-4 flex flex-col items-center gap-2">
+          {bracketEditError && (
+            <div className="text-center text-xs" style={{ color: 'var(--accent-danger, #ef4444)' }}>
+              {bracketEditError}
+            </div>
+          )}
+          <div className="flex items-center justify-center gap-2">
+            {editMode ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={savingBracket}
+                  className="px-4 py-2 rounded-lg text-sm font-medium bg-surface-2 text-txt-secondary hover:text-txt-primary hover:bg-surface-3 border border-surface-4 transition-colors disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveBracket}
+                  disabled={savingBracket}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60"
+                  style={{ backgroundColor: CFP_GOLD, color: '#1a1205' }}
+                >
+                  {savingBracket ? 'Saving…' : 'Save Bracket'}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setDraft({}); setBowlDraft({}); setBracketEditError(null); setEditMode(true) }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold border transition-colors"
+                style={{ borderColor: CFP_GOLD, color: CFP_GOLD, backgroundColor: 'transparent' }}
+              >
+                Edit Bracket
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* GameDetailModal removed - now using game pages instead */}
 

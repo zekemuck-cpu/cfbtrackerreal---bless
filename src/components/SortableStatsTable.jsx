@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
-import { proxyImageUrl } from '../utils/imageProxy'
 import { Link } from 'react-router-dom'
+import PlayerAvatar from './PlayerAvatar'
 
 /**
  * SortableStatsTable — table used by the team-year Stats tab to render
@@ -48,6 +48,7 @@ export default function SortableStatsTable({
   accentColorMuted,
   teamBgColor,
   teamBgText,
+  teamLogo,
   highlightRow,
 }) {
   const [sortKey, setSortKey] = useState(defaultSortKey || null)
@@ -155,7 +156,7 @@ export default function SortableStatsTable({
                       className={`${align} ${padX} py-2 ${tabular} ${bold}`}
                       style={{ color: col.bold ? accentColor : accentColorMuted }}
                     >
-                      {col.render(row)}
+                      {col.render(row, teamLogo)}
                     </td>
                   )
                 })}
@@ -182,26 +183,12 @@ export function PlayerCell({ player, accentColor, pathPrefix, teamLogo }) {
       className="flex items-center gap-2 font-medium hover:underline"
       style={{ color: accentColor }}
     >
-      {player.pictureUrl ? (
-        <img
-          src={proxyImageUrl(player.pictureUrl, 300)}
-          alt=""
-          className="w-6 h-6 rounded-full object-cover flex-shrink-0"
-        />
-      ) : teamLogo ? (
-        <span className="w-6 h-6 rounded-full bg-white p-0.5 flex items-center justify-center flex-shrink-0">
-          <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-        </span>
-      ) : (
-        <div
-          className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ backgroundColor: `${accentColor}15` }}
-        >
-          <span className="text-[10px] font-bold" style={{ color: accentColor }}>
-            {player.name?.charAt(0)}
-          </span>
-        </div>
-      )}
+      <PlayerAvatar
+        photoUrl={player.pictureUrl}
+        teamLogo={teamLogo}
+        name={player.name}
+        size={24}
+      />
       {player.name}
     </Link>
   )

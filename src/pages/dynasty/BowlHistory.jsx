@@ -4,7 +4,7 @@ import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyCon
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { bowlLogos, getAllBowlNames } from '../../data/bowlLogos'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
 import { getSlotIdFromBowlName, getCFPGameId } from '../../data/cfpConstants'
 import { TEAMS, getGameTeamInfo, resolveTid } from '../../data/teamRegistry'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -167,6 +167,8 @@ export default function BowlHistory() {
         bowlName: game.bowlName,
         team1,
         team2,
+        team1Tid: game.team1Tid ?? null,
+        team2Tid: game.team2Tid ?? null,
         team1Score: game.team1Score,
         team2Score: game.team2Score,
         winner: game.winner,
@@ -397,10 +399,19 @@ export default function BowlHistory() {
                     <div className="rounded-lg overflow-hidden">
                     {results.map((game, idx) => {
                       const winner = getWinner(game)
-                      const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
-                      const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
-                      const team1Logo = team1Mascot ? getTeamLogo(team1Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
-                      const team2Logo = team2Mascot ? getTeamLogo(team2Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                      const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams || TEAMS
+                      // tid is the live identity; resolve name/logo/colors/school from it.
+                      // Fall back to the stored abbr only for legacy rows that carry no tid.
+                      const t1Tid = game.team1Tid ?? game.gameRef?.team1Tid ?? resolveTid(game.team1, teamsSrc)
+                      const t2Tid = game.team2Tid ?? game.gameRef?.team2Tid ?? resolveTid(game.team2, teamsSrc)
+                      const team1Mascot = getMascotName(t1Tid != null ? t1Tid : game.team1, teamsSrc)
+                      const team2Mascot = getMascotName(t2Tid != null ? t2Tid : game.team2, teamsSrc)
+                      const team1Logo = t1Tid != null
+                        ? getTeamLogoByTid(t1Tid, teamsSrc)
+                        : (team1Mascot ? getTeamLogo(team1Mascot, teamsSrc) : null)
+                      const team2Logo = t2Tid != null
+                        ? getTeamLogoByTid(t2Tid, teamsSrc)
+                        : (team2Mascot ? getTeamLogo(team2Mascot, teamsSrc) : null)
 
                       const userIsTeam1 = isUserTeamRef(game, 1)
                       const userIsTeam2 = isUserTeamRef(game, 2)
@@ -424,9 +435,6 @@ export default function BowlHistory() {
                         gameId = `bowl-${game.year}-${bowlSlug}`
                       }
 
-                      const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams || TEAMS
-                      const t1Tid = game.team1Tid ?? resolveTid(game.team1, teamsSrc)
-                      const t2Tid = game.team2Tid ?? resolveTid(game.team2, teamsSrc)
                       const t1Color = (t1Tid != null && teamsSrc?.[t1Tid]?.primaryColor) || '#3a3d47'
                       const t2Color = (t2Tid != null && teamsSrc?.[t2Tid]?.primaryColor) || '#3a3d47'
                       const t1Txt = getContrastTextColor(t1Color)
@@ -458,7 +466,7 @@ export default function BowlHistory() {
                               </div>
                             )}
                             <span className="text-xs sm:text-sm font-semibold truncate flex-1" style={{ color: t1Txt, opacity: t1Win ? 1 : 0.78, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
-                              {getSchoolName(game.team1, teamsSrc) || game.team1}
+                              {getSchoolName(t1Tid != null ? t1Tid : game.team1, teamsSrc) || game.team1}
                             </span>
                             <span className="font-display font-black tabular-nums text-base sm:text-lg flex-shrink-0" style={{ color: t1Txt, opacity: t1Win ? 1 : 0.6, textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>
                               {game.team1Score}
@@ -471,7 +479,7 @@ export default function BowlHistory() {
                               {game.team2Score}
                             </span>
                             <span className="text-xs sm:text-sm font-semibold truncate flex-1 text-right" style={{ color: t2Txt, opacity: t2Win ? 1 : 0.78, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
-                              {getSchoolName(game.team2, teamsSrc) || game.team2}
+                              {getSchoolName(t2Tid != null ? t2Tid : game.team2, teamsSrc) || game.team2}
                             </span>
                             {team2Logo && (
                               <div className="w-7 h-7 rounded-full bg-white p-1 flex-shrink-0 flex items-center justify-center transition-transform duration-150 group-hover:scale-105">

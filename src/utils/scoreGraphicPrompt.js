@@ -1,5 +1,32 @@
 import { getTeamBrandProfile } from '../data/teamBrandProfiles'
 
+// ─── User-adjustable graphic settings ───────────────────────────────────────
+// Shared by the GraphicSettingsModal (the sliders) and buildScoreGraphicPrompt
+// (which turns the chosen keys into prompt directives). Same slider pattern as
+// the recap's RECAP_DEPTH_OPTIONS. Middle stop = default / no extra directive.
+
+// How busy vs. restrained the generated graphic should be.
+export const GRAPHIC_STYLE_OPTIONS = [
+  { key: 'minimal',  label: 'Minimal',  directive: `Style: minimalist — the fewest elements that still communicate the result. Lots of negative space, one or two colors, restrained type. No textures, gradients, or extra graphic flourishes.` },
+  { key: 'clean',    label: 'Clean',    directive: `Style: clean and understated — a calm, modern layout with limited elements and generous spacing. Light on texture and effects.` },
+  { key: 'balanced', label: 'Balanced', directive: `` },
+  { key: 'bold',     label: 'Bold',     directive: `Style: bold and high-energy — strong contrast, large confident type, and dynamic composition. Depth, lighting, and texture are welcome as long as the score stays the focal point.` },
+  { key: 'maximal',  label: 'Maximal',  directive: `Style: maximal, hype broadcast energy — rich layering, dramatic lighting, texture, and graphic energy filling the canvas. Go big, but never bury the score or swap/mislabel a team.` },
+]
+
+// Emphasis level shared by the rankings and records sliders.
+export const GRAPHIC_EMPHASIS_OPTIONS = [
+  { key: 'hide',      label: 'Hide' },
+  { key: 'standard',  label: 'Standard' },
+  { key: 'prominent', label: 'Prominent' },
+]
+
+export const DEFAULT_GRAPHIC_SETTINGS = {
+  designStyle: 'balanced',
+  rankEmphasis: 'standard',
+  recordEmphasis: 'standard',
+}
+
 /**
  * Build a prompt for an AI image model to generate a post-game score graphic.
  * featuredTeam = 0 → neutral media-company style
@@ -24,7 +51,21 @@ export function buildScoreGraphicPrompt({
   gameType = 'regular',
   bowlName = null,
   conference = null,
+  screenshotCount = 0,
+  designStyle = 'balanced',
+  rankEmphasis = 'standard',
+  recordEmphasis = 'standard',
 }) {
+  // User-adjustable settings → prompt directives (see GRAPHIC_*_OPTIONS).
+  const styleDirective = (GRAPHIC_STYLE_OPTIONS.find(o => o.key === designStyle) || {}).directive || ''
+  const showRanks   = rankEmphasis !== 'hide'
+  const showRecords = recordEmphasis !== 'hide'
+  // The caller knows how many photos the user has attached in the game sheet.
+  // When photos are present we hard-commit the prompt to the photo path so the
+  // external AI uses the attached image on the FIRST generation instead of
+  // defaulting to a logo/type graphic and only using the photo after a
+  // follow-up "use the image I attached" nudge.
+  const hasAttachedPhoto = Number(screenshotCount) > 0
   // ─── Game context ─────────────────────────────────────────────────────────
   // For bowl + CFP games the designNote nudges the AI to incorporate the
   // game's official visual assets (bowl logo, CFP shield, championship
@@ -123,7 +164,11 @@ export function buildScoreGraphicPrompt({
     mode === 'branded'
       ? `• This is ${featuredName}'s post — their palette drives the design language. The opponent's colors are limited to their logo and their side of the score zone — not background fills, panels, or design shapes elsewhere on the canvas.`
       : `• Both teams represented equally — neither palette dominates.`,
-  ].join('\n')
+    styleDirective ? `• ${styleDirective}` : null,
+    (showRecords && recordEmphasis === 'prominent')
+      ? `• Records: show each team's W-L record as a clear supporting element near its name/logo — legible, not buried.`
+      : null,
+  ].filter(Boolean).join('\n')
 
   const textRules = (fictionalNamesList = []) => {
     const lines = [
@@ -145,22 +190,51 @@ export function buildScoreGraphicPrompt({
   }
 
   // Two separate paths live in ONE prompt; the model picks based on whether
-  // the USER attached an image file to their request. We can't know that at
-  // build time (the prompt is copied into an external tool), so both branches
-  // ship. The no-image branch is a hard prohibition with an "if unsure, you're
-  // in this path" tiebreaker, so the model never fabricates a fake player.
-  const photoDirective = [
-    `PHOTO RULE — there are TWO separate paths. Pick ONE based on a single fact: did the user attach an actual image file to THIS request?`,
-    ``,
-    `• IF NO IMAGE WAS ATTACHED → design the full 1080×1080 as a polished, professionally rendered score graphic, the kind a major athletics program actually posts. This is a finished, high-fidelity image — NOT a flat clip-art or plain SVG. Rich typography, depth, lighting, subtle texture, and gradients are all welcome. The ONLY thing off-limits is fabricated photo-realistic imagery of people — no made-up players, faces, or action shots. Build it from team logos, typography, color, and graphic-design elements. If you're unsure whether an image is attached, you're in THIS path.`,
-    ``,
-    `• IF THE USER ATTACHED AN IMAGE → that attached photo IS the graphic. It fills the entire 1080×1080 canvas, bleeding corner to corner — no gaps, bars, or panels eating into it. Score numbers, logos, ranks, and records overlay the photo directly as floating elements. Do NOT place any solid/near-solid rectangular panel over the photo covering more than ~15% of the canvas (no heavy opaque score bar, no full-width color slab). Keep the photo's own natural colors; the team palette comes through the score, logos, and type, NOT a color wash, gradient, or tint laid over the image. The photo breathes across the whole canvas: a team photographer's best shot with a handful of graphic elements placed tastefully on top. You MAY make subtle enhancements (slight contrast, saturation, or brightness; minor crop or straighten) but keep the original composition intact. Work ONLY with the attached photo — do not invent or composite additional people or scenery.`,
-  ].join('\n')
+  // the USER attached an image file to their request. Normally we can't know
+  // that at build time (the prompt is copied into an external tool), so both
+  // branches ship. BUT when the caller reports attached photos
+  // (screenshotCount > 0) we DO know — so we drop the ambiguity and hard-commit
+  // to the photo path, which fixes the first-generation image being ignored.
+  const photoPathText = `THE PHOTO IS THE GRAPHIC. There ${screenshotCount === 1 ? 'is an attached image' : 'are attached images'} to THIS request — you MUST use ${screenshotCount === 1 ? 'it' : 'them (pick the strongest single frame)'} as the base of the graphic. Do NOT generate a logo/typography-only graphic and do NOT ignore the attachment. The attached photo fills the entire 1080×1080 canvas, bleeding corner to corner — no gaps, bars, or panels eating into it. Score numbers, logos, ranks, and records overlay the photo directly as floating elements. Do NOT place any solid/near-solid rectangular panel over the photo covering more than ~15% of the canvas (no heavy opaque score bar, no full-width color slab). Keep the photo's own natural colors; the team palette comes through the score, logos, and type, NOT a color wash, gradient, or tint laid over the image. The photo breathes across the whole canvas: a team photographer's best shot with a handful of graphic elements placed tastefully on top. You MAY make subtle enhancements (slight contrast, saturation, or brightness; minor crop or straighten) but keep the original composition intact. Work ONLY with the attached photo — do not invent or composite additional people or scenery.`
+
+  const noPhotoPathText = `design the full 1080×1080 as a polished, professionally rendered score graphic, the kind a major athletics program actually posts. This is a finished, high-fidelity image — NOT a flat clip-art or plain SVG. Rich typography, depth, lighting, subtle texture, and gradients are all welcome. The ONLY thing off-limits is fabricated photo-realistic imagery of people — no made-up players, faces, or action shots. Build it from team logos, typography, color, and graphic-design elements.`
+
+  const photoDirective = hasAttachedPhoto
+    ? [
+        `PHOTO RULE — an image file IS attached to this request. ${photoPathText}`,
+      ].join('\n')
+    : [
+        `PHOTO RULE — there are TWO separate paths. Pick ONE based on a single fact: did the user attach an actual image file to THIS request?`,
+        ``,
+        `• IF NO IMAGE WAS ATTACHED → ${noPhotoPathText} If you're unsure whether an image is attached, you're in THIS path.`,
+        ``,
+        `• IF THE USER ATTACHED AN IMAGE → ${photoPathText}`,
+      ].join('\n')
+
+  // Rankings are a headline detail in real score graphics but were barely
+  // surfaced before (a single soft line). When a team is AP Top 25, tell the
+  // model to render a prominent rank badge next to that team — and never to
+  // fabricate a rank for an unranked team.
+  const rankedForGraphic = showRanks ? [
+    team1Rank ? { name: team1Name, rank: team1Rank } : null,
+    team2Rank ? { name: team2Name, rank: team2Rank } : null,
+  ].filter(Boolean) : []
+  const rankDirective = rankedForGraphic.length
+    ? [
+        rankEmphasis === 'prominent'
+          ? `RANKINGS — make the AP Top 25 ranking a headline element, sized and placed the way ESPN/broadcast score bugs treat a ranked team.`
+          : `RANKINGS — this is a Top 25 matchup detail; surface it prominently, the way broadcast and athletics-department graphics do.`,
+        ...rankedForGraphic.map(t => rankEmphasis === 'prominent'
+          ? `• ${t.name} is ranked AP #${t.rank}: render a large, unmistakable "#${t.rank}" rank badge locked to ${t.name}'s logo/name in the score zone — a primary element, not a footnote.`
+          : `• ${t.name} is ranked AP #${t.rank}: render a clear "#${t.rank}" rank badge/numeral next to ${t.name}'s logo or name in the score zone — styled to match the design, clearly legible, not a tiny afterthought.`),
+        `Do NOT invent, guess, or add a rank for any team not listed above.`,
+      ].join('\n')
+    : null
 
   // ─── NEUTRAL PATH ─────────────────────────────────────────────────────────
   if (featuredTeam === 0) {
-    const rank1Label = team1Rank ? `#${team1Rank} ` : ''
-    const rank2Label = team2Rank ? `#${team2Rank} ` : ''
+    const rank1Label = (showRanks && team1Rank) ? `#${team1Rank} ` : ''
+    const rank2Label = (showRanks && team2Rank) ? `#${team2Rank} ` : ''
     const s1 = team1Score ?? ''
     const s2 = team2Score ?? ''
 
@@ -173,8 +247,8 @@ export function buildScoreGraphicPrompt({
 
     const p1Fictional = isFictionalTeam(p1)
     const p2Fictional = isFictionalTeam(p2)
-    const t1RecordEff = p1Fictional ? null : team1Record
-    const t2RecordEff = p2Fictional ? null : team2Record
+    const t1RecordEff = (p1Fictional || !showRecords) ? null : team1Record
+    const t2RecordEff = (p2Fictional || !showRecords) ? null : team2Record
     const fictionalParticipantNames = [
       p1Fictional ? team1Name : null,
       p2Fictional ? team2Name : null,
@@ -200,6 +274,8 @@ export function buildScoreGraphicPrompt({
       `RESULT`,
       `${rank1Label}${team1Name}${t1RecordEff ? ` (${t1RecordEff})` : ''}:  ${s1}`,
       `${rank2Label}${team2Name}${t2RecordEff ? ` (${t2RecordEff})` : ''}:  ${s2}`,
+      rankDirective ? `` : null,
+      rankDirective,
       gameContext ? gameContext.line : null,
       gameContext ? gameContext.designNote : null,
       ``,
@@ -247,8 +323,8 @@ export function buildScoreGraphicPrompt({
   const sf = featuredScore ?? ''
   const so = oppScore ?? ''
 
-  const rankLabel    = featuredRank ? `#${featuredRank} ` : ''
-  const oppRankLabel = oppRank ? `#${oppRank} ` : ''
+  const rankLabel    = (showRanks && featuredRank) ? `#${featuredRank} ` : ''
+  const oppRankLabel = (showRanks && oppRank) ? `#${oppRank} ` : ''
 
   const profile    = getTeamBrandProfile(featuredName)
   const oppProfile = getTeamBrandProfile(oppName)
@@ -260,8 +336,8 @@ export function buildScoreGraphicPrompt({
 
   const featuredIsFictional = isFictionalTeam(profile)
   const oppIsFictional      = isFictionalTeam(oppProfile)
-  const featuredRecordEff = featuredIsFictional ? null : featuredRecord
-  const oppRecordEff      = oppIsFictional      ? null : oppRecord
+  const featuredRecordEff = (featuredIsFictional || !showRecords) ? null : featuredRecord
+  const oppRecordEff      = (oppIsFictional      || !showRecords) ? null : oppRecord
   const fictionalParticipantNames = [
     featuredIsFictional ? featuredName : null,
     oppIsFictional      ? oppName      : null,
@@ -312,6 +388,8 @@ export function buildScoreGraphicPrompt({
     `RESULT`,
     `${rankLabel}${featuredName}${featuredRecordEff ? ` (${featuredRecordEff})` : ''}:  ${sf}`,
     `${oppRankLabel}${oppName}${oppRecordEff ? ` (${oppRecordEff})` : ''}:  ${so}`,
+    rankDirective ? `` : null,
+    rankDirective,
     ``,
     `BRAND — ${featuredName}`,
     `Primary: ${primaryPMS ? `${primaryPMS} / ` : ''}${primary}  Secondary: ${secondary}${tertiary ? `  Accent: ${tertiary}` : ''}`,

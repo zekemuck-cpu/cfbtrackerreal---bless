@@ -19,6 +19,10 @@ import ImageUpload from './ImageUpload'
 import DropdownSelect from './DropdownSelect'
 import { Input, Card } from './ui'
 
+// Combine school + nickname into the full display name, e.g.
+// ("Springfield", "Tigers") -> "Springfield Tigers". Tolerates empty parts.
+const combineName = (teamName, nickname) => [String(teamName || '').trim(), String(nickname || '').trim()].filter(Boolean).join(' ')
+
 export default function TeambuilderTeamFields({
   value,
   onChange,
@@ -30,23 +34,31 @@ export default function TeambuilderTeamFields({
   const team = value
   return (
     <div className="space-y-4">
-      <div>
-        <label className="label-xs text-txt-tertiary block mb-2">Team Name *</label>
-        <Input
-          type="text"
-          value={team.name}
-          onChange={e => onChange('name', e.target.value)}
-          placeholder="e.g. Springfield Tigers"
-          hasError={!!errors.name}
-          required
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="label-xs text-txt-tertiary block mb-2">Team Name *</label>
+          <Input
+            type="text"
+            value={team.teamName || ''}
+            onChange={e => { const v = e.target.value; onChange('teamName', v); onChange('name', combineName(v, team.nickname)) }}
+            placeholder="e.g. Springfield"
+            hasError={!!errors.name}
+            required
+          />
+          <p className="text-xs mt-1 text-txt-tertiary">School / location (no mascot)</p>
+        </div>
+        <div>
+          <label className="label-xs text-txt-tertiary block mb-2">Nickname</label>
+          <Input
+            type="text"
+            value={team.nickname || ''}
+            onChange={e => { const v = e.target.value; onChange('nickname', v); onChange('name', combineName(team.teamName, v)) }}
+            placeholder="e.g. Tigers"
+          />
+          <p className="text-xs mt-1 text-txt-tertiary">Mascot</p>
+        </div>
         {errors.name && (
-          <p className="text-sm mt-1" style={{ color: 'var(--accent-error)' }}>{errors.name}</p>
-        )}
-        {!errors.name && (
-          <p className="text-xs mt-1 text-txt-tertiary">
-            Full team name including mascot (like "Alabama Crimson Tide")
-          </p>
+          <p className="text-sm sm:col-span-2" style={{ color: 'var(--accent-error)' }}>{errors.name}</p>
         )}
       </div>
 
@@ -133,11 +145,6 @@ export default function TeambuilderTeamFields({
         />
         {errors.replacesTeam && (
           <p className="text-sm mt-1" style={{ color: 'var(--accent-error)' }}>{errors.replacesTeam}</p>
-        )}
-        {!errors.replacesTeam && (
-          <p className="text-xs mt-1 text-txt-tertiary">
-            This team's slot in conferences and schedules will be taken over by your TeamBuilder team.
-          </p>
         )}
       </div>
 

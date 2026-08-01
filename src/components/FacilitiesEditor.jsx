@@ -26,11 +26,14 @@ export default function FacilitiesEditor({
   onSelectTier,
   onSetGrade,
   onAddEquipment,
+  onUpdateEquipment,
   onRemoveEquipment,
   isViewOnly = false,
   busy = false,
 }) {
   const [form, setForm] = useState({ effect: '', tier: '', name: '', boost: '', weeks: '' })
+  // null = the form is adding a new item; a number = editing that slot in place.
+  const [editingIdx, setEditingIdx] = useState(null)
 
   const tierKey = facilities.tier || carriedTier || ''
   const tier = tiers.find((t) => t.key === tierKey) || null
@@ -43,16 +46,43 @@ export default function FacilitiesEditor({
   const inputClass = 'w-full bg-surface-2 border border-surface-4 rounded-md px-2.5 h-9 text-sm text-txt-primary'
   const selectClass = `${inputClass} appearance-none`
 
+  const resetForm = () => {
+    setForm({ effect: '', tier: '', name: '', boost: '', weeks: '' })
+    setEditingIdx(null)
+  }
+
   const submitEquip = () => {
-    if (!form.effect || !onAddEquipment) return
-    onAddEquipment({
+    if (!form.effect) return
+    const payload = {
       effect: form.effect,
       tier: form.tier || null,
       name: form.name.trim() || null,
       boost: form.boost.trim() || null,
       weeks: form.weeks === '' ? null : Number(form.weeks),
+    }
+    if (editingIdx !== null) {
+      if (!onUpdateEquipment) return
+      onUpdateEquipment(editingIdx, payload)
+    } else {
+      if (!onAddEquipment) return
+      onAddEquipment(payload)
+    }
+    resetForm()
+  }
+
+  // Load an existing item into the form for in-place editing (instead of
+  // forcing a remove + re-add).
+  const startEdit = (idx) => {
+    const eq = equipment[idx]
+    if (!eq || isViewOnly) return
+    setForm({
+      effect: eq.effect || '',
+      tier: eq.tier || '',
+      name: eq.name || '',
+      boost: eq.boost || '',
+      weeks: eq.weeks == null ? '' : String(eq.weeks),
     })
-    setForm({ effect: '', tier: '', name: '', boost: '', weeks: '' })
+    setEditingIdx(idx)
   }
 
   const Attr = ({ label, value, tone }) => (
@@ -127,12 +157,19 @@ export default function FacilitiesEditor({
             {equipment.map((eq, idx) => {
               const title = eq.name || effectLabel(eq.effect)
               const sub = eq.name ? effectLabel(eq.effect) : '' // avoid repeating when no name
+              const editing = editingIdx === idx
               return (
-                <div key={idx} className="rounded-lg p-3 relative" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+                <div
+                  key={idx}
+                  onClick={!isViewOnly ? () => startEdit(idx) : undefined}
+                  className={`rounded-lg p-3 relative transition-colors ${!isViewOnly ? 'cursor-pointer hover:bg-surface-3' : ''}`}
+                  style={{ backgroundColor: 'var(--surface-2)', border: `1px solid ${editing ? 'var(--accent-success)' : 'var(--surface-4)'}` }}
+                  title={!isViewOnly ? 'Click to edit' : undefined}
+                >
                   {!isViewOnly && (
                     <button
                       type="button"
-                      onClick={() => onRemoveEquipment?.(idx)}
+                      onClick={(e) => { e.stopPropagation(); onRemoveEquipment?.(idx); if (editingIdx !== null) resetForm() }}
                       disabled={busy}
                       aria-label="Remove"
                       className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded text-txt-tertiary hover:text-[color:var(--accent-error)] hover:bg-surface-3 transition-colors"
@@ -155,9 +192,15 @@ export default function FacilitiesEditor({
           </div>
         )}
 
-        {/* Add row — Effect (dropdown) is required; the rest are optional */}
-        {!isViewOnly && (slots === 0 || equipment.length < slots) && (
-          <div className="rounded-md p-3" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+        {/* Add / edit row — Effect (dropdown) is required; the rest are optional.
+            Shown when there's a free slot OR when editing an existing item. */}
+        {!isViewOnly && (editingIdx !== null || slots === 0 || equipment.length < slots) && (
+          <div className="rounded-md p-3" style={{ backgroundColor: 'var(--surface-2)', border: `1px solid ${editingIdx !== null ? 'var(--accent-success)' : 'var(--surface-4)'}` }}>
+            {editingIdx !== null && (
+              <div className="flex items-center justify-between mb-2">
+                <span className="label-xs" style={{ color: 'var(--accent-success)' }}>Editing equipment</span>
+              </div>
+            )}
             <div className="flex flex-wrap items-end gap-2">
               <div className="flex-1 min-w-[150px]">
                 <label className="label-xs text-txt-tertiary block mb-1.5">Effect</label>
@@ -193,12 +236,15 @@ export default function FacilitiesEditor({
                   className={`${inputClass} text-right tabular-nums`}
                 />
               </div>
-              <Button variant="primary" onClick={submitEquip} disabled={busy || !form.effect}>Add</Button>
+              <Button variant="primary" onClick={submitEquip} disabled={busy || !form.effect}>{editingIdx !== null ? 'Save' : 'Add'}</Button>
+              {editingIdx !== null && (
+                <Button variant="secondary" onClick={resetForm} disabled={busy}>Cancel</Button>
+              )}
             </div>
           </div>
         )}
-        {!isViewOnly && slots > 0 && equipment.length >= slots && (
-          <p className="text-[11px] text-txt-tertiary">All {slots} equipment slots filled. Upgrade your facility for more.</p>
+        {!isViewOnly && editingIdx === null && slots > 0 && equipment.length >= slots && (
+          <p className="text-[11px] text-txt-tertiary">All {slots} equipment slots filled. Click an item to edit it, or upgrade your facility for more.</p>
         )}
       </div>
 

@@ -1,10 +1,21 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { generateShareCode } from '../services/dynastyService'
-import { getModalColors } from '../utils/colorUtils'
 import { useToast } from './ui/Toast'
+
+// Neutral, team-agnostic modal palette. This dialog is a generic "view-only
+// link" utility, so it intentionally does NOT theme to the user's team color.
+const modalColors = {
+  background: '#1a1a2e',
+  headerBg: '#232338',
+  text: '#ffffff',
+  textMuted: '#9ca3af',
+  accent: '#3b82f6',
+  border: 'rgba(255,255,255,0.12)',
+  inputBg: 'rgba(0,0,0,0.25)',
+}
 
 export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty: dynastyProp }) {
   const { currentDynasty: contextDynasty, updateDynasty } = useDynasty()
@@ -17,7 +28,12 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+  // Share links resolve against Firestore, so only cloud-stored dynasties
+  // can be shared. A local (IndexedDB) dynasty would happily accept the
+  // isPublic/shareCode toggle — updateDynasty routes it to IndexedDB —
+  // and hand out a /view/<code> link that always shows "Dynasty Not
+  // Available" for everyone else. Gate on storageType, not premium.
+  const isCloudDynasty = dynasty?.storageType === 'cloud'
 
   useEffect(() => {
     if (dynasty) {
@@ -28,6 +44,11 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
 
   const handleToggleSharing = async () => {
     if (!dynasty) return
+
+    if (!isCloudDynasty) {
+      toast.info('Switch this dynasty to Cloud storage before sharing it.')
+      return
+    }
 
     // Belt-and-suspenders gate: the Sidebar entry already blocks non-
     // premium users from opening the modal, but we re-check here so
@@ -59,6 +80,52 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
     } catch (error) {
       console.error('Error toggling sharing:', error)
       toast.error('Failed to update sharing settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Regenerate the view-only link. Mints a fresh share code and (re)asserts
+  // isPublic so a stale/broken link — e.g. one shared before sharing was
+  // actually enabled, or a code that never got persisted to Firestore — can
+  // be replaced without hunting through settings. This ONLY writes the two
+  // sharing fields (isPublic, shareCode); it never touches players, games,
+  // rosters, or any other dynasty data, so the actual save file is untouched.
+  // The old code stops resolving immediately (anyone holding it gets the
+  // "Dynasty Not Available" page), which is the intended "reset the link"
+  // behavior.
+  const handleRegenerateLink = async () => {
+    if (!dynasty) return
+
+    if (!isCloudDynasty) {
+      toast.info('Switch this dynasty to Cloud storage before sharing it.')
+      return
+    }
+
+    if (!isPremium) {
+      toast.info('Sharing dynasties is a Premium feature.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const newShareCode = generateShareCode()
+
+      // Only the sharing fields — no players/games/seasonal payload, so
+      // updateDynasty writes just these keys to the main doc and leaves
+      // every subcollection alone.
+      await updateDynasty(dynasty.id, {
+        isPublic: true,
+        shareCode: newShareCode
+      })
+
+      setIsPublic(true)
+      setShareCode(newShareCode)
+      setCopied(false)
+      toast.success('New view-only link generated')
+    } catch (error) {
+      console.error('Error regenerating share link:', error)
+      toast.error('Failed to regenerate link')
     } finally {
       setLoading(false)
     }
@@ -106,11 +173,25 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
 
         {/* Content */}
         <div className="p-6">
-          <p className="mb-6" style={{ color: modalColors.textMuted }}>
-            Share your dynasty with viewers! They'll be able to see your schedule, roster, stats, and more in read-only mode.
-          </p>
+          {/* Local dynasties can't be shared — the link would resolve against
+              Firestore and come back "Dynasty Not Available" for every viewer.
+              Explain how to move to the cloud instead of offering a dead toggle. */}
+          {!isCloudDynasty && (
+            <div className="p-4 rounded-lg mb-6" style={{ backgroundColor: modalColors.inputBg }}>
+              <div className="font-semibold mb-1" style={{ color: modalColors.text }}>
+                Cloud Storage Required
+              </div>
+              <div className="text-sm" style={{ color: modalColors.textMuted }}>
+                This dynasty is stored locally on this device, so a share link
+                wouldn't work for anyone else. To share it, go to the Home page,
+                tap the &quot;Local&quot; badge on this dynasty's card, and switch it to
+                Cloud storage. Then come back here to turn on sharing.
+              </div>
+            </div>
+          )}
 
           {/* Toggle */}
+          {isCloudDynasty && (
           <div className="flex items-center justify-between p-4 rounded-lg mb-6" style={{ backgroundColor: modalColors.inputBg }}>
             <div>
               <div className="font-semibold" style={{ color: modalColors.text }}>
@@ -137,9 +218,10 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
               />
             </button>
           </div>
+          )}
 
           {/* Share Link */}
-          {isPublic && shareCode && (
+          {isCloudDynasty && isPublic && shareCode && (
             <div className="space-y-3">
               <label className="block text-sm font-medium" style={{ color: modalColors.text }}>
                 Share Link
@@ -165,6 +247,24 @@ export default function ShareDynastyModal({ isOpen, onClose, teamColors, dynasty
               <p className="text-sm" style={{ color: modalColors.textMuted }}>
                 Viewers will see your dynasty data but cannot make any changes.
               </p>
+
+              {/* Regenerate — replaces a stale/broken link with a fresh code.
+                  Only rewrites the sharing fields, never the dynasty save. */}
+              <div className="pt-1">
+                <button
+                  onClick={handleRegenerateLink}
+                  disabled={loading}
+                  className={`text-sm font-medium underline transition-opacity ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
+                  style={{ color: modalColors.accent }}
+                >
+                  {loading ? 'Regenerating…' : 'Regenerate link'}
+                </button>
+                <p className="text-xs mt-1" style={{ color: modalColors.textMuted }}>
+                  Not working for viewers? Generate a fresh link. The old link
+                  will stop working. This only changes the view-only link — your
+                  dynasty data is untouched.
+                </p>
+              </div>
             </div>
           )}
 

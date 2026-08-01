@@ -3,14 +3,24 @@ import { getScoutScore, ordinal, defaultLensKey } from '../utils/scoutScore'
 import { useDynasty } from '../context/DynastyContext'
 import { getEditionKey } from '../editions'
 
-// A percentile's accent color: strong (green) high, muted mid, weak (red) low.
+// Percentile → accent color. A smooth red → amber → green ramp aligned to the
+// tier thresholds below, so the ring, section marks, and rows read one scale.
 function pctColor(pct) {
   if (pct == null) return 'var(--text-muted)'
-  if (pct >= 80) return '#34d399'
-  if (pct >= 60) return '#a3e635'
-  if (pct >= 40) return 'var(--text-secondary)'
-  if (pct >= 20) return '#fbbf24'
-  return '#f87171'
+  if (pct >= 90) return '#34d399' // Elite
+  if (pct >= 75) return '#86d472' // Excellent
+  if (pct >= 60) return '#c3d24a' // Above average
+  if (pct >= 40) return '#f2c14e' // Average
+  if (pct >= 25) return '#ef9a5b' // Below average
+  return '#ec6a6a'                 // Poor
+}
+
+// Same color at a given alpha, for glows and tints. Non-hex (the null/no-data
+// case) fades to transparent so a missing value never paints a solid fill.
+function withAlpha(color, a) {
+  if (typeof color !== 'string' || !color.startsWith('#')) return 'transparent'
+  const n = parseInt(color.slice(1), 16)
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
 }
 
 // Qualitative tier for the headline percentile.
@@ -24,39 +34,29 @@ function tierLabel(pct) {
   return 'Poor'
 }
 
-// Circular percentile gauge.
+// Compact circular percentile gauge — crisp tier-colored arc over a track, the
+// ordinal in the display face, a soft glow from a whole-SVG drop-shadow.
 function Gauge({ pct }) {
-  const r = 33
+  const r = 27, c = 36
   const circ = 2 * Math.PI * r
   const p = Math.max(0, Math.min(100, pct ?? 0))
   const dash = (p / 100) * circ
   const color = pctColor(pct)
   return (
-    <svg width="84" height="84" viewBox="0 0 84 84" className="shrink-0">
-      <circle cx="42" cy="42" r={r} fill="none" stroke="var(--surface-4)" strokeWidth="7" />
+    <svg width="72" height="72" viewBox="0 0 72 72" className="shrink-0" style={{ filter: `drop-shadow(0 0 4px ${withAlpha(color, 0.45)})` }}>
+      <circle cx={c} cy={c} r={r} fill="none" stroke="var(--surface-4)" strokeWidth="6" />
       <circle
-        cx="42" cy="42" r={r} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
-        strokeDasharray={`${dash} ${circ}`} transform="rotate(-90 42 42)"
-        style={{ transition: 'stroke-dasharray 500ms ease' }}
+        cx={c} cy={c} r={r} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round"
+        strokeDasharray={`${dash} ${circ}`} transform={`rotate(-90 ${c} ${c})`}
+        style={{ transition: 'stroke-dasharray 600ms cubic-bezier(0.2, 0.8, 0.2, 1)' }}
       />
-      <text x="42" y="40" textAnchor="middle" style={{ fontSize: '19px', fontWeight: 800, fill: 'var(--text-primary)' }}>
+      <text x={c} y={c - 1} textAnchor="middle" style={{ fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 800, fill: 'var(--text-primary)' }}>
         {pct == null ? '—' : ordinal(pct)}
       </text>
-      <text x="42" y="54" textAnchor="middle" style={{ fontSize: '7.5px', letterSpacing: '1.5px', fill: 'var(--text-muted)' }}>
+      <text x={c} y={c + 11} textAnchor="middle" style={{ fontSize: '6px', letterSpacing: '1.5px', fill: 'var(--text-muted)' }}>
         PCTILE
       </text>
     </svg>
-  )
-}
-
-function Bar({ pct }) {
-  return (
-    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--surface-4)' }}>
-      <div
-        className="h-full rounded-full"
-        style={{ width: `${Math.max(2, Math.min(100, Math.round(pct ?? 0)))}%`, backgroundColor: pctColor(pct), transition: 'width 400ms ease' }}
-      />
-    </div>
   )
 }
 
@@ -66,8 +66,8 @@ function Bar({ pct }) {
 // `collapsible` (default false, preserving the Player-page card's existing
 // always-expanded behavior): when true, only the headline gauge/tier shows
 // initially — sized to match a compact host box (e.g. the Score Breakdown
-// card on the Targets board) — with a chevron to expand the lens selector/
-// group summaries/per-attribute bars on demand.
+// card on the Targets board) — with a chevron to expand the lens selector
+// and per-attribute rows on demand.
 export default function ScoutScorePanel({ recruit, collapsible = false }) {
   const { currentDynasty } = useDynasty()
   // Benchmark against the recruit's own game's cohort — a CFB27 dynasty's
@@ -82,7 +82,7 @@ export default function ScoutScorePanel({ recruit, collapsible = false }) {
     let alive = true
     setState({ status: 'loading', data: null, reason: null })
     setLens(null)
-    getScoutScore({ ...recruit, sourceGame }).then((r) => {
+    getScoutScore(recruit, sourceGame).then((r) => {
       if (!alive) return
       if (!r.ok) { setState({ status: 'error', data: null, reason: r.reason }); return }
       setState({ status: 'done', data: r.data, reason: null })
@@ -98,8 +98,7 @@ export default function ScoutScorePanel({ recruit, collapsible = false }) {
   const overall = data?.overallSummaries?.[activeLens]
 
   // Attributes grouped by category, each sorted by percentile descending. Group
-  // order follows the order categories first appear in the stat list — this is
-  // the canonical top-to-bottom order the summary cards mirror left-to-right.
+  // order follows the order categories first appear in the stat list.
   const groupedStats = useMemo(() => {
     const m = new Map()
     for (const s of data?.statResults || []) {
@@ -113,18 +112,19 @@ export default function ScoutScorePanel({ recruit, collapsible = false }) {
     return [...m.entries()]
   }, [data, activeLens])
 
-  // Summary cards ordered to match the per-attribute sections below.
-  const groups = useMemo(() => {
-    const available = (data?.groupSummaries?.[activeLens] || []).filter((g) => g.available)
-    const order = groupedStats.map(([label]) => label)
-    const idx = (label) => { const i = order.indexOf(label); return i < 0 ? 999 : i }
-    return [...available].sort((a, b) => idx(a.label) - idx(b.label))
-  }, [data, activeLens, groupedStats])
+  // Per-group summary percentile, keyed by label for inline section marks.
+  const groupPctByLabel = useMemo(() => {
+    const m = new Map()
+    for (const g of (data?.groupSummaries?.[activeLens] || [])) {
+      if (g.available) m.set(g.label, g.percentile)
+    }
+    return m
+  }, [data, activeLens])
 
   const overallPct = overall?.percentile
 
   return (
-    <div>
+    <div className="max-w-2xl mx-auto">
       {state.status === 'loading' && (
         <p className="text-sm text-txt-secondary py-6 text-center animate-pulse">Benchmarking against the ScoutScore database…</p>
       )}
@@ -133,104 +133,109 @@ export default function ScoutScorePanel({ recruit, collapsible = false }) {
       )}
 
       {state.status === 'done' && (<>
-      {/* Headline — gauge + tier. Clickable to expand/collapse when
-          collapsible; otherwise a plain (non-interactive) header, exactly
-          the Player-page card's original look. */}
+      {/* Hero — compact verdict: ring + tier + percentile + pool, one tight row.
+          Clickable to expand/collapse when `collapsible`; otherwise a plain,
+          non-interactive header (the Player-page card's always-open look). */}
       <div
-        className={`flex items-center gap-4 rounded-xl border border-surface-4 p-4 ${expanded ? 'mb-4' : ''} ${collapsible ? 'cursor-pointer select-none' : 'justify-center'}`}
-        style={{ background: 'linear-gradient(180deg, var(--surface-2), var(--surface-1))' }}
+        className={`relative overflow-hidden rounded-xl border border-surface-4 px-3.5 py-2.5 ${expanded ? 'mb-3' : ''} ${collapsible ? 'cursor-pointer select-none' : ''}`}
+        style={{ background: `radial-gradient(120% 160% at 10% -40%, ${withAlpha(pctColor(overallPct), 0.16)}, transparent 55%), linear-gradient(180deg, var(--surface-2), var(--surface-1))` }}
         onClick={collapsible ? () => setExpanded((v) => !v) : undefined}
         role={collapsible ? 'button' : undefined}
         tabIndex={collapsible ? 0 : undefined}
         aria-expanded={collapsible ? expanded : undefined}
         onKeyDown={collapsible ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v) } } : undefined}
       >
-        <Gauge pct={overallPct} />
-        <div className="min-w-0 flex-1">
-          <div className="text-[10px] uppercase tracking-wider text-txt-muted">Overall percentile</div>
-          <div className="text-xl sm:text-2xl font-bold leading-tight" style={{ color: pctColor(overallPct) }}>{tierLabel(overallPct)}</div>
-          {lensMeta && (
-            <div className="text-[11px] text-txt-tertiary mt-0.5 truncate">
-              vs {lensMeta.recruitCount?.toLocaleString()} {lensMeta.scopeLabel}
-            </div>
+        <div className="flex items-center gap-3 min-w-0">
+          <Gauge pct={overallPct} />
+          <div className="min-w-0 flex-1">
+            {/* The ring already shows the percentile right beside this, so the
+                verdict leads with the tier word, not the number again. */}
+            <div className="font-display font-black leading-none" style={{ fontSize: 'clamp(1.3rem, 4vw, 1.75rem)', color: pctColor(overallPct) }}>{tierLabel(overallPct)}</div>
+            {lensMeta && (
+              <div className="text-[11px] text-txt-tertiary mt-1.5 truncate">
+                vs {lensMeta.recruitCount?.toLocaleString()} {lensMeta.scopeLabel}
+              </div>
+            )}
+          </div>
+          {collapsible && (
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+              strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-txt-tertiary"
+              style={{ transition: 'transform 150ms ease', transform: expanded ? 'rotate(180deg)' : 'none' }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           )}
         </div>
-        {collapsible && (
-          <svg
-            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-            strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-txt-tertiary"
-            style={{ transition: 'transform 150ms ease', transform: expanded ? 'rotate(180deg)' : 'none' }}
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        )}
       </div>
 
       {expanded && (<>
-        {/* Lens selector — segmented */}
-        {lenses.length > 1 && (
-          <div className="inline-flex flex-wrap gap-1 p-1 rounded-lg mb-4" style={{ backgroundColor: 'var(--surface-2)' }}>
-            {lenses.map((l) => (
-              <button
-                key={l.key}
-                onClick={() => setLens(l.key)}
-                title={l.scopeLabel}
-                className={`text-[11px] px-2.5 py-1 rounded-md transition-colors ${
-                  l.key === activeLens ? 'bg-surface-4 text-txt-primary font-semibold' : 'text-txt-tertiary hover:text-txt-primary'
-                }`}
-              >
-                {l.label}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* Lens selector — segmented pills */}
+      {lenses.length > 1 && (
+        <div className="inline-flex flex-wrap gap-1 p-1 rounded-xl mb-3" style={{ backgroundColor: 'var(--surface-2)', border: '1px solid var(--surface-4)' }}>
+          {lenses.map((l) => (
+            <button
+              key={l.key}
+              onClick={() => setLens(l.key)}
+              title={l.scopeLabel}
+              className={`text-[11px] px-3 py-1 rounded-lg transition-colors ${
+                l.key === activeLens ? 'bg-surface-4 text-txt-primary font-semibold' : 'text-txt-tertiary hover:text-txt-primary'
+              }`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      )}
 
-        {/* Group summaries — centered so a 3-group profile doesn't hug the left */}
-        {groups.length > 0 && (
-          <div className="flex flex-wrap justify-center gap-2 sm:gap-2.5 mb-5">
-            {groups.map((g) => (
-              <div key={g.groupKey} className="rounded-lg border border-surface-4 p-2 sm:p-2.5 grow shrink basis-[30%] min-w-0 sm:grow-0 sm:basis-40">
-                <div className="flex items-baseline justify-between gap-1 mb-1.5">
-                  <span className="text-[9px] uppercase tracking-wide text-txt-muted truncate">{g.label}</span>
-                  <span className="text-xs sm:text-sm font-bold tabular-nums leading-none flex-shrink-0" style={{ color: pctColor(g.percentile) }}>{ordinal(g.percentile)}</span>
-                </div>
-                <Bar pct={g.percentile} />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Per-attribute, grouped by category */}
-        <div className="space-y-3.5">
-          {groupedStats.map(([groupLabel, stats]) => (
+      {/* Attributes — a compact list per category. The group percentile lives on
+          the section rule, and each attribute is a full-width row (subtly tinted
+          by its own percentile) that fills the column at any count. No bars. */}
+      <div className="space-y-3">
+        {groupedStats.map(([groupLabel, stats]) => {
+          const gp = groupPctByLabel.get(groupLabel)
+          return (
             <div key={groupLabel}>
-              <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-txt-muted mb-1.5">{groupLabel}</div>
-              <div className="space-y-1.5">
-                {stats.map((s) => {
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-txt-muted">{groupLabel}</span>
+                <span className="h-px flex-1" style={{ backgroundColor: 'var(--surface-4)' }} />
+                {/* Group aggregate only earns a spot when it summarizes MORE than
+                    one attribute — otherwise it just repeats the single row below. */}
+                {gp != null && stats.length > 1 && (
+                  <span className="font-display font-bold tabular-nums leading-none" style={{ fontSize: '0.78rem', color: pctColor(gp) }}>{ordinal(gp)}</span>
+                )}
+              </div>
+              <div className="rounded-lg border border-surface-4 overflow-hidden">
+                {stats.map((s, i) => {
                   const p = s.lenses?.[activeLens]?.percentile
+                  const c = pctColor(p)
                   return (
-                    <div key={s.statKey} className="flex items-center gap-3">
-                      <span className="text-xs text-txt-secondary w-28 shrink-0 truncate" title={s.label}>{s.label}</span>
-                      <span className="text-xs tabular-nums font-bold text-txt-primary w-7 text-right shrink-0">{s.value}</span>
-                      <div className="flex-1"><Bar pct={p} /></div>
-                      <span className="text-[11px] tabular-nums font-semibold w-9 text-right shrink-0" style={{ color: pctColor(p) }}>{ordinal(p) || '—'}</span>
+                    <div
+                      key={s.statKey}
+                      className="flex items-center gap-3 px-3 py-1.5"
+                      style={{ backgroundColor: withAlpha(c, 0.06), borderTop: i ? '1px solid var(--surface-4)' : 'none' }}
+                    >
+                      <span className="text-xs text-txt-secondary flex-1 truncate" title={s.label}>{s.label}</span>
+                      <span className="font-display font-black tabular-nums text-txt-primary leading-none w-8 text-right" style={{ fontSize: '0.95rem' }}>{s.value}</span>
+                      <span className="font-display font-bold tabular-nums leading-none w-10 text-right" style={{ fontSize: '0.8rem', color: c }}>{ordinal(p) || '—'}</span>
                     </div>
                   )
                 })}
               </div>
             </div>
-          ))}
-        </div>
-      </>)}
+          )
+        })}
+      </div>
       </>)}
 
       {/* Attribution — always shown, even collapsed */}
-      <div className="mt-4 pt-3 border-t border-surface-4 text-[10px] text-txt-muted text-center">
+      <div className="mt-3 pt-2.5 border-t border-surface-4 text-[10px] text-txt-muted text-center">
         Benchmarks &amp; projections by{' '}
         <a href="https://maxplayscfb.com/tools/" target="_blank" rel="noopener noreferrer" className="text-txt-tertiary hover:text-txt-primary underline">
           MaxPlaysCFB
         </a>
       </div>
+      </>)}
     </div>
   )
 }

@@ -1,13 +1,12 @@
 /**
- * MemberTimelineEditor — retroactively claim/release teams per season
- * for a single member. Solves the "I joined mid-dynasty, the commish
- * was running my team for the first 2 years" gap by letting the commish
- * (or the member themselves) reassign past seasons cleanly.
+ * MemberTimelineEditor — retroactively set which team a COACH ran each
+ * season. Solves the "I joined mid-dynasty, the commish was running my
+ * team for the first 2 years" gap by reassigning past seasons cleanly.
  *
- * One source of truth: writes to `dynasty.memberTeamHistory[uid][year]`.
- * Adding a tid to a year automatically removes it from any OTHER uid's
- * same-year list (a team has at most one coach per season). Members'
- * Coach Career page reads from the same map, so the change shows up
+ * Source of truth: `dynasty.coaches[cid].byYear[year].teamTid` (one team
+ * per coach per season). Assigning a team to a year automatically takes it
+ * away from any OTHER controlled coach that had it that year (one coach per
+ * team per season). Coach Career reads the same entity, so changes show up
  * everywhere immediately.
  */
 
@@ -15,28 +14,61 @@ import { useMemo, useState } from 'react'
 import { Modal, Button, EmptyState, TeamLogo } from './ui'
 import { useToast } from './ui/Toast'
 import { useDynasty } from '../context/DynastyContext'
+import { getCoachNameForUid } from '../data/leagueModel'
 import {
-  getCoachNameForUid,
-  getMemberTeamsForYear,
-  getCoachesForTeamYear,
-  claimTeamForYear,
-  releaseTeamForYear,
-  getRole,
-  maxTeamsForRole,
-} from '../data/leagueModel'
+  getCoach,
+  getCoaches,
+  getCoachesControlledBy,
+  setCoachSeason,
+  removeCoachSeason,
+  applyControlledCoachTeam,
+  deriveMemberTeamsIndex,
+  COACH_ROLES,
+  COACH_ROLE_LABELS,
+} from '../data/coachModel'
 
-export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
+export default function MemberTimelineEditor({ isOpen, onClose, cid }) {
   const { currentDynasty, updateDynasty } = useDynasty()
   const { toast } = useToast()
   const [busyYear, setBusyYear] = useState(null)
   const [pendingPick, setPendingPick] = useState({}) // { [year]: tidString }
 
-  if (!currentDynasty || !uid) return null
+  if (!currentDynasty || !cid) return null
+  const coach = getCoach(currentDynasty, cid)
+  if (!coach) return null
 
   const startYear = Number(currentDynasty.startYear) || Number(currentDynasty.currentYear)
   const currentYear = Number(currentDynasty.currentYear)
   const teamsSource = currentDynasty.teams || {}
-  const memberName = getCoachNameForUid(currentDynasty, uid, 'Member')
+  const memberName = coach.name || getCoachNameForUid(currentDynasty, coach.controlledBy, 'Coach')
+
+  // The team this coach ran in a given year (0 or 1), as an array so the
+  // existing chip UI is unchanged.
+  const teamsForYear = (year) => {
+    const tid = Number(coach.byYear?.[year]?.teamTid ?? coach.byYear?.[String(year)]?.teamTid)
+    return Number.isFinite(tid) ? [tid] : []
+  }
+  // This coach's position (HC/OC/DC) for a given year — defaults to HC.
+  const roleForYear = (year) =>
+    coach.byYear?.[year]?.role ?? coach.byYear?.[String(year)]?.role ?? 'HC'
+  // Other CONTROLLED coaches holding `tid` in `year` (a claim steals from them).
+  const otherCoachesOnTeamYear = (tid, year) =>
+    Object.values(getCoaches(currentDynasty)).filter(c =>
+      c && c.cid !== cid && c.controlledBy != null &&
+      Number(c.byYear?.[year]?.teamTid ?? c.byYear?.[String(year)]?.teamTid) === Number(tid),
+    )
+
+  const writeCoaches = async (nextCoaches) => {
+    const memberTeams = {
+      ...(currentDynasty.memberTeams || {}),
+      ...deriveMemberTeamsIndex({ ...currentDynasty, coaches: nextCoaches }),
+    }
+    await updateDynasty(currentDynasty.id, {
+      coaches: nextCoaches,
+      memberTeams,
+      _coachesControlMigrated: true,
+    })
+  }
 
   const years = useMemo(() => {
     if (!Number.isFinite(startYear) || !Number.isFinite(currentYear)) return []
@@ -52,64 +84,20 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
       .sort((a, b) => a.name.localeCompare(b.name))
   ), [teamsSource])
 
-  // Write the new memberTeamHistory map. If the modified year IS the
-  // dynasty's current year, ALSO sync memberTeams[uid] (the live store)
-  // so the row's display doesn't bounce back via the live-state fallback
-  // in getMemberTeamsForYear (which only kicks in when history is empty
-  // for the current year).
-  //
-  // Without this sync, removing a team from the current year via the
-  // X chip strips memberTeamHistory[uid][currentYear] but leaves
-  // memberTeams[uid] intact — so the next render reads the live store
-  // and re-displays the team. Same applies to claiming on the current
-  // year: history gets the team but live state stays empty, leaving
-  // Coach Career and the Members row out of sync until next save.
-  const writeHistory = async (nextHistory, modifiedYear) => {
-    const updates = { memberTeamHistory: nextHistory }
-    if (Number(modifiedYear) === Number(currentDynasty.currentYear)) {
-      // Derive what memberTeams[uid] should be from the just-written
-      // history snapshot. If the year entry is now empty, drop the uid
-      // from memberTeams; otherwise mirror the same tids.
-      const tidsForCurrent =
-        nextHistory?.[uid]?.[currentDynasty.currentYear] ||
-        nextHistory?.[uid]?.[String(currentDynasty.currentYear)] ||
-        []
-      const nextLive = { ...(currentDynasty.memberTeams || {}) }
-      if (tidsForCurrent.length === 0) {
-        delete nextLive[uid]
-      } else {
-        nextLive[uid] = tidsForCurrent.map(Number).filter(Number.isFinite)
-      }
-      updates.memberTeams = nextLive
-    }
-    await updateDynasty(currentDynasty.id, updates)
-  }
-
-  // Members coach at most one team per season; commish/co-commish are uncapped.
-  const cap = maxTeamsForRole(getRole(currentDynasty, uid))
+  // A coach runs at most one team per season.
+  const cap = 1
 
   const handleClaim = async (year, tidStr) => {
     const tid = Number(tidStr)
     if (!Number.isFinite(tid)) return
-    // Enforce the per-season team cap (the dropdown otherwise allows unlimited
-    // adds). Already-assigned tids are filtered out of the options, so a claim
-    // here is always a NEW team for the year.
-    const already = getMemberTeamsForYear(currentDynasty, uid, year)
-    if (cap !== Infinity && already.length >= cap) {
-      toast.error(`${memberName} can only coach ${cap} team per season.`)
-      setPendingPick(p => ({ ...p, [year]: '' }))
-      return
-    }
-    const otherUids = getCoachesForTeamYear(currentDynasty, tid, year).filter(u => u !== uid)
+    const stolen = otherCoachesOnTeamYear(tid, year)
     setBusyYear(year)
     try {
-      const next = claimTeamForYear(currentDynasty.memberTeamHistory, uid, year, tid)
-      await writeHistory(next, year)
+      const { coaches } = applyControlledCoachTeam(currentDynasty, cid, year, tid)
+      await writeCoaches(coaches)
       setPendingPick(p => ({ ...p, [year]: '' }))
-      if (otherUids.length > 0) {
-        const stolenFrom = otherUids
-          .map(u => getCoachNameForUid(currentDynasty, u, 'a coach'))
-          .join(', ')
+      if (stolen.length > 0) {
+        const stolenFrom = stolen.map(c => c.name || 'a coach').join(', ')
         toast.info(`Took ${teamsSource[tid]?.name || `Team ${tid}`} ${year} from ${stolenFrom}.`)
       } else {
         toast.success(`${memberName} now coaches ${teamsSource[tid]?.name || `Team ${tid}`} for ${year}.`)
@@ -122,11 +110,29 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
     }
   }
 
-  const handleRelease = async (year, tid) => {
+  const handleSetRole = async (year, role) => {
+    if (!COACH_ROLES.includes(role)) return
     setBusyYear(year)
     try {
-      const next = releaseTeamForYear(currentDynasty.memberTeamHistory, uid, year, tid)
-      await writeHistory(next, year)
+      // Merge just the role into that season — teamTid and everything else
+      // on the record are preserved. Coach displays, staff lists, and the
+      // team header all read this same byYear[year].role, so the position
+      // updates everywhere at once.
+      const next = setCoachSeason(coach, year, { role })
+      await writeCoaches({ ...getCoaches(currentDynasty), [cid]: next })
+    } catch (err) {
+      console.error('[MemberTimeline] set role failed:', err)
+      toast.error('Failed to update position.')
+    } finally {
+      setBusyYear(null)
+    }
+  }
+
+  const handleRelease = async (year) => {
+    setBusyYear(year)
+    try {
+      const next = removeCoachSeason(coach, year)
+      await writeCoaches({ ...getCoaches(currentDynasty), [cid]: next })
     } catch (err) {
       console.error('[MemberTimeline] release failed:', err)
       toast.error('Failed to update timeline.')
@@ -136,23 +142,18 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
   }
 
   const handleCopyFromAbove = async (year) => {
-    // Find the closest year strictly newer than `year` that has tids set.
-    let sourceTids = null
+    // Find the closest year strictly newer than `year` that has a team set.
+    let sourceTid = null
     for (const y of years) {
       if (y <= year) break
-      const tids = getMemberTeamsForYear(currentDynasty, uid, y)
-      if (tids.length > 0) { sourceTids = tids; break }
+      const t = teamsForYear(y)[0]
+      if (t != null) { sourceTid = t; break }
     }
-    if (!sourceTids || sourceTids.length === 0) return
-    // Respect the per-season cap when copying a multi-team year down.
-    const toCopy = cap === Infinity ? sourceTids : sourceTids.slice(0, cap)
+    if (sourceTid == null) return
     setBusyYear(year)
     try {
-      let next = currentDynasty.memberTeamHistory
-      for (const tid of toCopy) {
-        next = claimTeamForYear(next, uid, year, tid)
-      }
-      await writeHistory(next, year)
+      const { coaches } = applyControlledCoachTeam(currentDynasty, cid, year, sourceTid)
+      await writeCoaches(coaches)
     } catch (err) {
       console.error('[MemberTimeline] copy failed:', err)
       toast.error('Failed to copy.')
@@ -161,23 +162,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
     }
   }
 
-  const handleClearYear = async (year) => {
-    setBusyYear(year)
-    try {
-      const next = { ...(currentDynasty.memberTeamHistory || {}) }
-      const userMap = { ...(next[uid] || {}) }
-      delete userMap[year]
-      delete userMap[String(year)]
-      if (Object.keys(userMap).length === 0) delete next[uid]
-      else next[uid] = userMap
-      await writeHistory(next, year)
-    } catch (err) {
-      console.error('[MemberTimeline] clear failed:', err)
-      toast.error('Failed to clear year.')
-    } finally {
-      setBusyYear(null)
-    }
-  }
+  const handleClearYear = (year) => handleRelease(year)
 
   return (
     <Modal
@@ -200,7 +185,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
       ) : (
         <div className="divide-y divide-surface-3/40">
           {years.map(year => {
-            const tids = getMemberTeamsForYear(currentDynasty, uid, year)
+            const tids = teamsForYear(year)
             const isBusy = busyYear === year
             const pickValue = pendingPick[year] || ''
             const assignedSet = new Set(tids.map(Number))
@@ -231,7 +216,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                             <span className="font-semibold text-txt-primary">{teamName}</span>
                             <button
                               type="button"
-                              onClick={() => handleRelease(year, tid)}
+                              onClick={() => handleRelease(year)}
                               disabled={isBusy}
                               aria-label={`Remove ${teamName}`}
                               title={`Remove ${teamName}`}
@@ -249,6 +234,20 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                 </div>
 
                 <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {tids.length > 0 && (
+                    <select
+                      value={roleForYear(year)}
+                      onChange={(e) => handleSetRole(year, e.target.value)}
+                      disabled={isBusy}
+                      aria-label={`Position for ${year}`}
+                      title="Coaching position this season"
+                      className="text-xs px-2 py-1 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary cursor-pointer focus:outline-none focus:border-surface-5"
+                    >
+                      {COACH_ROLES.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  )}
                   {(cap === Infinity || tids.length < cap) && (
                   <select
                     value={pickValue}
@@ -266,9 +265,7 @@ export default function MemberTimelineEditor({ isOpen, onClose, uid }) {
                     {availableOptions.map(t => {
                       // Show a tiny hint when this team currently belongs
                       // to someone else this year — claiming will steal it.
-                      const otherUids = getCoachesForTeamYear(currentDynasty, t.tid, year)
-                        .filter(u => u !== uid)
-                      const taken = otherUids.length > 0
+                      const taken = otherCoachesOnTeamYear(t.tid, year).length > 0
                       return (
                         <option key={t.tid} value={t.tid}>
                           {t.name}{taken ? ' (assigned)' : ''}

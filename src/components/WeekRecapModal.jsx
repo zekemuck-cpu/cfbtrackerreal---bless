@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo, useRef, startTransition } from 'react'
+import { useState, useEffect, useMemo, useCallback, startTransition } from 'react'
 import { createPortal } from 'react-dom'
 import { useDynasty } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
+import PasteEntrySteps from './ui/PasteEntrySteps'
 import { buildWeekRecapPrompt, buildPreseasonRecapPrompt } from '../utils/recapPrompts'
 import { socialGameTagMap } from '../utils/socialPrompt'
+import { extractRecapBlock } from '../utils/recapText'
 import {
   extractSocialBlock, parseSocialLines, resolveSocialPosts, buildHandleIndex,
   getEffectiveCharacters, ensureUniverseLoaded, DEFAULT_SOCIAL_SETTINGS,
@@ -31,12 +33,10 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
   const isPreseason = weekNum === -1
   // Social is baked into the recap for regular-season weeks (two-in-one).
   const isRegularWeek = weekNum >= 0 && weekNum <= 15
-  const promptTextareaRef = useRef(null)
 
   const existingRecap = currentDynasty?.weekRecapsByYear?.[yearNum]?.[weekNum]
   const [draft, setDraft] = useState(existingRecap?.text || '')
   const [saving, setSaving] = useState(false)
-  const [copied, setCopied] = useState(false)
   const [showManual, setShowManual] = useState(false)
   const [includeSocial, setIncludeSocial] = useState(currentDynasty?.socialSettings?.enabled !== false)
 
@@ -102,7 +102,6 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
   useEffect(() => {
     if (!isOpen) return
     setDraft(existingRecap?.text || '')
-    setCopied(false)
     setShowManual(false)
   }, [isOpen, yearNum, weekNum, existingRecap?.text])
 
@@ -111,9 +110,21 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
   useEffect(() => {
     if (!isOpen || !isRegularWeek || !currentDynasty?.id) return
     loadSocial(currentDynasty.id).catch(() => {})
-  }, [isOpen, isRegularWeek, currentDynasty?.id, loadSocial])
+    // loadSocial is intentionally omitted: it's rebuilt on every provider
+    // render (the context value object is a fresh literal each time), so
+    // depending on it re-ran this effect every render. For a local/free-tier
+    // dynasty loadSocial always setStates, which re-rendered → new loadSocial
+    // → effect re-ran → infinite loop that froze the whole recap modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isRegularWeek, currentDynasty?.id])
 
-  const prompt = useMemo(() => {
+  // Built lazily — only when the user clicks "Copy prompt" (PasteEntrySteps
+  // calls this getter). buildWeekRecapPrompt scans every team + every game, so
+  // computing it eagerly on each render pegged the CPU (currentDynasty is a
+  // fresh reference every render, defeating memoization). PasteEntrySteps
+  // treats a function as "always copyable", which is what we want whenever a
+  // dynasty is loaded.
+  const buildPrompt = useCallback(() => {
     if (!currentDynasty) return ''
     // Strip saved recap text so the AI always generates fresh. weekRecapsByYear
     // holds previously generated recaps — including them would bias the output.
@@ -135,22 +146,6 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
     ? `${yearNum} Preseason Recap`
     : `${yearNum} ${weekLabel} Recap`
 
-  const handleCopyPrompt = async () => {
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(prompt)
-      } else if (promptTextareaRef.current) {
-        promptTextareaRef.current.select()
-        document.execCommand('copy')
-      }
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Copy failed:', err)
-      toast.error('Could not copy. Select the text and copy manually.')
-    }
-  }
-
   // Shared save: take the AI's full output (from the Paste button's clipboard
   // read or the manual textarea), split off any cfb-social block, save the
   // prose recap here and the posts to the Social tab.
@@ -171,7 +166,9 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
       // out of the saved recap text and parse the posts. The recap stores the
       // prose-only text; the posts go to the social feed.
       const { found: hasSocial, body: socialBody, recapWithoutBlock } = extractSocialBlock(trimmed)
-      const recapText = hasSocial ? recapWithoutBlock : trimmed
+      // Pull the recap out of its ```markdown fence and drop anything outside it
+      // (e.g. a leading heads-up note the AI added), so the saved recap is clean.
+      const recapText = extractRecapBlock(hasSocial ? recapWithoutBlock : trimmed)
 
       // Merge into the existing year/week map. Build the full nested object so
       // local-storage and Firestore both get a clean replace at the parent.
@@ -233,17 +230,27 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
     }
   }
 
-  const handlePasteSave = async () => {
+  // Paste (step 3): drop the AI's reply into the VISIBLE draft box so the user
+  // can see it landed, then Save. Reading the clipboard can be blocked (mobile
+  // Safari especially) — on failure we open the box so they can paste by hand.
+  const handlePasteFill = async () => {
     if (isViewOnly) { toast.error('Read-only mode, cannot save.'); return }
     let text = ''
     try {
       text = await navigator.clipboard.readText()
     } catch {
-      toast.error('Clipboard access blocked — use "Paste manually" below.')
       setShowManual(true)
+      toast.error('Clipboard blocked — paste into the box below, then Save.')
       return
     }
-    await saveOutput(text)
+    if (!text.trim()) {
+      setShowManual(true)
+      toast.error('Clipboard is empty — copy the AI\'s full reply first.')
+      return
+    }
+    setDraft(text)
+    setShowManual(true)
+    toast.success('Pasted — review below and hit Save recap.')
   }
 
   const handleDelete = async () => {
@@ -352,39 +359,29 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
                 </div>
               </div>
             )}
-            {/* Off-screen mirror so the clipboard fallback (execCommand) still works. */}
-            <textarea ref={promptTextareaRef} readOnly value={prompt} aria-hidden="true" tabIndex={-1}
-              style={{ position: 'absolute', left: -9999, width: 1, height: 1, opacity: 0 }} />
           </section>
 
           <section className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={handleCopyPrompt}
-                className="px-4 py-2.5 rounded-lg text-sm font-semibold transition-all hover:opacity-90 active:scale-[0.98]"
-                style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)' }}
-              >
-                {copied ? 'Copied!' : 'Copy prompt'}
-              </button>
-              <button
-                onClick={handlePasteSave}
-                disabled={saving || isViewOnly}
-                className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-surface-4 text-txt-primary hover:border-surface-5 hover:bg-surface-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saving ? 'Saving…' : 'Paste & save'}
-              </button>
-            </div>
+            {/* Unified 3-step flow: Copy Prompt → Open your AI → Paste it back.
+                Same system the data-entry modals use, tuned for recaps (no
+                screenshot; the prompt already carries this week's context). */}
+            <PasteEntrySteps
+              aiPrompt={currentDynasty ? buildPrompt : ''}
+              onPaste={handlePasteFill}
+              showText={showManual}
+              onToggleText={() => setShowManual(v => !v)}
+              disabled={saving || isViewOnly}
+              copyEmoji={null}
+              labels={{ copy: 'Copy prompt', copyButton: 'Copy prompt', paste: 'Paste it back' }}
+              hints={{
+                screenshot: 'Tap Copy prompt — it already includes this week\'s scores, rankings, and context. No screenshot needed.',
+                ai: 'Open your AI, paste the prompt, and it writes the recap.',
+                paste: 'Copy the AI\'s ENTIRE reply, then tap Paste — it drops into the box below to review before you Save. Tap the arrow to type/paste by hand if the button is blocked.',
+              }}
+            />
 
-            <div className="flex items-center justify-between text-xs text-txt-tertiary">
-              <span>
-                {existingRecap?.generatedAt ? `Last saved ${new Date(existingRecap.generatedAt).toLocaleString()}` : 'Not saved yet'}
-              </span>
-              <button
-                onClick={() => setShowManual(v => !v)}
-                className="underline hover:text-txt-secondary"
-              >
-                {showManual ? 'Hide manual paste' : 'Paste manually'}
-              </button>
+            <div className="text-xs text-txt-tertiary text-center">
+              {existingRecap?.generatedAt ? `Last saved ${new Date(existingRecap.generatedAt).toLocaleString()}` : 'Not saved yet'}
             </div>
 
             {recapDrift && (

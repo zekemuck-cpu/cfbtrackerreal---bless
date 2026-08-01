@@ -19,9 +19,11 @@ import {
   isBowlInWeek2,
   getBowlGamesWeek2,
 } from '../services/sheetsService'
-import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { getCurrentTeamAbbr, getCurrentTeamTid, TEAMS, getGameTeamInfo, getTeamNameLabel } from '../data/teamRegistry'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 import { DEFAULT_BOWL_CONFIG, CFP_NY6_BOWLS, CFP_BRACKET_SLOTS } from '../data/cfpConstants'
 
 const isMobileDevice = () => {
@@ -49,10 +51,14 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
   const [useEmbedded, setUseEmbedded] = useState(() => localStorage.getItem('sheetEmbedPreference') === 'true')
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   // Rankings week — default to current dynasty postseason week slot.
   const effectiveRankWeek = (() => {
@@ -99,10 +105,10 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     const firstRoundResults = allGames
       .filter(g => g && (g.gameType === 'cfp_first_round' || g.isCFPFirstRound) && Number(g.year) === Number(currentYear))
       .map(g => {
-        const t1 = g.team1Tid ? getGameTeamInfo(teams, g.team1Tid)?.abbr || g.team1 : g.team1
-        const t2 = g.team2Tid ? getGameTeamInfo(teams, g.team2Tid)?.abbr || g.team2 : g.team2
+        const t1 = g.team1Tid ? (getTeamNameLabel(teams, g.team1Tid) || getGameTeamInfo(teams, g.team1Tid)?.abbr || g.team1) : g.team1
+        const t2 = g.team2Tid ? (getTeamNameLabel(teams, g.team2Tid) || getGameTeamInfo(teams, g.team2Tid)?.abbr || g.team2) : g.team2
         const winnerTid = g.winnerTid != null ? Number(g.winnerTid) : null
-        const winner = g.winner || (winnerTid ? getGameTeamInfo(teams, winnerTid)?.abbr : null)
+        const winner = (winnerTid ? getTeamNameLabel(teams, winnerTid) : null) || g.winner || (winnerTid ? getGameTeamInfo(teams, winnerTid)?.abbr : null)
         return { seed1: g.seed1, seed2: g.seed2, team1: t1, team2: t2, winner, winnerTid }
       })
     const excluded = []
@@ -144,7 +150,7 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         if (!rbw) continue
         const v = rbw[slot] ?? rbw[String(slot)]
         if (typeof v !== 'number' || v < 1 || v > 25) continue
-        if (!slotMap.has(v)) slotMap.set(v, team.abbr)
+        if (!slotMap.has(v)) slotMap.set(v, getTeamNameLabel(teamsData, team.tid) || team.abbr)
       }
       return slotMap
     }
@@ -175,14 +181,13 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
     const cfpSeeds = currentDynasty?.cfpSeedsByYear?.[currentYear] || []
     const teams = currentDynasty?.teams || TEAMS
     const cfg = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || DEFAULT_BOWL_CONFIG
-    const abbrFromTid = (tid) => {
+    const nameFromTid = (tid) => {
       if (tid == null) return null
-      const info = getGameTeamInfo(teams, tid)
-      return info?.abbr || null
+      return getTeamNameLabel(teams, tid) || getGameTeamInfo(teams, tid)?.abbr || null
     }
     const seedToAbbr = (seed) => {
       const entry = cfpSeeds.find(s => s.seed === seed)
-      return entry ? (abbrFromTid(entry.tid) || entry.team || null) : null
+      return entry ? (nameFromTid(entry.tid) || entry.team || null) : null
     }
 
     // First-round winners by seed-pair, derived from games[].
@@ -193,10 +198,11 @@ export default function BowlWeek2Modal({ isOpen, onClose, onSave, currentYear, t
         const seed1 = g.seed1 ?? slotCfg?.higherSeed ?? null
         const seed2 = g.seed2 ?? slotCfg?.lowerSeed ?? null
         const winnerTid = g.winnerTid != null ? Number(g.winnerTid) : null
-        let winnerAbbr = g.winner || (winnerTid ? abbrFromTid(winnerTid) : null)
+        // Prefer the tid-derived NAME; fall back to any stored winner string.
+        let winnerAbbr = (winnerTid ? nameFromTid(winnerTid) : null) || g.winner || null
         if (!winnerAbbr && typeof g.team1Score === 'number' && typeof g.team2Score === 'number') {
           const winningTid = g.team1Score > g.team2Score ? g.team1Tid : g.team2Tid
-          winnerAbbr = abbrFromTid(winningTid) || null
+          winnerAbbr = nameFromTid(winningTid) || null
         }
         return { seed1, seed2, winner: winnerAbbr }
       })
@@ -282,15 +288,14 @@ CRITICAL RULES — read before anything else
 3. Output ONE row per bowl shown in the screenshot, with EXACTLY 6 tab-separated values per row.
 4. NO COMMAS in numbers. "24" never "1,234".
 5. INTEGERS ONLY for scores — no decimals, no "pts".
-6. TEAM ABBREVIATIONS ONLY (columns B and D) — use the abbreviation mapping below. Columns B and D are strict dropdowns.
+6. TEAM NAMES ONLY (columns B and D) — use the TEAM NAMES list below. Columns B and D are strict dropdowns.
 7. RANKS (columns C and E): integer 1–25 if the team is ranked at the time of the bowl, BLANK if unranked. Rankings appear as a number prefix on the team name in the scores list (e.g. "4 Alabama" = Alabama is #4). No prefix = unranked = leave blank. Never write "NR" or "—".
 8. BLANK CELLS if unknown. Never guess, never use "N/A", "TBD", dash. Zero is only valid if the team truly scored zero.
-9. No header row, no Bowl Game text, no winner column, no commentary INSIDE the data. The paste-target label above the fence is required (see TSV delivery rules above).
-10. ONE TSV block — preceded by the paste-target label line as required by the TSV delivery rules above.
+9. No header row, no Bowl Game text, no winner column, no commentary INSIDE the data.
+10. ONE TSV block — output ONLY the fenced block, nothing before or after it.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Bowl Games" — ${13 - excludedBowlGames.length} rows × 6 editable columns
-Paste your block at cell B2 of the "Bowl Games" tab
+SECTION: "Bowl Games" — ${13 - excludedBowlGames.length} rows × 6 editable columns
 ═══════════════════════════════════════════════════════════
 
 ═══════════════════════════════════════════════════════════
@@ -314,12 +319,12 @@ Col A (PROTECTED)    | Col B (Team 1) | Col C (T1 Rank) | Col D (Team 2) | Col E
 ---------------------+----------------+-----------------+----------------+-----------------+------------------+------------------
 pre-filled bowl name | team abbr      | rank or blank   | team abbr      | rank or blank   | integer          | integer
 
-Column B, Column D: STRICT dropdown of team abbreviations — use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt.
+Column B, Column D: STRICT dropdown of team names — use ONLY values from the TEAM NAMES list at the bottom of this prompt.
 Column C, Column E: integer rank 1–25 if ranked, BLANK if unranked. Read directly from the number prefix shown on the team name in the screenshot.
 Column F, Column G: integer score (0 or higher), no commas, no decimal point.
 
-For "(CFP QF)" rows, the team abbreviations are PRE-DETERMINED by this
-dynasty's playoff seeds — use the EXACT abbreviations shown in the
+For "(CFP QF)" rows, the team names are PRE-DETERMINED by this
+dynasty's playoff seeds — use the EXACT team names shown in the
 right-hand column of the row table above. Team 1 (column B) is always
 the First Round winner (the lower-seeded team that advanced); Team 2
 (column D) is the bye seed (1–4). Do NOT swap, do NOT substitute
@@ -369,13 +374,12 @@ HOW TO BUILD THIS BLOCK:
 
 For each team in this block, output ONE row:
   • Leave Col A BLANK (no bowl name)
-  • Col B = team abbreviation (from the TEAM ABBREVIATIONS mapping)
+  • Col B = team name (from the TEAM NAMES list)
   • Col C = their AP rank (1–25)
   • Cols D–G = leave blank
 
 Format: <TeamAbbr>\\t<Rank>\\t\\t\\t\\t
-(team, tab, rank, then 4 blank tabs — NO leading tab. The block pastes at
-cell B2, so the team lands in Col B and the rank in Col C; Col A stays blank.)
+(team, tab, rank, then 4 blank tabs — NO leading tab.)
 
 Only list teams that WERE ranked in the Prior-Week Top 25 above. If every
 ranked team already shows its AP rank on a regular bowl row, emit NO rows
@@ -385,7 +389,7 @@ do NOT invent rankings.
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== BOWL GAMES — paste at cell B2 of "Bowl Games" tab ===
+=== BOWL GAMES ===
 <row1 Team1>\\t<row1 T1Rank>\\t<row1 Team2>\\t<row1 T2Rank>\\t<row1 T1Score>\\t<row1 T2Score>
 <row2 Team1>\\t<row2 T1Rank>\\t<row2 Team2>\\t<row2 T2Rank>\\t<row2 T1Score>\\t<row2 T2Score>
 ... (one row per bowl in the screenshot, in the screenshot's alphabetical order)
@@ -401,20 +405,123 @@ FINAL CHECK before you send the answer
 [ ] Row count matches the number of bowl rows shown in the screenshot exactly (${13 - excludedBowlGames.length} rows)
 [ ] Row order matches the screenshot's pre-filled Bowl Game column top-to-bottom (alphabetical)
 [ ] Exactly 6 tab-separated values per game row (5 tab characters per line)
-[ ] Columns B and D are team ABBREVIATIONS only, from the TEAM ABBREVIATIONS mapping
+[ ] Columns B and D are team NAMES only, from the TEAM NAMES list
 [ ] Columns C and E are ranks (1–25) or BLANK — never "NR", never guessed
 [ ] Scores are INTEGERS only — no commas, no decimals, no "pts"
-[ ] For "(CFP QF)" rows: used the exact team abbreviations from the right-hand column of the EXACT ROW ORDER table above (not real-world bowl matchups, not guessed); Team 1 = First Round winner (lower seed), Team 2 = bye seed (1-4)
+[ ] For "(CFP QF)" rows: used the exact team names from the right-hand column of the EXACT ROW ORDER table above (not real-world bowl matchups, not guessed); Team 1 = First Round winner (lower seed), Team 2 = bye seed (1-4)
 [ ] Line N of my output corresponds to row N+1 of the sheet exactly per the row table — I did NOT re-alphabetize or reorder
 [ ] Blank cells for any unknown scores or unplayed bowls — invented nothing
 [ ] Bottom block = ranked teams whose AP rank is NOT on a regular bowl row: non-playing teams PLUS CFP teams (CFP rows show a seed, not the AP rank)
 [ ] No team appears in BOTH a REGULAR bowl row and the bottom block — regular-bowl teams' AP ranks live on their game row only
 [ ] Bottom-block rows have blank Col A, team abbr in Col B, rank in Col C
 [ ] Regular-bowl game-row ranks + bottom-block ranks together cover 1–25 — no gaps, no duplicates, no collisions
-[ ] No header row, no bowl name text, no winner column INSIDE the data. The paste-target label above the fence is required (see TSV delivery rules above).`,
+[ ] No header row, no bowl name text, no winner column INSIDE the data.`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block, bw2RowTable])
+
+  // LOCAL-PASTE prompt: SELF-DESCRIBING rows. Every game row LEADS with its
+  // exact bowl name (the identity the save matches on, including any "(CFP QF)"
+  // suffix) — so there is NO pre-filled column to align against and NO fixed
+  // row order. Poll rows lead with a POLL sentinel (splitTsv drops the blank
+  // separator the sheet used to mark the poll block). The import reshapes both
+  // back into the parser's column layout.
+  const localAiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Bowl Week 2 Results`,
+    structure: `You produce TWO kinds of SELF-DESCRIBING lines: GAME lines (each LEADS with its exact bowl name) and POLL lines (each LEADS with the word POLL). There is NO pre-filled column and NO fixed row order — every line carries its own identity. The CFP Quarterfinal games have a bowl name ending in "(CFP QF)".${excludedBowlGames.length > 0 ? `
+
+⚠️ GAMES TO IGNORE — you may see these in your screenshots, but do NOT output a line for them:
+${excludedBowlGames.map(g => `  • ${g}`).join('\n')}` : ''}
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. GAME line — EXACTLY 7 tab-separated fields: BowlName<TAB>Team1<TAB>Team1Rank<TAB>Team2<TAB>Team2Rank<TAB>Team1Score<TAB>Team2Score.
+2. POLL line — EXACTLY 3 tab-separated fields: POLL<TAB>Rank<TAB>TeamAbbr (the literal word POLL as the first field).
+3. NO header row. NO blank lines. NO commentary, totals, or labels INSIDE the data.
+4. OMIT any bowl whose result you cannot see — do NOT pad, do NOT guess, do NOT invent scores. A bowl with no line is left unchanged.
+5. BowlName MUST be one of the EXACT pre-defined bowl names listed in the BOWL NAMES table below — copy it CHARACTER-FOR-CHARACTER, INCLUDING the "(CFP QF)" suffix where shown. This name is the ONLY identifier for the game.
+6. Team1 / Team2 are team names from the TEAM NAMES list at the bottom — NEVER an abbreviation, nickname, mascot, or city.
+7. Team1Rank / Team2Rank: integer 1–25 if the team is ranked at bowl time, BLANK if unranked. Read off the number prefix on the team name. Never "NR" or "—".
+8. Team1Score / Team2Score: integers (no commas, no decimals, no "pts"). If teams are known but scores aren't, leave both score fields blank (still keep all 7 fields / 6 tabs).
+9. For "(CFP QF)" rows, use the exact team names shown in the BOWL NAMES table's right-hand hint column. Team 1 = First Round winner (lower seed that advanced), Team 2 = bye seed (1-4). Do NOT swap or substitute real-world matchups.
+10. POLL lines are ONLY for ranked teams whose AP rank does NOT appear on a REGULAR (non-CFP) game line above. CFP teams DO get a POLL line (their game line shows a SEED, not the AP rank). Do not duplicate a regular-bowl team in a POLL line.
+
+═══════════════════════════════════════════════════════════
+BOWL NAMES — copy column A exactly (identity for each game line)
+═══════════════════════════════════════════════════════════
+${bw2RowTable}
+
+═══════════════════════════════════════════════════════════
+PRIOR-WEEK TOP 25 — entering Bowl Week 2 (post-Bowl-Week-1 poll)
+═══════════════════════════════════════════════════════════
+These teams were ranked BEFORE Bowl Week 2. Use as the baseline for POLL lines (ranks for teams not on a regular game line).
+
+${prevWeekTop25Block || '  (no prior-week Top 25 stored — emit POLL lines only for ranks clearly visible in screenshots, otherwise omit them)'}
+
+═══════════════════════════════════════════════════════════
+PER-LINE OUTPUT
+═══════════════════════════════════════════════════════════
+GAME:  <BowlName><TAB><Team1><TAB><Team1Rank><TAB><Team2><TAB><Team2Rank><TAB><Team1Score><TAB><Team2Score>
+POLL:  POLL<TAB><Rank><TAB><TeamAbbr>
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== BOWL WEEK 2 ===
+<BowlName>\\t<Team1>\\t<Team1Rank>\\t<Team2>\\t<Team2Rank>\\t<Team1Score>\\t<Team2Score>
+…one GAME line per bowl you can see; omit unknowns entirely
+POLL\\t<Rank>\\t<TeamAbbr>
+…one POLL line per ranked team NOT already on a regular game line (include CFP teams); omit if no prior-week poll
+
+(Each \\t above represents a LITERAL TAB character — use actual tab characters, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every GAME line has exactly 7 tab-separated fields (six tabs) and LEADS with an exact bowl name from the BOWL NAMES table (with the "(CFP QF)" suffix where shown)
+[ ] Every POLL line has exactly 3 fields: the literal word POLL, then rank, then team abbr
+[ ] Team values are team names from the TEAM NAMES list
+[ ] Ranks are 1–25 or blank; scores are integers with no commas or decimals
+[ ] "(CFP QF)" lines use the exact teams from the hint column; Team1 = First Round winner, Team2 = bye seed
+[ ] No team is on BOTH a regular game line and a POLL line; CFP teams appear on a POLL line with their AP rank
+[ ] No blank lines, no header row, no commentary — only games you can see and the poll lines that complete the Top 25`,
+    includeTeamMap: true,
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams, excludedBowlGames, prevWeekTop25Block, bw2RowTable])
+
+  // Local paste import. The AI emits SELF-DESCRIBING lines:
+  //   GAME: BowlName<TAB>Team1<TAB>T1Rank<TAB>Team2<TAB>T2Rank<TAB>T1Score<TAB>T2Score
+  //   POLL: POLL<TAB>Rank<TAB>TeamAbbr
+  // The parser (readBowlWeek2GamesFromSheet) detects games by NON-empty col A
+  // and poll rows by EMPTY col A (abbr in col B, rank in col C), and the save
+  // keys games by BOWL NAME (identity). So GAME rows pass straight through
+  // (bowl name already in col A), and POLL rows are reshaped POLL/Rank/Team →
+  // ['', Team, Rank] to recreate the empty-col-A poll layout. The SF host-bowl
+  // config is persisted first, mirroring handleSave.
+  const handleLocalImport = async (text) => {
+    await persistSfBowlConfig()
+    const splitRows = splitTsv(text)
+    const rows = splitRows.map(row => {
+      if (row[0] === 'POLL') {
+        return ['', row[2] || '', row[1] || '']
+      }
+      return row
+    })
+    const bowlGames = await readBowlWeek2GamesFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows })
+
+    const pollEntries = bowlGames.pollEntries || []
+    if (pollEntries.length > 0 && currentDynasty?.id) {
+      try {
+        await saveRankings(currentDynasty.id, pollEntries, currentYear, rankWeek)
+      } catch (e) {
+        console.error('Failed to save bowl week 2 rankings:', e)
+      }
+    }
+
+    await onSave(bowlGames)
+    onClose()
+  }
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -438,8 +545,15 @@ FINAL CHECK before you send the answer
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -568,10 +682,10 @@ FINAL CHECK before you send the answer
       }
     }
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
-    if (!isOpen) { setShowDeletedNote(false); creatingSheetRef.current = false; setSheetId(null) }
+    if (!isOpen) { setShowDeletedNote(false); creatingSheetRef.current = false; creationAttemptedRef.current = false; setSheetId(null); setUseLocal(true) }
   }, [isOpen])
 
   const handleSave = async (alsoDelete) => {
@@ -652,6 +766,38 @@ FINAL CHECK before you send the answer
     </select>
   )
 
+  // Semifinal host-bowl picker — the local-paste path needs this so the user
+  // can set SF host bowls before importing (persistSfBowlConfig runs on
+  // import). Same markup the Google branches render.
+  const sfHostBowlsBlock = (
+    <div className="p-3 rounded-lg border bg-surface-2 border-surface-4">
+      <h4 className="text-xs font-bold uppercase mb-1.5 text-txt-primary" style={{ letterSpacing: '1.5px' }}>Semifinal Host Bowls</h4>
+      {(() => {
+        const savedConfig = currentDynasty?.cfpBowlConfigByYear?.[currentYear] || {}
+        const qfBowls = new Set(['seed1', 'seed2', 'seed3', 'seed4'].map(k => savedConfig[k]).filter(Boolean))
+        const sfOptions = CFP_NY6_BOWLS.filter(b => !qfBowls.has(b))
+        const bowlChoices = sfOptions.length > 0 ? sfOptions : CFP_NY6_BOWLS
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[{ key: 'sf1', label: 'Semifinal 1 host (1/4-seed bracket)' }, { key: 'sf2', label: 'Semifinal 2 host (2/3-seed bracket)' }].map(({ key, label }) => {
+              const current = sfBowlConfig[key]
+              const opts = bowlChoices.includes(current) ? bowlChoices : [current, ...bowlChoices]
+              return (
+                <div key={key}>
+                  <label className="text-[10px] block mb-0.5 text-txt-tertiary">{label}</label>
+                  <select value={current} onChange={(e) => setSfBowlConfig(prev => ({ ...prev, [key]: e.target.value }))} className="w-full px-2 py-1 rounded text-xs border bg-surface-3 border-surface-4 text-txt-primary">
+                    {opts.map(bowl => <option key={bowl} value={bowl}>{bowl}</option>)}
+                  </select>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
+      {sfBowlConfig.sf1 === sfBowlConfig.sf2 && <p className="text-[11px] mt-1.5 text-red-400 font-medium">Each semifinal needs a different host bowl.</p>}
+    </div>
+  )
+
   return createPortal(
     <div
       className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] py-8 px-4 sm:p-4"
@@ -684,7 +830,30 @@ FINAL CHECK before you send the answer
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {isLoading ? (
+          {useLocal && !showDeletedNote ? (
+            <div className="flex-1 overflow-y-auto px-5 sm:px-7 py-5">
+              <LocalDataEntry
+                aiPrompt={localAiPrompt}
+                onImport={handleLocalImport}
+                onUseGoogle={() => setUseLocal(false)}
+                onCancel={onClose}
+                importLabel="Import Bowl Week 2"
+              >
+                {sfHostBowlsBlock}
+                <section className="text-center">
+                  <label htmlFor="bw2-rank-week" className="label-xs text-txt-tertiary block mb-2">
+                    Rankings week
+                  </label>
+                  <div className="flex justify-center">
+                    {rankWeekSelect}
+                  </div>
+                  <p className="text-xs text-txt-tertiary mt-2 leading-relaxed">
+                    The Top 25 the AI extracts from your screenshot lands in this week's poll slot.
+                  </p>
+                </section>
+              </LocalDataEntry>
+            </div>
+          ) : isLoading ? (
             <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center">
                 <div className="animate-spin w-10 h-10 border-2 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />

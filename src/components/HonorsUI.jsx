@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
-import { proxyImageUrl } from '../utils/imageProxy'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { FittedTeamName } from './ui'
+import PlayerAvatar from './PlayerAvatar'
 
 // Hex (#rgb / #rrggbb) → rgba() string for team-color gradient washes.
 const hexA = (hex, a) => {
@@ -22,7 +22,6 @@ export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr,
   // contrast-aware; the team chip + avatar sit in dark translucent pills so
   // they read on any team color.
   const txt = getContrastTextColor(primary)
-  const initial = (name || '?').trim().charAt(0).toUpperCase()
   const inner = (
     <div className="relative z-[1] flex items-center gap-2 px-2 py-2">
       {rankBadge != null && (
@@ -38,16 +37,9 @@ export function HonorPlayerTile({ position, name, klass, schoolName, schoolAbbr,
           {position}
         </span>
       )}
-      <span
-        className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-        style={{ backgroundColor: 'rgba(0,0,0,0.28)' }}
-      >
-        {photoUrl
-          ? <img src={proxyImageUrl(photoUrl, 120)} alt="" className="w-full h-full object-cover" />
-          : teamLogo
-            ? <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
-            : <span className="text-sm font-bold" style={{ color: txt }}>{initial}</span>}
-      </span>
+      <PlayerAvatar photoUrl={photoUrl} teamLogo={teamLogo} name={name} size={36} />
+
+
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-sm leading-tight truncate" style={{ color: txt, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{name}</div>
         <div className="mt-1 flex items-center gap-1.5 min-w-0">

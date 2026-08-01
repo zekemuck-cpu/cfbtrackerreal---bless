@@ -6,9 +6,12 @@ import ScoutAnalysis from './ScoutAnalysis';
 import ThresholdLookup from './ThresholdLookup';
 import PlayerCount from './PlayerCount';
 import { useDynasty, getRecruitingCommitments, getCurrentRoster, getPlayerClassForYear } from '../context/DynastyContext';
+import { isMyTarget } from '../utils/recruitingTargets';
+import { getCurrentTeamTid } from '../data/teamRegistry';
 import { flattenClassCommitments } from '../utils/recruitingScore';
 import { positionBucket, recruitingPosLabel } from '../utils/recruitAttributes';
 import { useTeamColors } from '../hooks/useTeamColors';
+import { getMascotName } from '../data/teams';
 import { computeRecentRanks } from '../utils/recruitingDatabasePool';
 import { resolveRecruitGroup } from '../utils/recruitGroup';
 import { useToast } from './ui';
@@ -71,10 +74,15 @@ function shapeRecruit(pl, addedIndex) {
 const SECTION_TO_VIEW = { database: 'database', outlook: 'analysis', thresholds: 'thresholds', counts: 'counts' };
 
 export default function ScoutStaff({ year, section = 'staff', onNavigate, toolbarActionsRef = null, onToolbarReady = null } = {}) {
-  const { currentDynasty, updateDynasty, updatePlayer, isViewOnly } = useDynasty();
+  const { currentDynasty, updateDynasty, updatePlayer, isViewOnly, activeUserTid } = useDynasty();
   const { toast } = useToast();
-  const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams);
+  // Resolve the team's display name LIVE from currentTid so a mid-dynasty rename
+  // flows into the color theming AND the AI scouting brief. Fall back to the
+  // stored teamName snapshot only when no tid is in scope (legacy dynasties).
+  const currentTeamName = getMascotName(currentDynasty?.currentTid, currentDynasty?.teams) || currentDynasty?.teamName;
+  const teamColors = useTeamColors(currentTeamName, currentDynasty?.teams);
   const teamLogo   = currentDynasty?.teams?.[currentDynasty?.currentTid]?.logo || '';
+
 
   // One-time cloud migration: earlier builds stored Scout Staff config only in
   // a device-local IndexedDB ('ScoutStaffComprehensiveDB'). Now it lives on
@@ -114,7 +122,8 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDynasty?.id, currentDynasty?.scoutStaff, isViewOnly]);
-
+  // v15: navigation moved up to Recruiting.jsx, which passes the active section
+  // as a prop; subView is derived from it (was internal searchParams before).
   const subView = SECTION_TO_VIEW[section] || 'home';
   const [dbHighlightPid, setDbHighlightPid] = useState(null);
   const highlightPid = dbHighlightPid;
@@ -133,6 +142,9 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
   // let the live computation silently replace it once it resolves.
   const [outlookSummary, setOutlookSummary] = useState(null);
   const dynastyId = currentDynasty?.id ?? null;
+  // The team whose recruiting board this is. In a shared league that's the
+  // acting member's own team, not the dynasty's (owner's) current team.
+  const myRecruitingTid = activeUserTid ?? getCurrentTeamTid(currentDynasty);
   const cachedOutlookSummary = useMemo(() => {
     if (!dynastyId) return null;
     try {
@@ -154,11 +166,12 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
   const recruits = useMemo(() => {
     const players = currentDynasty?.players || [];
     return players
-      .filter(pl => pl?.isTarget && pl.name)
+      // Shared leagues share one players array — only MY board's targets.
+      .filter(pl => pl?.isTarget && pl.name && isMyTarget(pl, myRecruitingTid))
       .map((pl, globalIndex) => ({ pl, globalIndex }))
       .filter(({ pl }) => Number(pl.targetYear) === boardYear)
       .map(({ pl, globalIndex }) => shapeRecruit(pl, globalIndex));
-  }, [currentDynasty?.players, currentDynasty?.id, boardYear]);
+  }, [currentDynasty?.players, currentDynasty?.id, boardYear, myRecruitingTid]);
 
   // Same shaping as `recruits` above, but NOT scoped to the current class
   // year — the Recruiting Database (and Threshold Lookup) are "every recruit
@@ -170,9 +183,9 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
   const allYearRecruits = useMemo(() => {
     const players = currentDynasty?.players || [];
     return players
-      .filter(pl => pl?.isTarget && pl.name)
+      .filter(pl => pl?.isTarget && pl.name && isMyTarget(pl, myRecruitingTid))
       .map((pl, globalIndex) => shapeRecruit(pl, globalIndex));
-  }, [currentDynasty?.players, currentDynasty?.id]);
+  }, [currentDynasty?.players, currentDynasty?.id, myRecruitingTid]);
 
   // Active board — excludes anything removed via the Targets tab's remove toggle. Drives
   // Program Outlook and Threshold Lookup, scoped to this dynasty's current class only.
@@ -558,6 +571,7 @@ export default function ScoutStaff({ year, section = 'staff', onNavigate, toolba
       {subView === 'database'   && <PlayerDatabase players={freshmanRecruits} roleContext="National Scout" dynastyId={dynastyId} {...teamTheme} onEdit={isViewOnly ? null : handleEditDatabasePlayer} onDelete={isViewOnly ? null : handleDeleteDatabasePlayer} highlightPid={highlightPid} actionsRef={toolbarActionsRef} onReady={onToolbarReady} />}
       {subView === 'thresholds' && <ThresholdLookup players={thresholdRecruits} roleContext="Data Analyst" dynastyId={dynastyId} {...teamTheme} jumpTarget={thresholdsJumpTarget} actionsRef={toolbarActionsRef} onReady={onToolbarReady} />}
       {subView === 'counts'     && <PlayerCount onSelectBucket={goToThresholdsBucket} {...teamTheme} actionsRef={toolbarActionsRef} onReady={onToolbarReady} />}
+
 
       {/* Always mounted so allHubs recomputes live whenever recruits or roster data changes.
           Hidden when not on the analysis view — UI is invisible but computation runs.

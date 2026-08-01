@@ -47,22 +47,40 @@ export default async function handler(req, res) {
     const subscriptionId = userData?.subscriptionId;
     const customerId = userData?.stripeCustomerId;
 
-    if (subscriptionId) {
+    // Cancel by ENUMERATING the customer's subscriptions rather than
+    // trusting a stored subscriptionId — that id can be missing or stale
+    // (e.g. nulled by customer.deleted), which would otherwise leave a
+    // paying user billed after deletion (audit H4). Fall back to the
+    // stored id only if we have no customer to list from.
+    const toCancel = new Set();
+    if (customerId) {
       try {
-        await stripe.subscriptions.cancel(subscriptionId);
-        result.stripe = 'subscription_canceled';
+        const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 });
+        for (const s of subs.data) {
+          if (s.status !== 'canceled' && s.status !== 'incomplete_expired') toCancel.add(s.id);
+        }
       } catch (e) {
-        // Already canceled / not found is fine. Other errors we log and
-        // continue — Stripe state we can't sync to here gets handled by
-        // the customer.subscription.deleted webhook arriving later.
-        console.warn('[account/delete] stripe.subscriptions.cancel:', e.message);
-        result.stripe = 'cancel_failed_continuing';
-        result.errors.push(`stripe: ${e.message}`);
+        console.warn('[account/delete] stripe.subscriptions.list:', e.message);
+        result.errors.push(`stripe_list: ${e.message}`);
       }
-    } else if (customerId) {
-      result.stripe = 'no_subscription_only_customer';
+    }
+    if (subscriptionId) toCancel.add(subscriptionId);
+
+    if (toCancel.size > 0) {
+      let canceled = 0;
+      for (const subId of toCancel) {
+        try {
+          await stripe.subscriptions.cancel(subId);
+          canceled++;
+        } catch (e) {
+          // Already canceled / not found is fine; the webhook reconciles.
+          console.warn('[account/delete] stripe.subscriptions.cancel:', e.message);
+          result.errors.push(`stripe_cancel ${subId}: ${e.message}`);
+        }
+      }
+      result.stripe = `canceled ${canceled}/${toCancel.size}`;
     } else {
-      result.stripe = 'no_stripe_link';
+      result.stripe = customerId ? 'no_active_subscriptions' : 'no_stripe_link';
     }
   } catch (e) {
     console.warn('[account/delete] could not read user doc for stripe step:', e.message);
@@ -77,8 +95,10 @@ export default async function handler(req, res) {
     const dynastiesSnap = await db.collection('dynasties').where('userId', '==', userId).get();
     let dynastiesDeleted = 0;
     for (const dynastyDoc of dynastiesSnap.docs) {
-      // Delete known subcollections first
-      for (const sub of ['players', 'games']) {
+      // Delete ALL known subcollections first. Missing any of these
+      // orphans user data after a "permanent" delete (audit H4) — keep
+      // this list in sync with the subcollections in firestore.rules.
+      for (const sub of ['players', 'games', 'seasons', 'weekRecaps', 'socialFeed', 'socialCharacters', 'invites']) {
         const subSnap = await dynastyDoc.ref.collection(sub).get();
         if (subSnap.empty) continue;
         // Batch in chunks of 400 to stay under Firestore's 500-op limit.
@@ -114,5 +134,10 @@ export default async function handler(req, res) {
   }
 
   const ok = result.auth === 'deleted' && result.firestore.startsWith('ok');
-  return res.status(ok ? 200 : 500).json({ ok, ...result });
+  if (result.errors.length) {
+    console.error('[account/delete] completed with errors:', result.errors);
+  }
+  // Return step statuses but NOT the raw internal error strings (audit M6).
+  const { errors, ...safe } = result;
+  return res.status(ok ? 200 : 500).json({ ok, ...safe });
 }

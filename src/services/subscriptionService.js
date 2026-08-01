@@ -69,10 +69,20 @@ export function isPremiumSubscription(subscriptionData) {
     return true;
   }
 
-  // past_due → grace period from when it transitioned to past_due
+  // past_due → bounded grace. Prefer the server-stamped deadline in
+  // currentPeriodEnd (the webhook writes one on invoice.payment_failed),
+  // which is exactly what firestore.rules enforces. Fall back to a 7-day
+  // window anchored on updatedAt for docs written before that deadline
+  // existed. Never grant UNBOUNDED premium when there's no anchor — that
+  // was the drift that let a failed-payment account keep access forever
+  // (audit H2).
   if (subscriptionStatus === 'past_due') {
+    if (currentPeriodEnd) {
+      const endDate = currentPeriodEnd.toDate ? currentPeriodEnd.toDate() : new Date(currentPeriodEnd);
+      return endDate > new Date();
+    }
     const ref = updatedAt?.toDate ? updatedAt.toDate() : (updatedAt ? new Date(updatedAt) : null);
-    if (!ref) return true; // no anchor → grant grace until next event
+    if (!ref) return false; // no anchor → do not grant unbounded premium
     return (Date.now() - ref.getTime()) < PAST_DUE_GRACE_MS;
   }
 
@@ -128,8 +138,19 @@ export async function createCheckoutSession() {
   if (isLocalDev()) {
     throw new Error('Stripe checkout is only available in production. Deploy to Vercel to test payments.');
   }
-  const { url } = await postAuthed('/api/create-checkout-session');
-  return url;
+  // Returns { url } for a fresh checkout, or { alreadySubscribed: true }
+  // when the server found a live subscription and self-healed the account
+  // instead of double-charging it.
+  return postAuthed('/api/create-checkout-session');
+}
+
+/**
+ * Confirm a completed checkout directly against Stripe (webhook-independent
+ * activation). Returns { ok, status } on success, { pending } while the
+ * subscription hasn't materialized yet.
+ */
+export async function confirmCheckout(sessionId) {
+  return postAuthed('/api/confirm-checkout', sessionId ? { sessionId } : {});
 }
 
 export async function createPortalSession() {
@@ -141,8 +162,17 @@ export async function createPortalSession() {
 }
 
 export async function redirectToCheckout() {
-  const url = await createCheckoutSession();
-  window.location.href = url;
+  const result = await createCheckoutSession();
+  if (result?.alreadySubscribed) {
+    // The server found a live subscription and restored premium on the
+    // account instead of charging again. Route through the same success
+    // flow the normal checkout return uses so the user sees confirmation.
+    window.location.href = '/?payment=success';
+    return;
+  }
+  if (result?.url) {
+    window.location.href = result.url;
+  }
 }
 
 export async function redirectToPortal() {

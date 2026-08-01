@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useDynasty, getGamesByType, GAME_TYPES } from '../context/DynastyContext'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
-import { TEAMS, getGameTeamInfo } from '../data/teamRegistry'
+import { TEAMS, getGameTeamInfo, getTeamNameLabel } from '../data/teamRegistry'
 import { getModalColors, getContrastTextColor } from '../utils/colorUtils'
 import { useToast } from './ui/Toast'
 
@@ -93,7 +93,7 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
     const teamData = getGameTeamInfo(teams, tid)
     if (!teamData) return null
     const abbr = teamData.abbr
-    const mascotName = mascotMap[abbr] || teamData.name
+    const mascotName = teamData.name || mascotMap[abbr]
     const logo = teamData.logo || (mascotName ? getTeamLogo(mascotName, teams) : null)
     return {
       abbr,
@@ -123,17 +123,15 @@ export default function CFPChampionshipModal({ isOpen, onClose, onSave, currentY
       const teams = currentDynasty?.teams || TEAMS
       const getGameWinner = (game) => {
         if (!game) return ''
-        // Try winner field first
-        if (game.winner) return game.winner
-        // Derive from winnerTid for unified format
+        // Prefer the tid-derived NAME (tid-rooted); fall back to any stored string.
         if (game.winnerTid) {
-          const winnerInfo = getGameTeamInfo(teams, game.winnerTid)
-          return winnerInfo?.abbr || ''
+          return getTeamNameLabel(teams, game.winnerTid) || getGameTeamInfo(teams, game.winnerTid)?.abbr || ''
         }
+        if (game.winner) return game.winner
         // Fallback: compute from scores (coerce — scores may be stored as strings)
         if (game.team1Score !== undefined && game.team2Score !== undefined) {
-          const t1 = game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : game.team1
-          const t2 = game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : game.team2
+          const t1 = (game.team1Tid ? getTeamNameLabel(teams, game.team1Tid) : null) || (game.team1Tid ? getGameTeamInfo(teams, game.team1Tid)?.abbr : game.team1)
+          const t2 = (game.team2Tid ? getTeamNameLabel(teams, game.team2Tid) : null) || (game.team2Tid ? getGameTeamInfo(teams, game.team2Tid)?.abbr : game.team2)
           return Number(game.team1Score) > Number(game.team2Score) ? t1 : t2
         }
         return ''

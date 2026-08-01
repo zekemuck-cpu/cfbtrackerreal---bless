@@ -26,3 +26,15 @@ migrated-dynasty.json
 
 # Brainstorming visual-companion artifacts
 .superpowers/
+
+# CFB27 PC save-import artifacts — never commit
+scratch_ro27_asar/
+firebase-debug.log
+firestore-debug.log
+# 800MB portrait library: served from CDN, not the repo
+public/cfb27-portraits/
+
+# Windows temp/scratch artifacts that have been accidentally committed before
+# (a 32 MB c27_schema.xml landed in PC V4 with the whole temp path as its name).
+Users*AppData*Temp*
+*c27_schema.xml

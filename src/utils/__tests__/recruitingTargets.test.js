@@ -5,6 +5,7 @@ import {
   classifyCommitment,
   isOpenTarget,
   getTargetStatus,
+  isMyTarget,
   resolveTargetCommitment,
   buildCommitmentRecord,
   PURSUING,
@@ -223,5 +224,44 @@ describe('resolveTargetCommitment — in-app resolution (Phase 4)', () => {
     expect(rec.position).toBe('QB')
     expect(rec).not.toHaveProperty('teamsByYear')
     expect(rec).not.toHaveProperty('commitmentTid')
+  })
+})
+
+describe('shared-league target ownership (isMyTarget / targetTid)', () => {
+  const YR = 2030
+
+  it('stamps the recruiting team on a new target', () => {
+    const { players } = reconcileRecruitingRows({
+      rows: [{ name: 'Shared Guy', position: 'WR', commitment: PURSUING }],
+      players: [], userTid: 42, classYear: YR, startPID: 1,
+    })
+    const t = players.find(p => p.name === 'Shared Guy')
+    expect(t.isTarget).toBe(true)
+    expect(t.targetTid).toBe(42)
+  })
+
+  it("does not reassign a target already owned by another member's team", () => {
+    const existing = {
+      pid: 5, name: 'Theirs', isTarget: true, targetYear: YR,
+      targetTid: 7, team: -1, teamsByYear: {},
+    }
+    const { players } = reconcileRecruitingRows({
+      rows: [{ name: 'Theirs', position: 'WR', commitment: PURSUING, pid: 5 }],
+      players: [existing], userTid: 42, classYear: YR, startPID: 6,
+    })
+    expect(players.find(p => p.pid === 5).targetTid).toBe(7)
+  })
+
+  it('shows only my team’s targets, and legacy untagged ones', () => {
+    const mine = { isTarget: true, targetTid: 42 }
+    const theirs = { isTarget: true, targetTid: 7 }
+    const legacy = { isTarget: true } // pre-dates ownership: visible to all
+    expect(isMyTarget(mine, 42)).toBe(true)
+    expect(isMyTarget(theirs, 42)).toBe(false)
+    expect(isMyTarget(legacy, 42)).toBe(true)
+  })
+
+  it('never hides targets in a solo dynasty (no tid resolved)', () => {
+    expect(isMyTarget({ isTarget: true, targetTid: 7 }, null)).toBe(true)
   })
 })

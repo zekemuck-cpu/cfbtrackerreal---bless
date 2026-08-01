@@ -18,12 +18,14 @@ import {
   deleteField,
   arrayUnion,
   arrayRemove,
-  waitForPendingWrites
+  waitForPendingWrites,
+  getCountFromServer
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { indexedDBStorage } from './storage'
 import {
   getSeasonsSubcollection,
+  rehydrateSeasonalShapes,
   PER_YEAR_FIELDS,
   PER_TEAM_YEAR_FIELDS,
 } from './seasonSubcollection'
@@ -82,6 +84,11 @@ function sanitizeForFirestore(obj) {
     }
     return result
   }
+  // Firestore rejects NaN / Infinity / -Infinity and fails the ENTIRE
+  // batch write if any field carries one (e.g. a 0-attempt stat that
+  // divided to NaN). Coerce non-finite numbers to null so one bad stat
+  // can't block saving a whole roster (audit H7).
+  if (typeof obj === 'number' && !Number.isFinite(obj)) return null
   return obj
 }
 
@@ -108,27 +115,57 @@ export async function getUserDynasties(userId) {
   }
 }
 
+// Resubscribing onSnapshot wrapper: when the SDK invokes a listener's error
+// handler the listener is TERMINATED and never auto-reconnects — a transient
+// `unavailable`, an auth-token hiccup, or a rules deploy would silently kill
+// realtime sync for the rest of the session (writes still "succeed" locally,
+// so two editors could diverge without ever knowing). Re-subscribe with
+// exponential backoff instead. Returns an unsubscribe that also cancels any
+// pending retry.
+function resubscribingSnapshot(makeQuery, onSnap, label) {
+  let stopped = false
+  let retryTimer = null
+  let attempt = 0
+  let unsubscribe = () => {}
+  const start = () => {
+    if (stopped) return
+    unsubscribe = onSnapshot(makeQuery(), (snapshot) => {
+      attempt = 0 // healthy again — reset backoff
+      onSnap(snapshot)
+    }, (error) => {
+      console.error(`Error in ${label} subscription (will resubscribe):`, error?.code || error)
+      if (stopped) return
+      const delay = Math.min(5000 * 2 ** attempt, 120000) // 5s → 2min cap
+      attempt++
+      retryTimer = setTimeout(start, delay)
+    })
+  }
+  start()
+  return () => {
+    stopped = true
+    if (retryTimer) clearTimeout(retryTimer)
+    unsubscribe()
+  }
+}
+
 // Subscribe to real-time updates for user's dynasties
 export function subscribeToDynasties(userId, callback) {
-  const q = query(
-    collection(db, DYNASTIES_COLLECTION),
-    where('userId', '==', userId)
+  return resubscribingSnapshot(
+    () => query(collection(db, DYNASTIES_COLLECTION), where('userId', '==', userId)),
+    (snapshot) => {
+      const dynasties = snapshot.docs.map(doc => {
+        const data = doc.data()
+        // Remove any 'id' field from data to avoid conflicts with Firestore doc ID
+        const { id: _, ...cleanData } = data
+        return {
+          id: doc.id,  // Always use Firestore document ID
+          ...cleanData
+        }
+      })
+      callback(dynasties)
+    },
+    'dynasties'
   )
-
-  return onSnapshot(q, (snapshot) => {
-    const dynasties = snapshot.docs.map(doc => {
-      const data = doc.data()
-      // Remove any 'id' field from data to avoid conflicts with Firestore doc ID
-      const { id: _, ...cleanData } = data
-      return {
-        id: doc.id,  // Always use Firestore document ID
-        ...cleanData
-      }
-    })
-    callback(dynasties)
-  }, (error) => {
-    console.error('Error in dynasty subscription:', error)
-  })
 }
 
 /**
@@ -143,20 +180,18 @@ export function subscribeToSharedDynasties(userId, callback) {
     callback([])
     return () => {}
   }
-  const q = query(
-    collection(db, DYNASTIES_COLLECTION),
-    where('editors', 'array-contains', userId)
+  return resubscribingSnapshot(
+    () => query(collection(db, DYNASTIES_COLLECTION), where('editors', 'array-contains', userId)),
+    (snapshot) => {
+      const dynasties = snapshot.docs.map(doc => {
+        const data = doc.data()
+        const { id: _, ...cleanData } = data
+        return { id: doc.id, ...cleanData }
+      })
+      callback(dynasties)
+    },
+    'shared-dynasties'
   )
-  return onSnapshot(q, (snapshot) => {
-    const dynasties = snapshot.docs.map(doc => {
-      const data = doc.data()
-      const { id: _, ...cleanData } = data
-      return { id: doc.id, ...cleanData }
-    })
-    callback(dynasties)
-  }, (error) => {
-    console.error('Error in shared-dynasties subscription:', error)
-  })
 }
 
 // Create a new dynasty
@@ -239,6 +274,105 @@ export async function leaveDynasty(dynastyId, uid) {
     editors: arrayRemove(uid),
     coCommishes: arrayRemove(uid),
     [`memberTeams.${uid}`]: deleteField(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+// ─── Atomic member management ─────────────────────────────────────
+// These mutate ONLY the membership fields and use arrayUnion/arrayRemove
+// + per-uid dot-notation so two managers acting at once can't clobber
+// each other's change (the whole-array overwrites via updateDynasty were
+// last-write-wins — audit H5). They write the dynasty doc directly, so
+// the real-time listener carries the change back into local state.
+
+/** Add a uid to editors[] (idempotent — arrayUnion no-ops if present). */
+export async function addEditorAtomic(dynastyId, uid) {
+  await updateDoc(doc(db, DYNASTIES_COLLECTION, dynastyId), {
+    editors: arrayUnion(uid),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+/** Remove a member entirely: editors, co-commish, and their per-uid metadata. */
+export async function removeMemberAtomic(dynastyId, uid) {
+  await updateDoc(doc(db, DYNASTIES_COLLECTION, dynastyId), {
+    editors: arrayRemove(uid),
+    coCommishes: arrayRemove(uid),
+    [`memberTeams.${uid}`]: deleteField(),
+    [`memberLabels.${uid}`]: deleteField(),
+    [`memberPhotos.${uid}`]: deleteField(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+/** Promote (isCo=true) or demote (isCo=false) a uid in coCommishes[]. */
+export async function setCoCommishAtomic(dynastyId, uid, isCo) {
+  await updateDoc(doc(db, DYNASTIES_COLLECTION, dynastyId), {
+    coCommishes: isCo ? arrayUnion(uid) : arrayRemove(uid),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+/**
+ * Set a single member's live team list (and optionally their per-year
+ * history slot) with per-uid dot-notation so a concurrent assignment to a
+ * DIFFERENT member can't wipe this one. `tids` is the full replacement
+ * list for this uid; pass [] to clear. When `historyForUid` is provided it
+ * replaces only this uid's memberTeamHistory entry. To also strip the tid
+ * from a previous holder (one-coach-per-team), pass their uid+list in
+ * `alsoClear` as { [uid]: tids }; pass their re-stamped per-year history in
+ * `alsoHistory` as { [uid]: historyForUid } so the stripped team stops
+ * attributing the current year's games to them as well.
+ */
+export async function setMemberTeamsAtomic(dynastyId, uid, tids, historyForUid, alsoClear, alsoHistory) {
+  const updates = {
+    [`memberTeams.${uid}`]: tids,
+    updatedAt: serverTimestamp(),
+  }
+  if (historyForUid !== undefined) updates[`memberTeamHistory.${uid}`] = historyForUid
+  if (alsoClear) {
+    for (const [otherUid, otherTids] of Object.entries(alsoClear)) {
+      updates[`memberTeams.${otherUid}`] = otherTids
+    }
+  }
+  if (alsoHistory) {
+    for (const [otherUid, otherHistory] of Object.entries(alsoHistory)) {
+      if (otherHistory !== undefined) updates[`memberTeamHistory.${otherUid}`] = otherHistory
+    }
+  }
+  await updateDoc(doc(db, DYNASTIES_COLLECTION, dynastyId), updates)
+}
+
+/**
+ * Register a local-coach seat (a separately tracked coaching career a
+ * single user controls). Writes the registry entry plus an initial
+ * display label via per-id dot-notation so it can't clobber another
+ * manager's concurrent membership write.
+ */
+export async function addLocalCoachAtomic(dynastyId, localId, ownerUid, createdAt, label) {
+  const updates = {
+    [`localCoaches.${localId}`]: { owner: ownerUid || null, createdAt: createdAt ?? null },
+    updatedAt: serverTimestamp(),
+  }
+  if (label) updates[`memberLabels.${localId}`] = label
+  await updateDoc(doc(db, DYNASTIES_COLLECTION, dynastyId), updates)
+}
+
+/**
+ * Delete a local-coach seat and ALL of its per-id metadata (label, teams,
+ * photo, staff, and team history). Unlike removeMemberAtomic — which keeps
+ * a departed real member's history so their past career still renders —
+ * a local coach is a user-created seat, so a full delete is the intent.
+ * Per-id deleteField() so it never disturbs other coaches' entries.
+ */
+export async function removeLocalCoachAtomic(dynastyId, localId) {
+  await updateDoc(doc(db, DYNASTIES_COLLECTION, dynastyId), {
+    [`localCoaches.${localId}`]: deleteField(),
+    [`memberTeams.${localId}`]: deleteField(),
+    [`memberLabels.${localId}`]: deleteField(),
+    [`memberPhotos.${localId}`]: deleteField(),
+    [`memberCoachingStaff.${localId}`]: deleteField(),
+    [`memberTeamHistory.${localId}`]: deleteField(),
     updatedAt: serverTimestamp(),
   })
 }
@@ -472,9 +606,33 @@ export async function migrateLocalStorageData(userId) {
  * @param {string} dynastyId - The dynasty document ID
  * @returns {Promise<Array>} Array of player objects
  */
+/**
+ * Authoritative count of docs in a dynasty subcollection, read straight from
+ * the SERVER (not the cache). Uses Firestore's aggregate count — billed as a
+ * single read regardless of collection size. Used to verify a local→cloud
+ * migration actually landed before the local copy is deleted.
+ * @param {string} dynastyId
+ * @param {string} subcollectionName e.g. 'players', 'games', 'recruitingDatabase'
+ * @returns {Promise<number>}
+ */
+export async function getSubcollectionServerCount(dynastyId, subcollectionName) {
+  const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, subcollectionName)
+  const snap = await getCountFromServer(ref)
+  return snap.data().count
+}
+
 export async function getPlayersSubcollection(dynastyId, options = {}) {
-  const { onFresh = null } = options
+  const { onFresh = null, serverFirst = false } = options
   const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
+
+  // serverFirst: destructive one-shot flows (cloud→local migration) must read
+  // SERVER truth, never a possibly-stale cache — a stale cache here would get
+  // persisted locally and the fresher cloud copy deleted. Throws on failure so
+  // the caller aborts instead of proceeding with partial data.
+  if (serverFirst) {
+    const snap = await getDocsFromServer(playersRef)
+    return snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+  }
 
   // Cache-first read: try the local IndexedDB cache before going to the
   // network. Default getDocs() is server-priority and blocks on slow
@@ -493,11 +651,16 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
     const cachedSnap = await getDocsFromCache(playersRef)
     if (!cachedSnap.empty) {
       const cached = cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
-      getDocsFromServer(playersRef).then(snap => {
-        if (!onFresh) return
-        const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
-        try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
-      }).catch(() => {})
+      // Only pay for the background server read when a caller actually wants the
+      // fresh result. Without onFresh the result was discarded anyway, so firing
+      // getDocsFromServer billed a full-collection read for nothing.
+      if (onFresh) {
+        const requestedAt = Date.now()
+        getDocsFromServer(playersRef).then(snap => {
+          const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+          try { onFresh(fresh, { requestedAt }) } catch (e) { console.error('onFresh callback threw:', e) }
+        }).catch(() => {})
+      }
       return cached
     }
   } catch (_) {
@@ -531,8 +694,14 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
  * @returns {Promise<Array>} Array of game objects
  */
 export async function getGamesSubcollection(dynastyId, options = {}) {
-  const { onFresh = null } = options
+  const { onFresh = null, serverFirst = false } = options
   const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
+
+  // serverFirst — see comment in getPlayersSubcollection.
+  if (serverFirst) {
+    const snap = await getDocsFromServer(gamesRef)
+    return snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+  }
 
   // Cache-first — see comment in getPlayersSubcollection. The onFresh
   // callback is how cross-device updates (recap saved on Device A,
@@ -543,11 +712,14 @@ export async function getGamesSubcollection(dynastyId, options = {}) {
     const cachedSnap = await getDocsFromCache(gamesRef)
     if (!cachedSnap.empty) {
       const cached = cachedSnap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
-      getDocsFromServer(gamesRef).then(snap => {
-        if (!onFresh) return
-        const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
-        try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
-      }).catch(() => {})
+      // Only pay for the server read when a caller wants the fresh result.
+      if (onFresh) {
+        const requestedAt = Date.now()
+        getDocsFromServer(gamesRef).then(snap => {
+          const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+          try { onFresh(fresh, { requestedAt }) } catch (e) { console.error('onFresh callback threw:', e) }
+        }).catch(() => {})
+      }
       return cached
     }
   } catch (_) {
@@ -640,20 +812,36 @@ export async function savePlayerToSubcollection(dynastyId, player) {
  * @param {boolean} options.forceOverwrite - If true, skips safety checks (for explicit user actions like migration)
  */
 export async function savePlayersToSubcollection(dynastyId, players, options = {}) {
-  const { deleteOrphans = false, forceOverwrite = false } = options
+  const { deleteOrphans = false, forceOverwrite = false, onProgress = null, removePids = null } = options
 
   try {
     // Handle empty array case - do nothing, don't delete existing players
     const playersToSave = players || []
 
+    // Targeted removals (diff-based saves): the caller already knows exactly
+    // which pids were removed, so delete just those docs — no full-collection
+    // orphan scan (which billed a read per existing player on every save).
+    const pidsToRemove = Array.isArray(removePids) ? removePids.map(String).filter(Boolean) : []
+
     // SAFETY: Never save an empty array unless forceOverwrite is true
-    // Empty array usually indicates a bug, not intentional deletion
-    if (playersToSave.length === 0 && !forceOverwrite) {
+    // Empty array usually indicates a bug, not intentional deletion.
+    // (A pure-removal call — no upserts, only removePids — is legitimate.)
+    if (playersToSave.length === 0 && pidsToRemove.length === 0 && !forceOverwrite) {
       console.warn('[savePlayersToSubcollection] Received empty players array - skipping to prevent data loss. Use forceOverwrite=true to override.')
       return
     }
 
-    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}`)
+    console.log(`[savePlayersToSubcollection] Saving ${playersToSave.length} players to dynasty ${dynastyId}${pidsToRemove.length ? ` (+${pidsToRemove.length} targeted removals)` : ''}`)
+
+    if (pidsToRemove.length > 0) {
+      for (let i = 0; i < pidsToRemove.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        pidsToRemove.slice(i, i + BATCH_SIZE).forEach(id => {
+          batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id))
+        })
+        await batch.commit()
+      }
+    }
 
     // Handle orphan cleanup if requested
     if (deleteOrphans) {
@@ -698,6 +886,19 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
       }
     }
 
+    // Dedupe by pid before batching: two entries sharing a pid would both
+    // batch.set() the SAME doc — the second silently wins and the roster
+    // shrinks by one on next load with no error anywhere. Last entry wins
+    // (identical to Firestore's in-batch ordering) but now it's logged.
+    {
+      const pidCount = playersToSave.filter(p => p && p.pid).length
+      const byPid = new Map()
+      for (const p of playersToSave) { if (p && p.pid) byPid.set(String(p.pid), p) }
+      if (byPid.size < pidCount) {
+        console.warn(`[savePlayersToSubcollection] ${pidCount - byPid.size} duplicate pid(s) in save array — collapsed to one doc each (last entry wins)`)
+      }
+    }
+
     // Process in batches of BATCH_SIZE
     const totalBatches = Math.ceil(playersToSave.length / BATCH_SIZE)
     for (let i = 0; i < playersToSave.length; i += BATCH_SIZE) {
@@ -729,6 +930,10 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
 
       await batch.commit()
       console.log(`[savePlayersToSubcollection] Batch ${batchNum}/${totalBatches} committed locally (${batchPlayers.length} players)`)
+      // Report progress so the create UI can show a moving bar during a big seed.
+      if (onProgress) {
+        try { onProgress({ saved: Math.min(i + batchPlayers.length, playersToSave.length), total: playersToSave.length }) } catch (_) {}
+      }
 
       // Add delay between batches to prevent "Write stream exhausted" error
       // Scale delay based on number of batches for large datasets
@@ -768,18 +973,26 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
  */
 export async function getRecruitingDatabaseSubcollection(dynastyId, options = {}) {
   if (!dynastyId) return []
-  const { onFresh = null } = options
+  const { onFresh = null, serverFirst = false } = options
   const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION)
+
+  // serverFirst — see comment in getPlayersSubcollection.
+  if (serverFirst) {
+    const snap = await getDocsFromServer(ref)
+    return snap.docs.map(d => d.data())
+  }
 
   try {
     const cachedSnap = await getDocsFromCache(ref)
     if (!cachedSnap.empty) {
       const cached = cachedSnap.docs.map(d => d.data())
-      getDocsFromServer(ref).then(snap => {
-        if (!onFresh) return
-        const fresh = snap.docs.map(d => d.data())
-        try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
-      }).catch(() => {})
+      // Only pay for the server read when a caller wants the fresh result.
+      if (onFresh) {
+        getDocsFromServer(ref).then(snap => {
+          const fresh = snap.docs.map(d => d.data())
+          try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
+        }).catch(() => {})
+      }
       return cached
     }
   } catch (_) {
@@ -798,25 +1011,53 @@ export async function getRecruitingDatabaseSubcollection(dynastyId, options = {}
   }
 }
 
+// Stable, key-order-independent serialization so an unchanged recruit compares
+// equal to its stored copy regardless of the key order Firestore hands back.
+function stableStringify(v) {
+  if (v === null || typeof v !== 'object') return JSON.stringify(v)
+  if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']'
+  return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}'
+}
+
 /**
- * Full-replace save for the Recruiting Database subcollection — every
- * current caller already treats recruitingDatabasePlayers as "here is the
- * complete, current list" (import, batch edit, delete, JSON restore all
- * rebuild the whole array), so unlike savePlayersToSubcollection this
- * always deletes orphans; there's no partial-update caller to protect
- * against. Batched the same way (BATCH_SIZE per commit, small delay
- * between batches) since a heavy Recruiting Database user could still have
- * enough recruits to need more than one Firestore batch.
+ * INCREMENTAL save for the Recruiting Database subcollection. Callers pass the
+ * complete current list (import, batch edit, delete, JSON restore all rebuild
+ * the whole array), but we only WRITE the docs that are new or actually changed
+ * and only DELETE the ones removed — computed by diffing against the stored
+ * copies. The previous version re-wrote every recruit on every save, which
+ * doesn't scale: a heavy user building a 10k-recruit database would issue 10k
+ * writes on every single add and blow past Firestore's queued-write ceiling
+ * ("resource-exhausted: Write stream exhausted maximum allowed queued writes").
+ * Now adding 19 recruits to 110 writes 19 docs, and editing one writes one.
+ * Batched with the same inter-batch delay savePlayersToSubcollection uses, for
+ * the rare case where the delta itself spans multiple Firestore batches.
  */
 export async function saveRecruitingDatabaseSubcollection(dynastyId, players) {
   const toSave = (players || []).filter(p => p?.pid != null)
   try {
     const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION)
     const existingSnapshot = await getDocs(ref)
-    const existingIds = new Set(existingSnapshot.docs.map(d => d.id))
+    const existingById = new Map(existingSnapshot.docs.map(d => [d.id, d.data()]))
     const nextIds = new Set(toSave.map(p => String(p.pid)))
-    const orphanedIds = [...existingIds].filter(id => !nextIds.has(id))
+    const orphanedIds = [...existingById.keys()].filter(id => !nextIds.has(id))
 
+    // Only new or content-changed recruits. _firestoreId is a client-only field
+    // that never lands in Firestore, so strip it before both comparing and
+    // writing (otherwise every recruit would look "changed").
+    const changed = []
+    for (const player of toSave) {
+      const { _firestoreId, ...raw } = player
+      const data = sanitizeForFirestore(raw)
+      const prev = existingById.get(String(player.pid))
+      if (!prev || stableStringify(data) !== stableStringify(prev)) {
+        changed.push({ pid: String(player.pid), data })
+      }
+    }
+
+    // Truly nothing to do — don't touch Firestore at all (no write, no bump).
+    if (changed.length === 0 && orphanedIds.length === 0) return
+
+    // Delete removed recruits (batched).
     for (let i = 0; i < orphanedIds.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
       orphanedIds.slice(i, i + BATCH_SIZE).forEach(id => {
@@ -825,26 +1066,26 @@ export async function saveRecruitingDatabaseSubcollection(dynastyId, players) {
       await batch.commit()
     }
 
-    const totalBatches = Math.ceil(toSave.length / BATCH_SIZE)
-    for (let i = 0; i < toSave.length; i += BATCH_SIZE) {
+    // Write only the changed/new recruits (batched, small delay between batches
+    // to stay under the same write-stream ceiling savePlayersToSubcollection
+    // guards against).
+    const totalBatches = Math.ceil(changed.length / BATCH_SIZE)
+    for (let i = 0; i < changed.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
-      toSave.slice(i, i + BATCH_SIZE).forEach(player => {
-        const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION, String(player.pid))
-        batch.set(playerRef, sanitizeForFirestore(player))
+      changed.slice(i, i + BATCH_SIZE).forEach(({ pid, data }) => {
+        batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION, pid), data)
       })
-      // Bump the main doc's lastModified in the SAME batch as the last
-      // chunk so other devices' dynasty listener notices the change —
-      // subcollection writes alone don't fire it (see
-      // bumpDynastyLastModifiedInBatch's other call sites).
-      if (i + BATCH_SIZE >= toSave.length) bumpDynastyLastModifiedInBatch(batch, dynastyId)
+      // Bump the main doc's lastModified in the SAME batch as the last chunk so
+      // other devices' dynasty listener notices the change.
+      if (i + BATCH_SIZE >= changed.length) bumpDynastyLastModifiedInBatch(batch, dynastyId)
       await batch.commit()
-      if (i + BATCH_SIZE < toSave.length) {
+      if (i + BATCH_SIZE < changed.length) {
         await new Promise(resolve => setTimeout(resolve, totalBatches > 3 ? 300 : 200))
       }
     }
-    // If there was nothing to save but orphans WERE deleted, still bump
-    // lastModified so the deletion itself propagates to other devices.
-    if (toSave.length === 0 && orphanedIds.length > 0) {
+    // Only orphans were deleted (no doc writes) — still bump lastModified so the
+    // deletion propagates to other devices.
+    if (changed.length === 0 && orphanedIds.length > 0) {
       const batch = writeBatch(db)
       bumpDynastyLastModifiedInBatch(batch, dynastyId)
       await batch.commit()
@@ -1141,11 +1382,25 @@ export async function saveChangedPlayersAndGame(dynastyId, changedPlayers, game)
  * @param {boolean} options.forceDeleteOrphans - If true, bypasses safety check (EXTREMELY DANGEROUS - only for explicit user actions)
  */
 export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
-  const { deleteOrphans = false, forceDeleteOrphans = false } = options
+  const { deleteOrphans = false, forceDeleteOrphans = false, removeIds = null } = options
 
   try {
     // Handle empty array case
     const gamesToSave = games || []
+
+    // Targeted removals (diff-based saves): delete exactly the ids the
+    // caller knows were removed — no full-collection orphan scan.
+    const idsToRemove = Array.isArray(removeIds) ? removeIds.map(String).filter(Boolean) : []
+    if (idsToRemove.length > 0) {
+      console.log(`[saveGamesToSubcollection] Removing ${idsToRemove.length} games by id (targeted)`)
+      for (let i = 0; i < idsToRemove.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db)
+        idsToRemove.slice(i, i + BATCH_SIZE).forEach(id => {
+          batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, id))
+        })
+        await batch.commit()
+      }
+    }
 
     // Only check for orphans if explicitly requested (full sync operations only)
     if (deleteOrphans) {
@@ -1192,6 +1447,16 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
 
     // Save games (skip if empty)
     if (gamesToSave.length === 0) return
+
+    // Surface duplicate ids — see the matching check in
+    // savePlayersToSubcollection (same silent last-wins collapse).
+    {
+      const idCount = gamesToSave.filter(g => g && g.id).length
+      const uniqueIds = new Set(gamesToSave.filter(g => g && g.id).map(g => String(g.id)))
+      if (uniqueIds.size < idCount) {
+        console.warn(`[saveGamesToSubcollection] ${idCount - uniqueIds.size} duplicate game id(s) in save array — collapsed to one doc each (last entry wins)`)
+      }
+    }
 
     // Process in batches of BATCH_SIZE
     for (let i = 0; i < gamesToSave.length; i += BATCH_SIZE) {
@@ -1314,15 +1579,21 @@ export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
  * expect. Cache-first like other subcollection reads.
  */
 export async function getWeekRecapsSubcollection(dynastyId, options = {}) {
-  const { onFresh = null } = options
+  const { onFresh = null, serverFirst = false } = options
   const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, WEEK_RECAPS_SUBCOLLECTION)
+  // serverFirst — see comment in getPlayersSubcollection.
+  if (serverFirst) {
+    const snap = await getDocsFromServer(ref)
+    return buildRecapsMap(snap.docs)
+  }
   try {
     const cached = await getDocsFromCache(ref)
     if (!cached.empty) {
-      getDocsFromServer(ref).then(snap => {
-        if (!onFresh) return
-        try { onFresh(buildRecapsMap(snap.docs)) } catch (e) { console.error('onFresh callback threw:', e) }
-      }).catch(() => {})
+      if (onFresh) {
+        getDocsFromServer(ref).then(snap => {
+          try { onFresh(buildRecapsMap(snap.docs)) } catch (e) { console.error('onFresh callback threw:', e) }
+        }).catch(() => {})
+      }
       return buildRecapsMap(cached.docs)
     }
   } catch (_) { /* fall through to network */ }
@@ -1410,15 +1681,21 @@ function buildSocialFeedMap(docs) {
 }
 
 export async function getSocialFeedSubcollection(dynastyId, options = {}) {
-  const { onFresh = null } = options
+  const { onFresh = null, serverFirst = false } = options
   const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, SOCIAL_FEED_SUBCOLLECTION)
+  // serverFirst — see comment in getPlayersSubcollection.
+  if (serverFirst) {
+    const snap = await getDocsFromServer(ref)
+    return buildSocialFeedMap(snap.docs)
+  }
   try {
     const cached = await getDocsFromCache(ref)
     if (!cached.empty) {
-      getDocsFromServer(ref).then(snap => {
-        if (!onFresh) return
-        try { onFresh(buildSocialFeedMap(snap.docs)) } catch (e) { console.error('social onFresh threw:', e) }
-      }).catch(() => {})
+      if (onFresh) {
+        getDocsFromServer(ref).then(snap => {
+          try { onFresh(buildSocialFeedMap(snap.docs)) } catch (e) { console.error('social onFresh threw:', e) }
+        }).catch(() => {})
+      }
       return buildSocialFeedMap(cached.docs)
     }
   } catch (_) { /* fall through */ }
@@ -1511,15 +1788,21 @@ function mergeSocialCharacterDocs(docs) {
 }
 
 export async function getSocialCharactersSubcollection(dynastyId, options = {}) {
-  const { onFresh = null } = options
+  const { onFresh = null, serverFirst = false } = options
   const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, SOCIAL_CHARACTERS_SUBCOLLECTION)
+  // serverFirst — see comment in getPlayersSubcollection.
+  if (serverFirst) {
+    const snap = await getDocsFromServer(ref)
+    return mergeSocialCharacterDocs(snap.docs)
+  }
   try {
     const cached = await getDocsFromCache(ref)
     if (!cached.empty) {
-      getDocsFromServer(ref).then(snap => {
-        if (!onFresh) return
-        try { onFresh(mergeSocialCharacterDocs(snap.docs)) } catch (e) { console.error('social chars onFresh threw:', e) }
-      }).catch(() => {})
+      if (onFresh) {
+        getDocsFromServer(ref).then(snap => {
+          try { onFresh(mergeSocialCharacterDocs(snap.docs)) } catch (e) { console.error('social chars onFresh threw:', e) }
+        }).catch(() => {})
+      }
       return mergeSocialCharacterDocs(cached.docs)
     }
   } catch (_) { /* fall through */ }
@@ -1653,15 +1936,31 @@ export async function getPublicDynastyWithSubcollections(shareCode) {
     // recap subcollections to dodge Firestore's 1 MB cap). Public
     // share viewers were stuck on the pre-migration shape and
     // silently lost everything that had been migrated.
-    const [players, games, weekRecaps, seasonalRehydrated, socialFeedData, socialCharData] = await Promise.all([
+    const [players, games, weekRecaps, seasonalRehydrated, socialFeedData, socialCharData, recruitingDatabase] = await Promise.all([
       getPlayersSubcollection(mainDoc.id),
       getGamesSubcollection(mainDoc.id),
       getWeekRecapsSubcollection(mainDoc.id),
       getSeasonsSubcollection(mainDoc.id),
       getSocialFeedSubcollection(mainDoc.id),
       getSocialCharactersSubcollection(mainDoc.id),
+      getRecruitingDatabaseSubcollection(mainDoc.id),
     ])
 
+    return assemblePublicDynasty(mainDoc, { players, games, weekRecaps, seasonalRehydrated, socialFeedData, socialCharData, recruitingDatabase })
+  } catch (error) {
+    console.error('Error fetching public dynasty with subcollections:', error)
+    throw error
+  }
+}
+
+/**
+ * Merge a public dynasty's main doc + already-shaped subcollection data into
+ * the single dynasty object viewers consume. Shared by the direct-Firestore
+ * path above and the edge-cached /api/view-dynasty path below — one merge
+ * implementation, two transports.
+ */
+function assemblePublicDynasty(mainDoc, { players, games, weekRecaps, seasonalRehydrated, socialFeedData, socialCharData, recruitingDatabase }) {
+  {
     // Merge weekRecaps: legacy main-doc `weekRecapsByYear` UNION
     // subcollection, with subcollection winning per-(year, week) on
     // overlap. Same conflict resolution the owner-side path uses —
@@ -1713,6 +2012,14 @@ export async function getPublicDynastyWithSubcollections(shareCode) {
       ? games
       : (games.length > 0 ? games : (mainDoc.games || []))
 
+    // Recruiting Database: same _subcollectionsMigrated branch as players/games.
+    // Once migrated, the field is deleteField()'d off the main doc, so the
+    // subcollection is the only source — a migrated dynasty showed an empty
+    // Recruiting Database to public viewers before this was read.
+    const recruitingDbOut = mainDoc._subcollectionsMigrated
+      ? (recruitingDatabase || [])
+      : ((recruitingDatabase && recruitingDatabase.length > 0) ? recruitingDatabase : (mainDoc.recruitingDatabasePlayers || []))
+
     return {
       ...mainDoc,
       ...mergedSeasonal,
@@ -1721,10 +2028,57 @@ export async function getPublicDynastyWithSubcollections(shareCode) {
       weekRecapsByYear,
       socialFeedByYear: socialFeedData || {},
       socialCharacters: socialCharData || {},
+      recruitingDatabasePlayers: recruitingDbOut,
     }
+  }
+}
+
+/**
+ * Edge-cached public dynasty load (Firestore cost).
+ *
+ * The direct path above bills ~800-1500 reads PER ANONYMOUS VISIT of a
+ * shared link. This path bills exactly ONE read (the main-doc query — the
+ * same query the direct path starts with) to learn the dynasty's
+ * lastModified, then fetches everything else from /api/view-dynasty with
+ * that rev in the URL. The rev is part of the CDN cache key, so:
+ *   - all visitors on the same version share one cached response
+ *     (Firestore is hit once per version, not once per visitor), and
+ *   - any owner edit bumps lastModified → new URL → immediate fresh data.
+ * Freshness is identical to the direct path; only the read volume changes.
+ *
+ * Falls back to the direct-Firestore path on ANY api failure so a viewer
+ * never sees an error the old path would have survived.
+ */
+export async function getPublicDynastyCached(shareCode) {
+  const mainDoc = await getPublicDynastyByShareCode(shareCode)
+  if (!mainDoc) return null
+
+  const rev = Number(mainDoc.lastModified || 0) || 0
+  // Legacy docs with no lastModified can't be version-keyed — a cached
+  // response could go permanently stale. Use the direct path for those.
+  if (rev <= 0) return getPublicDynastyWithSubcollections(shareCode)
+
+  try {
+    const resp = await fetch(`/api/view-dynasty?code=${encodeURIComponent(shareCode)}&v=${rev}`)
+    if (resp.status === 404) return null
+    if (!resp.ok) throw new Error(`view-dynasty api returned ${resp.status}`)
+    const raw = await resp.json()
+
+    // Adapt raw {id, data} rows to the doc-like shape the map builders use.
+    const asDocs = (rows) => (rows || []).map(r => ({ id: r.id, data: () => r.data }))
+
+    return assemblePublicDynasty(raw.mainDoc, {
+      players: (raw.players || []).map(r => ({ ...r.data, _firestoreId: r.id })),
+      games: (raw.games || []).map(r => ({ ...r.data, _firestoreId: r.id })),
+      weekRecaps: buildRecapsMap(asDocs(raw.weekRecaps)),
+      seasonalRehydrated: rehydrateSeasonalShapes(asDocs(raw.seasons)),
+      socialFeedData: buildSocialFeedMap(asDocs(raw.socialFeed)),
+      socialCharData: mergeSocialCharacterDocs(asDocs(raw.socialCharacters)),
+      recruitingDatabase: (raw.recruitingDatabase || []).map(r => ({ ...r.data, _firestoreId: r.id })),
+    })
   } catch (error) {
-    console.error('Error fetching public dynasty with subcollections:', error)
-    throw error
+    console.warn('[view] cached api path failed, falling back to direct Firestore reads:', error?.message || error)
+    return getPublicDynastyWithSubcollections(shareCode)
   }
 }
 
@@ -1791,16 +2145,35 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
  */
 export async function deleteDynastyWithSubcollections(dynastyId) {
   try {
-    await Promise.all([
-      deleteSubcollection(dynastyId, PLAYERS_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, GAMES_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, WEEK_RECAPS_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, SEASONS_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, INVITES_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, SOCIAL_FEED_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, SOCIAL_CHARACTERS_SUBCOLLECTION),
-      deleteSubcollection(dynastyId, RECRUITING_DATABASE_SUBCOLLECTION),
-    ])
+    // Tombstone FIRST (best-effort): a teardown that dies partway (network
+    // drop, one subcollection delete rejected) leaves the parent doc alive
+    // with some subcollections already gone — the dynasty then "reappears"
+    // in the list half-wiped (roster deleted, doc intact). The _deleting
+    // flag lets the listener hide it and retry the teardown instead of
+    // resurrecting a gutted dynasty. Best-effort because a lapsed-premium
+    // owner may lack update permission while still being allowed to delete.
+    try {
+      await updateDoc(doc(db, DYNASTIES_COLLECTION, dynastyId), { _deleting: true })
+    } catch (_) { /* proceed without tombstone */ }
+
+    // allSettled so one failure doesn't abort siblings mid-flight — then
+    // require ALL to have succeeded before removing the parent doc (rules
+    // on subcollection deletes need the parent to still exist).
+    const names = [
+      PLAYERS_SUBCOLLECTION,
+      GAMES_SUBCOLLECTION,
+      WEEK_RECAPS_SUBCOLLECTION,
+      SEASONS_SUBCOLLECTION,
+      INVITES_SUBCOLLECTION,
+      SOCIAL_FEED_SUBCOLLECTION,
+      SOCIAL_CHARACTERS_SUBCOLLECTION,
+      RECRUITING_DATABASE_SUBCOLLECTION,
+    ]
+    const results = await Promise.allSettled(names.map(n => deleteSubcollection(dynastyId, n)))
+    const failed = names.filter((_, i) => results[i].status === 'rejected')
+    if (failed.length > 0) {
+      throw new Error(`Could not delete: ${failed.join(', ')} — the dynasty was kept and will finish deleting on next load`)
+    }
     await deleteDoc(doc(db, DYNASTIES_COLLECTION, dynastyId))
   } catch (error) {
     console.error('Error deleting dynasty with subcollections:', error)
@@ -1905,44 +2278,9 @@ export async function isDynastyMigrated(dynastyId) {
   }
 }
 
-/**
- * Subscribe to real-time updates for a dynasty's subcollections
- * Returns unsubscribe functions for both players and games
- * @param {string} dynastyId - The dynasty document ID
- * @param {Function} onPlayersUpdate - Callback for player updates
- * @param {Function} onGamesUpdate - Callback for game updates
- * @returns {Object} Object with unsubscribe functions
- */
-export function subscribeToSubcollections(dynastyId, onPlayersUpdate, onGamesUpdate) {
-  const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
-  const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
-
-  const unsubscribePlayers = onSnapshot(playersRef, (snapshot) => {
-    const players = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      _firestoreId: doc.id
-    }))
-    onPlayersUpdate(players)
-  }, (error) => {
-    console.error('Error in players subscription:', error)
-  })
-
-  const unsubscribeGames = onSnapshot(gamesRef, (snapshot) => {
-    const games = snapshot.docs.map(doc => ({
-      ...doc.data(),
-      _firestoreId: doc.id
-    }))
-    onGamesUpdate(games)
-  }, (error) => {
-    console.error('Error in games subscription:', error)
-  })
-
-  return {
-    unsubscribePlayers,
-    unsubscribeGames,
-    unsubscribeAll: () => {
-      unsubscribePlayers()
-      unsubscribeGames()
-    }
-  }
-}
+// NOTE: a `subscribeToSubcollections` helper used to live here — a live
+// onSnapshot over the ENTIRE players + games subcollections. It had zero
+// callers, and wiring it up would bill a read per doc on every change for
+// every connected client (a massive Firestore cost footgun). Removed
+// deliberately; cross-device sync uses the main-doc listener + the
+// rev-gated cache-first getters instead.

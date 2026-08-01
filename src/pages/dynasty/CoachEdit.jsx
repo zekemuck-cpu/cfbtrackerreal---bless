@@ -112,7 +112,14 @@ export default function CoachEdit() {
         const names = deriveCoachingStaffNames(nextCoaches, r.teamTid, y)
         nextTeams = applyCoachingStaffNames(nextTeams, r.teamTid, y, names)
       }
-      await updateDynasty(currentDynasty.id, { coaches: nextCoaches, teams: nextTeams })
+      // Only include `teams` in the write when it actually changed. A
+      // name/photo-only edit doesn't touch the coaching-staff-name mirror, so
+      // sending the whole (potentially large) teams map every save is pure
+      // bloat — and on a big dynasty it needlessly pushes the main-doc write
+      // toward Firestore's 1 MB cap.
+      const updates = { coaches: nextCoaches }
+      if (nextTeams !== currentDynasty.teams) updates.teams = nextTeams
+      await updateDynasty(currentDynasty.id, updates)
       toast.success('Saved coach')
       backToCoach()
     } catch (err) {

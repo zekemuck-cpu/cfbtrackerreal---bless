@@ -5,7 +5,7 @@ import { useDynasty, getCustomConferencesForYear, getTeamConferenceForDynasty } 
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
-import { TEAMS, resolveTid, getCurrentTeamAbbr } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
 import AllConferenceModal from '../../components/AllConferenceModal'
 import { HonorPlayerTile, SchoolLeaderboard } from '../../components/HonorsUI'
@@ -130,18 +130,40 @@ export default function AllConference() {
     const abbr = coachRecord?.team || getCurrentTeamAbbr(currentDynasty)
     return getTeamConferenceForDynasty(currentDynasty, abbr, cy) || 'SEC'
   })()
-  const confTeamsForYear = (conf, y) => {
-    const custom = getCustomConferencesForYear(currentDynasty, y)
-    if (custom && custom[conf]) return custom[conf]
-    return conferenceTeams[conf] || []
+  const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+  // Resolve an honor entry's team, tid-first (durable) then by name. Returns
+  // logo/colors/abbr/schoolName. Mirrors AllAmericans so both pages behave the
+  // same for full ALL-CAPS names and teambuilder renames.
+  const resolveSchool = (schoolTid, schoolName) => {
+    let tid = schoolTid != null ? Number(schoolTid) : null
+    if (tid == null && schoolName) tid = resolveTid(schoolName, teamsData || TEAMS) || null
+    const abbrFromTid = tid != null ? (getGameTeamInfo(teamsData || TEAMS, tid)?.abbr || null) : null
+    const mascotName = getMascotName(abbrFromTid || schoolName, teamsData)
+    return {
+      tid,
+      abbr: abbrFromTid,
+      mascotName,
+      teamLogo: mascotName ? getTeamLogo(mascotName, teamsData) : null,
+      colors: mascotName ? getTeamColors(mascotName, teamsData) : null,
+      schoolName: getSchoolName(mascotName) || schoolName,
+    }
+  }
+  // The conference an honor entry belongs to, resolved from its team's tid so
+  // membership is robust to full-name schools AND conference renames (uses the
+  // same conference resolver as the user's own conference).
+  const entryConference = (entry, y) => {
+    const { abbr } = resolveSchool(entry?.schoolTid, entry?.school)
+    const lookup = abbr || entry?.school || null
+    return lookup ? (getTeamConferenceForDynasty(currentDynasty, lookup, y) || null) : null
   }
   const yearHasData = (y) => {
     const d = allAmericansByYear[y] || allAmericansByYear[String(y)]
     if (!d) return false
     const byConf = d.allConferenceByConference?.[defaultUserConf]
     if (Array.isArray(byConf) && byConf.length > 0) return true
-    const teams = confTeamsForYear(defaultUserConf, y)
-    const matchesConf = (list) => (list || []).some(p => p.school && (teams.includes(p.school.toUpperCase()) || teams.includes(p.school)))
+    // Same tid-derived membership the filter uses — a name-vs-abbr comparison
+    // here would report "no data" for years the page can actually render.
+    const matchesConf = (list) => (list || []).some(p => entryConference(p, y) === defaultUserConf)
     if (matchesConf(d.allConference)) return true
     // Preseason 1st/2nd Team predictions — only counts as "has data" as a
     // fallback; a year with real final data always wins above.
@@ -199,11 +221,12 @@ export default function AllConference() {
 
   const filterByConference = (raw) => {
     if (!raw || raw.length === 0) return []
-    const conferenceTeamsList = getConferenceTeams(displayConference)
-    return raw.filter(player => {
-      if (!player.school) return false
-      return conferenceTeamsList.includes(player.school.toUpperCase()) || conferenceTeamsList.includes(player.school)
-    })
+    // Tid-derived membership: group each entry by its team's ACTUAL conference
+    // for this year (see entryConference). Robust to full-name schools and
+    // conference renames. The previous form compared a full name ("GEORGIA")
+    // against an abbr list ("UGA") and silently dropped every standard school —
+    // that bug was fixed here once already and must not come back.
+    return raw.filter(player => entryConference(player, displayYear) === displayConference)
   }
 
   // Preseason 1st/2nd Team predictions (synced the same way as final
@@ -346,7 +369,10 @@ export default function AllConference() {
     if (!playerName || !currentDynasty.players) return null
     const normalizedName = normalizePlayerName(cleanPlayerName(playerName))
     const normalizedSchool = school?.toUpperCase()
-    const tidNum = schoolTid != null ? Number(schoolTid) : null
+    // Backfill the tid from the school name when the entry has none (legacy
+    // data), so tid-based matching still works.
+    let tidNum = schoolTid != null ? Number(schoolTid) : null
+    if (tidNum == null && school) tidNum = resolveTid(school, teamsData || TEAMS) || null
 
     // Tid match — drift-safe disambiguation; mirrors AllAmericans.jsx.
     const playerMatchesTid = (p) => {
@@ -375,27 +401,25 @@ export default function AllConference() {
         }
       }
       // Dynasty-local teams (including teambuilder replacements) must be
-      // resolved before the static TEAMS table — a TB takeover slot
-      // can share an abbr with a real FBS team and we want the
-      // dynasty's version to win.
-      const resolveAbbrForTid = (tid) => {
-        const t = currentDynasty?.teams?.[tid] || TEAMS[tid]
-        return t?.abbr?.toUpperCase() || null
+      // resolved before the static TEAMS table — a TB takeover slot can share
+      // an abbr with a real FBS team and we want the dynasty's version to win.
+      // Match against the team's abbr AND its full name/teamName, since the
+      // entry's `school` may be a full ALL-CAPS name ("GEORGIA"), not "UGA".
+      const teamIdsForTid = (tid) => {
+        const t = currentDynasty?.teams?.[tid]
+          || currentDynasty?.customTeams?.[tid]
+          || TEAMS[tid]
+        if (!t) return []
+        return [t.abbr, t.name, t.teamName].filter(Boolean).map(s => String(s).toUpperCase())
       }
       if (p.team) {
-        const playerTeamAbbr = typeof p.team === 'number'
-          ? resolveAbbrForTid(p.team)
-          : p.team.toUpperCase()
-        if (playerTeamAbbr === normalizedSchool) return true
+        const ids = typeof p.team === 'number' ? teamIdsForTid(p.team) : [String(p.team).toUpperCase()]
+        if (ids.includes(normalizedSchool)) return true
       }
       if (p.teamsByYear) {
         for (const tid of Object.values(p.teamsByYear)) {
-          if (typeof tid === 'number' && resolveAbbrForTid(tid) === normalizedSchool) {
-            return true
-          }
-          if (typeof tid === 'string' && tid.toUpperCase() === normalizedSchool) {
-            return true
-          }
+          if (typeof tid === 'number' && teamIdsForTid(tid).includes(normalizedSchool)) return true
+          if (typeof tid === 'string' && tid.toUpperCase() === normalizedSchool) return true
         }
       }
       return false
@@ -436,19 +460,16 @@ export default function AllConference() {
   const realPhoto = (url) => (url && !placeholderImages.has(url) ? url : null)
 
   const PlayerRow = ({ player }) => {
-    const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const { teamLogo, colors, schoolName, abbr } = resolveSchool(player.schoolTid, player.school)
     const primary = colors?.primary || '#64748b'
     const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school, player.schoolTid)
-    const schoolName = getSchoolName(mascotName) || player.school
     return (
       <HonorPlayerTile
         position={player.position}
         name={cleanPlayerName(player.player)}
         klass={player.class}
         schoolName={schoolName}
-        schoolAbbr={player.school}
+        schoolAbbr={abbr || player.school}
         teamLogo={teamLogo}
         primary={primary}
         photoUrl={realPhoto(matchingPlayer?.pictureUrl)}

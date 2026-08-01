@@ -20,26 +20,12 @@ import {
 // nicety — the panel's buttons are inert for non-admins.
 const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com'])
 
-// Emails permitted to self-grant a free beta premium pass while Stripe
-// checkout is disabled. Must mirror BETA_GRANT_EMAILS in
-// api/_verifyAuth.js — the server is the actual gate; this client list
-// only controls whether the "Beta Access" card is shown. Keep in sync.
+// Post-beta: self-grant is limited to the permanent free accounts (the
+// owner is covered implicitly via ADMIN_EMAILS). Must mirror
+// BETA_GRANT_EMAILS in api/_verifyAuth.js — the server is the actual
+// gate; this client list only controls whether the free-access card shows.
 const BETA_GRANT_EMAILS = new Set([
-  'alabamaprince@gmail.com',
-  'skater1932@gmail.com',
   'zekemuck@gmail.com',
-  'couchcoach16@gmail.com',
-  'paul.540909@gmail.com',
-  'john.prince1529@gmail.com',
-  'd.carasiti@gmail.com',
-  'boisestate2525@gmail.com',
-  'yepeza23@gmail.com',
-  'tylerhorn30@gmail.com',
-  'jpj1226@gmail.com',
-  'bryceth24@gmail.com',
-  'cwilsonsimons@gmail.com',
-  'abohannon1991@gmail.com',
-  'coreyethan114@gmail.com',
 ])
 
 
@@ -59,6 +45,11 @@ export default function Account() {
   const [recoverOldId, setRecoverOldId] = useState('')
   const [recoverTargetId, setRecoverTargetId] = useState('')
   const [recovering, setRecovering] = useState(false)
+  // Re-sync repair: push a complete local dynasty into an existing cloud
+  // dynasty whose migration landed incompletely (e.g. schedules + NIL missing).
+  const [resyncLocalId, setResyncLocalId] = useState('')
+  const [resyncCloudId, setResyncCloudId] = useState('')
+  const [resyncing, setResyncing] = useState(false)
 
   const userEmailLower = user?.email?.toLowerCase()
   const isAdmin = !!userEmailLower && ADMIN_EMAILS.has(userEmailLower)
@@ -128,6 +119,35 @@ export default function Account() {
       toast.error(err.message || 'Recovery failed')
     } finally {
       setRecovering(false)
+    }
+  }
+
+  const handleResync = async () => {
+    if (!resyncLocalId || !resyncCloudId) {
+      toast.error('Pick both a local source and a cloud target')
+      return
+    }
+    if (resyncLocalId === resyncCloudId) {
+      toast.error('Source and target must be different dynasties')
+      return
+    }
+    setResyncing(true)
+    try {
+      const result = await storageService.resyncDynastyToCloud(resyncLocalId, resyncCloudId)
+      if (result.success) {
+        toast.success(`Re-synced: ${result.written.join(', ') || 'nothing to write'}. Reload the cloud dynasty to see it.`)
+        setResyncLocalId('')
+        setResyncCloudId('')
+      } else if (result.written?.length) {
+        toast.warning(`Partial re-sync. Uploaded: ${result.written.join(', ')}. Failed: ${result.failed.join(', ')}.`)
+      } else {
+        toast.error(result.error || 'Re-sync failed')
+      }
+    } catch (err) {
+      console.error('[Account] re-sync failed:', err)
+      toast.error(err.message || 'Re-sync failed')
+    } finally {
+      setResyncing(false)
     }
   }
 
@@ -275,15 +295,32 @@ export default function Account() {
             unified into one card. */}
         <Card>
           <h2 className="label-sm text-txt-primary mb-3 text-center">Cloud Saves</h2>
-          <p className="text-sm text-txt-primary text-center font-semibold mb-2">
-            Everything on the site is completely free, forever.
-          </p>
-          <p className="text-sm text-txt-secondary text-center">
-            The only paid add-on is <span className="text-txt-primary font-medium">cloud saves</span>: sync your
-            dynasties live across all your devices, with automatic backups, instead of storing them only on this
-            device. It&apos;s free during beta; eventually it&apos;ll be about $1-2/month, just enough to cover server
-            costs (I&apos;m not looking to profit).
-          </p>
+          {isPremium && !subscription?._devGranted ? (
+            /* Paying subscriber */
+            <p className="text-sm text-txt-secondary text-center">
+              Thanks for supporting the app! Your <span className="text-txt-primary font-medium">cloud saves</span> keep
+              your dynasties synced live across all your devices, with automatic backups. Everything else on the site is
+              free, forever.
+            </p>
+          ) : subscription?._devGranted ? (
+            /* Comped / free-access account */
+            <p className="text-sm text-txt-secondary text-center">
+              Everything on the site is free, forever. Your <span className="text-txt-primary font-medium">cloud saves</span> —
+              live sync across devices with automatic backups — are enabled at no charge.
+            </p>
+          ) : (
+            /* Free tier — the pitch */
+            <>
+              <p className="text-sm text-txt-primary text-center font-semibold mb-2">
+                Everything on the site is free, forever.
+              </p>
+              <p className="text-sm text-txt-secondary text-center">
+                The only paid add-on is <span className="text-txt-primary font-medium">cloud saves</span>: sync your
+                dynasties live across all your devices, with automatic backups, instead of storing them only on this
+                device — {PREMIUM_PRICE_PER_MO}, just enough to cover server costs (I&apos;m not looking to profit).
+              </p>
+            </>
+          )}
 
           {isPremium ? (
             <div className="mt-4 p-3 rounded-lg text-sm" style={{ backgroundColor: 'var(--surface-3)' }}>
@@ -299,7 +336,7 @@ export default function Account() {
                 <div className="space-y-1 text-txt-secondary">
                   <div className="flex justify-between">
                     <span>Status</span>
-                    <span className="font-medium" style={{ color: 'var(--accent-success)' }}>Enabled, free (beta)</span>
+                    <span className="font-medium" style={{ color: 'var(--accent-success)' }}>Enabled, free</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Expires</span>
@@ -355,14 +392,15 @@ export default function Account() {
                   </p>
                 </>
               ) : (
+                /* Fallback shown only if the paywall is ever disabled. */
                 <>
                   <Link to="/contact" className="block">
                     <Button variant="primary" className="w-full">
-                      Get free access during beta
+                      Contact me for access
                     </Button>
                   </Link>
                   <p className="text-center text-txt-tertiary text-xs mt-3">
-                    Free during beta. Message me from the Contact page with the email you sign in with.
+                    Message me from the Contact page with the email you sign in with.
                   </p>
                 </>
               )}
@@ -370,30 +408,31 @@ export default function Account() {
           )}
         </Card>
 
-        {/* Beta access — self-serve grant/revoke for the beta allowlist. */}
+        {/* Free access — self-serve grant/revoke for the permanent free
+            accounts (lifetime grants; see api/_handlers/admin/grant-premium.js). */}
         {canBetaGrant && (
           <Card>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="label-sm text-txt-primary">Beta Access</h2>
+              <h2 className="label-sm text-txt-primary">Free Access</h2>
               <span className="label-xs text-txt-tertiary">{subscription?.subscriptionStatus || 'none'}</span>
             </div>
             <p className="text-sm text-txt-secondary mb-4">
               {isPremium
-                ? 'Your beta pass is active. When it expires, grant yourself another 30 days here, free during beta.'
-                : "You're on the beta allowlist. Grant yourself 30 days of cloud saves, free during beta."}
+                ? 'Your free premium access is active.'
+                : 'This account has permanent free premium. Grant yourself access — you will never be charged.'}
             </p>
             {!isPremium ? (
               <Button variant="primary" className="w-full" onClick={handleGrantPremium} disabled={devStatus === 'granting'}>
-                {devStatus === 'granting' ? 'Granting...' : 'Grant myself 30 days'}
+                {devStatus === 'granting' ? 'Granting...' : 'Activate free premium'}
               </Button>
             ) : (
               <Button variant="outline" className="w-full" onClick={handleRevokePremium} disabled={devStatus === 'revoking'}>
-                {devStatus === 'revoking' ? 'Revoking...' : 'Revoke my beta pass'}
+                {devStatus === 'revoking' ? 'Revoking...' : 'Revoke my access'}
               </Button>
             )}
             {devStatus === 'granted' && (
               <p className="text-sm text-center mt-3" style={{ color: 'var(--accent-success)' }}>
-                Granted for 30 days. Refresh to see it everywhere.
+                Granted. Refresh to see it everywhere.
               </p>
             )}
             {devStatus === 'revoked' && (
@@ -500,6 +539,57 @@ export default function Account() {
                     disabled={recovering || !recoverOldId.trim() || !recoverTargetId.trim()}
                   >
                     {recovering ? 'Recovering…' : 'Recover orphan'}
+                  </Button>
+                </div>
+
+                {/* Re-sync local -> cloud — repair an incomplete migration.
+                    Pushes every field from a complete local dynasty into an
+                    existing cloud dynasty (schedules, team NIL, roster, etc.)
+                    without deleting the local copy. */}
+                <div className="pt-4 border-t border-surface-4 space-y-2">
+                  <div className="text-xs font-semibold text-txt-secondary">Re-sync local → cloud</div>
+                  <p className="text-[11px] text-txt-tertiary leading-snug">
+                    Re-uploads a complete local dynasty into an existing cloud dynasty. Fixes an incomplete migration where schedules or team NIL didn't carry over. The local copy is kept.
+                  </p>
+                  <div>
+                    <label className="block text-[11px] text-txt-tertiary mb-1">Source (local, complete)</label>
+                    <select
+                      value={resyncLocalId}
+                      onChange={(e) => setResyncLocalId(e.target.value)}
+                      className="w-full text-xs px-2 py-1.5 rounded border bg-surface-2 text-txt-primary"
+                      style={{ borderColor: 'var(--surface-5)' }}
+                    >
+                      <option value="">Select a local dynasty</option>
+                      {(dynasties || []).filter(d => (d.storageType || 'local') === 'local').map(d => (
+                        <option key={d.id} value={d.id}>
+                          {(d.dynastyName || d.teamName || d.id)} {d.id.slice(0, 8)}…
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-txt-tertiary mb-1">Target (existing cloud)</label>
+                    <select
+                      value={resyncCloudId}
+                      onChange={(e) => setResyncCloudId(e.target.value)}
+                      className="w-full text-xs px-2 py-1.5 rounded border bg-surface-2 text-txt-primary"
+                      style={{ borderColor: 'var(--surface-5)' }}
+                    >
+                      <option value="">Select a cloud dynasty</option>
+                      {(dynasties || []).filter(d => d.storageType === 'cloud').map(d => (
+                        <option key={d.id} value={d.id}>
+                          {(d.dynastyName || d.teamName || d.id)} {d.id.slice(0, 8)}…
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    onClick={handleResync}
+                    disabled={resyncing || !resyncLocalId || !resyncCloudId}
+                  >
+                    {resyncing ? 'Re-syncing…' : 'Re-sync to cloud'}
                   </Button>
                 </div>
               </div>

@@ -9,41 +9,42 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getFullRecapPrompt } from '../../services/geminiService'
 import { buildGameSocialSection, gameSocialTagMap } from '../../utils/socialPrompt'
 import { extractSocialBlock, parseSocialLines, resolveSocialPosts, buildHandleIndex, getEffectiveCharacters, ensureUniverseLoaded } from '../../data/socialModel'
+import { extractRecapBlock } from '../../utils/recapText'
 import { getBowlLogo } from '../../data/bowlLogos'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getTeamConference } from '../../data/conferenceTeams'
 import BoxScoreSheetModal from '../../components/BoxScoreSheetModal'
-import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
+import { setPlayerStatsForTid, setTeamStatsForTid, setScoringSummary, getPlayerStatsSheetIdForTid, canonicalBoxScore, swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats, hasPlayerStatsForTid } from '../../utils/boxScoreHelpers'
 import { parseCFPGameId, getCFPRoundInfo, getCFPSlotDisplayName } from '../../data/cfpConstants'
 import { isBowlInWeek1, isBowlInWeek2, getWeek1BowlGamesList, getWeek2BowlGamesList } from '../../services/sheetsService'
 import { PageHero, Card, Button, EmptyState, Input, Select, Textarea, SectionHeader, Modal } from '../../components/ui'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { useToast } from '../../components/ui/Toast'
 import RecapSettingsModal from '../../components/RecapSettingsModal'
+import GraphicSettingsModal from '../../components/GraphicSettingsModal'
 import GameSocialModal from '../../components/GameSocialModal'
 import { getTeamLogoRobust } from '../../utils/teamLogo'
 import { getTeamColors } from '../../data/teamColors'
 import { uploadImagesToImgBB } from '../../utils/imgbb'
-import { readClipboardImageAsFile } from '../../utils/clipboardImage'
+import { readClipboardImageAsFile, extractImageUrlFromHtml, looksLikeUrl, isKnownAuthGatedUrl, urlToImageFile } from '../../utils/clipboardImage'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
 import ImageUpload from '../../components/ImageUpload'
+import PasteEntrySteps from '../../components/ui/PasteEntrySteps'
+import { IMAGE_AI_TOOLS } from '../../data/aiTools'
 import { buildScoreGraphicPrompt } from '../../utils/scoreGraphicPrompt'
 import { GRAPHIC_SIDES } from '../../utils/scoreGraphics'
 import { matchAndRankPlayers } from '../../utils/playerTagSearch'
 
 // Map abbreviations to mascot names for logo lookup
 // Clean a pasted AI recap. FormattedRecap renders markdown (# headings,
-// **bold**, *italic*) and unwraps a code fence itself, so we KEEP the
-// markdown formatting — only the wrapping ```markdown … ``` fence the AI
-// often adds is dropped so the stored text stays tidy.
+// **bold**, *italic*), so we KEEP the markdown formatting and only pull the
+// recap out of its ```markdown … ``` fence. extractRecapBlock EXTRACTS the
+// fenced block's contents (rather than merely stripping fence lines), so an
+// optional heads-up note the AI may add ABOVE the fence — flagging a data
+// problem, etc. — is discarded instead of getting glued to the top of the
+// saved recap. The sibling cfb-social block is split off separately upstream.
 function unwrapRecapFence(raw) {
-  if (!raw) return ''
-  let s = String(raw).replace(/\r\n/g, '\n')
-  // Drop a wrapping ```markdown … ``` (or any) code fence, anywhere.
-  s = s.replace(/^[ \t]*```[a-zA-Z]*[ \t]*$/gm, '')
-  // Collapse the blank lines a stripped fence can leave behind.
-  s = s.replace(/\n{3,}/g, '\n\n')
-  return s.trim()
+  return extractRecapBlock(raw)
 }
 
 // Keep photoTags ({ [url]: [pid] }) in sync with the photos array: drop
@@ -293,6 +294,20 @@ export default function GameEdit() {
     try { return localStorage.getItem('gameRecapDepth') || 'standard' } catch { return 'standard' }
   })
   const [showRecapSettings, setShowRecapSettings] = useState(false)
+  // Score-graphic prompt settings (per-user, localStorage) — see GraphicSettingsModal.
+  const [showGraphicSettings, setShowGraphicSettings] = useState(false)
+  const [graphicStyle, setGraphicStyle] = useState(() => {
+    try { return localStorage.getItem('scoreGraphicStyle') || 'balanced' } catch { return 'balanced' }
+  })
+  const [graphicRankEmphasis, setGraphicRankEmphasis] = useState(() => {
+    try { return localStorage.getItem('scoreGraphicRankEmphasis') || 'standard' } catch { return 'standard' }
+  })
+  const [graphicRecordEmphasis, setGraphicRecordEmphasis] = useState(() => {
+    try { return localStorage.getItem('scoreGraphicRecordEmphasis') || 'standard' } catch { return 'standard' }
+  })
+  useEffect(() => { try { localStorage.setItem('scoreGraphicStyle', graphicStyle) } catch { /* ignored */ } }, [graphicStyle])
+  useEffect(() => { try { localStorage.setItem('scoreGraphicRankEmphasis', graphicRankEmphasis) } catch { /* ignored */ } }, [graphicRankEmphasis])
+  useEffect(() => { try { localStorage.setItem('scoreGraphicRecordEmphasis', graphicRecordEmphasis) } catch { /* ignored */ } }, [graphicRecordEmphasis])
   const [recapSocial, setRecapSocial] = useState(() => { try { return localStorage.getItem('gameRecapSocial') === '1' } catch { return false } })
   const [recapSocialCount, setRecapSocialCount] = useState(() => { try { return Number(localStorage.getItem('gameRecapSocialCount')) || 8 } catch { return 8 } })
   useEffect(() => {
@@ -346,6 +361,10 @@ export default function GameEdit() {
   const [graphicFeaturedSide, setGraphicFeaturedSide] = useState(null)
   // Brief "Copied!" flash on the score graphic prompt copy button.
   const [graphicPromptCopied, setGraphicPromptCopied] = useState(false)
+  // Ref to the active-side score-graphic ImageUpload so the 3-step "Paste
+  // image" button can drive its clipboard paste (the uploader remounts per
+  // side via key=, so this ref always points at the mounted instance).
+  const graphicImageUploadRef = useRef(null)
 
   // Tracks in-flight ImgBB uploads from the Photos section so the UI
   // can show a "Uploading X photo(s)…" indicator and disable the file
@@ -426,6 +445,55 @@ export default function GameEdit() {
       return
     }
     await runPhotoUpload([result.file])
+  }
+
+  // Native DOM paste handler for the photo paste field. Unlike
+  // handlePastePhoto (which relies on navigator.clipboard.read — commonly
+  // blocked on mobile), this reads e.clipboardData off a real paste event
+  // fired by the browser, so it works from a phone's native "Paste" menu.
+  // Mirrors ImageUpload's three-shape logic: image blob → <img src> in
+  // text/html → plain-text URL. This is what makes phone paste work here,
+  // just like the score-graphic uploader.
+  const handlePhotoPasteEvent = async (e) => {
+    if (photoUploadCount > 0) return
+    const cd = e.clipboardData
+    if (!cd) return
+
+    // 1. Real image blob — screenshots, native "Copy image".
+    for (const item of cd.items || []) {
+      if (item.type && item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) { setPhotoPasteFeedback(null); await runPhotoUpload([file]) }
+        return
+      }
+    }
+
+    // 2. text/html <img src> (ChatGPT/Notion/Docs) or 3. plain-text URL.
+    const html = cd.getData?.('text/html')
+    const fromHtml = extractImageUrlFromHtml(html)
+    const text = cd.getData?.('text/plain') || cd.getData?.('text')
+    const url = (fromHtml && looksLikeUrl(fromHtml)) ? fromHtml
+      : (text && looksLikeUrl(text)) ? text
+      : null
+    if (url) {
+      e.preventDefault()
+      if (isKnownAuthGatedUrl(url)) {
+        setPhotoPasteFeedback('That image is behind a login — save it and use Click to select instead.')
+        setTimeout(() => setPhotoPasteFeedback(null), 3500)
+        return
+      }
+      try {
+        const file = await urlToImageFile(url)
+        setPhotoPasteFeedback(null)
+        await runPhotoUpload([file])
+      } catch {
+        setPhotoPasteFeedback('Could not fetch that image. Try copying the image itself.')
+        setTimeout(() => setPhotoPasteFeedback(null), 3500)
+      }
+      return
+    }
+    // Nothing usable on the clipboard — let default paste run.
   }
   // URL of the photo whose tag-detail panel is open inside the Photos
   // modal (null = showing the grid). Lets you click a photo, see it big,
@@ -712,6 +780,44 @@ export default function GameEdit() {
   // Derived classification flags from the current editWeek + editBowlName selection
   const computedWeekFlags = (() => {
     const bn = (editBowlName || '').trim()
+
+    // Durable CFP identity. A game that already carries a cfpSlot IS a playoff
+    // game, and its round is fixed by that slot (cfpfr/cfpqf/cfpsf/cfpnc). The
+    // classification below (for FR/QF) otherwise depends on a fragile marker
+    // substring in the bowl name ("CFP First Round" / "(CFP QF)"). When a user
+    // logged a playoff result through this editor without that marker present,
+    // the save silently DEMOTED the game to a plain bowl (isCFP* stripped,
+    // isBowlGame=true, gameType='bowl'), which broke the bracket and made the
+    // game render as a regular-season bowl. Deriving from the slot instead
+    // keeps the CFP identity no matter what the week/bowl pickers say.
+    const cfpSlot = existingGame?.cfpSlot ||
+      (existingGame?.id && existingGame.id.match(/^(cfp(?:fr|qf|sf|nc)\d?)-\d+$/)?.[1]) || null
+    if (cfpSlot) {
+      if (cfpSlot.startsWith('cfpfr')) return {
+        week: 'Bowl', gameType: 'cfp_first_round',
+        isConferenceChampionship: false, isBowlGame: false,
+        isCFPFirstRound: true, isCFPQuarterfinal: false, isCFPSemifinal: false, isCFPChampionship: false,
+        bowlName: existingGame?.bowlName || null, bowlWeek: 'week1', conference: null,
+      }
+      if (cfpSlot.startsWith('cfpqf')) return {
+        week: 'Bowl', gameType: 'cfp_quarterfinal',
+        isConferenceChampionship: false, isBowlGame: false,
+        isCFPFirstRound: false, isCFPQuarterfinal: true, isCFPSemifinal: false, isCFPChampionship: false,
+        bowlName: existingGame?.bowlName || null, bowlWeek: 'week2', conference: null,
+      }
+      if (cfpSlot.startsWith('cfpsf')) return {
+        week: 'Bowl', gameType: 'cfp_semifinal',
+        isConferenceChampionship: false, isBowlGame: false,
+        isCFPFirstRound: false, isCFPQuarterfinal: false, isCFPSemifinal: true, isCFPChampionship: false,
+        bowlName: existingGame?.bowlName || null, bowlWeek: null, conference: null,
+      }
+      if (cfpSlot === 'cfpnc') return {
+        week: 'NatChamp', gameType: 'cfp_championship',
+        isConferenceChampionship: false, isBowlGame: false,
+        isCFPFirstRound: false, isCFPQuarterfinal: false, isCFPSemifinal: false, isCFPChampionship: true,
+        bowlName: existingGame?.bowlName || 'National Championship', bowlWeek: null, conference: null,
+      }
+    }
     if (editWeek === 'NatChamp') return {
       week: 'NatChamp', gameType: 'cfp_championship',
       isConferenceChampionship: false, isBowlGame: false,
@@ -791,8 +897,8 @@ export default function GameEdit() {
 
   // Auto-detect conference game
   const customConferences = getCurrentCustomConferences(currentDynasty)
-  const team1Conference = getTeamConference(team1Abbr, customConferences)
-  const team2Conference = getTeamConference(team2Abbr, customConferences)
+  const team1Conference = getTeamConference(team1Abbr, customConferences, currentDynasty?.teams)
+  const team2Conference = getTeamConference(team2Abbr, customConferences, currentDynasty?.teams)
   const isConferenceGame = team1Conference && team2Conference &&
     team1Conference === team2Conference && team1Conference !== 'Independent'
 
@@ -1971,50 +2077,29 @@ export default function GameEdit() {
     }
   }
 
-  // Copy full prompt to clipboard for use in external AI (ChatGPT/Claude/etc.)
-  const handleCopyPrompt = async () => {
-    try {
-      const gameForRecap = {
-        ...existingGame,
-        team1: team1Name,
-        team2: team2Name,
-        team1Score: parseInt(formData.team1Score) || 0,
-        team2Score: parseInt(formData.team2Score) || 0,
-        quarters: formData.quarters,
-        gameType,
-        bowlName,
-        year: gameYear,
-      }
-
-      let fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, { perspective: recapPerspective, depth: recapDepth })
-
-      // Optionally bake social posts into the same prompt (two-in-one).
-      if (recapSocial && currentDynasty) {
-        const socialSection = buildGameSocialSection(currentDynasty, gameForRecap, Number(recapSocialCount) || 8)
-        fullPrompt = `${fullPrompt}\n\nIMPORTANT: After your recap, ALSO output the SOCIAL POSTS block described below as a SEPARATE \`\`\`cfb-social fence (two sibling fenced blocks, recap first).\n\n${socialSection}`
-      }
-
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(fullPrompt)
-      } else {
-        const textArea = document.createElement('textarea')
-        textArea.value = fullPrompt
-        textArea.style.position = 'fixed'
-        textArea.style.left = '-999999px'
-        textArea.style.top = '-999999px'
-        document.body.appendChild(textArea)
-        textArea.focus()
-        textArea.select()
-        document.execCommand('copy')
-        textArea.remove()
-      }
-
-      setPromptCopied(true)
-      setTimeout(() => setPromptCopied(false), 2000)
-    } catch (error) {
-      console.error('Failed to copy prompt:', error)
-      setRecapError('Failed to copy prompt to clipboard: ' + error.message)
+  // Build the full recap prompt (recap + optional social section) for the
+  // current game. Returns '' when scores are missing so the Copy button stays
+  // disabled. PasteEntrySteps performs the actual clipboard copy + feedback.
+  const buildRecapPromptText = () => {
+    if (!formData.team1Score || !formData.team2Score) return ''
+    const gameForRecap = {
+      ...existingGame,
+      team1: team1Name,
+      team2: team2Name,
+      team1Score: parseInt(formData.team1Score) || 0,
+      team2Score: parseInt(formData.team2Score) || 0,
+      quarters: formData.quarters,
+      gameType,
+      bowlName,
+      year: gameYear,
     }
+    let fullPrompt = getFullRecapPrompt(currentDynasty, gameForRecap, { perspective: recapPerspective, depth: recapDepth })
+    // Optionally bake social posts into the same prompt (two-in-one).
+    if (recapSocial && currentDynasty) {
+      const socialSection = buildGameSocialSection(currentDynasty, gameForRecap, Number(recapSocialCount) || 8)
+      fullPrompt = `${fullPrompt}\n\nIMPORTANT: After your recap, ALSO output the SOCIAL POSTS block described below as a SEPARATE \`\`\`cfb-social fence (two sibling fenced blocks, recap first).\n\n${socialSection}`
+    }
+    return fullPrompt
   }
 
   if (isViewOnly) {
@@ -2542,32 +2627,36 @@ export default function GameEdit() {
 
             <div className="grid grid-cols-4 gap-2">
               {[
+                // Green = DATA has been saved (from local paste OR a Google
+                // sheet), not merely that a sheet was connected. Each check
+                // reads the actual saved box-score data on the game, so it's
+                // true regardless of which entry path produced it.
                 {
                   key: 'team-stats',
                   label: 'Team Stats',
                   onClick: () => openBoxScoreModal('teamStats'),
-                  connected: !!existingGame?.teamStatsSheetId,
+                  hasData: hasAnyTeamStats(existingGame, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: null
                 },
                 {
                   key: 'left-stats',
                   label: '',
                   onClick: () => openBoxScoreModal('playerStats', leftTeamTid),
-                  connected: !!getPlayerStatsSheetIdForTid(existingGame, leftTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
+                  hasData: hasPlayerStatsForTid(existingGame, leftTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: leftTeamLogo
                 },
                 {
                   key: 'right-stats',
                   label: '',
                   onClick: () => openBoxScoreModal('playerStats', rightTeamTid),
-                  connected: !!getPlayerStatsSheetIdForTid(existingGame, rightTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
+                  hasData: hasPlayerStatsForTid(existingGame, rightTeamTid, currentDynasty?.teams || currentDynasty?.customTeams),
                   logo: rightTeamLogo
                 },
                 {
                   key: 'scoring-summary',
                   label: 'Plays',
                   onClick: () => openBoxScoreModal('scoring'),
-                  connected: !!existingGame?.scoringSummarySheetId,
+                  hasData: (existingGame?.boxScore?.scoringSummary?.length || 0) > 0,
                   logo: null
                 }
               ].map(tile => (
@@ -2577,7 +2666,7 @@ export default function GameEdit() {
                   className="p-2 rounded-sm text-center transition-colors hover:bg-surface-3"
                   style={{
                     backgroundColor: 'var(--surface-2)',
-                    border: tile.connected
+                    border: tile.hasData
                       ? '1px solid var(--accent-success)'
                       : '1px dashed var(--surface-5)'
                   }}
@@ -2586,8 +2675,8 @@ export default function GameEdit() {
                     <img src={tile.logo} alt="" className="h-5 w-5 object-contain mx-auto mb-1" />
                   )}
                   <div className="text-xs font-semibold text-txt-primary leading-tight">{tile.label}</div>
-                  {tile.connected && (
-                    <div className="text-[9px] mt-0.5 uppercase tracking-wide" style={{ color: 'var(--accent-success)' }}>Connected</div>
+                  {tile.hasData && (
+                    <div className="text-[9px] mt-0.5 uppercase tracking-wide" style={{ color: 'var(--accent-success)' }}>Saved</div>
                   )}
                 </button>
               ))}
@@ -2687,88 +2776,63 @@ export default function GameEdit() {
           }
           return (
             <>
-              <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-                <div className="min-w-0">
-                  <h3 className="label-sm text-txt-primary">Game Recap</h3>
-                  <p className="text-xs text-txt-tertiary mt-0.5 tabular-nums">
-                    {recapPasteFeedback
-                      ? recapPasteFeedback
-                      : wordCount > 0
-                      ? `${wordCount} ${wordCount === 1 ? 'word' : 'words'} saved`
-                      : 'No recap yet — Copy AI Prompt, run it, then Paste the result.'}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {/* ⚙ | Copy AI Prompt — joined pair */}
-                  <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: '1px solid var(--surface-5)' }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowRecapSettings(true)}
-                      title="Recap perspective and length"
-                      className="px-2.5 flex items-center justify-center transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
-                      style={{ background: 'var(--surface-2)' }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="3"/>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                      </svg>
-                    </button>
-                    <div style={{ width: '1px', background: 'var(--surface-5)', flexShrink: 0 }} />
-                    <button
-                      type="button"
-                      onClick={handleCopyPrompt}
-                      disabled={!formData.team1Score || !formData.team2Score}
-                      title="Copy the full prompt to paste into ChatGPT, Claude, or another AI"
-                      className="px-3 py-1.5 text-sm font-semibold transition-colors text-txt-primary hover:bg-surface-3 disabled:opacity-40"
-                      style={{ background: 'var(--surface-2)' }}
-                    >
-                      {promptCopied ? 'Copied!' : 'Copy AI Prompt'}
-                    </button>
-                  </div>
-
-                  {/* Paste | ↗ — joined pair */}
-                  <div className="flex items-stretch rounded-lg overflow-hidden" style={{ border: '1px solid var(--surface-5)' }}>
-                    <button
-                      type="button"
-                      onClick={handlePasteRecap}
-                      title="Paste recap text from clipboard"
-                      className="px-3 py-1.5 text-sm font-semibold transition-colors text-txt-primary hover:bg-surface-3"
-                      style={{ background: 'var(--surface-2)' }}
-                    >
-                      Paste
-                    </button>
-                    <div style={{ width: '1px', background: 'var(--surface-5)', flexShrink: 0 }} />
-                    <button
-                      type="button"
-                      onClick={() => setShowRecapEditModal(true)}
-                      title="Open the recap in a larger editor"
-                      className="px-2.5 flex items-center justify-center transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
-                      style={{ background: 'var(--surface-2)' }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 17L17 7" />
-                        <path d="M8 7h9v9" />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Edit socials — generate/edit in-character posts about this game.
-                      Lives here next to the recap since they're two outputs of the
-                      same game data (and can be generated together via settings). */}
-                  {existingGame?.id && (
-                    <button
-                      type="button"
-                      onClick={() => setShowSocialModal(true)}
-                      disabled={!formData.team1Score || !formData.team2Score}
-                      title="Generate or edit social posts about this game"
-                      className="px-3 py-1.5 text-sm font-semibold rounded-lg border transition-colors text-txt-primary hover:bg-surface-3 disabled:opacity-40"
-                      style={{ background: 'var(--surface-2)', borderColor: 'var(--surface-5)' }}
-                    >
-                      Edit socials
-                    </button>
-                  )}
-                </div>
+              <div className="mb-3">
+                <h3 className="label-sm text-txt-primary">Game Recap</h3>
+                <p className="text-xs text-txt-tertiary mt-0.5 tabular-nums">
+                  {recapPasteFeedback
+                    ? recapPasteFeedback
+                    : wordCount > 0
+                    ? `${wordCount} ${wordCount === 1 ? 'word' : 'words'} saved`
+                    : 'No recap yet — Copy the prompt, run it, then Paste the result.'}
+                </p>
               </div>
+
+              {/* Same 3-step flow the data-entry modals use: Copy → Open your AI
+                  → Paste. The recap settings gear stays joined to the Copy
+                  button via copyLeading. */}
+              <PasteEntrySteps
+                aiPrompt={buildRecapPromptText}
+                onPaste={handlePasteRecap}
+                onToggleText={() => setShowRecapEditModal(true)}
+                copyEmoji={null}
+                labels={{ copy: 'Copy prompt', ai: 'Open your AI', paste: 'Paste it back', copyButton: 'Copy AI Prompt' }}
+                hints={{
+                  screenshot: "Copy the recap prompt — it already carries this game's scores and context. No screenshot needed.",
+                  ai: 'Open your AI, paste the prompt, and it writes the recap.',
+                  paste: "Copy the AI's ENTIRE reply, then tap Paste. Tap the arrow to open the full recap editor.",
+                }}
+                copyLeading={
+                  <button
+                    type="button"
+                    onClick={() => setShowRecapSettings(true)}
+                    title="Recap perspective and length"
+                    aria-label="Recap settings"
+                    className="px-2.5 flex items-center justify-center transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: 'var(--text-primary)', color: 'var(--surface-1)', borderRight: '1px solid var(--surface-1)' }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="3"/>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                  </button>
+                }
+              />
+
+              {/* Edit socials — generate/edit in-character posts about this game. */}
+              {existingGame?.id && (
+                <div className="mt-3 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowSocialModal(true)}
+                    disabled={!formData.team1Score || !formData.team2Score}
+                    title="Generate or edit social posts about this game"
+                    className="px-3 py-1.5 text-sm font-semibold rounded-lg border transition-colors text-txt-primary hover:bg-surface-3 disabled:opacity-40"
+                    style={{ background: 'var(--surface-2)', borderColor: 'var(--surface-5)' }}
+                  >
+                    Edit socials
+                  </button>
+                </div>
+              )}
               {recapError && (
                 <p className="text-sm mt-1" style={{ color: 'var(--accent-error)' }}>{recapError}</p>
               )}
@@ -2849,19 +2913,42 @@ export default function GameEdit() {
         const t1Colors = getTeamColors(team1Name)
         const t2Colors = getTeamColors(team2Name)
 
-        // Pull records for the graphic prompt using the same logic as the Cast
-        // view: getRecordAsOfGame counts all saved games up through this game's
-        // week (inclusive), giving the correct post-game record regardless of
-        // which week the user is currently on. For unsaved new games where
-        // existingGame doesn't exist yet, fall back to the live-calculated value.
+        // Pull records for the graphic prompt. Prefer live1/live2: they take a
+        // pre-game baseline (saved games before this one, via upToGameId) and
+        // fold in the score the user just typed into formData, so they reflect
+        // the CURRENT post-game record even before the game is re-saved. This
+        // fixes graphics that showed stale pre-game records (e.g. both teams
+        // "3-0" right after a 4-0 win). getRecordAsOfGame reads only SAVED
+        // dynasty.games, so it lags the live edit — keep it as a fallback for
+        // when auto-fill is off (live is null) or the game/team can't be
+        // matched, plus its postseason stored-record combine for CPU teams.
         const graphicRec1Obj = (existingGame && team1Tid)
           ? getRecordAsOfGame(currentDynasty, existingGame, team1Tid)
           : null
         const graphicRec2Obj = (existingGame && team2Tid)
           ? getRecordAsOfGame(currentDynasty, existingGame, team2Tid)
           : null
-        const rec1 = graphicRec1Obj?.overall || live1?.record || ''
-        const rec2 = graphicRec2Obj?.overall || live2?.record || ''
+        // Reconcile the two sources by picking whichever reflects MORE games.
+        // live folds in the just-entered score (so a fresh win shows 4-0 before
+        // save, fixing the "still 3-0" bug); getRecordAsOfGame keeps its
+        // postseason stored-record combine for CPU opponents whose full regular
+        // season isn't in dynasty.games (so a bowl opponent still reads 11-2,
+        // not a sparse 2-1). Ties favor live (fresher). Empty stays empty.
+        const gamesInRecord = (rec) => {
+          const m = /^(\d+)-(\d+)/.exec(rec || '')
+          return m ? (Number(m[1]) + Number(m[2])) : -1
+        }
+        const pickRecord = (liveObj, asOfObj) => {
+          const liveRec = liveObj?.record || ''
+          const asOfRec = asOfObj?.overall || ''
+          const liveG = gamesInRecord(liveRec)
+          const asOfG = gamesInRecord(asOfRec)
+          if (asOfG > liveG) return asOfRec
+          if (liveG >= 0) return liveRec
+          return asOfRec
+        }
+        const rec1 = pickRecord(live1, graphicRec1Obj)
+        const rec2 = pickRecord(live2, graphicRec2Obj)
 
         // Pass screenshot count so the prompt can tell the AI to expect attachments
         const uploadedScreenshots = Array.isArray(formData.photos) ? formData.photos.filter(Boolean).length : 0
@@ -2901,25 +2988,41 @@ export default function GameEdit() {
           gameType: promptGameType,
           bowlName: promptBowlName,
           conference: promptConference,
+          designStyle: graphicStyle,
+          rankEmphasis: graphicRankEmphasis,
+          recordEmphasis: graphicRecordEmphasis,
         }) : ''
 
         return (
           <Card>
-            <div className="flex items-center justify-between gap-2 mb-1">
+            <div className="mb-1 flex items-center justify-between">
               <h3 className="label-sm text-txt-primary">Score Graphic</h3>
-              <a
-                href="https://chatgpt.com/images/"
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Generate in ChatGPT"
-                aria-label="Open ChatGPT image tools"
-                className="flex-shrink-0 text-txt-tertiary hover:text-txt-primary transition-colors"
-              >
-                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor" aria-hidden="true">
-                  <path d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z" />
-                </svg>
-              </a>
+              {hasScores && (
+                <button
+                  type="button"
+                  onClick={() => setShowGraphicSettings(true)}
+                  title="Graphic style, rankings, and records"
+                  aria-label="Graphic settings"
+                  className="flex items-center justify-center w-7 h-7 rounded-md transition-colors hover:bg-surface-3"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                  </svg>
+                </button>
+              )}
             </div>
+            <GraphicSettingsModal
+              isOpen={showGraphicSettings}
+              onClose={() => setShowGraphicSettings(false)}
+              designStyle={graphicStyle}
+              onDesignStyleChange={setGraphicStyle}
+              rankEmphasis={graphicRankEmphasis}
+              onRankEmphasisChange={setGraphicRankEmphasis}
+              recordEmphasis={graphicRecordEmphasis}
+              onRecordEmphasisChange={setGraphicRecordEmphasis}
+            />
 
             {hasScores && (
               <label className="flex items-center gap-2 mb-2 min-w-0">
@@ -2986,25 +3089,23 @@ export default function GameEdit() {
                   </div>
                 </div>
 
-                {/* Copy prompt button — prompt text is hidden from the user;
-                    they don't need to read it, just copy it into their image
-                    generator. Hold the actual text in the closure above. */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(prompt).catch(() => {})
-                    setGraphicPromptCopied(true)
-                    setTimeout(() => setGraphicPromptCopied(false), 1500)
+                {/* Same 3-step flow as the recap / data-entry modals, but for an
+                    IMAGE: Copy prompt → Open your image-gen AI (ChatGPT, Gemini,
+                    …; choice remembered) → Paste the generated image. The Paste
+                    step drives the active-side ImageUpload's clipboard paste. */}
+                <PasteEntrySteps
+                  aiPrompt={prompt}
+                  onPaste={() => graphicImageUploadRef.current?.pasteFromClipboard()}
+                  copyEmoji={null}
+                  tools={IMAGE_AI_TOOLS}
+                  preferenceKey="preferredImageAiTool"
+                  labels={{ copy: 'Copy prompt', ai: 'Open your AI', paste: 'Paste image', copyButton: 'Copy prompt' }}
+                  hints={{
+                    screenshot: "Copy the prompt — it describes this game's final-score graphic.",
+                    ai: 'Open your image AI, paste the prompt, and it generates the graphic.',
+                    paste: 'Copy the generated image, then tap Paste to drop it into the upload box below.',
                   }}
-                  className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150"
-                  style={{
-                    backgroundColor: graphicPromptCopied ? '#16a34a' : 'var(--text-primary)',
-                    color: graphicPromptCopied ? '#fff' : 'var(--surface-1)',
-                    transform: graphicPromptCopied ? 'scale(0.98)' : 'scale(1)',
-                  }}
-                >
-                  {graphicPromptCopied ? 'Copied!' : 'Copy prompt'}
-                </button>
+                />
 
                 {/* Upload result. When a graphic is set, the ImageUpload
                     component renders the image INSIDE the dropzone — click
@@ -3015,6 +3116,8 @@ export default function GameEdit() {
                   </p>
                   <ImageUpload
                     key={activeSide}
+                    ref={graphicImageUploadRef}
+                    hidePasteButton
                     value={sgMap[activeSide] || ''}
                     onChange={(url) => setFormData(prev => {
                       const next = { ...(prev.scoreGraphics || {}) }
@@ -3350,20 +3453,24 @@ export default function GameEdit() {
             }}
           />
         </label>
-          <button
-            type="button"
+          <input
+            type="text"
+            value=""
+            readOnly={photoUploadCount > 0}
+            onChange={() => {}}
+            onPaste={handlePhotoPasteEvent}
             onClick={handlePastePhoto}
             disabled={photoUploadCount > 0}
-            title="Paste an image from your clipboard (Ctrl+V)"
-            className="flex-shrink-0 flex items-center justify-center px-5 rounded-lg transition-colors text-sm font-semibold disabled:opacity-50 hover:bg-surface-4"
+            placeholder="Paste image"
+            title="Tap here and paste an image (works on phone); on desktop, click then Ctrl+V"
+            aria-label="Paste image from clipboard"
+            className="flex-shrink-0 w-32 text-center px-5 rounded-lg transition-colors text-sm font-semibold placeholder:text-txt-secondary placeholder:opacity-100 disabled:opacity-50 hover:bg-surface-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
             style={{
               backgroundColor: 'var(--surface-3)',
               border: '1.5px dashed var(--surface-5)',
               color: 'var(--text-secondary)',
             }}
-          >
-            Paste image
-          </button>
+          />
         </div>
         {photoPasteFeedback && (
           <p className="text-xs text-txt-tertiary mb-3 mt-0">{photoPasteFeedback}</p>

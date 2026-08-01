@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear, getPlayerClassForYear, computeScheduleDiff, applyScheduleDiff, getScheduleForTeam } from '../../context/DynastyContext'
+import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear, getPlayerClassForYear, getRecruitingCommitments, computeScheduleDiff, applyScheduleDiff, getScheduleForTeam } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../components/ui/Toast'
 import { useConfirm } from '../../components/ui/ConfirmDialog'
 import { useTeamColors } from '../../hooks/useTeamColors'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamName } from '../../data/teamAbbreviations'
-import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr, resolveTid, getUserTeamTid, addCareerEntry } from '../../data/teamRegistry'
+import { TEAMS, getOriginalTeamAbbr, getTidFromAbbr, getAbbrFromTid, resolveTid, getUserTeamTid, addCareerEntry } from '../../data/teamRegistry'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { storageService, STORAGE_TIER, indexedDBStorage } from '../../services/storage'
 import { swapBoxScoreTeams, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
@@ -72,7 +72,7 @@ const IDAHO_TEAM = {
 }
 
 export default function DangerZone() {
-  const { currentDynasty, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, migrateConferencesToPerTeam, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap, addGame } = useDynasty()
+  const { currentDynasty, dynasties, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, migrateConferencesToPerTeam, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap, addGame, recoverRecruitData, recoverRosterData } = useDynasty()
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -180,6 +180,12 @@ export default function DangerZone() {
 
   // Class data fix state
   const [transferYearFixStatus, setTransferYearFixStatus] = useState(null)
+  const [rebuildCarryoverStatus, setRebuildCarryoverStatus] = useState(null)
+  const [removeResurrectedStatus, setRemoveResurrectedStatus] = useState(null)
+  const [localBackups, setLocalBackups] = useState(null) // null = not loaded yet
+  const [backupStatus, setBackupStatus] = useState(null)
+  const [recoverRecruitSourceId, setRecoverRecruitSourceId] = useState('')
+  const [recoverRecruitStatus, setRecoverRecruitStatus] = useState(null)
   const [clearRosterStatus, setClearRosterStatus] = useState(null)
   const [resetCfb27Status, setResetCfb27Status] = useState(null)
   const [rebuildGamesStatus, setRebuildGamesStatus] = useState(null)
@@ -197,6 +203,9 @@ export default function DangerZone() {
   // Schedule link fix state
   const [storageAnalysisStatus, setStorageAnalysisStatus] = useState(null)
   const [storageAnalysisDetail, setStorageAnalysisDetail] = useState(null)
+  const [commitCheckStatus, setCommitCheckStatus] = useState(null)
+  const [commitCheckDetail, setCommitCheckDetail] = useState(null)
+  const [commitDrifted, setCommitDrifted] = useState(null) // array of {tid, year, abbr} pending re-sync
 
   if (!currentDynasty) {
     return <LoadingState message="Loading..." />
@@ -464,7 +473,151 @@ export default function DangerZone() {
     }
   }
 
+  // Recruiting-commitment consistency check (read-only). Commitments live in two
+  // dual-keyed stores that are supposed to mirror each other: the tid-based
+  // teams.byYear store and recruitingCommitmentsByTeamYear. They can drift
+  // because teams is replace-persisted while byTeamYear is merge-persisted. The
+  // app reads the UNION so nothing is ever lost, but this flags any team-year
+  // where the two disagree and offers a one-click re-sync (writes the per-record
+  // union of both back to both — strictly additive, never removes a commit).
+  const commitStoresForTid = (tid) => {
+    const teams = currentDynasty?.teams || {}
+    const bty = currentDynasty?.recruitingCommitmentsByTeamYear || {}
+    const abbr = getAbbrFromTid(teams, tid)
+    return {
+      abbr,
+      fromTeams: (y) => teams?.[tid]?.byYear?.[y]?.recruitingCommitments || {},
+      fromBTY: (y) => (bty?.[tid]?.[y]) || (abbr && bty?.[abbr]?.[y]) || {},
+    }
+  }
+  // Signature = each bucket's key + record count, sorted. Different signatures
+  // between the two stores means they've drifted (a missing bucket or a count
+  // mismatch — exactly what the clobber bug produced).
+  const commitSig = (obj) => Object.entries(obj || {})
+    .filter(([, v]) => Array.isArray(v))
+    .map(([k, v]) => `${k}:${v.length}`)
+    .sort()
+    .join(', ')
 
+  const handleCheckCommitments = () => {
+    setCommitCheckStatus('running')
+    setCommitCheckDetail(null)
+    setCommitDrifted(null)
+    try {
+      const teams = currentDynasty?.teams || {}
+      const bty = currentDynasty?.recruitingCommitmentsByTeamYear || {}
+
+      // Collect every (tid, year) that has commitments in either store.
+      const pairs = new Map() // `${tid}|${year}` -> { tid, year }
+      const addPair = (tid, year) => {
+        if (tid == null || !Number.isFinite(Number(tid))) return
+        pairs.set(`${Number(tid)}|${year}`, { tid: Number(tid), year: Number(year) })
+      }
+      for (const [tidStr, td] of Object.entries(teams)) {
+        for (const [year, yd] of Object.entries(td?.byYear || {})) {
+          if (yd?.recruitingCommitments && Object.keys(yd.recruitingCommitments).length) addPair(tidStr, year)
+        }
+      }
+      for (const [key, years] of Object.entries(bty)) {
+        const tid = /^\d+$/.test(key) ? Number(key) : getTidFromAbbr(key, currentDynasty)
+        for (const [year, obj] of Object.entries(years || {})) {
+          if (obj && typeof obj === 'object' && Object.keys(obj).length) addPair(tid, year)
+        }
+      }
+
+      const drifted = []
+      for (const { tid, year } of pairs.values()) {
+        const { abbr, fromTeams, fromBTY } = commitStoresForTid(tid)
+        const sT = commitSig(fromTeams(year))
+        const sB = commitSig(fromBTY(year))
+        if (sT !== sB) drifted.push({ tid, year, abbr, sigTeams: sT, sigBTY: sB })
+      }
+      drifted.sort((a, b) => (a.abbr || '').localeCompare(b.abbr || '') || a.year - b.year)
+
+      const lines = []
+      lines.push(`Scanned ${pairs.size} team-year commitment record${pairs.size === 1 ? '' : 's'}.`)
+      lines.push(`In sync: ${pairs.size - drifted.length}`)
+      lines.push(`Drifted: ${drifted.length}`)
+      if (drifted.length) {
+        lines.push('')
+        for (const d of drifted) {
+          lines.push(`${d.abbr || `tid ${d.tid}`} ${d.year}`)
+          lines.push(`   teams store:      ${d.sigTeams || '(none)'}`)
+          lines.push(`   byTeamYear store: ${d.sigBTY || '(none)'}`)
+        }
+        lines.push('')
+        lines.push('No data is lost — the app reads the union of both, so every commit still shows. Re-sync rewrites the union to both stores so they match.')
+      } else {
+        lines.push('')
+        lines.push('Both stores agree everywhere. Nothing to fix.')
+      }
+
+      setCommitCheckDetail(lines.join('\n'))
+      setCommitDrifted(drifted.length ? drifted : null)
+      setCommitCheckStatus({ success: true, message: drifted.length ? `${drifted.length} season${drifted.length === 1 ? '' : 's'} drifted — see below` : 'All stores in sync' })
+    } catch (err) {
+      console.error('[CommitCheck] failed:', err)
+      setCommitCheckDetail(`Check failed: ${err?.message || 'unknown error'}`)
+      setCommitCheckStatus({ success: false, message: 'Check failed' })
+    }
+  }
+
+  // Per-bucket, per-record union of two commitment objects — dedup by pid then
+  // name so NO commit is ever dropped (the repair is strictly additive).
+  const unionCommitmentObjects = (a, b) => {
+    const out = {}
+    const keys = new Set([...Object.keys(a || {}), ...Object.keys(b || {})])
+    for (const k of keys) {
+      const arrA = Array.isArray(a?.[k]) ? a[k] : []
+      const arrB = Array.isArray(b?.[k]) ? b[k] : []
+      const seen = new Set()
+      const merged = []
+      for (const rec of [...arrA, ...arrB]) {
+        const id = rec?.pid != null ? `p${rec.pid}` : `n${String(rec?.name || '').toLowerCase().trim()}`
+        if (id === 'n' || seen.has(id)) { if (id === 'n') merged.push(rec); continue }
+        seen.add(id)
+        merged.push(rec)
+      }
+      out[k] = merged
+    }
+    return out
+  }
+
+  const handleResyncCommitments = async () => {
+    if (isViewOnly || !commitDrifted?.length) return
+    const ok = await confirm({
+      title: 'Re-sync recruiting commitments?',
+      message: `This rewrites the per-record union of both stores back to both for ${commitDrifted.length} team-year${commitDrifted.length === 1 ? '' : 's'}. It only adds/heals — it never removes a commit.`,
+      confirmLabel: 'Re-sync',
+    })
+    if (!ok) return
+    setCommitCheckStatus('running')
+    try {
+      let teamsUpdate = { ...(currentDynasty.teams || {}) }
+      let btyUpdate = { ...(currentDynasty.recruitingCommitmentsByTeamYear || {}) }
+      for (const { tid, year, abbr } of commitDrifted) {
+        const { fromTeams, fromBTY } = commitStoresForTid(tid)
+        const union = unionCommitmentObjects(fromTeams(year), fromBTY(year))
+        const td = teamsUpdate[tid] || {}
+        const by = td.byYear || {}
+        const yd = by[year] || {}
+        teamsUpdate = { ...teamsUpdate, [tid]: { ...td, byYear: { ...by, [year]: { ...yd, recruitingCommitments: union } } } }
+        if (abbr) btyUpdate = { ...btyUpdate, [abbr]: { ...(btyUpdate[abbr] || {}), [year]: union } }
+        btyUpdate = { ...btyUpdate, [tid]: { ...(btyUpdate[tid] || {}), [year]: union } }
+      }
+      await updateDynasty(currentDynasty.id, {
+        teams: teamsUpdate,
+        recruitingCommitmentsByTeamYear: btyUpdate,
+      })
+      toast.success(`Re-synced ${commitDrifted.length} team-year${commitDrifted.length === 1 ? '' : 's'}.`)
+      setCommitDrifted(null)
+      handleCheckCommitments()
+    } catch (err) {
+      console.error('[CommitResync] failed:', err)
+      toast.error(`Re-sync failed: ${err?.message || 'unknown error'}`)
+      setCommitCheckStatus({ success: false, message: 'Re-sync failed' })
+    }
+  }
 
   // Backfill blank TRANSFER/ARRIVAL years. Older transfers only wrote
   // teamsByYear[arrivalYear] without the companion class/OVR/dev maps, so the
@@ -523,6 +676,295 @@ export default function DangerZone() {
       setTransferYearFixStatus({ success: true, message: `Backfilled ${fixedYears} year(s) across ${fixedPlayers} player(s).` })
     } catch (error) {
       setTransferYearFixStatus({ success: false, message: 'Fix failed: ' + error.message })
+    }
+  }
+
+  // Rebuild missing season-to-season roster carryover. When a year flip didn't
+  // write teamsByYear[Y] for returning players (skipped/interrupted advance,
+  // the old memberTeamOf mis-route, or a migration that trimmed a year), that
+  // season's roster shows empty. This re-derives the gap: for every member-
+  // controlled team, whenever a player was on that team in year Y-1, hasn't
+  // graduated, and hasn't departed-without-returning by Y-1, it fills
+  // teamsByYear[Y] with the same team and ages the class. Conservative — it
+  // only ADDS missing years (never overwrites), respects departures/graduation
+  // so it can't resurrect players who truly left, and skips recruits.
+  const handleRebuildCarryover = async () => {
+    setRebuildCarryoverStatus('running')
+    try {
+      const CLASS_PROGRESSION = {
+        'HS': 'Fr', 'JUCO Fr': 'Fr', 'JUCO So': 'So', 'JUCO Jr': 'Jr', 'JUCO Sr': 'Sr',
+        'Fr': 'So', 'RS Fr': 'RS So', 'So': 'Jr', 'RS So': 'RS Jr', 'Jr': 'Sr', 'RS Jr': 'RS Sr',
+      }
+      const TERMINAL_CLASS = new Set(['Sr', 'RS Sr'])
+      const currentYear = Number(currentDynasty.currentYear)
+      const startYear = Number(currentDynasty.startYear) || (currentYear - 30)
+
+      // Member-controlled tids (own team + every member's teams).
+      const memberTids = new Set()
+      const ownTid = currentDynasty.currentTid ?? getUserTeamTid(currentDynasty)
+      if (ownTid != null) { const n = Number(ownTid); if (Number.isFinite(n)) memberTids.add(n) }
+      for (const tids of Object.values(currentDynasty.memberTeams || {})) {
+        for (const t of (Array.isArray(tids) ? tids : [])) {
+          const n = Number(t); if (Number.isFinite(n)) memberTids.add(n)
+        }
+      }
+      if (memberTids.size === 0) {
+        setRebuildCarryoverStatus({ success: false, message: 'No member-controlled team found — cannot rebuild.' })
+        return
+      }
+
+      const num = (m, y) => (m?.[y] ?? m?.[String(y)])
+      const toTid = (v) => v == null ? null : (typeof v === 'number' ? v : getTidFromAbbr(v, currentDynasty))
+
+      // Did the player depart this team on/before `throughYear` and NOT return?
+      // Reads both v2 movementByYear and legacy movements[]. A later arrival /
+      // recommit, or a surviving teamsByYear year back on this team, counts as
+      // a return.
+      const DEP_TYPES = new Set(['departure', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+      const ARR_TYPES = new Set(['arrival', 'recommit', 'recommitted', 'recruited', 'transfer', 'portal_in', 'added'])
+      const departedBy = (player, homeTid, throughYear) => {
+        const entries = []
+        for (const [y, m] of Object.entries(player.movementByYear || {})) entries.push([Number(y), m])
+        for (const m of (Array.isArray(player.movements) ? player.movements : [])) entries.push([Number(m?.year), m])
+        let earliestDep = null
+        for (const [y, m] of entries) {
+          if (!Number.isFinite(y) || y > throughYear) continue
+          if (m?.type && DEP_TYPES.has(m.type)) { if (earliestDep == null || y < earliestDep) earliestDep = y }
+        }
+        if (earliestDep == null) return false
+        const returnedViaMovement = entries.some(([y, m]) =>
+          Number.isFinite(y) && y > earliestDep && m?.type && ARR_TYPES.has(m.type)
+        )
+        const returnedViaTby = Object.entries(player.teamsByYear || {}).some(([yStr, v]) => {
+          const y = Number(yStr)
+          return Number.isFinite(y) && y > earliestDep && toTid(v) === homeTid
+        })
+        return !(returnedViaMovement || returnedViaTby)
+      }
+
+      let filledPlayers = 0, filledYears = 0
+      const updated = (currentDynasty.players || []).map(player => {
+        if (player.isHonorOnly || player.isRecruit) return player
+        const tby = { ...(player.teamsByYear || {}) }
+        const cls = { ...(player.classByYear || {}) }
+        let changed = false
+        for (let y = startYear + 1; y <= currentYear; y++) {
+          if (num(tby, y) != null) continue
+          const prevTid = toTid(num(tby, y - 1))
+          if (prevTid == null || !memberTids.has(prevTid)) continue
+          if (departedBy(player, prevTid, y - 1)) continue
+          const priorClass = getPlayerClassForYear(player, y - 1)
+          if (priorClass == null || TERMINAL_CLASS.has(priorClass)) continue // graduated
+          tby[String(y)] = prevTid
+          if (num(cls, y) == null) cls[String(y)] = CLASS_PROGRESSION[priorClass] || priorClass
+          changed = true
+          filledYears++
+        }
+        if (!changed) return player
+        filledPlayers++
+        return { ...player, teamsByYear: tby, classByYear: cls }
+      })
+
+      if (filledPlayers === 0) {
+        setRebuildCarryoverStatus({ success: true, message: 'No missing carryover years found — every returning player already has their roster years.' })
+        return
+      }
+      await updateDynasty(currentDynasty.id, { players: updated })
+      setRebuildCarryoverStatus({ success: true, message: `Rebuilt ${filledYears} roster year(s) across ${filledPlayers} player(s). Reload to see the restored roster.` })
+    } catch (error) {
+      setRebuildCarryoverStatus({ success: false, message: 'Rebuild failed: ' + (error?.message || 'unknown error') })
+    }
+  }
+
+  // Remove "ghost" roster years: seasons a player is still rostered AFTER a
+  // recorded departure they never returned from. Past builds of the season
+  // advance only consulted the Players Leaving list (not movementByYear), so
+  // players whose departure lived only in movement records — Draft Results
+  // rounds, player-editor transfers/graduations — got carried forward again
+  // ("my players who would have left ended up just coming back"). The
+  // advance is fixed; this repairs dynasties that already have the ghosts.
+  //
+  // Departure/return is judged by MOVEMENT records only — teamsByYear can't
+  // vouch for a return here because the ghost years ARE the false evidence.
+  // Only member-controlled teams are touched, and the class/OVR/dev-trait
+  // per-year entries written alongside a ghost year are cleaned with it.
+  const handleRemoveResurrected = async () => {
+    const ok = await confirm({
+      title: 'Remove returned departures?',
+      message: 'This removes roster years that a departed player (graduated, drafted, transferred out) wrongly got back after advancing the season. Players who truly returned via a recorded recommit or transfer-in are kept. Export a backup first if you want a safety net. Continue?',
+      confirmLabel: 'Remove Ghost Years',
+      variant: 'danger',
+    })
+    if (!ok) return
+
+    setRemoveResurrectedStatus('running')
+    try {
+      const memberTids = new Set()
+      const ownTid = currentDynasty.currentTid ?? getUserTeamTid(currentDynasty)
+      if (ownTid != null) { const n = Number(ownTid); if (Number.isFinite(n)) memberTids.add(n) }
+      for (const tids of Object.values(currentDynasty.memberTeams || {})) {
+        for (const t of (Array.isArray(tids) ? tids : [])) {
+          const n = Number(t); if (Number.isFinite(n)) memberTids.add(n)
+        }
+      }
+      if (memberTids.size === 0) {
+        setRemoveResurrectedStatus({ success: false, message: 'No member-controlled team found — nothing to repair.' })
+        return
+      }
+
+      const toTid = (v) => v == null ? null : (typeof v === 'number' ? v : getTidFromAbbr(v, currentDynasty))
+      const DEP_TYPES = new Set(['departure', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+      const ARR_TYPES = new Set(['arrival', 'recommit', 'recommitted', 'recruited', 'transfer', 'portal_in', 'added'])
+      const V2_DEP_SHAPES = new Set(['transfer_out', 'graduated', 'pro_draft'])
+      const V2_ARR_SHAPES = new Set(['recruit', 'transfer_in', 'walk_on', 'juco'])
+
+      // Earliest departure from homeTid with no later movement-recorded
+      // return. Returns null when the player never left or came back.
+      const unresolvedDepartureYear = (player, homeTid) => {
+        const entries = []
+        for (const [y, m] of Object.entries(player.movementByYear || {})) entries.push([Number(y), m])
+        for (const m of (Array.isArray(player.movements) ? player.movements : [])) entries.push([Number(m?.year), m])
+        let dep = null
+        for (const [y, m] of entries) {
+          if (!Number.isFinite(y)) continue
+          const isDep = (m?.type && DEP_TYPES.has(m.type)) || (m?.departure && V2_DEP_SHAPES.has(m.departure))
+          if (!isDep) continue
+          // A transfer_out whose destination is THIS team is an arrival
+          // mis-stored by an import, not a departure from us.
+          if (m?.departure === 'transfer_out' && toTid(m?.toTid) === homeTid) continue
+          if (dep == null || y < dep) dep = y
+        }
+        if (dep == null) return null
+        const returned = entries.some(([y, m]) => {
+          if (!Number.isFinite(y) || y <= dep) return false
+          if (m?.type && ARR_TYPES.has(m.type)) return true
+          if (m?.arrival && V2_ARR_SHAPES.has(m.arrival)) return true
+          return false
+        })
+        return returned ? null : dep
+      }
+
+      let strippedPlayers = 0, strippedYears = 0
+      const sampleNames = []
+      const updated = (currentDynasty.players || []).map(player => {
+        if (player.isHonorOnly || player.isRecruit) return player
+        const tby = { ...(player.teamsByYear || {}) }
+        const cls = { ...(player.classByYear || {}) }
+        const ovr = { ...(player.overallByYear || {}) }
+        const dev = { ...(player.devTraitByYear || {}) }
+        let changed = false
+        for (const [yStr, v] of Object.entries(player.teamsByYear || {})) {
+          const y = Number(yStr)
+          if (!Number.isFinite(y)) continue
+          const tid = toTid(v)
+          if (tid == null || !memberTids.has(tid)) continue
+          const dep = unresolvedDepartureYear(player, tid)
+          if (dep == null || y <= dep) continue
+          delete tby[yStr]
+          delete cls[yStr]
+          delete ovr[yStr]
+          delete dev[yStr]
+          changed = true
+          strippedYears++
+        }
+        if (!changed) return player
+        strippedPlayers++
+        if (sampleNames.length < 8 && player.name) sampleNames.push(player.name)
+        return { ...player, teamsByYear: tby, classByYear: cls, overallByYear: ovr, devTraitByYear: dev }
+      })
+
+      if (strippedPlayers === 0) {
+        setRemoveResurrectedStatus({ success: true, message: 'No ghost roster years found — no departed player is still on a later roster.' })
+        return
+      }
+      await updateDynasty(currentDynasty.id, { players: updated })
+      const names = sampleNames.length ? ` (${sampleNames.join(', ')}${strippedPlayers > sampleNames.length ? ', …' : ''})` : ''
+      setRemoveResurrectedStatus({ success: true, message: `Removed ${strippedYears} ghost roster year(s) from ${strippedPlayers} player(s)${names}. Reload to see the corrected roster.` })
+    } catch (error) {
+      setRemoveResurrectedStatus({ success: false, message: 'Repair failed: ' + (error?.message || 'unknown error') })
+    }
+  }
+
+  // ─── Local backups (safeguard against a bad write / browser clear) ───
+  // The app keeps a rolling ring of the last few known-good local-dynasty
+  // snapshots in IndexedDB. Surface them here so a user can restore in-app
+  // instead of losing data. Restore MERGES by id (never deletes newer work).
+  const loadLocalBackups = async () => {
+    try {
+      const backups = await indexedDBStorage.getBackups()
+      setLocalBackups(backups.slice().reverse()) // newest first
+    } catch (err) {
+      console.error('[DangerZone] load backups failed:', err)
+      setLocalBackups([])
+    }
+  }
+
+  const handleRestoreBackup = async (ts, count) => {
+    const ok = await confirm({
+      title: 'Restore this backup?',
+      message: `This merges ${count} dynasty snapshot(s) from ${new Date(ts).toLocaleString()} back into your local dynasties. Existing dynasties with the same ID are replaced with the snapshot; anything created since is kept. Continue?`,
+      confirmLabel: 'Restore',
+      variant: 'primary',
+    })
+    if (!ok) return
+    setBackupStatus('running')
+    try {
+      const { restored } = await indexedDBStorage.restoreBackup(ts)
+      setBackupStatus({ success: true, message: `Restored ${restored} dynasty snapshot(s). Reload the page to see them.` })
+    } catch (err) {
+      console.error('[DangerZone] restore failed:', err)
+      setBackupStatus({ success: false, message: 'Restore failed: ' + (err?.message || 'unknown error') })
+    }
+  }
+
+  // ─── Recover Data from Another Save ──────────────────────────────────
+  // Copy the ROSTER + Recruiting Database + committed recruits from another of
+  // the user's saves into this one. For users whose roster/recruits came over
+  // empty after switching a save from local to cloud (or any storage switch) —
+  // point it at a save that still has the data. Additive only: it unions the
+  // source into this dynasty and never deletes or overwrites what's here.
+  const handleRecoverRecruits = async () => {
+    if (!recoverRecruitSourceId) {
+      setRecoverRecruitStatus({ success: false, message: 'Pick a save to copy data from first.' })
+      return
+    }
+    const source = (dynasties || []).find(d => String(d.id) === String(recoverRecruitSourceId))
+    const ok = await confirm({
+      title: 'Recover data?',
+      message: `This copies the ROSTER, Recruiting Database, and committed recruits from "${source?.name || source?.teamName || 'the selected save'}" into this dynasty. It only ADDS data — nothing here is deleted or overwritten. Continue?`,
+      confirmLabel: 'Recover Data',
+      variant: 'primary',
+    })
+    if (!ok) return
+    setRecoverRecruitStatus('running')
+    try {
+      // Roster first, then recruits — independent, additive, either can no-op.
+      const rosterResult = await recoverRosterData(recoverRecruitSourceId, currentDynasty.id)
+      const recruitResult = await recoverRecruitData(recoverRecruitSourceId, currentDynasty.id)
+
+      const parts = []
+      if (rosterResult?.success) {
+        parts.push(`${rosterResult.added} player(s) added (roster now ${rosterResult.total})`)
+      }
+      if (recruitResult?.success) {
+        parts.push(`${recruitResult.dbCount} Recruiting Database recruit(s) and ${recruitResult.committedCount} committed recruit slot(s)`)
+      }
+
+      if (parts.length > 0) {
+        setRecoverRecruitStatus({
+          success: true,
+          message: `Recovered: ${parts.join('; ')}. Reload the page to see everything.`,
+        })
+      } else {
+        // Neither succeeded — surface the most specific error we got.
+        setRecoverRecruitStatus({
+          success: false,
+          message: rosterResult?.error || recruitResult?.error || 'Nothing to recover from that save.',
+        })
+      }
+    } catch (err) {
+      console.error('[DangerZone] recover data failed:', err)
+      setRecoverRecruitStatus({ success: false, message: 'Recovery failed: ' + (err?.message || 'unknown error') })
     }
   }
 
@@ -1435,6 +1877,15 @@ export default function DangerZone() {
                 gameModified = true
               }
             }
+            // A CFP game is never also a plain bowl. Demoted games (edited
+            // through the Game Editor without the CFP bowl-name marker) carry
+            // isBowlGame=true, which makes them render as regular-season bowls
+            // even after the CFP flag is restored. Clear it.
+            if (updatedGame.isBowlGame) {
+              console.log(`[CFP Repair] Clearing isBowlGame for ${game.id}`)
+              updatedGame.isBowlGame = false
+              gameModified = true
+            }
           }
 
           if (correctRound && updatedGame.cfpRound !== correctRound) {
@@ -1701,14 +2152,17 @@ export default function DangerZone() {
   const NON_CCG_RIVALRY_PAIRS = new Set(['ARMY|NAVY'])
 
   const resolveGameAbbr = (game, side) => {
+    // tid-first: a stored team1/team2 string can be stale after a rename or
+    // TeamBuilder takeover, so resolve the CURRENT abbr from teams[tid] when a
+    // tid is present. Keep the stored string + original-registry abbr as
+    // fallbacks so behavior is identical when no tid exists.
     const direct = side === 1 ? game.team1 : game.team2
-    if (direct) return direct
     const tid = side === 1 ? game.team1Tid : game.team2Tid
     if (tid != null) {
       const team = currentDynasty?.teams?.[tid] || TEAMS[tid]
-      return team?.abbr || getOriginalTeamAbbr(tid)
+      return team?.abbr || direct || getOriginalTeamAbbr(tid)
     }
-    return side === 1 ? game.userTeam : game.opponent
+    return direct || (side === 1 ? game.userTeam : game.opponent)
   }
 
 
@@ -2169,6 +2623,82 @@ export default function DangerZone() {
         }
       />
 
+      {/* Local Backups — recover a local dynasty after a bad write or a
+          browser clearing its site data. Non-destructive (restore merges). */}
+      <Card>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="label-sm text-txt-primary m-0">Local Backups</h3>
+          <Button variant="outline" size="sm" onClick={loadLocalBackups}>
+            {localBackups === null ? 'Show Backups' : 'Refresh'}
+          </Button>
+        </div>
+        <p className="text-xs text-txt-secondary m-0 mb-3">
+          Automatic snapshots of your locally-stored dynasties, kept in this browser.
+          If a dynasty disappeared, restore the most recent snapshot. Restoring only
+          adds/repairs dynasties — it never deletes ones you made since.
+        </p>
+        {localBackups !== null && (
+          localBackups.length === 0 ? (
+            <p className="text-xs text-txt-tertiary m-0">No local backups found in this browser.</p>
+          ) : (
+            <div className="space-y-2">
+              {localBackups.map((b) => (
+                <div key={b.ts} className="flex items-center justify-between gap-3 p-2 rounded-lg" style={{ backgroundColor: 'var(--surface-3)' }}>
+                  <div className="text-xs text-txt-secondary min-w-0">
+                    <span className="text-txt-primary">{new Date(b.ts).toLocaleString()}</span>
+                    <span className="text-txt-tertiary"> · {(b.dynasties?.length || 0)} dynasty(ies): </span>
+                    <span className="truncate">{(b.dynasties || []).map(d => d.name).filter(Boolean).join(', ') || '—'}</span>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => handleRestoreBackup(b.ts, b.dynasties?.length || 0)} disabled={backupStatus === 'running'}>
+                    Restore
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+        {backupStatus && backupStatus !== 'running' && (
+          <p className="text-xs mt-3 m-0" style={{ color: backupStatus.success ? 'var(--accent-success)' : 'var(--accent-danger, #f87171)' }}>
+            {backupStatus.message}
+          </p>
+        )}
+      </Card>
+
+      {/* Recover Data from Another Save — copy the roster + Recruiting Database
+          + committed recruits from another of the user's saves into this one.
+          Additive only. Built for "switched local→cloud, roster/recruits empty". */}
+      <Card>
+        <h3 className="label-sm text-txt-primary m-0 mb-3">Recover Data from Another Save</h3>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <select
+            value={recoverRecruitSourceId}
+            onChange={(e) => setRecoverRecruitSourceId(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-lg text-sm bg-surface-3 text-txt-primary border border-surface-5"
+          >
+            <option value="">Copy data from…</option>
+            {(dynasties || [])
+              .filter(d => String(d.id) !== String(currentDynasty?.id))
+              .map(d => (
+                <option key={d.id} value={d.id}>
+                  {(d.name || d.teamName || 'Dynasty')} · {d.storageType === 'cloud' ? 'Cloud' : 'Local'}
+                </option>
+              ))}
+          </select>
+          <Button
+            variant="outline"
+            onClick={handleRecoverRecruits}
+            disabled={recoverRecruitStatus === 'running' || !recoverRecruitSourceId}
+          >
+            {recoverRecruitStatus === 'running' ? 'Recovering…' : 'Recover Data'}
+          </Button>
+        </div>
+        {recoverRecruitStatus && recoverRecruitStatus !== 'running' && (
+          <p className="text-xs mt-3 m-0" style={{ color: recoverRecruitStatus.success ? 'var(--accent-success)' : 'var(--accent-danger, #f87171)' }}>
+            {recoverRecruitStatus.message}
+          </p>
+        )}
+      </Card>
+
       {/* Help Section (Collapsible) */}
       {showHelp && (
         <Card>
@@ -2339,6 +2869,53 @@ export default function DangerZone() {
                   }}
                 >
                   {storageAnalysisDetail}
+                </pre>
+              )}
+            </div>
+          </Card>
+          {/* Recruiting-commitment consistency check + re-sync. Read-only scan
+              that flags any team-year where the two dual-keyed commitment stores
+              disagree; re-sync rewrites the per-record union to both. */}
+          <Card className="flex flex-col h-full sm:col-span-2 md:col-span-2">
+            <div className="mb-3">
+              <h3 className="label-sm text-txt-primary m-0">Check Recruiting Commitments</h3>
+              <p className="text-xs mt-1 text-txt-tertiary leading-relaxed m-0">
+                Recruiting commitments are stored in two places that should mirror each other. This flags any season where they disagree. No data is ever lost (the board reads both), but re-syncing keeps them tidy. Run this if commitments ever look off after entering recruits.
+              </p>
+            </div>
+            <div className="mt-auto space-y-2">
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleCheckCommitments}
+                disabled={commitCheckStatus === 'running'}
+                className="w-full"
+              >
+                {commitCheckStatus === 'running' ? 'Working...' : 'Check Commitments'}
+              </Button>
+              {!isViewOnly && commitDrifted?.length > 0 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleResyncCommitments}
+                  disabled={commitCheckStatus === 'running'}
+                  className="w-full"
+                >
+                  Re-sync {commitDrifted.length} season{commitDrifted.length === 1 ? '' : 's'}
+                </Button>
+              )}
+              <StatusLine status={commitCheckStatus} />
+              {commitCheckDetail && (
+                <pre
+                  className="text-[11px] mt-2 p-3 rounded-md overflow-auto whitespace-pre font-mono"
+                  style={{
+                    backgroundColor: 'var(--surface-3)',
+                    color: 'var(--text-secondary)',
+                    border: '1px solid var(--surface-4)',
+                    maxHeight: '320px',
+                  }}
+                >
+                  {commitCheckDetail}
                 </pre>
               )}
             </div>
@@ -2768,6 +3345,22 @@ export default function DangerZone() {
             buttonText="Repair CFP"
             onClick={handleRepairCFPGames}
             status={cfpRepairStatus}
+          />
+          <ActionCard
+            danger
+            title="Rebuild Roster Carryover"
+            description="Fixes a season whose roster came up empty after advancing. Re-derives missing season-to-season carryover: for each of your (and members') teams, any player who was on the roster the prior year, hasn't graduated, and hasn't transferred/left is carried forward into the missing year with their class aged. Only adds missing years — never overwrites, and won't bring back players who truly departed. Reload after running."
+            buttonText="Rebuild Carryover"
+            onClick={handleRebuildCarryover}
+            status={rebuildCarryoverStatus}
+          />
+          <ActionCard
+            danger
+            title="Remove Returned Departures"
+            description="Fixes rosters where graduated/drafted/transferred-out players came back after advancing to a new season. Removes the roster years a departed player wrongly regained (and the class/OVR entries added with them). Players who genuinely returned via a recorded recommit or transfer-in are kept. Reload after running."
+            buttonText="Remove Ghost Years"
+            onClick={handleRemoveResurrected}
+            status={removeResurrectedStatus}
           />
           <ActionCard
             danger

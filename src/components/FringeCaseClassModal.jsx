@@ -21,6 +21,8 @@ import {
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -40,6 +42,8 @@ export default function FringeCaseClassModal({ isOpen, onClose, onSave, currentY
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -75,11 +79,11 @@ CRITICAL RULES — read before anything else
 3. Row order must match the pre-filled player rows EXACTLY from top to bottom as shown in the screenshot. If the sheet shows N pre-filled players, output EXACTLY N lines (blank lines only when the current class is "RS Sr" which has no progression).
 4. Each row's allowed dropdown values are STRICTLY determined by that row's Column C value (the player's ${currentYear} class). You MUST pick one of the allowed values for that row — any other value is rejected by the dropdown.
 5. Use the EXACT literal strings shown below. "RS Fr" with ONE space. No "Fr (RS)", no "RSFr", no "Rs Fr", no "RS-Fr", no "Fr*".
-6. No header row, no commentary or explanation INSIDE the data, no totals. The paste-target label above the fence is required (see TSV delivery rules above).
+6. No header row, no commentary or explanation INSIDE the data, no totals.
 7. NEVER output a class that isn't in that row's allowed set.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Fringe Cases" — paste at cell E2 of the "Fringe Cases" tab
+SECTION: "Fringe Cases"
 ═══════════════════════════════════════════════════════════
 
 Column layout:
@@ -113,7 +117,7 @@ Selection guidance (when two options exist):
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== FRINGE CASES — paste at cell E2 of "Fringe Cases" tab ===
+=== FRINGE CASES ===
 <allowed value or blank>
 <allowed value or blank>
 <allowed value or blank>
@@ -126,7 +130,7 @@ FINAL CHECK before you send
 [ ] Every non-blank line is one of that row's allowed values based on Column C (per the table above)
 [ ] No "Fr (RS)" / "So (RS)" / "Jr (RS)" — use the "RS Fr" / "RS So" / "RS Jr" forms only
 [ ] Exact casing: "Fr", "So", "Jr", "Sr", "RS Fr", "RS So", "RS Jr", "RS Sr" (single space, "RS" uppercase)
-[ ] No tabs, no extra columns, no commentary INSIDE the data (the paste-target label above the fence is required, see TSV delivery rules above)
+[ ] No tabs, no extra columns, no commentary INSIDE the data
 [ ] Blank line ONLY for rows where Column C = "RS Sr" (no progression)
 [ ] No header row, no totals`,
     includeTeamMap: true,
@@ -134,8 +138,69 @@ FINAL CHECK before you send
     notes: `The "Games" column (protected) reflects regular-season games played in ${currentYear}. In the fringe-case context, the game decides whether a redshirt was applied (typically ≤ 4 games used a redshirt; 5–9 games is the fringe case where either progression or redshirt may apply). Use the screenshot's Games and context to pick the correct allowed value for each row.`
   }), [currentYear, userRoster, currentDynasty?.teams])
 
+  // Pre-fill the local grid with any class selections already saved for this
+  // year so re-opening the modal shows prior picks instead of a blank grid.
+  // Source: fringeCaseClassByYear[currentYear] (the exact array
+  // handleFringeCaseClassSave persisted). Column order mirrors the local parser
+  // (Player, New Class): serialize playerName + selectedClass.
+  const initialText = useMemo(() => {
+    const saved = currentDynasty?.fringeCaseClassByYear?.[currentYear] || []
+    return saved
+      .filter(s => s.playerName && s.selectedClass)
+      .map(s => `${s.playerName}\t${s.selectedClass}`)
+      .join('\n')
+  }, [currentDynasty?.fringeCaseClassByYear, currentYear])
+
+  // LOCAL-PASTE prompt: self-describing rows, no pre-filled column to align
+  // against. The AI emits ONE line per fringe-case player who gets a new class,
+  // as PlayerName<TAB>NewClass — so a paste carries its own identity and the
+  // save matches by name (omitted players are unchanged).
+  const localAiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Fringe Case Class Assignment`,
+    roster: userRoster,
+    structure: `Output ONE line per fringe-case player whose updated ${currentYear + 1} class you are setting. Each line is SELF-DESCRIBING — it carries the player's own name — so there is NO pre-filled column to line up against and NO fixed row order.
+
+These are players who played between 5 and 9 games in ${currentYear}. Depending on the redshirt logic, each player either PROGRESSES to the next class (e.g. "So", "Jr", "Sr") OR is kept at their current class with an "RS" prefix applied (a redshirt was used, e.g. "RS Fr", "RS So", "RS Jr").
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Each line has EXACTLY 2 tab-separated fields: PlayerName<TAB>NewClass.
+2. NO header row. NO blank lines. NO commentary, totals, or labels INSIDE the data.
+3. OMIT any player whose updated class you cannot determine, and OMIT any player at "RS Sr" (they graduate — no progression). A player with no line is left unchanged. Do NOT pad with blank lines.
+4. The order does not matter — each line stands on its own.
+5. PlayerName: the full player name exactly as it should appear (use the roster block below to expand abbreviated names like "A. Guess").
+6. NewClass MUST be one of these EXACT literal strings: Fr | So | Jr | Sr | RS Fr | RS So | RS Jr | RS Sr — Title Case, "RS" uppercase, exactly one space. No "Fr (RS)", no "RSFr", no "Rs Fr", no "RS-Fr".
+7. Pick the progressed class (So / Jr / Sr) when the player did NOT redshirt in ${currentYear}; pick the "RS <current class>" form when a redshirt WAS used.
+
+═══════════════════════════════════════════════════════════
+PER-LINE OUTPUT (2 tab-separated fields)
+═══════════════════════════════════════════════════════════
+<Player Name><TAB><New Class>
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== FRINGE CASES ===
+<Player Name>\\t<New Class>
+<Player Name>\\t<New Class>
+…one line per player who progresses; omit RS Sr / unknown entirely
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has exactly 2 tab-separated fields (one tab)
+[ ] Every New Class value is one of: Fr, So, Jr, Sr, RS Fr, RS So, RS Jr, RS Sr (exact casing, single space)
+[ ] No blank lines, no header row, no commentary INSIDE the data
+[ ] RS Sr players and unknowns are omitted — nothing invented`,
+    includeTeamMap: false,
+    notes: `In the fringe-case context, the game decides whether a redshirt was applied (typically ≤ 4 games used a redshirt; 5–9 games is the fringe case where either progression or redshirt may apply). Use the screenshot's Games and context to pick the correct class for each player.`
+  }), [currentYear, userRoster])
+
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -171,8 +236,15 @@ FINAL CHECK before you send
 
   // Create fringe case class sheet when modal opens
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -211,15 +283,28 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, fringeCasePlayers, currentYear])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote, fringeCasePlayers, currentYear])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits PlayerName<TAB>NewClass rows. The parser
+  // reads name=row[0] and the new class=row[4], so reshape each pasted
+  // [name, class] pair into the parser's 5-column layout. Downstream save
+  // matches by name, so omitting unchanged players is correct.
+  const handleLocalImport = async (text) => {
+    const rows = splitTsv(text).map(c => [c[0], '', '', '', (c[1] ?? '')])
+    const classSelections = await readFringeCaseClassFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows })
+    await onSave(classSelections)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -344,7 +429,17 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Offseason" title="Fringe Case Class Assignment" onClose={handleClose} />
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
 
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={localAiPrompt}
+            columns={['Player', 'New Class']}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Fringe Case Classes"
+            initialText={initialText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

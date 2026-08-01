@@ -89,6 +89,24 @@ export function getTargetStatus(p, userTid) {
   return Number(p.commitmentTid) === Number(userTid) ? 'committed_us' : 'committed_elsewhere'
 }
 
+/**
+ * Does this target belong on MY board?
+ *
+ * Shared leagues put every member's targets in one dynasty.players array, so
+ * every board must filter by the team that's recruiting the player.
+ *
+ * A target with NO targetTid is legacy (solo dynasties, and anything entered
+ * before targets recorded an owner) and stays visible to everyone — filtering
+ * those out would blank the board of every existing solo dynasty, which is
+ * the overwhelming majority. They get stamped with an owner the next time
+ * their board is saved.
+ */
+export function isMyTarget(p, myTid) {
+  if (p?.targetTid == null) return true
+  if (myTid == null) return true
+  return Number(p.targetTid) === Number(myTid)
+}
+
 // ── Field merge helpers ────────────────────────────────────────────────────
 
 const present = (v) => v !== undefined && v !== null && v !== ''
@@ -132,8 +150,17 @@ function mergeRecruitFields(base, row) {
 // Apply the funnel status to a record. Committed → enroll at the destination tid
 // next season (B2/B3). Open/unresolved → tracked only, never isRecruit, never
 // enrolled, team:-1 display sentinel.
-function applyStatus(record, { status, commitmentTid, classYear, weekKey }) {
+function applyStatus(record, { status, commitmentTid, classYear, weekKey, recruitingTid }) {
   const r = { ...record, isTarget: true, targetYear: classYear }
+  // OWNING TEAM. An open target has team:-1 and an empty teamsByYear (see
+  // below), so before this field there was NOTHING on the record saying whose
+  // board it belonged to. In a shared league every member reads the same
+  // dynasty.players array, so all 14 users' boards rendered every user's
+  // targets — "peoples recruiting class is building into other peoples" —
+  // and one member tidying their board deleted everyone else's.
+  // Preserved on re-save so a target never changes hands by accident.
+  if (record?.targetTid != null) r.targetTid = Number(record.targetTid)
+  else if (recruitingTid != null && Number.isFinite(Number(recruitingTid))) r.targetTid = Number(recruitingTid)
   if (status === 'committed') {
     const tid = Number(commitmentTid)
     r.commitmentTid = tid
@@ -161,9 +188,9 @@ function applyStatus(record, { status, commitmentTid, classYear, weekKey }) {
 // Public: apply a resolution to a SINGLE target player record (the in-app
 // resolution modal, §5). Mirrors exactly what the reconciler does per row, so
 // the two entry paths stay interchangeable. `commitmentTid == null` reopens it.
-export function resolveTargetCommitment(player, { commitmentTid, classYear, weekKey = null } = {}) {
+export function resolveTargetCommitment(player, { commitmentTid, classYear, weekKey = null, recruitingTid = null } = {}) {
   const status = commitmentTid == null ? 'open' : 'committed'
-  return applyStatus(player, { status, commitmentTid, classYear: Number(classYear), weekKey })
+  return applyStatus(player, { status, commitmentTid, classYear: Number(classYear), weekKey, recruitingTid })
 }
 
 // Public wrapper: the recruitingCommitments record for a committed-to-you target.
@@ -266,7 +293,12 @@ export function reconcileRecruitingRows({
       )
     }
 
-    record = applyStatus(record, { status, commitmentTid, classYear: yearN, weekKey })
+    record = applyStatus(record, { status, commitmentTid, classYear: yearN, weekKey, recruitingTid: userTid })
+
+    // This row is landing in the app right now (paste/AI-fill/import), so it's
+    // the freshest version of this recruit — same field the Recruiting
+    // Database's Google Sheet sync uses for most-recent-wins conflict resolution.
+    record.updatedAt = Date.now()
 
     // This row is landing in the app right now (paste/AI-fill/import), so it's
     // the freshest version of this recruit — same field the Recruiting

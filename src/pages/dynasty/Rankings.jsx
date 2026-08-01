@@ -344,7 +344,10 @@ export default function Rankings() {
   }
 
 
-  const RankingRow = ({ rank, teamAbbr, teamTid, year }) => {
+  // One uniform rank row — every team reads at the same weight so the poll is a
+  // clean ladder, not an escalating hero. The team's own primary color IS the row
+  // (broadcast box-score treatment).
+  const RankingRow = ({ rank, teamAbbr, teamTid, year, last }) => {
     const teamsSource = currentDynasty?.teams || currentDynasty?.customTeams
     const teamFromTid = teamTid != null ? teamsSource?.[teamTid] : null
     const resolvedAbbr = teamFromTid?.abbr || teamAbbr
@@ -353,43 +356,29 @@ export default function Rankings() {
     const colors = mascotName ? getTeamColors(mascotName, teamsSource) : { primary: '#6e6e78', secondary: '#fff' }
     const record = lookupRecord(resolvedAbbr, teamTid)
     const linkTid = teamTid != null ? Number(teamTid) : resolveTid(resolvedAbbr, teamsSource || TEAMS)
-    const isLeader = rank === 1
-    const isTopFive = rank <= 5
 
     const primary = colors.primary || '#3a3d47'
     const txt = getContrastTextColor(primary)
-    const logoPx = isLeader ? 56 : isTopFive ? 44 : 38
 
     return (
       <Link
         to={`${pathPrefix}/team/${linkTid}/${year}`}
-        className="ranking-row group relative flex items-center gap-3 px-3 sm:px-4 cfb-texture overflow-hidden transition-all duration-150 hover:brightness-110"
+        className="ranking-row group relative flex items-center gap-3 pl-3 pr-4 py-2 cfb-texture overflow-hidden transition-all duration-150 hover:brightness-[1.12]"
         style={{
-          borderBottom: '1px solid rgba(0,0,0,0.3)',
-          paddingTop: isLeader ? '14px' : '11px',
-          paddingBottom: isLeader ? '14px' : '11px',
-          // True, full team color — the box-score / game-card treatment, not a
-          // wash that fades to dark and muddies the color.
+          borderBottom: last ? 'none' : '1px solid rgba(0,0,0,0.28)',
           backgroundColor: primary,
-          backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0) 42%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.34) 100%)',
+          backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.30) 100%)',
         }}
       >
         <span
-          className="text-right font-display font-black tabular leading-none flex-shrink-0"
-          style={{
-            width: isLeader ? '40px' : '32px',
-            fontSize: isLeader ? '26px' : isTopFive ? '19px' : '15px',
-            color: txt,
-            opacity: isLeader ? 1 : isTopFive ? 0.92 : 0.8,
-            letterSpacing: '-0.02em',
-            textShadow: '0 1px 2px rgba(0,0,0,0.35)',
-          }}
+          className="w-6 text-center font-display font-black tabular leading-none flex-shrink-0"
+          style={{ fontSize: '15px', color: txt, opacity: 0.82, letterSpacing: '-0.02em', textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}
         >
           {rank}
         </span>
         <div
           className="rounded-full bg-white flex items-center justify-center p-1 flex-shrink-0 shadow-sm transition-transform duration-200 group-hover:scale-105"
-          style={{ width: logoPx, height: logoPx }}
+          style={{ width: 34, height: 34 }}
         >
           {teamLogo ? (
             <img src={teamLogo} alt="" className="w-full h-full object-contain" />
@@ -398,20 +387,15 @@ export default function Rankings() {
           )}
         </div>
         <span
-          className="flex-1 truncate font-display font-bold uppercase tracking-tight leading-none"
-          style={{
-            fontSize: isLeader ? 'clamp(1.05rem, 2vw, 1.3rem)' : isTopFive ? '1.02rem' : '0.95rem',
-            letterSpacing: '0.01em',
-            color: txt,
-            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-          }}
+          className="flex-1 truncate font-display font-bold uppercase leading-none"
+          style={{ fontSize: '0.95rem', letterSpacing: '0.015em', color: txt, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}
         >
           {getSchoolName(mascotName) || resolvedAbbr}
         </span>
         {record && (
           <span
             className="tabular-nums flex-shrink-0 font-display font-bold"
-            style={{ fontSize: isLeader ? '15px' : '13px', color: txt, opacity: 0.9, textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}
+            style={{ fontSize: '13px', color: txt, opacity: 0.9, textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}
           >
             {record.wins}-{record.losses}
           </span>
@@ -420,9 +404,10 @@ export default function Rankings() {
     )
   }
 
-  // Single clean Top 25 list — no playoff split, no two-column carving.
-  // Just a column of rows where #1 reads loudest and the rest cascade
-  // down. Broadcast weight comes from the rank typography, not layout.
+  // One combined poll — a single card that splits into two balanced columns on
+  // wide screens so the whole Top 25 is visible at once, and collapses to one
+  // column on small screens. A hairline divider between the columns keeps it
+  // reading as a single section, not two separate boxes. Rows are uniform.
   const PollColumn = ({ data, pollType }) => {
     const sorted = [...data].sort((a, b) => a.rank - b.rank)
 
@@ -438,17 +423,29 @@ export default function Rankings() {
       )
     }
 
+    const twoCol = sorted.length >= 14
+    const mid = twoCol ? Math.ceil(sorted.length / 2) : sorted.length
+    const columns = twoCol ? [sorted.slice(0, mid), sorted.slice(mid)] : [sorted]
+
+    const renderColumn = (rows) =>
+      rows.map((entry, i) => (
+        <RankingRow
+          key={`${pollType}-${entry.rank}`}
+          rank={entry.rank}
+          teamAbbr={entry.team}
+          teamTid={entry.tid}
+          year={displayYear}
+          last={i === rows.length - 1}
+        />
+      ))
+
     return (
       <Card padding="none" className="overflow-hidden reveal">
-        {sorted.map((entry) => (
-          <RankingRow
-            key={`${pollType}-${entry.rank}`}
-            rank={entry.rank}
-            teamAbbr={entry.team}
-            teamTid={entry.tid}
-            year={displayYear}
-          />
-        ))}
+        <div className={`grid grid-cols-1 ${twoCol ? 'lg:grid-cols-2 lg:divide-x-2 lg:divide-black' : ''}`}>
+          {columns.map((col, ci) => (
+            <div key={ci} className="flex flex-col">{renderColumn(col)}</div>
+          ))}
+        </div>
       </Card>
     )
   }
@@ -530,7 +527,7 @@ export default function Rankings() {
         ) : null}
       />
 
-      <div className="max-w-xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <PollColumn data={top25} pollType="media" />
       </div>
 

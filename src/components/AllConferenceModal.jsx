@@ -14,6 +14,7 @@ import SheetManualEntry from './ui/SheetManualEntry'
 import {
   createAllConferenceSheet,
   readAllConferenceFromSheet,
+  parseAllConferenceLocal,
   deleteGoogleSheet,
   getSheetEmbedUrl,
   sheetExists
@@ -21,6 +22,10 @@ import {
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { normalizeAllConferenceRows } from '../utils/allConferenceRealign'
+import { getTeamNameOptions, getTeamNameAliases } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -33,6 +38,7 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+  const teamAbbrs = useMemo(() => getTeamNameOptions(currentDynasty?.teams, { includeFCS: false }), [currentDynasty?.teams])
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
@@ -40,6 +46,8 @@ export default function AllConferenceModal({ isOpen, onClose, onSave, currentYea
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -75,7 +83,7 @@ CRITICAL RULES — read before anything else
 5. NO COMMAS in any value. No commentary, totals, "N/A", or dashes.
 6. BLANK field for unknown (empty between tabs). Never guess. A Freshman-team slot empty = leave Player/Team/Class blank.
 7. Use ONLY the literal dropdown values listed below for Position, Team, and Class.
-8. Team column values (cols C, G, K) must be UPPERCASE team abbreviations from the mapping below — NEVER full names. Each team listed in a block MUST actually belong to THIS conference for this tab. Teams from other conferences will be semantically wrong even if the dropdown accepts them.
+8. Team column values (cols C, G, K) must be team names from the TEAM NAMES list below — NEVER an abbreviation, nickname, or mascot. Each team listed in a block MUST actually belong to THIS conference for this tab. Teams from other conferences will be semantically wrong even if the dropdown accepts them.
 9. Do NOT output rows 1-3 (merged title, team-group headers, column headers) — they are pre-filled.
 
 ═══════════════════════════════════════════════════════════
@@ -123,7 +131,7 @@ Field formats:
     QB | HB | FB | WR | TE | LT | LG | C | RG | RT | LEDG | REDG | DT | SAM | MIKE | WILL | CB | FS | SS | K | P
   Use the position that matches the row from the list above. The same value goes in all three Position slots.
 - Player — full name string. Leave blank if unknown. Do NOT invent players.
-- Team (strict dropdown) — uppercase abbreviation from the mapping below (e.g. BAMA, OSU, UGA, TEX, USC). NEVER full names or nicknames. Must be a member of the conference this tab represents.
+- Team (strict dropdown) — team name from the list below (e.g. Alabama, Ohio State, Georgia, Texas, USC). NEVER an abbreviation, nickname, or mascot. Must be a member of the conference this tab represents.
 - Class (strict dropdown) — must be EXACTLY one of, case-sensitive:
     Fr | RS Fr | So | RS So | Jr | RS Jr | Sr | RS Sr
   Note the literal space in "RS Fr"/"RS So"/"RS Jr"/"RS Sr". No "Freshman"/"Sophomore"/"FR"/"SO"/"R-Fr"/"RSFr". Freshman-team slots must be Fr or RS Fr only.
@@ -131,34 +139,34 @@ Field formats:
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT (one labeled block per conference tab)
 ═══════════════════════════════════════════════════════════
-=== Big Ten — paste at cell A4 of "Big Ten" tab ===
+=== Big Ten ===
 <25 lines × 12 tab-separated fields>
 
-=== SEC — paste at cell A4 of "SEC" tab ===
+=== SEC ===
 <25 lines × 12 tab-separated fields>
 
-=== Big 12 — paste at cell A4 of "Big 12" tab ===
+=== Big 12 ===
 <25 lines × 12 tab-separated fields>
 
-=== ACC — paste at cell A4 of "ACC" tab ===
+=== ACC ===
 <25 lines × 12 tab-separated fields>
 
-=== Pac-12 — paste at cell A4 of "Pac-12" tab ===
+=== Pac-12 ===
 <25 lines × 12 tab-separated fields>
 
-=== Mountain West — paste at cell A4 of "Mountain West" tab ===
+=== Mountain West ===
 <25 lines × 12 tab-separated fields>
 
-=== American — paste at cell A4 of "American" tab ===
+=== American ===
 <25 lines × 12 tab-separated fields>
 
-=== Sun Belt — paste at cell A4 of "Sun Belt" tab ===
+=== Sun Belt ===
 <25 lines × 12 tab-separated fields>
 
-=== Conference USA — paste at cell A4 of "Conference USA" tab ===
+=== Conference USA ===
 <25 lines × 12 tab-separated fields>
 
-=== MAC — paste at cell A4 of "MAC" tab ===
+=== MAC ===
 <25 lines × 12 tab-separated fields>
 
 (If the user's sheet has custom conferences, output one labeled block per tab that actually exists, using the exact tab name in the label.)
@@ -173,15 +181,69 @@ FINAL CHECK before you send
 [ ] All Position values are from the exact list: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P
 [ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
 [ ] All Freshman-team Class values are Fr or RS Fr
-[ ] All Team values are uppercase abbreviations from the mapping — and each team is a member of THIS tab's conference
+[ ] All Team values are uppercase names from the list — and each team is a member of THIS tab's conference
 [ ] Blank fields for unknowns — nothing was invented
-[ ] No commas, no header rows, no commentary INSIDE the data. The paste-target label(s) above each fence are required (see TSV delivery rules above).`,
+[ ] No commas, no header rows, no commentary INSIDE the data. The only non-data lines are the === <SECTION> === labels above each fence.`,
+    includeTeamMap: true,
+    dynastyTeams: currentDynasty?.teams,
+  }), [currentYear, currentDynasty?.teams])
+
+  // LOCAL-PASTE prompt: self-describing rows. Each line LEADS with the
+  // conference name plus its designation (First/Second/Freshman) and position,
+  // so there is NO per-tab grid to line up against and NO fixed row order. The
+  // user omits any honor they cannot see — the save keys by conference + honor
+  // identity, so omitted rows are simply not written.
+  const localAiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} All-Conference`,
+    structure: `Output ONE line per All-Conference honoree you can see. Each line is SELF-DESCRIBING — it LEADS with the conference name, then the team designation, then the position — so there is NO grid and NO fixed row order.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Each line has EXACTLY 6 tab-separated fields (5 tabs):
+   Conference<TAB>Designation<TAB>Position<TAB>Player<TAB>Team<TAB>Class
+2. NO header row. NO blank lines. NO commentary, totals, or labels INSIDE the data.
+3. OMIT any honor slot you cannot see — do NOT pad, do NOT guess, do NOT invent a player. A slot with no line is simply left unset.
+4. The order of lines does not matter (each line self-identifies). Output a separate line for every honoree across all three designations.
+
+═══════════════════════════════════════════════════════════
+FIELD FORMATS
+═══════════════════════════════════════════════════════════
+- Conference — the EXACT conference this honoree belongs to (e.g. "Big Ten", "SEC", "Conference USA", "Mountain West"). Copy the name as shown in your screenshots. The Player's Team MUST be a member of this conference.
+- Designation — EXACTLY one of (case-insensitive): first | second | freshman
+    "first" = First-Team All-Conference. "second" = Second-Team. "freshman" = Freshman Team.
+- Position — EXACTLY one of, case-sensitive:
+    QB | HB | FB | WR | TE | LT | LG | C | RG | RT | LEDG | REDG | DT | SAM | MIKE | WILL | CB | FS | SS | K | P
+- Player — full name string. Do NOT invent players. If a name is illegible, omit the whole line.
+- Team — team name from the list below (e.g. Alabama, Ohio State, Georgia, Texas, USC). NEVER an abbreviation, nickname, or mascot. Must be a member of that line's Conference.
+- Class — EXACTLY one of, case-sensitive:
+    Fr | RS Fr | So | RS So | Jr | RS Jr | Sr | RS Sr
+  Note the literal space in "RS Fr"/"RS So"/"RS Jr"/"RS Sr". Freshman-designation honorees must be Fr or RS Fr.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== ALL-CONFERENCE ===
+<Conference>\\t<Designation>\\t<Position>\\t<Player>\\t<Team>\\t<Class>
+…one line per honoree across all conferences and all three designations; omit unknowns entirely
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has exactly 6 tab-separated fields (five tabs)
+[ ] The 1st field is a conference name and the 5th field (Team) is a member of that conference
+[ ] Designation is exactly first, second, or freshman
+[ ] Position is from the exact list; Class is from the exact list; freshman honorees are Fr or RS Fr
+[ ] Team values are uppercase names from the list — no full names
+[ ] No blank lines, no header row, no commentary INSIDE the data — only honorees you can actually see`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -211,8 +273,15 @@ FINAL CHECK before you send
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -259,14 +328,58 @@ FINAL CHECK before you send
       }
     }
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits Conference<TAB>Designation<TAB>Position<TAB>
+  // Player<TAB>Team<TAB>Class rows. parseAllConferenceLocal groups by the
+  // per-row conference and returns the SAME { allConference,
+  // allConferenceByConference } shape the Google reader returns, so the existing
+  // onSave path applies unchanged (keyed by conference + honor identity).
+  const handleLocalImport = async (text) => {
+    const dynastyTeams = currentDynasty?.teams || currentDynasty?.customTeams || null
+    const data = parseAllConferenceLocal(splitTsv(text), dynastyTeams)
+    await onSave(data)
+    onClose()
+  }
+
+  // Pre-fill the local grid with this year's saved All-Conference honorees.
+  // parseAllConferenceLocal reads self-describing rows in the column order:
+  //   Conference, Designation, Position, Player, Team, Class
+  // The saved data lives keyed by conference in allAmericansByYear[year]
+  //   .allConferenceByConference, each entry = { designation, position, player,
+  //   school, class }. Emitting one line per honoree round-trips: re-importing
+  //   the untouched pre-fill reproduces the same allConferenceByConference.
+  const designationLabel = { first: 'First', second: 'Second', freshman: 'Freshman' }
+  const initialText = useMemo(() => {
+    const byConf = currentDynasty?.allAmericansByYear?.[currentYear]?.allConferenceByConference
+      || currentDynasty?.allAmericansByYear?.[String(currentYear)]?.allConferenceByConference
+      || {}
+    const lines = []
+    for (const [conference, entries] of Object.entries(byConf)) {
+      if (!conference || !Array.isArray(entries)) continue
+      for (const e of entries) {
+        if (!e || !e.designation || !e.player) continue
+        lines.push([
+          conference,
+          designationLabel[e.designation] || e.designation,
+          e.position || '',
+          e.player || '',
+          (e.school || '').toUpperCase(),
+          e.class || '',
+        ].join('\t'))
+      }
+    }
+    return lines.join('\n')
+  }, [currentDynasty?.allAmericansByYear, currentYear])
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -399,7 +512,20 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Postseason" title={`${currentYear} All-Conference`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={localAiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import All-Conference"
+            columns={['Conference', 'Designation', 'Position', 'Player', 'Team', 'Class']}
+            normalizeRows={normalizeAllConferenceRows}
+            comboboxColumns={{ Team: teamAbbrs }}
+            comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+            initialText={initialText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />

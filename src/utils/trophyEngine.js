@@ -113,6 +113,19 @@ function resolveRivalryTidSets(dynasty) {
     }
     if (tids.size >= 2) out.push({ id: t.id, tids })
   }
+
+  // User-defined rivalries from the Manage Rivalries page:
+  // dynasty.rivalries = [{ id, name, teamTids: [...], imageUrl }]. Each is one
+  // named rivalry whose teams all rival each other (like the static trophy
+  // entries), so a single tid Set per rivalry is correct. Carries the name +
+  // image so getRivalryTrophyForTeams can badge the game without a re-lookup.
+  for (const r of (dynasty?.rivalries || [])) {
+    if (!r || !Array.isArray(r.teamTids)) continue
+    const tids = new Set(r.teamTids.map(Number).filter(Number.isFinite))
+    if (tids.size >= 2) {
+      out.push({ id: r.id ?? null, custom: true, name: r.name || '', imageUrl: r.imageUrl || null, tids })
+    }
+  }
   return out
 }
 
@@ -216,7 +229,7 @@ export function getEarnedTrophies(dynasty, stints) {
       const key = normalizeAwardName(rawKey)
       const trophyId = AWARD_TROPHY[key] || AWARD_TROPHY[rawKey]
       if (!trophyId) continue
-      const awardTid = getTidFromAbbr(data.team, dynasty?.teams || dynasty)
+      const awardTid = data.tid != null ? Number(data.tid) : getTidFromAbbr(data.team, dynasty?.teams || dynasty)
       if (awardTid != null && coachTids.has(Number(awardTid))) {
         const pid = findAwardPlayerPid(dynasty, data.player, year, Number(awardTid))
         add(trophyId, year, { player: data.player, position: data.position, team: data.team, awardTid: Number(awardTid), pid })
@@ -240,7 +253,21 @@ export function getRivalryTrophyForTeams(dynasty, tidA, tidB) {
   const a = Number(tidA), b = Number(tidB)
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null
   for (const r of resolveRivalryTidSets(dynasty)) {
-    if (r.tids.has(a) && r.tids.has(b)) return TROPHY_BY_ID[r.id]
+    if (!r.tids.has(a) || !r.tids.has(b)) continue
+    if (!r.custom && r.id && TROPHY_BY_ID[r.id]) return TROPHY_BY_ID[r.id]
+    if (r.custom) {
+      // A user-defined rivalry carries its own name and (optional) trophy image
+      // URL. Return a synthetic trophy so the rivalries filter, game title, and
+      // schedule badge all recognize it. Callers that render a badge image must
+      // null-check `.image` (they fall back to a text "RIVALRY" chip when the
+      // user didn't provide an image URL).
+      const school = (tid) => {
+        const nm = dynasty?.teams?.[tid]?.name || TEAMS[tid]?.name || ''
+        return stripMascotFromName(nm) || nm || `Team ${tid}`
+      }
+      const label = r.name || `${school(a)}–${school(b)} Rivalry`
+      return { id: r.id ?? `custom-rivalry-${Math.min(a, b)}-${Math.max(a, b)}`, name: label, gameName: label, category: 'rivalry', image: r.imageUrl || null, custom: true }
+    }
   }
   return null
 }

@@ -15,11 +15,14 @@ import SheetLoadingHint from './SheetLoadingHint'
 import {
   createTeamStatsSheet,
   readTeamStatsFromSheet,
+  parseTeamStatsLocal,
   deleteGoogleSheet,
   getSheetEmbedUrl,
   sheetExists
 } from '../services/sheetsService'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -38,6 +41,8 @@ export default function TeamStatsModal({ isOpen, onClose, onSave, currentYear, t
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
@@ -45,6 +50,45 @@ export default function TeamStatsModal({ isOpen, onClose, onSave, currentYear, t
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+
+  // Pre-fill the local grid with the team's EXISTING aggregated stats so the
+  // modal opens ready to edit. parseTeamStatsLocal reads each row as
+  // Section<TAB>StatLabel<TAB>Value and looks the label up in the fixed
+  // OFFENSE/DEFENSE key maps — so we emit one self-describing row per stat, in
+  // the same section+label order the AI prompt uses. Column order: [Section,
+  // Stat, Value]. Blank (null/undefined) values are omitted (parser treats an
+  // absent row the same as a blank value: leaves the key null).
+  const initialTeamStatsText = useMemo(() => {
+    const OFFENSE = [
+      ['Points', 'pointsFor'],
+      ['Offense Yards', 'totalOffense'],
+      ['Yards Per Play', 'yardsPerPlay'],
+      ['Passing Yards', 'passYards'],
+      ['Passing Touchdowns', 'passTds'],
+      ['Rushing Yards', 'rushYards'],
+      ['Rushing Touchdowns', 'rushTds'],
+      ['First Downs', 'firstDowns'],
+    ]
+    const DEFENSE = [
+      ['Points Allowed', 'pointsAgainst'],
+      ['Total Yards Allowed', 'defTotalYards'],
+      ['Passing Yards Allowed', 'defPassYards'],
+      ['Rushing Yards Allowed', 'defRushYards'],
+      ['Sacks', 'defSacks'],
+      ['Forced Fumbles', 'forcedFumbles'],
+      ['Interceptions', 'defInterceptions'],
+    ]
+    const src = aggregatedStats || {}
+    const lines = []
+    const emit = (section, label, key) => {
+      const v = src[key]
+      if (v === undefined || v === null || v === '') return
+      lines.push(`${section}\t${label}\t${v}`)
+    }
+    OFFENSE.forEach(([label, key]) => emit('OFFENSE', label, key))
+    DEFENSE.forEach(([label, key]) => emit('DEFENSE', label, key))
+    return lines.join('\n')
+  }, [aggregatedStats])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} ${teamName} Team Statistics`,
@@ -62,12 +106,11 @@ CRITICAL RULES — read before anything else
 5. INTEGERS have no decimal point: "42" not "42.0".
 6. BLANK LINE when unknown. Never guess. Blank ≠ zero.
 7. ZERO only if the screenshot clearly shows zero.
-8. No header row, no totals, no commentary INSIDE the data, no "N/A", no dashes. The paste-target label(s) above each fence are required (see TSV delivery rules above).
-9. TWO separate blocks — one per tab — each preceded by the required paste-target label line above its fence (see TSV delivery rules above).
+8. No header row, no totals, no commentary INSIDE the data, no "N/A", no dashes.
+9. TWO separate blocks — one per tab — each preceded by its "=== ... ===" section label above the fence.
 
 ═══════════════════════════════════════════════════════════
-TAB 1: "Offense" — 8 rows
-Paste your block at cell B1 of the "Offense" tab
+SECTION 1: "Offense" — 8 rows
 ═══════════════════════════════════════════════════════════
 Output EXACTLY 8 lines, one value per line, in this row order:
 
@@ -83,8 +126,7 @@ Row | Column A (protected) | Your column B value                    | Format
   8 | First Downs          | First downs                            | integer
 
 ═══════════════════════════════════════════════════════════
-TAB 2: "Defense" — 7 rows
-Paste your block at cell B1 of the "Defense" tab
+SECTION 2: "Defense" — 7 rows
 ═══════════════════════════════════════════════════════════
 Output EXACTLY 7 lines, one value per line, in this row order:
 
@@ -101,7 +143,7 @@ Row | Column A (protected)    | Your column B value                      | Forma
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== OFFENSE — paste at cell B1 of "Offense" tab ===
+=== OFFENSE ===
 <row 1 value>
 <row 2 value>
 <row 3 value>
@@ -111,7 +153,7 @@ REQUIRED OUTPUT FORMAT
 <row 7 value>
 <row 8 value>
 
-=== DEFENSE — paste at cell B1 of "Defense" tab ===
+=== DEFENSE ===
 <row 1 value>
 <row 2 value>
 <row 3 value>
@@ -127,12 +169,65 @@ FINAL CHECK before you send the answer
 [ ] Defense block = exactly 7 lines
 [ ] No commas in any number
 [ ] No column A / stat names anywhere
-[ ] No header row, no total row, no explanation text INSIDE the data blocks (the paste-target label above each fence is required, see TSV delivery rules above)
+[ ] No header row, no total row, no explanation text INSIDE the data blocks
 [ ] Blank lines for unknowns — did not invent any values`,
+  }), [currentYear, teamName])
+
+  // LOCAL-PASTE prompt: self-describing rows. Each line LEADS with the section
+  // (OFFENSE/DEFENSE) and the stat's exact label, so there is NO fixed row
+  // order to preserve. parseTeamStatsLocal looks each stat up by label (not by
+  // position), so the user can omit any stat they cannot see.
+  const localAiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} ${teamName} Team Statistics`,
+    structure: `Output ONE line per team stat you can see. Each line is SELF-DESCRIBING — it LEADS with the section (OFFENSE or DEFENSE) and the exact stat label — so there is NO fixed row order.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Each line has EXACTLY 3 tab-separated fields (2 tabs):
+   Section<TAB>StatLabel<TAB>Value
+2. NO header row. NO blank lines. NO commentary, totals, or labels INSIDE the data.
+3. OMIT any stat you cannot see — do NOT pad, do NOT guess, do NOT invent a value. An omitted stat is simply left unset.
+4. Line order does not matter (each line self-identifies with its section + label).
+
+═══════════════════════════════════════════════════════════
+FIELDS
+═══════════════════════════════════════════════════════════
+- Section — EXACTLY "OFFENSE" or "DEFENSE" (uppercase).
+- StatLabel — must be EXACTLY one of the labels below, copied character-for-character (case-insensitive match, but use these spellings):
+    OFFENSE labels:
+      Points | Offense Yards | Yards Per Play | Passing Yards | Passing Touchdowns | Rushing Yards | Rushing Touchdowns | First Downs
+    DEFENSE labels:
+      Points Allowed | Total Yards Allowed | Passing Yards Allowed | Rushing Yards Allowed | Sacks | Forced Fumbles | Interceptions
+- Value — the number for that stat. NO commas ("1234" not "1,234"). Integers have no decimal point. "Yards Per Play" is a decimal with one place (e.g. "5.8"); every other stat is an integer. Use 0 only if the screenshot clearly shows zero.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== TEAM STATS ===
+OFFENSE\\tPoints\\t<value>
+OFFENSE\\tOffense Yards\\t<value>
+…etc for every offense stat you can see…
+DEFENSE\\tPoints Allowed\\t<value>
+…etc for every defense stat you can see…
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has exactly 3 tab-separated fields (two tabs)
+[ ] The 1st field is OFFENSE or DEFENSE; the 2nd field is one of the exact labels listed above
+[ ] "Yards Per Play" is a one-decimal number; all other values are integers
+[ ] No commas in any number
+[ ] No blank lines, no header row, no commentary INSIDE the data — only stats you can actually see`,
   }), [currentYear, teamName])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  // Single-attempt guard: a FAILED creation must not silently re-fire (the
+  // runaway loop that spam-created sheets). One attempt per modal-open; an
+  // explicit retry bumps auth.retryCount and re-arms exactly one more.
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -162,8 +257,17 @@ FINAL CHECK before you send the answer
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
+    // An explicit retry re-arms one fresh attempt by bumping auth.retryCount.
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        // Mark attempted BEFORE any await so a rejection can't loop back in
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -186,7 +290,7 @@ FINAL CHECK before you send the answer
           await updateDynasty(currentDynasty.id, { teamStatsSheetId: sheetInfo.sheetId })
         } catch (error) {
           console.error('Failed to create team stats sheet:', error)
-          auth.handleError(error)
+          if (!auth.handleError(error)) toast.error(auth.describeError(error, 'create the stats sheet'))
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -194,14 +298,27 @@ FINAL CHECK before you send the answer
       }
     }
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits Section<TAB>StatLabel<TAB>Value rows.
+  // parseTeamStatsLocal looks each stat up by label (not by position) and
+  // returns the SAME flat { key: number|null } object the Google reader
+  // returns, so the existing onSave (replaces teamStatsByYear[year]) applies
+  // unchanged.
+  const handleLocalImport = async (text) => {
+    const stats = parseTeamStatsLocal(splitTsv(text))
+    await onSave(stats)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -309,7 +426,26 @@ FINAL CHECK before you send the answer
         <SheetModalHeader eyebrow="Stats" title={`${currentYear} Team Statistics`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <div className="flex-1 flex flex-col overflow-hidden gap-3">
+            <div
+              className="rounded-lg border border-surface-4 bg-surface-2 px-4 py-3 text-xs sm:text-sm text-txt-secondary"
+              role="note"
+            >
+              <span className="text-txt-primary font-semibold">Skip this if you've been entering box scores game-by-game.</span>
+              {' '}Team stats are aggregated from box scores. This is only for end-of-season catch-up if you skipped per-game entry.
+            </div>
+            <LocalDataEntry
+              aiPrompt={localAiPrompt}
+              onImport={handleLocalImport}
+              onUseGoogle={() => setUseLocal(false)}
+              onCancel={handleClose}
+              importLabel="Import Team Stats"
+              columns={['Section', 'Stat', 'Value']}
+              initialText={initialTeamStatsText}
+            />
+          </div>
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />

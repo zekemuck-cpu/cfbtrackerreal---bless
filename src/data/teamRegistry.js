@@ -52,6 +52,7 @@
  */
 
 import { EDITION_CONFIGS, LEGACY_EDITION } from '../editions'
+import { TEAM_NAME_PARTS } from './teamNameParts'
 
 // ============================================================================
 // MASTER TEAM LIST - TID IS THE PRIMARY KEY
@@ -61,6 +62,11 @@ import { EDITION_CONFIGS, LEGACY_EDITION } from '../editions'
 //   addedEdition (optional): the game edition a team first became playable in
 //     (e.g. 'cfb27'). A team tagged this way is excluded from dynasties on an
 //     earlier edition — see initializeDynastyTeams().
+//   aliases (optional): array of alternate names for this team — the SINGLE
+//     SOURCE OF TRUTH for every alias feature (label + free-text resolvers, the
+//     dropdown alias search, and the AI-prompt in-game-name hint). aliases[0] is
+//     the primary EA in-game name; the rest are extra input forms accepted on
+//     entry. To teach the app a new alias, add it here and nowhere else.
 
 export const TEAMS = {
   1: {
@@ -253,7 +259,8 @@ export const TEAMS = {
     name: "Connecticut Huskies",
     primaryColor: "#000E2F",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/jQd2zR9.png"
+    logo: "https://i.imgur.com/jQd2zR9.png",
+    aliases: ["UConn"]
   },
   25: {
     tid: 25,
@@ -485,7 +492,11 @@ export const TEAMS = {
     name: "Miami Redhawks",
     primaryColor: "#B61E2E",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/h3YybDS.png"
+    logo: "https://i.imgur.com/h3YybDS.png",
+    // aliases[0] is the disambiguated label itself, so the AI prompt skips the
+    // "(in-game name: …)" annotation for the two Miamis (a dedicated prompt rule
+    // handles them); the rest are input forms the resolver/dropdown accept.
+    aliases: ["Miami (OH)", "Miami OH", "Miami Ohio", "Miami RedHawks", "RedHawks", "M-OH", "Miami University"]
   },
   54: {
     tid: 54,
@@ -493,7 +504,8 @@ export const TEAMS = {
     name: "Massachusetts Minutemen",
     primaryColor: "#881c1c",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/DpEq0GQ.png"
+    logo: "https://i.imgur.com/DpEq0GQ.png",
+    aliases: ["UMass"]
   },
   55: {
     tid: 55,
@@ -509,7 +521,10 @@ export const TEAMS = {
     name: "Miami Hurricanes",
     primaryColor: "#005030",
     secondaryColor: "#f47321",
-    logo: "https://i.imgur.com/SVtR4oY.png"
+    logo: "https://i.imgur.com/SVtR4oY.png",
+    // Bare "Miami" resolves here (the FBS convention). aliases[0] is the
+    // disambiguated label so the AI prompt skips the in-game-name annotation.
+    aliases: ["Miami (FL)", "Miami FL", "Miami Florida", "Miami Hurricanes", "Hurricanes", "Miami Canes", "Canes", "The U", "Miami"]
   },
   57: {
     tid: 57,
@@ -597,7 +612,8 @@ export const TEAMS = {
     name: "North Carolina State Wolfpack",
     primaryColor: "#CC0000",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/acrRSno.png"
+    logo: "https://i.imgur.com/acrRSno.png",
+    aliases: ["NC State", "N.C. State", "NC St"]
   },
   68: {
     tid: 68,
@@ -941,7 +957,9 @@ export const TEAMS = {
     name: "Lafayette Ragin' Cajuns",
     primaryColor: "#ce181e",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/UDJsamv.png"
+    logo: "https://i.imgur.com/UDJsamv.png",
+    // EA CFB shows the Ragin' Cajuns as "Louisiana"; the app label is Lafayette.
+    aliases: ["Louisiana", "UL Lafayette", "Louisiana Lafayette", "Ragin' Cajuns", "ULL"]
   },
   111: {
     tid: 111,
@@ -949,7 +967,9 @@ export const TEAMS = {
     name: "Monroe Warhawks",
     primaryColor: "#800029",
     secondaryColor: "#bd955a",
-    logo: "https://i.imgur.com/O0Knoh1.png"
+    logo: "https://i.imgur.com/O0Knoh1.png",
+    // EA CFB shows the Warhawks as "UL Monroe"; the app label is Monroe.
+    aliases: ["UL Monroe", "Louisiana Monroe", "UL-Monroe", "ULM Warhawks"]
   },
   112: {
     tid: 112,
@@ -1021,7 +1041,8 @@ export const TEAMS = {
     name: "Southern Mississippi Golden Eagles",
     primaryColor: "#000000",
     secondaryColor: "#FDC737",
-    logo: "https://i.imgur.com/hMPAEnR.png"
+    logo: "https://i.imgur.com/hMPAEnR.png",
+    aliases: ["Southern Miss", "So Miss", "Southern Mississippi"]
   },
   121: {
     tid: 121,
@@ -1229,6 +1250,20 @@ export const TEAMS = {
   }
 }
 
+// Attach the teamName + nickname split onto every registry team. This is
+// ADDITIVE — `name` stays the combined identity string ("Kentucky Wildcats")
+// that keys colors/logos/ESPN ids; teamName ("Kentucky") + nickname ("Wildcats")
+// ride alongside. Because initializeDynastyTeams spreads `...team`, every new
+// dynasty's teams map carries the split for free. A tid missing from the parts
+// map simply has no split (readers fall back to the strip helper).
+for (const [tid, parts] of Object.entries(TEAM_NAME_PARTS)) {
+  const team = TEAMS[tid]
+  if (team && parts) {
+    team.teamName = parts.teamName
+    team.nickname = parts.nickname
+  }
+}
+
 // ============================================================================
 // LOOKUP MAPS - Built once for fast lookups
 // ============================================================================
@@ -1247,6 +1282,22 @@ for (const [tid, team] of Object.entries(TEAMS)) {
 // even though the team itself (and its logo) is right there in TEAMS.
 ABBR_TO_TID['FCSM'] = 138
 ABBR_TO_TID['FCSN'] = 139
+
+// EA's in-game result-column abbreviations differ from our dropdown abbrs for a
+// handful of teams, so a paste (or manual entry) of the game's short code fails
+// to resolve and the row is dropped ("a school isn't listed"). Map the known
+// EA codes to our canonical abbr; getTidFromAbbr consults this as a last resort
+// (after the dynasty + registry lookups), so a real abbr or teambuilder override
+// always wins. Keys and values are UPPERCASE. Extend as new mismatches surface.
+export const EA_ABBR_ALIASES = {
+  AKRN: 'AKR',    // Akron
+  CUSE: 'SYR',    // Syracuse
+  MIST: 'MZST',   // Missouri State
+  JXST: 'JKST',   // Jacksonville State
+  OKLA: 'OU',     // Oklahoma (EA sometimes emits OKLA)
+  FCSM: 'FCSMW',  // legacy / EA 4-letter FCS Midwest
+  FCSN: 'FCSNW',  // legacy / EA 4-letter FCS Northwest
+}
 
 // Full name -> tid
 export const NAME_TO_TID = {}
@@ -1328,7 +1379,27 @@ export function getTidFromAbbr(abbr, dynastyOrTeams = null) {
       )
     }
   }
-  return staticTid
+  if (staticTid) return staticTid
+  // EA in-game code fallback: the value may be EA's result-column short code
+  // (e.g. "AKRN", "CUSE") rather than our dropdown abbr. Map it to the canonical
+  // abbr and re-resolve — dynasty first (teambuilder override wins), then the
+  // static registry.
+  const aliasCanonical = EA_ABBR_ALIASES[upper]
+  if (aliasCanonical) {
+    if (dynastyTeams && typeof dynastyTeams === 'object') {
+      for (const [tid, team] of Object.entries(dynastyTeams)) {
+        if (team?.abbr?.toUpperCase() === aliasCanonical) return Number(tid)
+      }
+    }
+    const aliasTid = ABBR_TO_TID[aliasCanonical]
+    if (aliasTid) return aliasTid
+  }
+  // Name fallback: the value may be a team NAME/label rather than an
+  // abbreviation (charts now let users pick teams by name). Additive — every
+  // abbr check above is unchanged and takes priority. Resolves against the
+  // dynasty teams when available, else the static registry.
+  const nameTid = getTidFromTeamLabel(abbr, dynastyTeams || null)
+  return nameTid != null ? nameTid : null
 }
 
 /**
@@ -1402,6 +1473,168 @@ export function getAbbrFromTeamName(teamName, dynastyTeams = null) {
   return null
 }
 
+// ============================================================================
+// TEAM-NAME LABELS (user-facing team selection, rooted in tid)
+// ============================================================================
+//
+// Charts and AI prompts show the school name ("Kentucky") instead of an
+// abbreviation. Short names are unique across the 143 base teams EXCEPT for the
+// two Miamis, so collisions are disambiguated to a stable, unique label. A
+// custom team that happens to share a short name with another falls back to
+// "<name> (<abbr>)". Everything still resolves to a tid.
+
+// Built-in disambiguation for known short-name collisions (keyed by tid).
+const TEAM_NAME_DISAMBIG = { 56: 'Miami (FL)', 53: 'Miami (OH)' }
+
+const squashLabel = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '')
+
+// Alternate team names live on the team record itself (`TEAMS[tid].aliases`) —
+// the single source of truth for every alias feature: the label resolver
+// (getTidFromTeamLabel), the free-text resolver (getTidFromTeamText in teams.js),
+// the dropdown alias search (getTeamNameAliases), and the AI-prompt in-game-name
+// annotation (getTeamInGameNames). aliases[0] is the primary in-game name; the
+// rest are additional forms accepted on input. All matching is done in squashed
+// form so spacing/punctuation don't matter ("Miami (OH)" == "Miami-OH").
+//
+// The effective alias set for one slot in a teams map: its own `aliases` when
+// present (new dynasties copy them from TEAMS at init). Older dynasties predate
+// the field, so fall back to the static registry — but ONLY when the slot still
+// holds the original school (same name/teamName) and isn't a teambuilder
+// takeover, so a renamed/custom slot never inherits another school's aliases.
+// This generic identity check replaces the old per-alias `guard` regexes.
+function effectiveTeamAliases(teams, tid) {
+  const team = teams?.[tid]
+  const own = team?.aliases
+  if (own && own.length) return own
+  if (team?.isCustom) return null
+  const reg = TEAMS[tid]
+  if (!reg?.aliases?.length) return null
+  const sameSchool = team?.name === reg.name || (team?.teamName && team.teamName === reg.teamName)
+  return sameSchool ? reg.aliases : null
+}
+
+// The short name to label a team by: the split `teamName`, else the full name.
+function baseTeamLabel(team) {
+  return team?.teamName || team?.name || null
+}
+
+// Build { [tid]: uniqueLabel } for a whole teams map. Deterministic, so the
+// option list, the AI prompt list, and the resolver all agree.
+export function buildTeamNameLabels(teams) {
+  const src = (teams && Object.keys(teams).length) ? teams : TEAMS
+  const groups = {}
+  for (const [tid, team] of Object.entries(src)) {
+    const base = baseTeamLabel(team)
+    if (!base) continue
+    ;(groups[base] || (groups[base] = [])).push(Number(tid))
+  }
+  const labels = {}
+  for (const [tid, team] of Object.entries(src)) {
+    const base = baseTeamLabel(team)
+    if (!base) continue
+    if (groups[base].length === 1) {
+      labels[tid] = base
+    } else {
+      labels[tid] = TEAM_NAME_DISAMBIG[tid] || `${base} (${team.abbr || tid})`
+    }
+  }
+  return labels
+}
+
+// The unique display label for one team (e.g. "Kentucky", "Miami (FL)").
+export function getTeamNameLabel(teams, tid) {
+  if (tid == null) return null
+  return buildTeamNameLabels(teams)[tid] || null
+}
+
+// Sorted array of unique team-name labels for a dropdown/combobox. includeFCS
+// controls whether the FCS placeholder slots are offered (schedule opponents
+// want them; polls/standings usually don't).
+export function getTeamNameOptions(teams, { includeFCS = true } = {}) {
+  const src = (teams && Object.keys(teams).length) ? teams : TEAMS
+  const labels = buildTeamNameLabels(src)
+  const out = []
+  for (const [tid, team] of Object.entries(src)) {
+    if (!includeFCS && team?.isFCS) continue
+    const label = labels[tid]
+    if (label) out.push(label)
+  }
+  return out.sort((a, b) => a.localeCompare(b))
+}
+
+// { [canonicalLabel]: [alias, ...] } for every team that carries alternate
+// names (from TEAMS[tid].aliases — the single source of truth). Consumed by the
+// team dropdown's alias search so a user can find e.g. "Louisiana" / "UMass" /
+// "NC State" even though the list label is the app's canonical name. Reads the
+// effective alias set, so a teambuilder takeover never inherits the original
+// school's aliases.
+export function getTeamNameAliases(teams) {
+  const src = (teams && Object.keys(teams).length) ? teams : TEAMS
+  const labels = buildTeamNameLabels(src)
+  const out = {}
+  for (const tid of Object.keys(src)) {
+    const label = labels[tid]
+    if (!label) continue
+    const aliases = effectiveTeamAliases(src, tid)
+    if (aliases && aliases.length) out[label] = aliases
+  }
+  return out
+}
+
+// { [canonicalLabel]: primaryInGameName } — the ONE clean EA in-game name for
+// teams whose on-screen name differs from the app label, used by the AI prompt
+// to bridge a screenshot's name to the exact list entry. Skips teams whose
+// primary alias just equals the label (e.g. the two Miamis, whose label already
+// is the disambiguated in-game form and which the prompt handles separately).
+export function getTeamInGameNames(teams) {
+  const src = (teams && Object.keys(teams).length) ? teams : TEAMS
+  const labels = buildTeamNameLabels(src)
+  const out = {}
+  for (const tid of Object.keys(src)) {
+    const label = labels[tid]
+    if (!label) continue
+    const primary = effectiveTeamAliases(src, tid)?.[0]
+    if (primary && squashLabel(primary) !== squashLabel(label)) out[label] = primary
+  }
+  return out
+}
+
+// Resolve a user/AI-entered team label to a tid. Tolerant by design so pasted
+// data still lands even if the AI emits a slightly different form: tries the
+// exact unique label, then the full name, then a unique short name, then a
+// disambiguated "name (abbr)". Returns null when nothing matches.
+export function getTidFromTeamLabel(label, dynastyOrTeams = null) {
+  if (label == null || label === '') return null
+  const teams = dynastyOrTeams?.teams || dynastyOrTeams || TEAMS
+  if (!teams || typeof teams !== 'object') return null
+  const norm = String(label).trim().toLowerCase()
+  if (!norm) return null
+  // 1. Exact unique label match.
+  const labels = buildTeamNameLabels(teams)
+  for (const [tid, lb] of Object.entries(labels)) {
+    if (String(lb).toLowerCase() === norm) return Number(tid)
+  }
+  // 2. Full display name match.
+  for (const [tid, team] of Object.entries(teams)) {
+    if ((team?.name || '').toLowerCase() === norm) return Number(tid)
+  }
+  // 3. Unique short name match (bare "Miami" collides -> falls through to 4).
+  const shortHits = Object.entries(teams).filter(([, t]) => (t?.teamName || '').toLowerCase() === norm)
+  if (shortHits.length === 1) return Number(shortHits[0][0])
+  // 4. Alias match against each team's effective alias set (TEAMS[tid].aliases,
+  //    the single source of truth), compared in squashed form so any
+  //    spelling/spacing works. effectiveTeamAliases keeps it teambuilder-safe
+  //    and self-healing for older dynasties.
+  const squashed = squashLabel(norm)
+  if (squashed) {
+    for (const tid of Object.keys(teams)) {
+      const aliases = effectiveTeamAliases(teams, tid)
+      if (aliases && aliases.some((a) => squashLabel(a) === squashed)) return Number(tid)
+    }
+  }
+  return null
+}
+
 /**
  * Initialize a dynasty's team map from the master TEAMS list.
  * Call this when creating a new dynasty.
@@ -1419,10 +1652,22 @@ export function initializeDynastyTeams(editionKey = LEGACY_EDITION) {
   const teams = {}
   for (const [tid, team] of Object.entries(TEAMS)) {
     if (team.addedEdition && dynastyYear < editionReleaseYear(team.addedEdition)) continue
-    teams[tid] = {
-      ...team,
+    const { editionOverrides, ...base } = team
+    const slot = {
+      ...base,
       byYear: {}  // Initialize empty season data
     }
+    // Apply any edition-scoped identity overrides (e.g. CFB 27's new generic
+    // FCS teams) whose edition is at or before this dynasty's edition, oldest
+    // first so the newest applicable one wins. This bakes the edition-correct
+    // name/colors/nickname into the dynasty's own teams map.
+    if (editionOverrides) {
+      const applicable = Object.entries(editionOverrides)
+        .filter(([ek]) => editionReleaseYear(ek) <= dynastyYear)
+        .sort((a, b) => editionReleaseYear(a[0]) - editionReleaseYear(b[0]))
+      for (const [, override] of applicable) Object.assign(slot, override)
+    }
+    teams[tid] = slot
   }
   return teams
 }
@@ -1457,6 +1702,15 @@ export function setTeambuilderTeam(teams, tid, teambuilderData) {
     tid: parseInt(tid),
     abbr: teambuilderData.abbr || teambuilderData.abbreviation,
     name: teambuilderData.name,
+    // Take the split when the TB supplied it; otherwise CLEAR the inherited
+    // slot's teamName/nickname (they belonged to the replaced FBS team and would
+    // be stale against the new name). Left undefined, the load-time backfill
+    // (migrateTeamNameParts) re-derives them from the new `name`.
+    teamName: teambuilderData.teamName != null ? teambuilderData.teamName : undefined,
+    nickname: teambuilderData.nickname != null ? teambuilderData.nickname : undefined,
+    // Clear the replaced school's alternate names — a teambuilder team owns its
+    // identity and must never resolve under the original's aliases.
+    aliases: teambuilderData.aliases != null ? teambuilderData.aliases : undefined,
     primaryColor: teambuilderData.primaryColor || teambuilderData.backgroundColor,
     secondaryColor: teambuilderData.secondaryColor || teambuilderData.textColor,
     logo: teambuilderData.logo || teambuilderData.logoUrl,
@@ -1711,19 +1965,13 @@ export function resolveTid(tidOrAbbr, dynastyTeams = null) {
     return parseInt(tidOrAbbr, 10)
   }
 
-  // Otherwise treat as abbreviation and convert
-  // First try the static lookup
-  const tid = getTidFromAbbr(tidOrAbbr)
+  // Otherwise treat as abbreviation and convert. Forward dynastyTeams so the
+  // DYNASTY file wins over the static registry — getTidFromAbbr scans dynasty
+  // first, so a teambuilder/renamed/collided abbr resolves to the current team,
+  // not the static FBS team that happens to share the abbr. When no dynastyTeams
+  // is passed this is null and resolution stays static (backward compatible).
+  const tid = getTidFromAbbr(tidOrAbbr, dynastyTeams)
   if (tid) return tid
-
-  // If not found in static map, check dynasty teams for custom abbreviations
-  if (dynastyTeams) {
-    for (const [teamTid, team] of Object.entries(dynastyTeams)) {
-      if (team.abbr?.toUpperCase() === tidOrAbbr.toUpperCase()) {
-        return parseInt(teamTid, 10)
-      }
-    }
-  }
 
   return null
 }
@@ -1821,11 +2069,16 @@ export function getColorsFromTid(teams, tid) {
  */
 export function getTeamByAbbr(teams, abbr) {
   if (!teams || !abbr) return null
-  // First try direct ABBR_TO_TID lookup for efficiency
-  const tid = ABBR_TO_TID[abbr]
+  // Scan the DYNASTY file FIRST (case-insensitive) so a teambuilder/renamed/
+  // collided abbr resolves to the CURRENT team, not the static FBS team that
+  // shares the abbr. Only if the abbr isn't present in the file do we fall
+  // back to the static ABBR_TO_TID slot (for abbrs pruned from the file).
+  const upper = String(abbr).toUpperCase()
+  const dynastyMatch = Object.values(teams).find(t => t?.abbr?.toUpperCase() === upper)
+  if (dynastyMatch) return dynastyMatch
+  const tid = ABBR_TO_TID[upper]
   if (tid && teams[tid]) return teams[tid]
-  // Fall back to scanning (handles teambuilder teams with custom abbrs)
-  return Object.values(teams).find(t => t.abbr === abbr) || null
+  return null
 }
 
 /**
@@ -1969,9 +2222,11 @@ export function getGameTeamInfo(teams, tidOrAbbr) {
     tid = parseInt(tidOrAbbr, 10)
   }
 
-  // If not a number, try as abbreviation
+  // If not a number, try as abbreviation. Forward `teams` so a teambuilder/
+  // renamed/collided abbr resolves against the DYNASTY file first, not the
+  // static registry (getTidFromAbbr is dynasty-first when given the teams map).
   if (!tid) {
-    tid = getTidFromAbbr(tidOrAbbr)
+    tid = getTidFromAbbr(tidOrAbbr, teams)
   }
 
   if (!tid) return null

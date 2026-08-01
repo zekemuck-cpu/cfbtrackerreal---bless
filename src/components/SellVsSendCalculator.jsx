@@ -54,9 +54,9 @@ export function SellVsSendButton({ onClick, className = '' }) {
       onClick={onClick}
       title="Sell vs Send Calculator"
       aria-label="Open Sell vs Send Calculator"
-      className={`inline-flex items-center justify-center h-8 sm:h-9 w-8 sm:w-9 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex-shrink-0 ${className}`.trim()}
+      className={`inline-flex items-center justify-center h-7 w-7 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex-shrink-0 ${className}`.trim()}
     >
-      <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="1.75" />
         <rect x="8" y="6" width="8" height="3" rx="0.5" strokeWidth="1.5" />
         <circle cx="9" cy="13" r="0.5" fill="currentColor" />

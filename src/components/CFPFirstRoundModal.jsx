@@ -14,6 +14,9 @@ import SheetToolbar from './SheetToolbar'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { getTeamNameOptions, getTeamNameAliases } from '../data/teamRegistry'
 import {
   createCFPFirstRoundSheet,
   readCFPFirstRoundFromSheet,
@@ -39,6 +42,9 @@ export default function CFPFirstRoundModal({ isOpen, onClose, onSave, currentYea
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  const teamAbbrs = useMemo(() => getTeamNameOptions(currentDynasty?.teams, { includeFCS: false }), [currentDynasty?.teams])
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -57,34 +63,33 @@ CRITICAL RULES — read before anything else
 3. Output EXACTLY 4 data rows, each with EXACTLY 4 tab-separated values.
 4. NO COMMAS in numbers. Output "24" never "024", never "1,234".
 5. INTEGERS ONLY for scores — no decimals, no "pts", no minus signs, no plus signs.
-6. TEAM ABBREVIATIONS ONLY (columns B and C) — use the abbreviation mapping below. Never full names, nicknames, cities, or mascots. Columns B and C are strict dropdowns.
+6. TEAM NAMES ONLY (columns B and C) — use the TEAM NAMES list below. Never an abbreviation, nickname, mascot, or city. Columns B and C are strict dropdowns.
 7. BLANK CELL if unknown. Never guess, never use "N/A", "TBD", dash, or zero (0 is a real score).
    - If an entire game hasn't been played yet: leave all 4 cells blank (empty tab-separated fields).
    - If only the teams are known but not scores: fill Higher Seed + Lower Seed, leave score cells blank.
-8. No header row, no column labels, no pre-filled Game text, no commentary or explanation INSIDE the data. The paste-target label above the fence is required (see TSV delivery rules above).
-9. ONE TSV block — preceded by the paste-target label line as required by the TSV delivery rules above.
+8. No header row, no column labels, no pre-filled Game text, no commentary or explanation INSIDE the data.
+9. ONE TSV block — output ONLY the fenced block, nothing before or after it.
 
 ═══════════════════════════════════════════════════════════
-TAB: "CFP First Round" — 4 rows × 4 editable columns
-Paste your block at cell B2 of the "CFP First Round" tab
+SECTION: "CFP First Round" — 4 rows × 4 editable columns
 ═══════════════════════════════════════════════════════════
 
 Each row is one game. Column A (Game) is pre-filled/protected. You output columns B through E in order: Higher Seed, Lower Seed, Higher Score, Lower Score.
 
 Row | Col A (PROTECTED / pre-filled) | Col B (Higher Seed) | Col C (Lower Seed) | Col D (Higher Score) | Col E (Lower Score)
 ----+--------------------------------+---------------------+--------------------+----------------------+--------------------
-  1 | Game 1 (5 vs 12)               | #5 seed team abbr   | #12 seed team abbr | points by #5 seed    | points by #12 seed
-  2 | Game 2 (6 vs 11)               | #6 seed team abbr   | #11 seed team abbr | points by #6 seed    | points by #11 seed
-  3 | Game 3 (7 vs 10)               | #7 seed team abbr   | #10 seed team abbr | points by #7 seed    | points by #10 seed
-  4 | Game 4 (8 vs 9)                | #8 seed team abbr   | #9 seed team abbr  | points by #8 seed    | points by #9 seed
+  1 | Game 1 (5 vs 12)               | #5 seed team name   | #12 seed team name | points by #5 seed    | points by #12 seed
+  2 | Game 2 (6 vs 11)               | #6 seed team name   | #11 seed team name | points by #6 seed    | points by #11 seed
+  3 | Game 3 (7 vs 10)               | #7 seed team name   | #10 seed team name | points by #7 seed    | points by #10 seed
+  4 | Game 4 (8 vs 9)                | #8 seed team name   | #9 seed team name  | points by #8 seed    | points by #9 seed
 
-Column B and Column C: STRICT dropdown of team abbreviations — use ONLY values from the TEAM ABBREVIATIONS mapping at the bottom of this prompt.
+Column B and Column C: STRICT dropdown of team names — use ONLY values from the TEAM NAMES list at the bottom of this prompt.
 Column D and Column E: INTEGER scores (0 or higher), no commas, no decimal point.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== CFP FIRST ROUND — paste at cell B2 of "CFP First Round" tab ===
+=== CFP FIRST ROUND ===
 <row1 HigherSeed>\\t<row1 LowerSeed>\\t<row1 HigherScore>\\t<row1 LowerScore>
 <row2 HigherSeed>\\t<row2 LowerSeed>\\t<row2 HigherScore>\\t<row2 LowerScore>
 <row3 HigherSeed>\\t<row3 LowerSeed>\\t<row3 HigherScore>\\t<row3 LowerScore>
@@ -98,7 +103,7 @@ FINAL CHECK before you send the answer
 [ ] Exactly 4 data rows (not 3, not 5)
 [ ] Exactly 4 tab-separated values per row (3 tab characters per line)
 [ ] Row order is 5v12, 6v11, 7v10, 8v9 — matches the protected Game column
-[ ] Columns B and C use team ABBREVIATIONS only, from the mapping
+[ ] Columns B and C use team NAMES only, from the TEAM NAMES list
 [ ] Columns D and E are INTEGERS only (no commas, no decimals)
 [ ] Blank cell for any unknown value — invented nothing
 [ ] Winner is implied by the higher of the two scores; I did not add a winner column`,
@@ -107,6 +112,8 @@ FINAL CHECK before you send the answer
   }), [currentYear, currentDynasty?.teams])
 
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
@@ -142,8 +149,15 @@ FINAL CHECK before you send the answer
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -169,15 +183,37 @@ FINAL CHECK before you send the answer
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       setSheetId(null)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits 4 columns per game (HigherSeed, LowerSeed,
+  // HigherScore, LowerScore) in the FIXED order 5v12, 6v11, 7v10, 8v9 — column A
+  // (the Game label) is pre-filled on the sheet and never output. The parser
+  // reads the Game label at row[0] (downstream onSave extracts seed numbers from
+  // it), so we prepend the matching fixed label by row position. Labels are
+  // dynasty-independent constants that mirror initializeCFPFirstRoundSheet.
+  const FIRST_ROUND_GAME_LABELS = [
+    'Game 1 (5 vs 12)',
+    'Game 2 (6 vs 11)',
+    'Game 3 (7 vs 10)',
+    'Game 4 (8 vs 9)',
+  ]
+  const handleLocalImport = async (text) => {
+    const lines = splitTsv(text)
+    const rows = lines.map((cells, i) => [FIRST_ROUND_GAME_LABELS[i] || '', ...cells])
+    const games = await readCFPFirstRoundFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows })
+    await onSave(games)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -293,7 +329,18 @@ FINAL CHECK before you send the answer
         <SheetModalHeader eyebrow="College Football Playoff" title={`${currentYear} CFP First Round`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            columns={['Higher Seed', 'Lower Seed', 'Higher Score', 'Lower Score']}
+            comboboxColumns={{ 'Higher Seed': teamAbbrs, 'Lower Seed': teamAbbrs }}
+            comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import CFP First Round"
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

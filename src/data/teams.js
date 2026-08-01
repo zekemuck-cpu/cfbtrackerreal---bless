@@ -1,5 +1,5 @@
 import { teamAbbreviations } from './teamAbbreviations'
-import { getAbbrFromTeamName, TEAMS as TEAMS_REGISTRY } from './teamRegistry'
+import { getAbbrFromTeamName, TEAMS as TEAMS_REGISTRY, getTidFromAbbr, getTidFromTeamName, getTidFromTeamLabel } from './teamRegistry'
 import { espnTeamIds } from './espnTeamIds'
 
 // Team logo URLs (Imgur hosted)
@@ -251,12 +251,117 @@ export function stripMascotFromName(fullName) {
   return parts.slice(0, -1).join(' ')
 }
 
+// Tolerant team resolver for pasted / typed input. Accepts an abbreviation
+// ("OU"), a full name with mascot ("Oklahoma Sooners"), or a bare school name
+// ("Oklahoma", "Appalachian State"). Data-entry paste ingest uses this so a
+// user can copy team names straight from the game instead of hunting for the
+// exact abbreviation. Resolution order: abbr → exact stored name →
+// mascot-stripped school-name match (dynasty/custom teams first, then the
+// static registry). Mascot-stripped matching is exact (not prefix) so
+// "Texas" resolves to the Longhorns and never collides with "Texas A&M".
+// Aggressive normalization for tolerant name matching: lowercase, drop
+// apostrophes / ʻokina / periods, "&" → "and", any other punctuation → space,
+// collapse whitespace. Makes the game/AI's "Hawai'i" match our "Hawaii" and
+// "Texas A&M" match "Texas A and M".
+const normNameKey = (s) => String(s || '')
+  .toLowerCase()
+  .replace(/[''ʻ`.]/g, '')
+  .replace(/&/g, ' and ')
+  .replace(/[^a-z0-9]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim()
+
+export function getTidFromTeamText(text, dynastyTeams = null) {
+  if (text == null) return null
+  const raw = String(text).trim()
+  if (!raw) return null
+
+  const byAbbr = getTidFromAbbr(raw, dynastyTeams)
+  if (byAbbr) return byAbbr
+  const byName = getTidFromTeamName(raw, dynastyTeams)
+  if (byName) return byName
+
+  // Alternate-name aliases live on each team record (TEAMS[tid].aliases — the
+  // single source of truth). getTidFromTeamLabel resolves them in squashed form
+  // (teambuilder-safe, self-healing for older dynasties), so e.g. "Louisiana",
+  // "UMass", "NC State", "UL Monroe" all land on the right tid here.
+  const aliasTid = getTidFromTeamLabel(raw, dynastyTeams)
+  if (aliasTid) return aliasTid
+
+  // Tolerant school-name scan: compare punctuation-normalized school names so
+  // apostrophe/diacritic/ampersand variants still resolve.
+  const school = (s) => normNameKey(stripMascotFromName(String(s || ''))) || normNameKey(s)
+  const target = school(raw)
+  if (!target) return null
+
+  const scan = (teamsObj) => {
+    if (!teamsObj || typeof teamsObj !== 'object') return null
+    for (const [tid, team] of Object.entries(teamsObj)) {
+      if (team?.name && school(team.name) === target) return Number(tid)
+    }
+    return null
+  }
+  return scan(dynastyTeams) ?? scan(TEAMS_REGISTRY)
+}
+
+// Resolve the team slot object from an abbr or tid, mirroring getMascotName's
+// resolution. Used by the split-name getters so they can read the explicit
+// teamName/nickname fields when a save has them.
+function resolveTeamObj(abbrOrTid, dynastyTeams) {
+  if (abbrOrTid == null || !dynastyTeams) return null
+  if (typeof abbrOrTid === 'number') return dynastyTeams[abbrOrTid] || null
+  if (typeof abbrOrTid === 'string' && /^\d+$/.test(abbrOrTid)) return dynastyTeams[parseInt(abbrOrTid, 10)] || null
+  const upper = String(abbrOrTid).toUpperCase()
+  for (const t of Object.values(dynastyTeams)) {
+    if (t?.abbr?.toUpperCase() === upper) return t
+  }
+  return null
+}
+
+// Additively backfill teamName + nickname on a dynasty.teams map for saves made
+// before the split existed. Derives from the full `name` via the SAME strip the
+// frontend already uses, so nothing changes on screen; `name` is never touched.
+// Mutates the passed map in place; returns true if anything was filled in. Safe
+// to run on every load (idempotent — already-split teams are skipped).
+export function migrateTeamNameParts(teams) {
+  if (!teams || typeof teams !== 'object') return false
+  let changed = false
+  for (const t of Object.values(teams)) {
+    if (!t || !t.name) continue
+    if (t.teamName && t.nickname !== undefined) continue // already split
+    const school = stripMascotFromName(t.name)
+    const nick = t.name.slice(school.length).trim()
+    if (t.teamName == null) { t.teamName = school; changed = true }
+    if (t.nickname == null) { t.nickname = nick; changed = true }
+  }
+  return changed
+}
+
 // Helper function to get just the school name (without mascot) from abbreviation or tid
 // e.g., "Memphis Tigers" -> "Memphis", "Kentucky Wildcats" -> "Kentucky"
+// Prefers the explicit stored `teamName` (from the split); falls back to the
+// mascot-strip heuristic so un-migrated saves and name-only custom teams render
+// exactly as before.
 export function getSchoolName(abbrOrTid, teamsOrCustomTeams = null) {
+  const team = resolveTeamObj(abbrOrTid, teamsOrCustomTeams)
+  if (team?.teamName) return team.teamName
   const fullName = getMascotName(abbrOrTid, teamsOrCustomTeams)
   if (!fullName) return null
   return stripMascotFromName(fullName)
+}
+
+// The nickname/mascot only, e.g. "Kentucky Wildcats" -> "Wildcats". Prefers the
+// explicit stored `nickname`; otherwise derives it (full name minus school name)
+// so it works for un-migrated saves and custom teams that only have a `name`.
+// Returns null when there is no mascot (e.g. FCS placeholder slots).
+export function getNickname(abbrOrTid, teamsOrCustomTeams = null) {
+  const team = resolveTeamObj(abbrOrTid, teamsOrCustomTeams)
+  if (team?.nickname) return team.nickname
+  const fullName = getMascotName(abbrOrTid, teamsOrCustomTeams)
+  if (!fullName) return null
+  const school = team?.teamName || stripMascotFromName(fullName)
+  const nick = fullName.slice(school.length).trim()
+  return nick || null
 }
 
 // Get team logo URL by name or abbreviation. Single tid-based path:

@@ -2695,7 +2695,11 @@ const BATCH_4 = {
 
 // ---------------------------------------------------------------------------
 // FCS — Generic in-game FCS opponents that appear on dynasty schedules.
-// Same profile shape as FBS teams; add as logos/brand info becomes available.
+// CFB 27 replaced CFB 26's five generic FCS schools with a new set: East
+// (Sentinels), Southeast (Condors), Midwest (Thunderbirds), Northwest
+// (Kodiaks), West (Rivertoads). Colors below are read from the in-game
+// team cards; logoDescription/graphicNotes are placeholders pending upload
+// of the real CFB 27 marks.
 // ---------------------------------------------------------------------------
 const FCS_TEAMS = {
   "FCS Southeast": {

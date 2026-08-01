@@ -5,7 +5,7 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
-import { TEAMS, resolveTid } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getGameTeamInfo } from '../../data/teamRegistry'
 import AllAmericansModal from '../../components/AllAmericansModal'
 import { HonorPlayerTile, SchoolLeaderboard } from '../../components/HonorsUI'
 import { normalizePlayerName } from '../../utils/playerMatching'
@@ -250,16 +250,45 @@ export default function AllAmericans() {
     freshman: allAmericans.filter(p => p.designation === 'freshman')
   }
 
+  // Resolve a school to its registry team using the durable schoolTid FIRST,
+  // then the (often ALL-CAPS full) name as a fallback. The abbr-keyed mascot
+  // map only matches abbreviations, so imported names like "GEORGIA" would
+  // otherwise resolve to no logo/colors (only abbreviated schools worked).
+  const teamsData = currentDynasty?.teams || currentDynasty?.customTeams
+  const resolveSchool = (schoolTid, schoolName) => {
+    // 1) Establish the tid. Prefer the durable stored schoolTid; if absent
+    //    (legacy data), recover it from the (often ALL-CAPS full) name.
+    let tid = schoolTid != null ? Number(schoolTid) : null
+    if (tid == null && schoolName) tid = resolveTid(schoolName, teamsData || TEAMS) || null
+    // 2) Derive the registry abbreviation FROM the tid — mascot/logo/color
+    //    lookups are abbr-keyed, so a full name like "GEORGIA" only resolves
+    //    once we go tid -> abbr. Fall back to the raw name only if unresolved.
+    const abbr = (tid != null ? (getGameTeamInfo(teamsData || TEAMS, tid)?.abbr || null) : null) || schoolName
+    const mascotName = getMascotName(abbr, teamsData)
+    return {
+      tid,
+      abbr: (tid != null ? getGameTeamInfo(teamsData || TEAMS, tid)?.abbr : null) || null,
+      mascotName,
+      teamLogo: mascotName ? getTeamLogo(mascotName, teamsData) : null,
+      colors: mascotName ? getTeamColors(mascotName, teamsData) : null,
+      schoolName: getSchoolName(mascotName) || schoolName,
+    }
+  }
+
   // Tally per school for the leaderboard strip. Weighted score
   // (1st = 3, 2nd = 2, freshman = 1) breaks ties so a school with three
   // 1st-team picks edges one with three freshman picks.
   const schoolTally = (() => {
     const byKey = new Map()
     allAmericans.forEach(p => {
-      const key = (p.school || '').toUpperCase()
+      // Key by resolved tid so the same team counted as "GEORGIA" and "UGA"
+      // (or a teambuilder rename) collapses into one school, not two.
+      const { tid } = resolveSchool(p.schoolTid, p.school)
+      const key = tid != null ? `tid:${tid}` : (p.school || '').toUpperCase()
       if (!key) return
-      if (!byKey.has(key)) byKey.set(key, { school: key, first: 0, second: 0, freshman: 0, total: 0, score: 0 })
+      if (!byKey.has(key)) byKey.set(key, { school: (p.school || '').toUpperCase(), schoolTid: tid ?? (p.schoolTid ?? null), first: 0, second: 0, freshman: 0, total: 0, score: 0 })
       const entry = byKey.get(key)
+      if (entry.schoolTid == null && tid != null) entry.schoolTid = tid
       entry[p.designation] = (entry[p.designation] || 0) + 1
       entry.total += 1
       entry.score += p.designation === 'first' ? 3 : p.designation === 'second' ? 2 : 1
@@ -267,14 +296,12 @@ export default function AllAmericans() {
     return Array.from(byKey.values()).sort((a, b) => b.score - a.score || b.total - a.total)
   })()
   const leaderboardEntries = schoolTally.slice(0, 10).map((e, idx) => {
-    const mascotName = getMascotName(e.school, currentDynasty?.teams || currentDynasty?.customTeams)
-    const tid = resolveTid(e.school, currentDynasty?.teams || TEAMS)
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const { mascotName, teamLogo, colors, tid } = resolveSchool(e.schoolTid, e.school)
     return {
       key: e.school,
       rank: idx + 1,
       name: getSchoolName(mascotName) || e.school,
-      logo: mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null,
+      logo: teamLogo,
       primary: colors?.primary || '#64748b',
       first: e.first, second: e.second, freshman: e.freshman, total: e.total,
       link: tid ? `${pathPrefix}/team/${tid}/${displayYear}` : '#',
@@ -285,7 +312,10 @@ export default function AllAmericans() {
     if (!playerName || !currentDynasty.players) return null
     const normalizedName = normalizePlayerName(cleanPlayerName(playerName))
     const normalizedSchool = school?.toUpperCase()
-    const tidNum = schoolTid != null ? Number(schoolTid) : null
+    // Backfill the tid from the school name when the entry has none (legacy
+    // data saved before schoolTid existed), so tid-based matching still works.
+    let tidNum = schoolTid != null ? Number(schoolTid) : null
+    if (tidNum == null && school) tidNum = resolveTid(school, teamsData || TEAMS) || null
 
     // Tid match — survives teambuilder rename. Compares the AA entry's
     // schoolTid (resolved at sheet-read time) to any team identifier the
@@ -320,27 +350,24 @@ export default function AllAmericans() {
       }
       // Teambuilder teams live in dynasty.teams / customTeams — those
       // lookups must come BEFORE falling back to the static TEAMS table,
-      // otherwise a custom team's players get filtered out.
-      const resolveAbbrForTid = (tid) => {
+      // otherwise a custom team's players get filtered out. Match the stored
+      // school against the team's abbr AND its full name/teamName, since the
+      // entry's `school` may be a full ALL-CAPS name ("GEORGIA"), not "UGA".
+      const teamIdsForTid = (tid) => {
         const t = currentDynasty?.teams?.[tid]
           || currentDynasty?.customTeams?.[tid]
           || TEAMS[tid]
-        return t?.abbr?.toUpperCase() || null
+        if (!t) return []
+        return [t.abbr, t.name, t.teamName].filter(Boolean).map(s => String(s).toUpperCase())
       }
       if (p.team) {
-        const playerTeamAbbr = typeof p.team === 'number'
-          ? resolveAbbrForTid(p.team)
-          : p.team.toUpperCase()
-        if (playerTeamAbbr === normalizedSchool) return true
+        const ids = typeof p.team === 'number' ? teamIdsForTid(p.team) : [String(p.team).toUpperCase()]
+        if (ids.includes(normalizedSchool)) return true
       }
       if (p.teamsByYear) {
         for (const tid of Object.values(p.teamsByYear)) {
-          if (typeof tid === 'number' && resolveAbbrForTid(tid) === normalizedSchool) {
-            return true
-          }
-          if (typeof tid === 'string' && tid.toUpperCase() === normalizedSchool) {
-            return true
-          }
+          if (typeof tid === 'number' && teamIdsForTid(tid).includes(normalizedSchool)) return true
+          if (typeof tid === 'string' && tid.toUpperCase() === normalizedSchool) return true
         }
       }
       return false
@@ -384,19 +411,16 @@ export default function AllAmericans() {
   const realPhoto = (url) => (url && !placeholderImages.has(url) ? url : null)
 
   const PlayerRow = ({ player }) => {
-    const mascotName = getMascotName(player.school, currentDynasty?.teams || currentDynasty?.customTeams)
-    const teamLogo = mascotName ? getTeamLogo(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
-    const colors = mascotName ? getTeamColors(mascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+    const { teamLogo, colors, schoolName, abbr } = resolveSchool(player.schoolTid, player.school)
     const primary = colors?.primary || '#64748b'
     const matchingPlayer = findPlayerByNameAndSchool(player.player, player.school, player.schoolTid)
-    const schoolName = getSchoolName(mascotName) || player.school
     return (
       <HonorPlayerTile
         position={player.position}
         name={cleanPlayerName(player.player)}
         klass={player.class}
         schoolName={schoolName}
-        schoolAbbr={player.school}
+        schoolAbbr={abbr || player.school}
         teamLogo={teamLogo}
         primary={primary}
         photoUrl={realPhoto(matchingPlayer?.pictureUrl)}

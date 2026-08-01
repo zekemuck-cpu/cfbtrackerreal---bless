@@ -5,6 +5,7 @@ import { buildRevealedPool } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap } from '../utils/devPrediction';
 import { createStaffAccessor } from './staffDB';
 import { useDynasty } from '../context/DynastyContext';
+import { uploadImage } from '../utils/imageUpload';
 import RecruitingPlanRow from './RecruitingPlanRow';
 import GemBustIcon from './GemBustIcon';
 import { getContrastTextColor } from '../utils/colorUtils';
@@ -197,8 +198,10 @@ function Signature({ name, color = 'currentColor', fontSize = '1.45rem' }) {
 
 export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, onGoToAnalysisOverview, onRemoveFromBoard, onAdjustTarget, currentTeamName = 'college football team', currentYear, coachName = '', teamColors, teamLogo, recruits = [], databaseRecruits = [], rosterWarnings = [], rosterSummary = null, outlookSummary = null, committedRecruits = [], dynastyId = null }) {
   // Program Outlook should always land on Overview when reached via a plain
-  // nav button.
+  // nav button (fallback is a no-op; ScoutStaff always wires onGoToAnalysisOverview).
   const goToAnalysisOverview = onGoToAnalysisOverview || (() => {});
+  // Cloud staff model: config lives on the dynasty object (currentDynasty +
+  // updateDynasty), not device-local IndexedDB — preserved across the v15 merge.
   const { currentDynasty, updateDynasty } = useDynasty();
   const { getStaffData, saveStaffData, deleteStaffData } = createStaffAccessor(currentDynasty, updateDynasty);
   const p = teamColors?.primary   || '#374151';
@@ -264,18 +267,14 @@ export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, 
   const [analystUrlText, setAnalystUrlText] = useState('');
 
   // Initial Boot-up: load names/images/bios immediately on mount.
-  // Gated on dynastyId, not just an empty deps array: dynastyId is
-  // `currentDynasty?.id ?? null` in the parent, which starts out null on a
-  // hard refresh until the dynasty actually finishes loading. getStaffData/
-  // saveStaffData above are built from dynastyId fresh every render, but this
-  // effect would otherwise still close over whichever version existed the
-  // one time it ran — if that happened before dynastyId was ready, every
-  // read below permanently used the unprefixed (wrong) accessor for this
-  // mount, so saved staff data would silently fail to load back in even
-  // though it was saved correctly under the right key. Depending on
-  // dynastyId re-fires this once it's actually available.
+  // Gated on currentDynasty?.id: the accessor above is built from
+  // currentDynasty, which starts out null on a hard refresh until the dynasty
+  // finishes loading. With an empty deps array this effect ran once on that
+  // first render and permanently closed over getStaffData built from the
+  // not-yet-ready dynasty, so saved staff data silently failed to load back in.
+  // Depending on currentDynasty?.id re-fires this once it's actually available.
   useEffect(() => {
-    if (!dynastyId) return;
+    if (!currentDynasty?.id) return;
     async function loadBasicStaff() {
       const img1  = await getStaffData('scout_img');
       const img2  = await getStaffData('analyst_img');
@@ -329,17 +328,17 @@ export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, 
       try { if (scenarioBag) bioBagsRef.current.scenarios = JSON.parse(scenarioBag); } catch {}
     }
     loadBasicStaff();
-  }, [dynastyId]);
+  }, [currentDynasty?.id]);
 
   // Contract migration: run once when dynasty year becomes available.
-  // currentYear alone isn't a reliable readiness signal here — the parent
-  // passes `currentDynasty?.currentYear || new Date().getFullYear()`, so
-  // currentYear is truthy (today's real calendar year) even before the
-  // dynasty has loaded, same race as loadBasicStaff above. Also gating on
-  // dynastyId prevents this from running once with a stale/unprefixed
-  // getStaffData and marking the migration "done" under the wrong key.
+  // currentYear alone isn't a reliable readiness signal — the parent passes
+  // `currentDynasty?.currentYear || new Date().getFullYear()`, so currentYear
+  // is truthy (today's real calendar year) even before the dynasty has loaded,
+  // the same race as loadBasicStaff. Also gating on currentDynasty?.id prevents
+  // this from running once with a not-yet-ready accessor and marking the
+  // migration "done" against empty data.
   useEffect(() => {
-    if (!currentYear || !dynastyId) return;
+    if (!currentYear || !currentDynasty?.id) return;
     async function migrateContracts() {
       const sy1 = await getStaffData('scout_contract_start_year');
       if (!sy1) {
@@ -363,7 +362,7 @@ export default function ScoutStaffFrontPage({ onViewDatabase, onJumpToPosition, 
       }
     }
     migrateContracts();
-  }, [currentYear, dynastyId]);
+  }, [currentYear, currentDynasty?.id]);
 
   // Automated write listeners saving content to Database clusters on mutations
   const handleNameChange = async (val, slot) => {
@@ -533,16 +532,26 @@ Staff Note: (${noteContext} The specific true fact behind this line is: ${connec
         const mCtx = maxCanvas.getContext('2d');
         const mSide = Math.min(img.width, img.height);
         mCtx.drawImage(img, (img.width - mSide)/2, (img.height - mSide)/2, mSide, mSide, 0, 0, MAX_DIM, MAX_DIM);
-        const highResUrl = maxCanvas.toDataURL('image/jpeg', 0.95);
-
-        if (slot === 1) {
-          setScoutImg(highResUrl);
-          await saveStaffData('scout_img', highResUrl);
-          if (scoutContractLength === 0) await generateRandomContract(1);
-        } else {
-          setAnalystImg(highResUrl);
-          await saveStaffData('analyst_img', highResUrl);
-          if (analystContractLength === 0) await generateRandomContract(2);
+        // Show the local crop instantly for feedback, then upload to the image
+        // host and persist the HOSTED URL. Never store the base64 data URL —
+        // for cloud dynasties that would bloat the Firestore doc toward its 1MB
+        // limit (staff config now lives on the dynasty object).
+        const previewUrl = maxCanvas.toDataURL('image/jpeg', 0.95);
+        if (slot === 1) setScoutImg(previewUrl); else setAnalystImg(previewUrl);
+        try {
+          const blob = await new Promise((res) => maxCanvas.toBlob(res, 'image/jpeg', 0.95));
+          const hostedUrl = await uploadImage(blob);
+          if (slot === 1) {
+            setScoutImg(hostedUrl);
+            await saveStaffData('scout_img', hostedUrl);
+            if (scoutContractLength === 0) await generateRandomContract(1);
+          } else {
+            setAnalystImg(hostedUrl);
+            await saveStaffData('analyst_img', hostedUrl);
+            if (analystContractLength === 0) await generateRandomContract(2);
+          }
+        } catch (err) {
+          console.error('[ScoutStaff] portrait upload failed:', err);
         }
       };
       img.src = rawDataUrl;

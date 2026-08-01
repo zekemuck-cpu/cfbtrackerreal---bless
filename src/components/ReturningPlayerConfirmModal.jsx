@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { getContrastTextColor } from '../utils/colorUtils'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams } from '../data/teams'
+import { getCurrentTeamTid } from '../data/teamRegistry'
 import { useDynasty } from '../context/DynastyContext'
 
 // Map abbreviation to mascot name for logo lookup
@@ -95,6 +96,9 @@ export default function ReturningPlayerConfirmModal({
   const teamInfo = teamAbbreviations[currentTeamAbbr] || {}
   const mascotName = getMascotName(currentTeamAbbr, teamsData)
   const teamLogo = mascotName ? getTeamLogo(mascotName, teamsData) : null
+  // Card accent resolves LIVE from the user's current team in dynasty.teams (reflects recolor); static map only as final fallback.
+  const currentTid = getCurrentTeamTid(currentDynasty)
+  const teamAccentColor = teamsData?.[currentTid]?.primaryColor || teamInfo?.backgroundColor || '#6B7280'
 
   // Get player's last known stats
   const classByYearKeys = existingPlayer.classByYear
@@ -162,14 +166,14 @@ export default function ReturningPlayerConfirmModal({
           </div>
 
           {/* Existing Player Card */}
-          <div className="rounded-lg overflow-hidden mb-4" style={{ border: `2px solid ${teamInfo.backgroundColor || '#6B7280'}` }}>
+          <div className="rounded-lg overflow-hidden mb-4" style={{ border: `2px solid ${teamAccentColor}` }}>
             <div
               className="px-3 py-2 text-xs font-bold uppercase tracking-wide"
-              style={{ backgroundColor: teamInfo.backgroundColor || '#6B7280', color: getContrastTextColor(teamInfo.backgroundColor || '#6B7280') }}
+              style={{ backgroundColor: teamAccentColor, color: getContrastTextColor(teamAccentColor) }}
             >
               Previous Player Record
             </div>
-            <div className="p-3" style={{ backgroundColor: `${teamInfo.backgroundColor || '#6B7280'}15` }}>
+            <div className="p-3" style={{ backgroundColor: `${teamAccentColor}15` }}>
               <div className="flex items-center gap-3 mb-3">
                 {teamLogo && (
                   <div className="w-12 h-12 rounded-full bg-white p-1 flex-shrink-0 shadow-sm">
@@ -191,7 +195,7 @@ export default function ReturningPlayerConfirmModal({
               {/* Departure Info */}
               <div
                 className="flex items-center gap-2 text-sm rounded px-2 py-1.5 text-txt-secondary"
-                style={{ backgroundColor: `${teamInfo.backgroundColor || '#6B7280'}20` }}
+                style={{ backgroundColor: `${teamAccentColor}20` }}
               >
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

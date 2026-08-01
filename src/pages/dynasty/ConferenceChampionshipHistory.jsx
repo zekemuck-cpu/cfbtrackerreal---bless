@@ -3,7 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getTeamLogo, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { TEAMS, getGameTeamInfo, resolveTid } from '../../data/teamRegistry'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -383,10 +383,7 @@ export default function ConferenceChampionshipHistory() {
                     <div className="rounded-lg overflow-hidden">
                     {results.map((game, idx) => {
                       const winner = getWinner(game)
-                      const team1Mascot = getMascotName(game.team1, currentDynasty?.teams || currentDynasty?.customTeams)
-                      const team2Mascot = getMascotName(game.team2, currentDynasty?.teams || currentDynasty?.customTeams)
-                      const team1Logo = team1Mascot ? getTeamLogo(team1Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
-                      const team2Logo = team2Mascot ? getTeamLogo(team2Mascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+                      const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams || TEAMS
 
                       const ccGame = currentDynasty.games?.find(g =>
                         g.isConferenceChampionship &&
@@ -395,9 +392,19 @@ export default function ConferenceChampionshipHistory() {
                       )
                       const gameId = ccGame?.id || game.gameRef?.id || `cc-${game.year}-${conferenceName.toLowerCase().replace(/\s+/g, '-')}`
 
-                      const teamsSrc = currentDynasty?.teams || currentDynasty?.customTeams || TEAMS
-                      const t1Tid = game.team1Tid ?? ccGame?.team1Tid ?? resolveTid(game.team1, teamsSrc)
-                      const t2Tid = game.team2Tid ?? ccGame?.team2Tid ?? resolveTid(game.team2, teamsSrc)
+                      // tid is the live identity; resolve name/logo/colors/school from it.
+                      // Fall back to the stored abbr only for legacy rows that carry no tid.
+                      const t1Tid = game.team1Tid ?? ccGame?.team1Tid ?? game.gameRef?.team1Tid ?? resolveTid(game.team1, teamsSrc)
+                      const t2Tid = game.team2Tid ?? ccGame?.team2Tid ?? game.gameRef?.team2Tid ?? resolveTid(game.team2, teamsSrc)
+                      const team1Mascot = getMascotName(t1Tid != null ? t1Tid : game.team1, teamsSrc)
+                      const team2Mascot = getMascotName(t2Tid != null ? t2Tid : game.team2, teamsSrc)
+                      const team1Logo = t1Tid != null
+                        ? getTeamLogoByTid(t1Tid, teamsSrc)
+                        : (team1Mascot ? getTeamLogo(team1Mascot, teamsSrc) : null)
+                      const team2Logo = t2Tid != null
+                        ? getTeamLogoByTid(t2Tid, teamsSrc)
+                        : (team2Mascot ? getTeamLogo(team2Mascot, teamsSrc) : null)
+
                       const t1Color = (t1Tid != null && teamsSrc?.[t1Tid]?.primaryColor) || '#3a3d47'
                       const t2Color = (t2Tid != null && teamsSrc?.[t2Tid]?.primaryColor) || '#3a3d47'
                       const t1Txt = getContrastTextColor(t1Color)
@@ -425,7 +432,7 @@ export default function ConferenceChampionshipHistory() {
                               </div>
                             )}
                             <span className="text-xs sm:text-sm font-semibold truncate flex-1" style={{ color: t1Txt, opacity: t1Win ? 1 : 0.78, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
-                              {getSchoolName(game.team1, teamsSrc) || game.team1}
+                              {getSchoolName(t1Tid != null ? t1Tid : game.team1, teamsSrc) || game.team1}
                             </span>
                             <span className="font-display font-black tabular-nums text-base sm:text-lg flex-shrink-0" style={{ color: t1Txt, opacity: t1Win ? 1 : 0.6, textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>
                               {game.team1Score}
@@ -437,7 +444,7 @@ export default function ConferenceChampionshipHistory() {
                               {game.team2Score}
                             </span>
                             <span className="text-xs sm:text-sm font-semibold truncate flex-1 text-right" style={{ color: t2Txt, opacity: t2Win ? 1 : 0.78, textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>
-                              {getSchoolName(game.team2, teamsSrc) || game.team2}
+                              {getSchoolName(t2Tid != null ? t2Tid : game.team2, teamsSrc) || game.team2}
                             </span>
                             {team2Logo && (
                               <div className="w-7 h-7 rounded-full bg-white p-1 flex-shrink-0 flex items-center justify-center transition-transform duration-150 group-hover:scale-105">

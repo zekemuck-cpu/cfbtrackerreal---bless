@@ -10,6 +10,18 @@
 // same Scout Staff config ScoutScore uses, so the codes line up 1:1.
 
 import { ATTRIBUTE_ABBR, normalizeArch } from './recruitAttributes'
+import { getEditionKey } from '../editions'
+
+// MaxPlaysCFB scores against a per-game cohort selected by the `sourceGame`
+// field on the payload ("cfb26" | "cfb27"). The edition keys we already use
+// (getEditionKey) are the exact same strings, so a dynasty's edition maps 1:1.
+// Default to cfb26 (the legacy set) for any unknown value. The cfb27 cohorts
+// are LIVE upstream (as of 2026-07-03 MaxPlays switched their ScoutScore
+// display to the cfb27 numbers), so a cfb27 request now returns genuine
+// game:cfb27 cohorts — a CFB 27 dynasty is scored against CFB 27 recruits with
+// no extra work here. Older/untagged saves stay on cfb26.
+const VALID_SOURCE_GAMES = new Set(['cfb26', 'cfb27'])
+const normalizeSourceGame = (g) => (VALID_SOURCE_GAMES.has(g) ? g : 'cfb26')
 
 // Our game position → ScoutScore position value.
 const POSITION_MAP = {
@@ -128,7 +140,9 @@ export function predictRecruitOverall(recruit) {
 }
 
 // Build the ScoutScore request payload from a recruit, or explain why we can't.
-export function buildScoutScorePayload(recruit) {
+// `sourceGame` selects the game cohort ("cfb26" | "cfb27") — pass the dynasty's
+// edition key.
+export function buildScoutScorePayload(recruit, sourceGame = 'cfb26') {
   const posRaw = (recruit?.position || '').toUpperCase()
   const scoutPos = POSITION_MAP[posRaw]
   if (!scoutPos) {
@@ -153,6 +167,7 @@ export function buildScoutScorePayload(recruit) {
   return {
     ok: true,
     payload: {
+      sourceGame: normalizeSourceGame(sourceGame),
       position: scoutPos,
       star: Number.isFinite(star) && star > 0 ? star : null,
       gemStatus: '', // we don't track gem/bust; broad lenses still resolve
@@ -216,8 +231,8 @@ const cache = new Map()
 // Fetch (and cache) the ScoutScore result for a recruit. Resolves to
 // { ok:true, data } or { ok:false, reason }. Failed requests are dropped from
 // the cache so a later attempt can retry.
-export function getScoutScore(recruit) {
-  const built = buildScoutScorePayload(recruit)
+export function getScoutScore(recruit, sourceGame = 'cfb26') {
+  const built = buildScoutScorePayload(recruit, sourceGame)
   if (!built.ok) return Promise.resolve({ ok: false, reason: built.reason })
   const key = signature(built.payload)
   if (cache.has(key)) return cache.get(key)
@@ -253,18 +268,18 @@ export function warmScoutScoresForDynasty(dynasty) {
   const yr = Number(dynasty?.currentYear)
   if (!Number.isFinite(yr)) return
   const targets = (dynasty?.players || []).filter((p) => p?.isTarget && Number(p.targetYear) === yr)
-  if (targets.length) getScoutScoresFor(targets, { concurrency: 4 }).catch(() => {})
+  if (targets.length) getScoutScoresFor(targets, { concurrency: 4, sourceGame: getEditionKey(dynasty) }).catch(() => {})
 }
 
 // Score many recruits with a small concurrency cap (be polite to the upstream).
 // Returns a Map of pid → result.
-export async function getScoutScoresFor(recruits, { concurrency = 6 } = {}) {
+export async function getScoutScoresFor(recruits, { concurrency = 6, sourceGame = 'cfb26' } = {}) {
   const out = new Map()
   const queue = [...recruits]
   async function worker() {
     while (queue.length) {
       const r = queue.shift()
-      out.set(r.pid, await getScoutScore(r))
+      out.set(r.pid, await getScoutScore(r, sourceGame))
     }
   }
   await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, recruits.length)) }, worker))

@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "firebase/auth"
 import {
   initializeFirestore,
   persistentLocalCache,
-  persistentSingleTabManager,
+  persistentMultipleTabManager,
   connectFirestoreEmulator,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -42,25 +42,39 @@ googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 // processMigrationPersistence (DynastyContext.jsx). Those guards keep
 // stint data correct regardless of cache mode.
 //
-// `persistentSingleTabManager` is the conservative tab manager — each
-// tab keeps its own cache (no cross-tab coordination), which avoids the
-// multi-tab acquisition race that has bitten other Firebase apps.
+// `persistentMultipleTabManager` coordinates ALL open tabs behind a single
+// leader tab that owns the one sync connection to Firestore and proxies
+// reads/writes for every other tab. This replaces `persistentSingleTabManager
+// ({ forceOwnership: false })`, which was the root cause of a "saves never
+// finish" bug: under single-tab, only the lease-owning tab actually syncs, so
+// a SECOND tab (or a tab that couldn't reclaim a stale lease left by a crashed/
+// backgrounded tab) would durably cache its writes locally but NEVER get a
+// server ack — the write spun "Saving…" forever (see settleOrProceed). The
+// multi-tab manager elects a leader and recovers from stale leases, so writes
+// sync no matter how many tabs are open. The old multi-tab "acquisition race"
+// warning applied to the deprecated enableMultiTabIndexedDbPersistence API;
+// persistentMultipleTabManager is the current, stable, Firebase-recommended
+// manager for exactly this multi-tab case.
 // If IndexedDB isn't available (Safari private browsing, blocked
 // storage), Firebase silently falls back to memory cache.
-// experimentalAutoDetectLongPolling: WebSocket-based Firestore connections
-// frequently get blocked or stuck on mobile carrier networks, captive
-// portals, and corporate proxies. When that happens, the SDK normally
-// waits ~30s for the WebSocket to time out before falling back to
-// long-polling — that's the dominant cause of the "sometimes the app
-// loads in milliseconds, sometimes it takes minutes" pattern users have
-// reported when swiping the app in/out of background. Auto-detect
-// triggers the fallback as soon as it sees the connection misbehaving,
-// so cold reopens stay snappy on misbehaving networks.
+// experimentalForceLongPolling: FORCE long-polling (plain XHR POSTs) instead of
+// the streaming WebChannel. We previously used experimentalAutoDetectLongPolling,
+// but auto-detect judges the connection healthy when READS work (served from the
+// local cache) while the streaming WRITE channel is silently dead — which is
+// exactly the Safari/iOS failure we hit: reads look fine, every write times out
+// and never reaches the server, so a user's edits pile up only in local cache
+// and never sync (data-loss risk). Safari's WebChannel handling (plus ITP,
+// carrier networks, captive portals, corporate proxies, and privacy extensions)
+// breaks the streaming channel far more often than the long-poll transport, and
+// auto-detect doesn't reliably rescue it. Forcing long-polling trades a small
+// latency bump for a connection that actually delivers writes across the board.
+// If IndexedDB isn't available (Safari private browsing, blocked storage),
+// Firebase silently falls back to memory cache.
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    tabManager: persistentSingleTabManager({ forceOwnership: false }),
+    tabManager: persistentMultipleTabManager(),
   }),
-  experimentalAutoDetectLongPolling: true,
+  experimentalForceLongPolling: true,
 });
 
 // Local Firebase emulator opt-in — lets the REAL Admin SDK code (e.g.

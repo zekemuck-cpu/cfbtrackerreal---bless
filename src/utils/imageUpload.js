@@ -111,9 +111,66 @@ export function compressImageBlob(blob, opts = {}) {
   return runSerialized(() => _compressImageBlobInner(blob, opts))
 }
 
+// Decode a blob to something canvas.drawImage accepts, with its dimensions.
+// Prefers createImageBitmap (fast, off the main thread) but falls back to an
+// <img> element, which decodes in browsers / in-app webviews where
+// createImageBitmap throws (memory pressure, odd source). That throw used to
+// hit the catch and upload the full-res ORIGINAL — the silent "not compressing"
+// bug on mobile. Returns null only if neither path can decode it.
+async function decodeImageSource(blob) {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bmp = await createImageBitmap(blob)
+      return { source: bmp, width: bmp.width, height: bmp.height, release: () => bmp.close?.() }
+    } catch {
+      // fall through to the <img> path
+    }
+  }
+  if (typeof Image === 'undefined' || typeof URL === 'undefined' || !URL.createObjectURL) return null
+  const url = URL.createObjectURL(blob)
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image()
+      el.decoding = 'async'
+      el.onload = () => resolve(el)
+      el.onerror = () => reject(new Error('image decode failed'))
+      el.src = url
+    })
+    return {
+      source: img,
+      width: img.naturalWidth || img.width,
+      height: img.naturalHeight || img.height,
+      release: () => URL.revokeObjectURL(url),
+    }
+  } catch {
+    URL.revokeObjectURL(url)
+    return null
+  }
+}
+
+// Encode a canvas to the smallest blob that actually beats `originalSize`.
+// Tries webp first, but MANY browsers (iOS Safari, in-app webviews) can't
+// encode webp via toBlob and silently return a PNG — which for a photo is
+// LARGER than the source, so the old "keep webp only if smaller" check kept the
+// uncompressed original. So we detect that (out.type !== 'image/webp') and fall
+// back to JPEG, which every canvas can encode. Returns null if nothing beats
+// the original (already-optimal tiny image).
+async function encodeSmaller(canvas, quality, originalSize) {
+  const toBlob = (type, q) => new Promise((resolve) => canvas.toBlob(resolve, type, q))
+  let best = null
+  const webp = await toBlob('image/webp', quality)
+  if (webp && webp.type === 'image/webp' && webp.size > 0) best = webp
+  // Webp unsupported (PNG/null came back) or it didn't beat the source — JPEG.
+  if (!best || best.size >= originalSize) {
+    const jpeg = await toBlob('image/jpeg', Math.min(0.85, Math.max(quality, 0.8)))
+    if (jpeg && jpeg.size > 0 && (!best || jpeg.size < best.size)) best = jpeg
+  }
+  return best && best.size < originalSize ? best : null
+}
+
 async function _compressImageBlobInner(blob, opts = {}) {
   try {
-    if (typeof document === 'undefined' || typeof createImageBitmap !== 'function') return blob
+    if (typeof document === 'undefined') return blob
     if (!blob || !blob.type || !blob.type.startsWith('image/')) return blob
     if (blob.type === 'image/gif') return blob // preserve animation
 
@@ -121,32 +178,53 @@ async function _compressImageBlobInner(blob, opts = {}) {
     const maxDim = opts.maxDim ?? MAX_UPLOAD_DIMENSION
     const outputType = opts.preserveTransparency ? 'image/png' : 'image/webp'
 
-    const bmp = await createImageBitmap(blob)
-    const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height))
-    const w = Math.max(1, Math.round(bmp.width * scale))
-    const h = Math.max(1, Math.round(bmp.height * scale))
+    const decoded = await decodeImageSource(blob)
+    if (!decoded) {
+      console.warn('[imageUpload] could not decode image; uploading original', blob.type, blob.size)
+      return blob
+    }
+
+    const scale = Math.min(1, maxDim / Math.max(decoded.width, decoded.height))
+    const w = Math.max(1, Math.round(decoded.width * scale))
+    const h = Math.max(1, Math.round(decoded.height * scale))
 
     const canvas = document.createElement('canvas')
     canvas.width = w
     canvas.height = h
     const ctx = canvas.getContext('2d')
-    if (!ctx) { bmp.close?.(); return blob }
-    ctx.drawImage(bmp, 0, 0, w, h)
-    bmp.close?.()
+    if (!ctx) { decoded.release?.(); return blob }
+    ctx.drawImage(decoded.source, 0, 0, w, h)
+    decoded.release?.()
 
-    const out = await new Promise((resolve) => canvas.toBlob(resolve, outputType, quality))
+    // Transparency-preserving path and the normal photo path need DIFFERENT
+    // encoders, and using the wrong one is destructive either way:
+    //   - preserveTransparency (logos, badges) must stay PNG. Routing it
+    //     through encodeSmaller would re-encode to webp/jpeg and flatten the
+    //     alpha channel onto black. Here the re-encode is mainly about the
+    //     dimension cap, not bytes, so keep the PNG even if it came out
+    //     slightly larger than an already-webp source.
+    //   - everything else goes through encodeSmaller, which tries webp and
+    //     falls back to JPEG. Many browsers (iOS Safari, in-app webviews)
+    //     can't encode webp via toBlob and silently hand back a PNG that's
+    //     LARGER than the source photo.
+    if (opts.preserveTransparency) {
+      const png = await new Promise((resolve) => canvas.toBlob(resolve, outputType, quality))
+      canvas.width = 0
+      canvas.height = 0
+      return (png && png.size > 0) ? png : blob
+    }
+
+    const out = await encodeSmaller(canvas, quality, blob.size)
     // Release the canvas backing store before the next queued image decodes.
     canvas.width = 0
     canvas.height = 0
-    if (opts.preserveTransparency) {
-      // Lossless PNG re-encode is mainly about the dimension cap here, not
-      // shrinking bytes — keep it whenever it actually produced a valid PNG,
-      // even if slightly larger than the (possibly already-webp) source.
-      return (out && out.size > 0) ? out : blob
+    if (!out) {
+      console.warn('[imageUpload] re-encode did not beat original; uploading original', blob.type, blob.size)
+      return blob
     }
-    // Keep whichever is smaller (re-encoding an already-tiny image can grow it).
-    return (out && out.size > 0 && out.size < blob.size) ? out : blob
-  } catch {
+    return out
+  } catch (err) {
+    console.warn('[imageUpload] compression failed; uploading original', err)
     return blob
   }
 }

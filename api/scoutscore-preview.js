@@ -35,7 +35,11 @@ function buildUpstreamBody(b) {
       if (typeof k === 'string' && Number.isFinite(n)) attributes[k] = n;
     }
   }
+  // sourceGame selects MaxPlays' per-edition cohort ("cfb26" | "cfb27"); default
+  // to cfb26 so an older client (or a bad value) still resolves to the legacy set.
+  const sourceGame = b?.sourceGame === 'cfb27' ? 'cfb27' : 'cfb26';
   return {
+    sourceGame,
     position: typeof b?.position === 'string' ? b.position : '',
     star: b?.star == null ? null : Number(b.star),
     gemStatus: typeof b?.gemStatus === 'string' ? b.gemStatus : '',

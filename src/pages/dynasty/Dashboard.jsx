@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { saveWeeklyGamesChanges } from '../../services/dynastyService'
 import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
-import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getTeamRecord, getCurrentTeamRanking, getTeamRanking, getEncourageTransfers, getRecruitingCommitments, getConferenceChampionshipData, createOrUpdateCFPGameShells, createOrUpdateBowlGameShell, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty, CLASS_PROGRESSION } from '../../context/DynastyContext'
+import { useDynasty, getCurrentSchedule, getScheduleWithGameData, getCurrentRoster, getCurrentPreseasonSetup, getCurrentTeamRatings, getCurrentCoachingStaff, getCurrentGoogleSheet, findCurrentTeamGame, getCurrentTeamGames, GAME_TYPES, getGamesByType, getCurrentCustomConferences, MOVEMENT_TYPES, createMovement, getUserGamePerspective, isTeamInGame, getTeamGamePerspective, isFirstYearOnTeam, getCurrentTeamRecord, getTeamRecord, getCurrentTeamRanking, getTeamRanking, getEncourageTransfers, getRecruitingCommitments, buildRecruitingCommitmentUpdate, getConferenceChampionshipData, createOrUpdateCFPGameShells, createOrUpdateBowlGameShell, getUserCFPGameStatus, getCFPRoundDisplayName, propagateCFPWinner, findUserCFPGameShell, isPlayerOnRoster, getPlayerClassForYear, lookupByTeamYear, getTeamConferenceForDynasty, CLASS_PROGRESSION } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
@@ -11,12 +11,13 @@ import { StatRings } from '../../components/CfbUI'
 import { getPlayerStatsForTid, getTeamStatsForTid, hasAnyPlayerStats, hasAnyTeamStats } from '../../utils/boxScoreHelpers'
 import { teamAbbreviations } from '../../data/teamAbbreviations'
 import { TEAMS, getFBSTeamTids, resolveTid, getTeamByAbbr, getTidFromAbbr, getTidFromTeamName, setTeamYearField, getCurrentTeamTid, getCurrentTeamAbbr, getOriginalTeamAbbr, getGameTeamInfo, getGameOpponentInfo, getAbbrFromTeamName, getNameByAbbr, setPendingUserTeam, clearPendingUserTeam, getPendingUserTeamTid, getUserTeamTid } from '../../data/teamRegistry'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid } from '../../data/teams'
+import PlayerAvatar from '../../components/PlayerAvatar'
 import { getTeamColors } from '../../data/teamColors'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { getBowlLogo } from '../../data/bowlLogos'
-import { getEditionConfig, isPcAutoDynasty, isDynastyBlueprintEnabled } from '../../editions'
+import { getEditionConfig, isDynastyBlueprintEnabled, isPcAutoDynasty } from '../../editions'
 import { getSeasonBudget, setSeasonBudget, getSupportStaff, isSupportStaffSet, setSupportStaff, parseDp, getFacilities, getCarriedFacilityTier } from '../../data/dynastyPointsModel'
 import { getPlayerNil, sumPlayerNil } from '../../data/playerNilModel'
 import SearchableSelect from '../../components/SearchableSelect'
@@ -24,6 +25,8 @@ import DropdownSelect from '../../components/DropdownSelect'
 import ScheduleEntryModal from '../../components/ScheduleEntryModal'
 import RosterEntryModal from '../../components/RosterEntryModal'
 import TeamRatingsModal from '../../components/TeamRatingsModal'
+import TeamOverallsSheetModal from '../../components/TeamOverallsSheetModal'
+import { getTeamRatingsForYear } from '../../context/DynastyContext'
 // GameEntryModal and GameDetailModal removed - now using game pages instead
 import ConferenceChampionshipModal from '../../components/ConferenceChampionshipModal'
 import CoachingStaffModal from '../../components/CoachingStaffModal'
@@ -39,6 +42,7 @@ import CFPFirstRoundModal from '../../components/CFPFirstRoundModal'
 import CFPQuarterfinalsModal from '../../components/CFPQuarterfinalsModal'
 import CFPSemifinalsModal from '../../components/CFPSemifinalsModal'
 import CFPChampionshipModal from '../../components/CFPChampionshipModal'
+import StaffMovesModal from '../../components/StaffMovesModal'
 import ConferencesModal from '../../components/ConferencesModal'
 import StatsEntryModal from '../../components/StatsEntryModal'
 import DetailedStatsEntryModal from '../../components/DetailedStatsEntryModal'
@@ -58,8 +62,10 @@ import DraftResultsModal from '../../components/DraftResultsModal'
 import TransferDestinationsModal from '../../components/TransferDestinationsModal'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
 import RecruitingInsightLink from '../../components/ui/RecruitingInsightLink'
+import { useToast } from '../../components/ui/Toast'
 import SellVsSendCalculator, { SellVsSendButton } from '../../components/SellVsSendCalculator'
 import PositionChangesModal from '../../components/PositionChangesModal'
+import NationalCommitsModal from '../../components/NationalCommitsModal'
 import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
 import TrainingResultsModal from '../../components/TrainingResultsModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
@@ -115,11 +121,14 @@ function renderTodoList({ todos, isViewOnly }) {
               />
               {todo.extraLeading}
               <div className="min-w-0">
-                <div
-                  className="font-display font-bold leading-tight text-txt-primary break-words"
-                  style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
-                >
-                  {todo.title}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div
+                    className="font-display font-bold leading-tight text-txt-primary break-words"
+                    style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+                  >
+                    {todo.title}
+                  </div>
+                  {todo.extraTools}
                 </div>
                 {todo.inlineAction && (
                   <button
@@ -133,9 +142,8 @@ function renderTodoList({ todos, isViewOnly }) {
                 )}
               </div>
             </div>
-            {!isViewOnly && (todo.actionLabel || todo.viewTo || todo.extraTools) && (
+            {!isViewOnly && (todo.actionLabel || todo.viewTo) && (
               <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
-                {todo.extraTools}
                 {todo.viewTo && (
                   <Link to={todo.viewTo} className="btn-refined text-center">
                     View
@@ -215,6 +223,7 @@ export default function Dashboard() {
   // Check if dynasty data is being lazily loaded
   const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
   const { user } = useAuth()
+  const { toast } = useToast()
   const { id: dynastyId, shareCode } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -404,11 +413,11 @@ export default function Dashboard() {
   const confWins = scheduleRecord?.confWins || 0
   const confLosses = scheduleRecord?.confLosses || 0
 
-  // IMPORTANT: the year flips on the wk5→6 advance, so on Training Results (week 6)
-  // and Conferences (week 7) the year has ALREADY flipped. offseasonDataYear pins
-  // the ending-season year S for data tied to the season just played (playersLeaving,
-  // recruiting, signing-day tasks) — it equals S at every offseason week (1–5 = currentYear,
-  // 6–7 = currentYear-1).
+  // IMPORTANT: the year flips on the wk4→5 advance, so on Signing Day (week 5),
+  // Training Results (week 6) and Conferences (week 7) the year has ALREADY flipped.
+  // offseasonDataYear pins the ending-season year S for data tied to the season just
+  // played (playersLeaving, recruiting, signing-day tasks) — it equals S at every
+  // offseason week (1–4 = currentYear, 5–7 = currentYear-1), matching the >= 5 test below.
   const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 5
   const offseasonDataYear = isAfterYearFlip
     ? currentDynasty?.currentYear - 1
@@ -544,6 +553,7 @@ export default function Dashboard() {
   const [showScheduleModal, setShowScheduleModal] = useState(false)
   const [showRosterModal, setShowRosterModal] = useState(false)
   const [showTeamRatingsModal, setShowTeamRatingsModal] = useState(false)
+  const [showTeamOverallsSheet, setShowTeamOverallsSheet] = useState(false)
   const [showCoachingStaffModal, setShowCoachingStaffModal] = useState(false)
   // showGameModal and showGameDetailModal removed - now using game pages instead
   const [showCCModal, setShowCCModal] = useState(false)
@@ -556,6 +566,7 @@ export default function Dashboard() {
   const [showCFPQuarterfinalsModal, setShowCFPQuarterfinalsModal] = useState(false)
   const [showCFPSemifinalsModal, setShowCFPSemifinalsModal] = useState(false)
   const [showCFPChampionshipModal, setShowCFPChampionshipModal] = useState(false)
+  const [showStaffMovesModal, setShowStaffMovesModal] = useState(false)
   const [showStatsEntryModal, setShowStatsEntryModal] = useState(false)
   const [showDetailedStatsModal, setShowDetailedStatsModal] = useState(false)
   const [showConferenceStandingsModal, setShowConferenceStandingsModal] = useState(false)
@@ -594,9 +605,9 @@ export default function Dashboard() {
         rel="noopener noreferrer"
         title="Recruiting Insight Engine (external)"
         aria-label="Open Recruiting Insight Engine"
-        className="inline-flex items-center justify-center h-8 sm:h-9 w-8 sm:w-9 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex-shrink-0"
+        className="inline-flex items-center justify-center h-7 w-7 rounded-md bg-surface-2 border border-surface-4 text-txt-secondary hover:bg-surface-3 hover:text-txt-primary transition-colors flex-shrink-0"
       >
-        <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
+        <svg className="w-[15px] h-[15px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" strokeWidth="1.75">
           <circle cx="12" cy="12" r="9" />
           <circle cx="12" cy="12" r="3" />
           <path strokeLinecap="round" d="M12 1.5v3M12 19.5v3M22.5 12h-3M4.5 12h-3" />
@@ -669,6 +680,7 @@ export default function Dashboard() {
   }
 
   const [showPositionChangesModal, setShowPositionChangesModal] = useState(false)
+  const [showNationalCommitsModal, setShowNationalCommitsModal] = useState(false)
   const [showRecruitingClassRankModal, setShowRecruitingClassRankModal] = useState(false)
   const [showTrainingResultsModal, setShowTrainingResultsModal] = useState(false)
   const [showEncourageTransfersModal, setShowEncourageTransfersModal] = useState(false)
@@ -686,6 +698,7 @@ export default function Dashboard() {
   // Inline budget editing on the preseason "Enter Dynasty Points Budget" to-do.
   const [dpBudgetEditing, setDpBudgetEditing] = useState(false)
   const [dpBudgetInput, setDpBudgetInput] = useState('')
+  const [dpBudgetSaving, setDpBudgetSaving] = useState(false)
   const [showSupportStaffModal, setShowSupportStaffModal] = useState(false)
   // Preseason Top 25 entry modal — opens for a specific year
   const [preseasonTop25Year, setPreseasonTop25Year] = useState(null)
@@ -971,11 +984,13 @@ export default function Dashboard() {
     }
   }, [currentDynasty?.id, currentDynasty?.bowlEligibilityDataByYear, currentDynasty?.teams, isViewOnly, saveGameSetChanges])
 
-  // Restore new job state from saved dynasty data
+  // Restore new job state from saved dynasty data — MY answer only (owner
+  // reads the dynasty-level field, members read their uid-keyed entry), so a
+  // teammate's accepted job never shows as YOUR pending job.
   // If user declined in a previous week, reset so they can be asked again
   useEffect(() => {
-    if (currentDynasty?.newJobData) {
-      const jobData = currentDynasty.newJobData
+    if (myNewJobData) {
+      const jobData = myNewJobData
 
       // If user declined but in a different week, reset the question
       if (jobData.takingNewJob === false && jobData.declinedInWeek !== currentDynasty.currentWeek) {
@@ -993,7 +1008,7 @@ export default function Dashboard() {
       setNewJobTeam('')
       setNewJobPosition('')
     }
-  }, [currentDynasty?.id, currentDynasty?.newJobData, currentDynasty?.currentWeek])
+  }, [currentDynasty?.id, currentDynasty?.newJobData, currentDynasty?.newJobDataByUser, user?.uid, currentDynasty?.currentWeek])
 
   // Restore coordinator hiring state from saved dynasty data
   useEffect(() => {
@@ -1223,39 +1238,61 @@ export default function Dashboard() {
     await saveCoachingStaff(currentDynasty.id, staff)
   }
 
+  // ── Per-user "Taking a New Job" scoping ────────────────────────────
+  // newJobData is the dynasty-level (OWNER) answer. In a shared league a
+  // member answering the question must not put a "TAKING NEW JOB" banner on
+  // every member's dashboard — or swap the owner's team at the season flip.
+  // Members read/write a uid-keyed entry in newJobDataByUser instead; every
+  // write is uid-stamped so a legacy unstamped answer can be attributed to
+  // the owner (pre-shared-league behavior).
+  const isDynastyOwner = !currentDynasty?.userId || !user?.uid || currentDynasty.userId === user.uid
+  const myNewJobData = isDynastyOwner
+    ? ((currentDynasty?.newJobData && (currentDynasty.newJobData.uid == null || currentDynasty.newJobData.uid === user?.uid)) ? currentDynasty.newJobData : null)
+    : (currentDynasty?.newJobDataByUser?.[user?.uid] ?? null)
+  const buildNewJobUpdate = (jobData) => {
+    const stamped = jobData == null ? null : { ...jobData, uid: user?.uid ?? null }
+    if (isDynastyOwner) return { newJobData: stamped }
+    return {
+      [`newJobDataByUser.${user.uid}`]: stamped == null ? null : {
+        ...stamped,
+        // The member's current tid at answer time — the season flip swaps
+        // exactly this slot in their memberTeams array.
+        fromTid: getUserTeamTid(currentDynasty) ?? null,
+      },
+    }
+  }
+
   const handleNewJobSave = async (jobData) => {
     // Update local state
     setTakingNewJob(jobData.takingNewJob)
     setNewJobTeam(jobData.team || '')
     setNewJobPosition(jobData.position || '')
 
-    // Save to dynasty
+    // Save to dynasty. The pendingUserId team marker drives the OWNER's team
+    // swap at the season flip — a member's answer must never touch it.
     if (jobData.takingNewJob === false) {
-      // Clear pendingUserId from any team
-      const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
-      await updateDynasty(currentDynasty.id, {
-        newJobData: {
-          takingNewJob: false,
-          team: null,
-          position: null,
-          declinedInWeek: currentDynasty.currentWeek
-        },
-        teams: updatedTeams
+      const updates = buildNewJobUpdate({
+        takingNewJob: false,
+        team: null,
+        position: null,
+        declinedInWeek: currentDynasty.currentWeek
       })
+      if (isDynastyOwner) updates.teams = clearPendingUserTeam(currentDynasty.teams)
+      await updateDynasty(currentDynasty.id, updates)
     } else {
-      // Set pendingUserId on the target team
       const newTeamTid = getTidFromTeamName(jobData.team, currentDynasty.teams)
-      const updatedTeams = newTeamTid
-        ? setPendingUserTeam(currentDynasty.teams, newTeamTid, jobData.position)
-        : currentDynasty.teams
-      await updateDynasty(currentDynasty.id, {
-        newJobData: {
-          takingNewJob: true,
-          team: jobData.team,
-          position: jobData.position
-        },
-        teams: updatedTeams
+      const updates = buildNewJobUpdate({
+        takingNewJob: true,
+        team: jobData.team,
+        teamTid: newTeamTid ?? null,
+        position: jobData.position
       })
+      if (isDynastyOwner) {
+        updates.teams = newTeamTid
+          ? setPendingUserTeam(currentDynasty.teams, newTeamTid, jobData.position)
+          : currentDynasty.teams
+      }
+      await updateDynasty(currentDynasty.id, updates)
     }
   }
 
@@ -1624,7 +1661,11 @@ export default function Dashboard() {
 
     // Map player names to PIDs for tracking
     const playersWithPids = playersLeaving.map(entry => {
-      const player = currentDynasty.players?.find(p => p.name === entry.playerName)
+      // Tolerant name match (case/whitespace/curly-apostrophe folded) so a
+      // pasted "De'Von Achane" still links to the roster player — matching the
+      // sibling offseason handlers below. Exact-match previously left pid null,
+      // so the player wasn't removed from the roster.
+      const player = currentDynasty.players?.find(p => normalizePlayerName(p.name) === normalizePlayerName(entry.playerName))
       return {
         playerName: entry.playerName,
         pid: player?.pid || null,
@@ -2071,6 +2112,133 @@ export default function Dashboard() {
     await updateDynasty(currentDynasty.id, updates)
   }
 
+  // Handle national commits save (National Signing Day).
+  //
+  // Each national commit becomes a REAL recruit player committed to the named
+  // school — same shape as any recruit from the normal commitments flow, so it
+  // enrolls as a freshman the following year and ages normally. We keep a light
+  // ledger in nationalCommitsByYear[year] that carries each row's created pid,
+  // so re-opening the modal edits the SAME players (no duplicates) and removing
+  // a row deletes its player.
+  const handleNationalCommitsSave = async (commits) => {
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
+    const enrollmentYear = year + 1
+
+    const existingPlayers = currentDynasty.players || []
+    const maxExistingPID = existingPlayers.reduce((max, p) => Math.max(max, p.pid || 0), 0)
+    let nextPID = Math.max(maxExistingPID + 1, currentDynasty.nextPID || 1)
+
+    const priorLedger = currentDynasty.nationalCommitsByYear?.[year] || []
+    const priorPids = new Set(priorLedger.map(c => c.pid).filter(v => v != null))
+
+    const resolveTeam = (nameText) => {
+      const t = (nameText || '').trim()
+      if (!t) return null
+      return getTidFromTeamName(t, currentDynasty?.teams)
+        || getTidFromAbbr(t, currentDynasty)
+        || resolveTid(t, currentDynasty?.teams || TEAMS)
+        || null
+    }
+
+    // A brand-new HS recruit committed to `committedTid`. Mirrors the recruit
+    // shape built by handleRecruitingCommitmentsSave (canonical v2 per-year
+    // maps); they play NEXT year (enrollmentYear) as a freshman.
+    const makeRecruit = (pid, row, committedTid) => ({
+      pid,
+      id: `player-${pid}`,
+      name: row.name,
+      position: row.position || '',
+      year: 'Fr',
+      jerseyNumber: '',
+      devTrait: '',
+      archetype: '',
+      overall: null,
+      height: '',
+      weight: 0,
+      hometown: '',
+      state: '',
+      team: committedTid,
+      isRecruit: true,
+      recruitYear: year,
+      teamsByYear: { [enrollmentYear]: committedTid },
+      classByYear: { [enrollmentYear]: 'Fr' },
+      devTraitByYear: {},
+      movementByYear: { [year]: { type: 'arrival', arrival: 'recruit' } },
+      stars: row.stars || 0,
+      nationalRank: null,
+      stateRank: null,
+      positionRank: null,
+      gemBust: '',
+      previousTeam: '',
+      isPortal: false,
+    })
+
+    const ledger = []
+    const updatesByPid = new Map()
+    const newPlayers = []
+    const keptPids = new Set()
+    let unresolved = 0
+
+    for (const row of commits) {
+      const committedTid = resolveTeam(row.committedTo)
+      if (committedTid == null) unresolved++
+
+      if (row.pid != null && priorPids.has(row.pid)) {
+        // Edit of an existing national-commit player — update it in place.
+        keptPids.add(row.pid)
+        const existing = existingPlayers.find(p => p.pid === row.pid)
+        if (existing) {
+          updatesByPid.set(row.pid, {
+            ...existing,
+            name: row.name,
+            position: row.position || '',
+            stars: row.stars || 0,
+            team: committedTid ?? existing.team ?? null,
+            teamsByYear: {
+              ...(existing.teamsByYear || {}),
+              [enrollmentYear]: committedTid ?? existing.teamsByYear?.[enrollmentYear] ?? null,
+            },
+          })
+        }
+        ledger.push({ pid: row.pid, name: row.name, position: row.position || '', stars: row.stars ?? null, committedTo: row.committedTo || '' })
+      } else if (committedTid != null) {
+        // New row with a recognized school → create a real recruit player.
+        const pid = nextPID++
+        newPlayers.push(makeRecruit(pid, row, committedTid))
+        ledger.push({ pid, name: row.name, position: row.position || '', stars: row.stars ?? null, committedTo: row.committedTo || '' })
+      } else {
+        // New row whose school we couldn't match to a team — keep the note so
+        // it isn't lost, but don't create a rosterless player. Fixing the
+        // school name on a later save will create the player.
+        ledger.push({ pid: null, name: row.name, position: row.position || '', stars: row.stars ?? null, committedTo: row.committedTo || '' })
+      }
+    }
+
+    // Prior national-commit players no longer in the list → delete them.
+    const removedPids = new Set([...priorPids].filter(pid => !keptPids.has(pid)))
+
+    const finalPlayers = existingPlayers
+      .filter(p => !removedPids.has(p.pid))
+      .map(p => updatesByPid.get(p.pid) || p)
+      .concat(newPlayers)
+
+    await updateDynasty(currentDynasty.id, {
+      players: finalPlayers,
+      nextPID,
+      nationalCommitsByYear: {
+        ...(currentDynasty.nationalCommitsByYear || {}),
+        [year]: ledger,
+      },
+    })
+
+    if (unresolved > 0) {
+      try {
+        toast.info(`${unresolved} commit${unresolved !== 1 ? "s weren't" : " wasn't"} matched to a team and ${unresolved !== 1 ? 'were' : 'was'} saved as a note. Check the school name to turn ${unresolved !== 1 ? 'them' : 'it'} into a tracked recruit.`)
+      } catch { /* toast optional */ }
+    }
+  }
+
   // Handle position changes save (National Signing Day)
   const handlePositionChangesSave = async (changes) => {
     // On Signing Day (week 6) or Training Camp (week 7), year has already flipped, so use previous year
@@ -2199,6 +2367,34 @@ export default function Dashboard() {
     await updateDynasty(currentDynasty.id, updates)
   }
 
+  // Full-attribute Training Results save (CFB 27): entries are
+  // [{ playerName, position, overall, attributes }]. Updates each matched
+  // player's overall + overallByYear[year] AND merges attributesByYear[year].
+  const handleTrainingResultsAttributesSave = async (entries) => {
+    const year = currentDynasty.currentYear
+    const updatedPlayers = [...(currentDynasty.players || [])]
+    ;(entries || []).forEach((entry) => {
+      const playerIndex = updatedPlayers.findIndex(p =>
+        normalizePlayerName(p.name) === normalizePlayerName(entry.playerName)
+      )
+      if (playerIndex === -1) return
+      const player = updatedPlayers[playerIndex]
+      const hasAttrs = entry.attributes && Object.keys(entry.attributes).length > 0
+      if (entry.overall == null && !hasAttrs) return
+      const next = { ...player }
+      if (entry.overall != null) {
+        next.overall = entry.overall
+        next.overallByYear = { ...(player.overallByYear || {}), [year]: entry.overall }
+      }
+      if (hasAttrs) {
+        const existingAttrs = player.attributesByYear?.[year] || player.attributesByYear?.[String(year)] || {}
+        next.attributesByYear = { ...(player.attributesByYear || {}), [year]: { ...existingAttrs, ...entry.attributes } }
+      }
+      updatedPlayers[playerIndex] = next
+    })
+    await updateDynasty(currentDynasty.id, { players: updatedPlayers })
+  }
+
   // Handle recruiting class overalls save
   const handleRecruitOverallsSave = async (results) => {
     // On Training Camp (week 7), the year has flipped, but recruits have recruitYear from before the flip
@@ -2246,6 +2442,38 @@ export default function Dashboard() {
       }
     })
 
+  }
+
+  // Full-attribute Recruit Overalls save (CFB 27): entries are
+  // [{ playerName, position, overall, attributes }]. Matches signed recruits by
+  // name + recruitYear and updates overall + overallByYear[freshmanYear] AND
+  // merges attributesByYear[freshmanYear].
+  const handleRecruitOverallsAttributesSave = async (entries) => {
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
+    const freshmanYear = isAfterYearFlip ? currentDynasty.currentYear : year + 1
+    const updatedPlayers = [...(currentDynasty.players || [])]
+    ;(entries || []).forEach((entry) => {
+      const playerIndex = updatedPlayers.findIndex(p =>
+        p.isRecruit && p.recruitYear === year &&
+        normalizePlayerName(p.name) === normalizePlayerName(entry.playerName)
+      )
+      if (playerIndex === -1) return
+      const player = updatedPlayers[playerIndex]
+      const hasAttrs = entry.attributes && Object.keys(entry.attributes).length > 0
+      if (entry.overall == null && !hasAttrs) return
+      const next = { ...player }
+      if (entry.overall != null) {
+        next.overall = entry.overall
+        next.overallByYear = { ...(player.overallByYear || {}), [freshmanYear]: entry.overall }
+      }
+      if (hasAttrs) {
+        const existingAttrs = player.attributesByYear?.[freshmanYear] || player.attributesByYear?.[String(freshmanYear)] || {}
+        next.attributesByYear = { ...(player.attributesByYear || {}), [freshmanYear]: { ...existingAttrs, ...entry.attributes } }
+      }
+      updatedPlayers[playerIndex] = next
+    })
+    await updateDynasty(currentDynasty.id, { players: updatedPlayers })
   }
 
   // Handle portal transfer class assignment save
@@ -2565,11 +2793,6 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName // For display/key lookups only
     // teamsByYear MUST store tid (number), never abbreviation
     const teamsByYearValue = teamTid
-
-    // Use TEAM-CENTRIC structure: recruitingCommitmentsByTeamYear[teamAbbr][year][commitmentKey]
-    const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
-    const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const existingForYear = existingForTeam[year] || {}
 
     // Get existing players and recruits to find max PID
     const existingPlayers = currentDynasty.players || []
@@ -2978,50 +3201,25 @@ export default function Dashboard() {
     // Save if there are any recruits to record OR if player data changed
     const hasPlayerChanges = returningPlayerRecruits.length > 0 || newPlayers.length > 0 || (targetRows && targetRows.length > 0)
     if (committedRecruitsWithTargets.length > 0 || hasPlayerChanges) {
-      const tid = getTidFromAbbr(teamAbbr, currentDynasty)
-      const commitmentData = {
-        ...existingForYear,
-        [commitmentKey]: committedRecruitsWithTargets
-      }
-
-      // Store in TEAM-CENTRIC structure - store all commits for this commitment key
+      // Write this week's bucket via the shared helper — it preserves every
+      // other bucket (union base) and writes both stores so they can't drift.
       const updates = {
-        // dual-keyed (rename-safe)
-        recruitingCommitmentsByTeamYear: {
-          ...existingByTeamYear,
-          [teamAbbr]: {
-            ...(existingByTeamYear[teamAbbr] || {}),
-            [year]: commitmentData
-          },
-          ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: commitmentData } } : {})
-        },
         players: finalPlayers,
-        nextPID: nextPID
-      }
-
-      // Also write to NEW tid-based byYear structure
-      if (tid && currentDynasty.teams) {
-        const existingTeams = currentDynasty.teams
-        const existingTeamData = existingTeams[tid] || {}
-        const existingByYear = existingTeamData.byYear || {}
-        const existingYearData = existingByYear[year] || {}
-
-        updates.teams = {
-          ...existingTeams,
-          [tid]: {
-            ...existingTeamData,
-            byYear: {
-              ...existingByYear,
-              [year]: {
-                ...existingYearData,
-                recruitingCommitments: commitmentData
-              }
-            }
-          }
-        }
+        nextPID: nextPID,
+        ...buildRecruitingCommitmentUpdate(currentDynasty, {
+          tid: teamTid, teamAbbr, year,
+          bucket: commitmentKey, records: committedRecruitsWithTargets,
+        }),
       }
 
       await updateDynasty(currentDynasty.id, updates)
+
+      // Confirm the save visibly — the entry modal closes right after this, so
+      // without a toast the user has no signal the paste actually landed.
+      const savedCount = (targetRows?.length || 0) + committedRecruitsWithTargets.length
+      toast.success(savedCount > 0
+        ? `Saved ${savedCount} recruit${savedCount === 1 ? '' : 's'}`
+        : 'Recruiting saved')
     }
   }
 
@@ -3094,49 +3292,11 @@ export default function Dashboard() {
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const tid = getTidFromAbbr(teamAbbr, currentDynasty)
 
-    // Use TEAM-CENTRIC structure
-    const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
-    const existingForTeam = existingByTeamYear[teamAbbr] || {}
-    const existingForYear = existingForTeam[year] || {}
-
-    const commitmentData = {
-      ...existingForYear,
-      [commitmentKey]: []
-    }
-
-    // Store empty array to mark as completed — dual-keyed (rename-safe)
-    const updates = {
-      recruitingCommitmentsByTeamYear: {
-        ...existingByTeamYear,
-        [teamAbbr]: {
-          ...(existingByTeamYear[teamAbbr] || {}),
-          [year]: commitmentData
-        },
-        ...(tid ? { [tid]: { ...(existingByTeamYear[tid] || {}), [year]: commitmentData } } : {})
-      }
-    }
-
-    // Also write to NEW tid-based byYear structure
-    if (tid && currentDynasty.teams) {
-      const existingTeams = currentDynasty.teams
-      const existingTeamData = existingTeams[tid] || {}
-      const existingByYear = existingTeamData.byYear || {}
-      const existingYearData = existingByYear[year] || {}
-
-      updates.teams = {
-        ...existingTeams,
-        [tid]: {
-          ...existingTeamData,
-          byYear: {
-            ...existingByYear,
-            [year]: {
-              ...existingYearData,
-              recruitingCommitments: commitmentData
-            }
-          }
-        }
-      }
-    }
+    // Mark this week's bucket as an empty array (= "no commits this week"),
+    // preserving every other bucket, via the shared helper.
+    const updates = buildRecruitingCommitmentUpdate(currentDynasty, {
+      tid, teamAbbr, year, bucket: commitmentKey, records: [],
+    })
 
     await updateDynasty(currentDynasty.id, updates)
   }
@@ -3646,19 +3806,36 @@ export default function Dashboard() {
             const preseasonUserTid = getUserTeamTid(currentDynasty)
             const preseasonYear = Number(currentDynasty.currentYear)
 
-            // Dynasty Points budget (CFB 27+ only). One preseason prompt to
-            // record the season's total budget; deep-links to the always-
-            // editable Dynasty Blueprint page. Gated by isDynastyBlueprintEnabled
-            // so CFB 26 dynasties AND anyone who's hidden Blueprint via league
-            // preferences never see this row. Stays manual in BOTH modes — no
-            // verified save field for either budget or staff.
+            // Dynasty Points budget + Support Staff (CFB 27+ only). Preseason
+            // prompts that deep-link to the always-editable Dynasty Blueprint
+            // page. Gated by isDynastyBlueprintEnabled so CFB 26 dynasties AND
+            // anyone who's hidden Blueprint via league preferences never see
+            // these rows. Stays manual in BOTH modes — there's no verified save
+            // field for either budget or staff.
+            //
+            // Scoped to preseasonUserTid: in a shared league each member runs
+            // their own program and has their own budget, so an unscoped read
+            // would show every member the dynasty owner's number.
             if (isDynastyBlueprintEnabled(currentDynasty)) {
-              const dpBudget = getSeasonBudget(currentDynasty, preseasonYear)
+              const dpBudget = getSeasonBudget(currentDynasty, preseasonYear, preseasonUserTid)
               const dpDone = dpBudget != null
               const saveDpBudget = async () => {
-                const next = setSeasonBudget(currentDynasty, preseasonYear, parseDp(dpBudgetInput))
-                await updateDynasty(currentDynasty.id, { dynastyPoints: next })
-                setDpBudgetEditing(false)
+                if (dpBudgetSaving) return
+                setDpBudgetSaving(true)
+                try {
+                  const next = setSeasonBudget(currentDynasty, preseasonYear, parseDp(dpBudgetInput), preseasonUserTid)
+                  await updateDynasty(currentDynasty.id, { dynastyPoints: next })
+                  setDpBudgetEditing(false)
+                } catch (err) {
+                  // Previously this had no catch, so a failed write (e.g. the
+                  // main doc hitting Firestore's 1 MB cap) rejected silently and
+                  // the row just sat in edit mode — the "Save button does
+                  // nothing" report. Surface it instead.
+                  console.error('[Dashboard] Dynasty Points budget save failed:', err)
+                  toast.error(`Could not save budget: ${err?.message || 'try again'}`)
+                } finally {
+                  setDpBudgetSaving(false)
+                }
               }
               todos.push({
                 key: 'dynasty-points-budget',
@@ -3680,8 +3857,8 @@ export default function Dashboard() {
               // Support staff — hired in the preseason in-game; record them so
               // their DP cost feeds the Staff budget lane. "Done" once the user
               // has either recorded staff or explicitly marked none this year.
-              const ssList = getSupportStaff(currentDynasty, preseasonYear)
-              const ssDone = isSupportStaffSet(currentDynasty, preseasonYear)
+              const ssList = getSupportStaff(currentDynasty, preseasonYear, preseasonUserTid)
+              const ssDone = isSupportStaffSet(currentDynasty, preseasonYear, preseasonUserTid)
               todos.push({
                 key: 'support-staff',
                 done: ssDone,
@@ -3695,7 +3872,7 @@ export default function Dashboard() {
                 inlineAction: !ssDone && !isViewOnly ? {
                   label: 'None this year',
                   onClick: async () => {
-                    await updateDynasty(currentDynasty.id, { dynastyPoints: setSupportStaff(currentDynasty, preseasonYear, []) })
+                    await updateDynasty(currentDynasty.id, { dynastyPoints: setSupportStaff(currentDynasty, preseasonYear, [], preseasonUserTid) })
                   },
                 } : null,
               })
@@ -3753,6 +3930,26 @@ export default function Dashboard() {
                 actionLabel: teamPreseasonSetup?.teamRatingsEntered ? 'Edit' : 'Add',
               })
 
+              // All Team Overalls — one sheet for every school's OVR/OFF/DEF,
+              // instead of clicking through All Teams one school at a time.
+              // Optional (not required to advance); done when every FBS team
+              // has an overall recorded for this season.
+              {
+                const allFbs = Object.values(currentDynasty.teams || {})
+                  .filter(t => t && t.name && !t.isFCS)
+                const filled = allFbs.filter(t =>
+                  getTeamRatingsForYear(currentDynasty, t.tid, preseasonYear)?.overall != null
+                ).length
+                todos.push({
+                  key: 'all-team-overalls',
+                  done: allFbs.length > 0 && filled >= allFbs.length,
+                  title: 'Enter All Team Overalls',
+                  subtitle: `${filled}/${allFbs.length} teams — powers the Sportsbook & sim accuracy`,
+                  onAction: () => setShowTeamOverallsSheet(true),
+                  actionLabel: filled > 0 ? 'Edit' : 'Enter',
+                })
+              }
+
               // Coordinators (HC, first year only)
               if (currentDynasty.coachPosition === 'HC' && isFirstYearOnTeam(currentDynasty)) {
                 todos.push({
@@ -3772,26 +3969,29 @@ export default function Dashboard() {
               const userTid = getUserTeamTid(currentDynasty)
               const recruitingCommits = getRecruitingCommitments(currentDynasty, userTid, currentDynasty.currentYear)
               const preseasonCommitments = recruitingCommits?.['preseason']
-              const recruitingDone = preseasonCommitments !== undefined
-              const cnt = preseasonCommitments?.length || 0
+              // Targets are tracked player records (isTarget), NOT commitments —
+              // so mark this done the moment ANY target is on the board for this
+              // class year, not only when the preseason commitment key exists.
+              const recruitYearNum = Number(currentDynasty.currentYear)
+              const targetCount = (currentDynasty.players || []).filter(
+                (p) => p?.isTarget && Number(p.targetYear) === recruitYearNum
+              ).length
+              const recruitingDone = targetCount > 0 || preseasonCommitments !== undefined
+              const cnt = targetCount || (preseasonCommitments?.length || 0)
               const cs = calculateRecruitingClassScore(flattenClassCommitments(recruitingCommits))
               todos.push({
                 key: 'preseason-recruiting',
                 done: recruitingDone,
-                title: 'New targets/commitments?',
+                title: 'Scout Players & Big Board',
                 subtitle: recruitingDone
                   ? (cnt > 0
-                      ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
-                      : 'No commitments this week')
-                  : 'Record any early recruiting commitments',
-                viewTo: cs > 0 ? `${pathPrefix}/recruiting/${userTid}/${currentDynasty.currentYear}` : null,
+                      ? `${cnt} target${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
+                      : 'No targets recorded')
+                  : null,
+                viewTo: `${pathPrefix}/recruiting/${userTid}/${currentDynasty.currentYear}?tab=targets`,
                 onAction: () => setShowRecruitingModal(true),
-                actionLabel: recruitingDone ? 'Edit' : 'Yes',
+                actionLabel: recruitingDone ? 'Edit' : 'Enter',
                 extraTools: recruitingExtraTools,
-                inlineAction: !recruitingDone && !isViewOnly ? {
-                  label: 'No commits',
-                  onClick: handleNoCommitments,
-                } : null,
               })
 
               // Preseason Top 25
@@ -3891,11 +4091,14 @@ export default function Dashboard() {
                           />
                         ) : (
                           <>
-                            <div
-                              className="font-display font-bold leading-tight text-txt-primary break-words"
-                              style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
-                            >
-                              {todo.title}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div
+                                className="font-display font-bold leading-tight text-txt-primary break-words"
+                                style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+                              >
+                                {todo.title}
+                              </div>
+                              {todo.extraTools}
                             </div>
                             {todo.subtitle && (
                               <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
@@ -3930,7 +4133,6 @@ export default function Dashboard() {
                           </button>
                         ) : (
                           <>
-                            {todo.extraTools}
                             {todo.viewTo && (
                               <Link to={todo.viewTo} className="btn-refined text-center">
                                 View
@@ -4134,38 +4336,23 @@ export default function Dashboard() {
               if (!isCfb27Auto) {
                 let title, subtitle
                 if (hasCommitmentsData) {
-                  title = commitmentsCount > 0
-                    ? `${commitmentsCount} Commit${commitmentsCount === 1 ? '' : 's'} Logged`
-                    : `Recruiting Week ${currentDynasty.currentWeek} Complete`
                   subtitle = classScore > 0
                     ? `${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(classScore)}`
                     : `${currentDynasty.currentYear} class`
                 } else if (classScore > 0) {
-                  title = `${currentDynasty.currentYear} Class Score: ${formatRecruitingClassScore(classScore)}`
                   subtitle = hasCurWeek ? `Recruiting Week ${currentDynasty.currentWeek}` : `${currentDynasty.currentYear} class`
                 } else {
-                  title = hasCurWeek ? `Week ${currentDynasty.currentWeek} Commits` : 'Commits'
                   subtitle = null
                 }
                 todos.push({
                   key: 'recruiting',
                   done: hasCommitmentsData,
-                  title,
+                  title: 'New Targets/Commits?',
                   subtitle,
                   viewTo: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}`,
                   onAction: () => setShowRecruitingModal(true),
                   actionLabel: hasCommitmentsData ? 'Edit' : 'Log',
                   extraTools: recruitingExtraTools,
-                  // "Mark None" gives the user a one-tap way to flip the
-                  // dot green when there were genuinely no commits this
-                  // week — the modal-driven Log path saves an empty
-                  // array, which is the same end state, but this avoids
-                  // a useless trip through the modal. Only offered when
-                  // the row is still red (nothing logged yet).
-                  inlineAction: !hasCommitmentsData && !isViewOnly ? {
-                    label: 'No commits',
-                    onClick: handleNoCommitments,
-                  } : null,
                 })
               } else {
                 // PC mode: Recruiting Board, Injury Report, and Heisman
@@ -4198,11 +4385,21 @@ export default function Dashboard() {
               // has no Week -1 to "log scores for," so this row is skipped.
               if (hasPrevWeek) {
                 const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
-                const savedCount = (currentDynasty.games || []).filter(g =>
-                  g && Number(g.year) === yearNum && Number(g.week) === prevWeek
-                  && g.gameType === 'regular' && g.source === 'weekly-scores'
+                const allGames = currentDynasty.games || []
+                const forWeek = (g) => g && Number(g.year) === yearNum && Number(g.week) === prevWeek && g.gameType === 'regular'
+                // "Done" gates on the across-the-country import (or its flag), so
+                // the user's own game alone never marks the task complete.
+                const importedCount = allGames.filter(g => forWeek(g) && g.source === 'weekly-scores').length
+                // Displayed count matches the recap: every PLAYED regular game
+                // this week, INCLUDING the user's own game (entered via its own
+                // flow, so it isn't source:'weekly-scores'). Without this the badge
+                // read one short of what the recap listed.
+                const savedCount = allGames.filter(g => forWeek(g)
+                  && g.team1Tid && g.team2Tid
+                  && typeof g.team1Score === 'number' && typeof g.team2Score === 'number'
+                  && (g.isPlayed || g.team1Score > 0 || g.team2Score > 0)
                 ).length
-                const done = !!weeklyEntered || savedCount > 0
+                const done = !!weeklyEntered || importedCount > 0
                 if (isCfb27Auto) {
                   todos.push(pcViewTodo({
                     key: 'weekly-scores-pc',
@@ -4305,11 +4502,14 @@ export default function Dashboard() {
                         />
                         {todo.extraLeading}
                         <div className="min-w-0">
-                          <div
-                            className="font-display font-bold leading-tight text-txt-primary break-words"
-                            style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
-                          >
-                            {todo.title}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <div
+                              className="font-display font-bold leading-tight text-txt-primary break-words"
+                              style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+                            >
+                              {todo.title}
+                            </div>
+                            {todo.extraTools}
                           </div>
                           {todo.subtitle && (
                             <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
@@ -4330,7 +4530,6 @@ export default function Dashboard() {
                       </div>
                       {!isViewOnly && todo.actionLabel && (
                         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
-                          {todo.extraTools}
                           {todo.viewTo && (
                             <Link to={todo.viewTo} className="btn-refined text-center">
                               View
@@ -4546,7 +4745,7 @@ export default function Dashboard() {
               todos.push({
                 key: 'cc-recruiting',
                 done: recruitingDone,
-                title: 'New targets/commitments?',
+                title: 'New Targets/Commits?',
                 subtitle: recruitingDone
                   ? (cnt > 0
                       ? `${cnt} commit${cnt === 1 ? '' : 's'} recorded${cs > 0 ? ` ${currentDynasty.currentYear} class score: ${formatRecruitingClassScore(cs)}` : ''}`
@@ -4556,10 +4755,6 @@ export default function Dashboard() {
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: recruitingDone ? 'Edit' : 'Yes',
                 extraTools: recruitingExtraTools,
-                inlineAction: !recruitingDone && !isViewOnly ? {
-                  label: 'No commits',
-                  onClick: handleNoCommitments,
-                } : null,
               })
             } else {
               // PC mode: Recruiting Board, Injury Report, Heisman Watch —
@@ -4601,11 +4796,23 @@ export default function Dashboard() {
               const yearNum = Number(currentDynasty.currentYear)
               const prevWeek = 15
               const weeklyEntered = currentDynasty.weeklyScoresEntered?.[yearNum]?.[prevWeek]
-              const savedCount = (currentDynasty.games || []).filter(g =>
-                g && Number(g.year) === yearNum && Number(g.week) === prevWeek
-                && g.gameType === 'regular' && g.source === 'weekly-scores'
+              const allGames = currentDynasty.games || []
+              const forWeek = (g) => g && Number(g.year) === yearNum && Number(g.week) === prevWeek && g.gameType === 'regular'
+              // "Done" gates on the across-the-country import (or its flag).
+              const importedCount = allGames.filter(g => forWeek(g) && g.source === 'weekly-scores').length
+              // Displayed count matches the recap: every PLAYED regular game this
+              // week, including the user's own game (not source:'weekly-scores').
+              const savedCount = allGames.filter(g => forWeek(g)
+                && g.team1Tid && g.team2Tid
+                && typeof g.team1Score === 'number' && typeof g.team2Score === 'number'
+                && (g.isPlayed || g.team1Score > 0 || g.team2Score > 0)
               ).length
-              const done = !!weeklyEntered || savedCount > 0
+              // importedCount, NOT savedCount — matches the identical week-N
+              // block above and what shipped before the PC merge. Gating on
+              // savedCount marked this to-do complete as soon as the user's OWN
+              // game was entered, i.e. before any across-the-country results
+              // existed, which is exactly what the comment above rules out.
+              const done = !!weeklyEntered || importedCount > 0
               if (isCfb27Auto) {
                 todos.push(pcViewTodo({
                   key: 'cc-week15-scores-pc',
@@ -4684,11 +4891,14 @@ export default function Dashboard() {
                           />
                         ) : (
                           <>
-                            <div
-                              className="font-display font-bold leading-tight text-txt-primary break-words"
-                              style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
-                            >
-                              {todo.title}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <div
+                                className="font-display font-bold leading-tight text-txt-primary break-words"
+                                style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)', letterSpacing: '-0.015em' }}
+                              >
+                                {todo.title}
+                              </div>
+                              {todo.extraTools}
                             </div>
                             {todo.subtitle && (
                               <div className="hidden sm:block text-xs sm:text-[13px] mt-0.5 text-txt-tertiary">
@@ -4711,7 +4921,6 @@ export default function Dashboard() {
                     </div>
                     {todo.customActions ?? (!isViewOnly && todo.actionLabel ? (
                       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 [&_.btn-refined]:min-w-[4.5rem]">
-                        {todo.extraTools}
                         {todo.viewTo && (
                           <Link to={todo.viewTo} className="btn-refined text-center">
                             View
@@ -5491,7 +5700,7 @@ export default function Dashboard() {
               // accepted (yes) AND a team has been chosen. tid-rooted: prefer
               // the stored teamTid, resolving the legacy name only as fallback.
               const newJobTid = takingNewJob === true && newJobTeam
-                ? (currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(newJobTeam, currentDynasty.teams))
+                ? (myNewJobData?.teamTid ?? getTidFromTeamName(newJobTeam, currentDynasty.teams))
                 : null
               // CFB27: Coach.IsUserControlled already tells the sync
               // definitively whether the human took a real job this cycle
@@ -5511,7 +5720,7 @@ export default function Dashboard() {
                 onAction: askingNewJobBW1 ? async () => {
                   setTakingNewJob(true)
                   await updateDynasty(currentDynasty.id, {
-                    newJobData: { takingNewJob: true, team: '', position: '' },
+                    ...buildNewJobUpdate({ takingNewJob: true, team: '', position: '' }),
                   })
                 } : newJobDone ? async () => {
                   setTakingNewJob(null)
@@ -5519,7 +5728,7 @@ export default function Dashboard() {
                   setNewJobPosition('')
                   const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                   await updateDynasty(currentDynasty.id, {
-                    newJobData: null,
+                    ...buildNewJobUpdate(null),
                     teams: updatedTeams,
                   })
                 } : undefined,
@@ -5533,7 +5742,7 @@ export default function Dashboard() {
                       // at the season rollover (matches the Edit / modal paths).
                       const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                       await updateDynasty(currentDynasty.id, {
-                        newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                        ...buildNewJobUpdate({ takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek }),
                         teams: updatedTeams,
                       })
                     }}
@@ -5604,7 +5813,7 @@ export default function Dashboard() {
               bw1Todos.push({
                 key: 'recruiting-bw1',
                 done: bw1HasCommitmentsData,
-                title: bw1HasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
+                title: 'New Targets/Commits?',
                 subtitle: bw1HasCommitmentsData
                   ? bw1CommitmentsCount > 0
                     ? `${bw1CommitmentsCount} commitment${bw1CommitmentsCount !== 1 ? 's' : ''} recorded`
@@ -5614,10 +5823,7 @@ export default function Dashboard() {
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: bw1HasCommitmentsData ? 'Edit' : 'Yes',
                 extraTools: recruitingExtraTools,
-                inlineAction: !bw1HasCommitmentsData && !isViewOnly ? {
-                  label: 'No commits',
-                  onClick: handleNoCommitments,
-                } : bw1HasCommitmentsData && bw1ClassScore > 0 ? {
+                inlineAction: bw1HasCommitmentsData && bw1ClassScore > 0 ? {
                   label: `Class Score ${formatRecruitingClassScore(bw1ClassScore)}`,
                   onClick: () => navigate(`${pathPrefix}/recruiting/${bw1UserTidForCommits}/${currentDynasty.currentYear}`),
                 } : null,
@@ -5710,7 +5916,7 @@ export default function Dashboard() {
                           onChange={async (value) => {
                             setNewJobTeam(value)
                             await updateDynasty(currentDynasty.id, {
-                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value, teamTid: getTidFromTeamName(value, currentDynasty?.teams) ?? null },
+                              ...buildNewJobUpdate({ ...myNewJobData, takingNewJob: true, team: value, teamTid: getTidFromTeamName(value, currentDynasty?.teams) ?? null }),
                             })
                           }}
                           placeholder="Search for team..."
@@ -5732,13 +5938,15 @@ export default function Dashboard() {
                             key={pos}
                             onClick={async () => {
                               setNewJobPosition(pos)
-                              const newTeamTid = currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
-                              const updatedTeams = newTeamTid
+                              const newTeamTid = myNewJobData?.teamTid ?? getTidFromTeamName(newJobTeam || myNewJobData?.team, currentDynasty.teams)
+                              // pendingUserId drives the OWNER's team swap at the
+                              // season flip — never set it for a member's job.
+                              const updatedTeams = (isDynastyOwner && newTeamTid)
                                 ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
-                                : currentDynasty.teams
+                                : null
                               await updateDynasty(currentDynasty.id, {
-                                newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
-                                teams: updatedTeams,
+                                ...buildNewJobUpdate({ ...myNewJobData, takingNewJob: true, position: pos }),
+                                ...(updatedTeams ? { teams: updatedTeams } : {}),
                               })
                             }}
                             className="btn-refined btn-refined--solid"
@@ -5939,7 +6147,7 @@ export default function Dashboard() {
                 onAction: askingNewJobBW2 ? async () => {
                   setTakingNewJob(true)
                   await updateDynasty(currentDynasty.id, {
-                    newJobData: { takingNewJob: true, team: '', position: '' },
+                    ...buildNewJobUpdate({ takingNewJob: true, team: '', position: '' }),
                   })
                 } : newJobDone ? async () => {
                   setTakingNewJob(null)
@@ -5947,7 +6155,7 @@ export default function Dashboard() {
                   setNewJobPosition('')
                   const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                   await updateDynasty(currentDynasty.id, {
-                    newJobData: null,
+                    ...buildNewJobUpdate(null),
                     teams: updatedTeams,
                   })
                 } : undefined,
@@ -5961,7 +6169,7 @@ export default function Dashboard() {
                       // at the season rollover (matches the Edit / modal paths).
                       const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                       await updateDynasty(currentDynasty.id, {
-                        newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                        ...buildNewJobUpdate({ takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek }),
                         teams: updatedTeams,
                       })
                     }}
@@ -6078,7 +6286,7 @@ export default function Dashboard() {
               bw2Todos.push({
                 key: 'recruiting-bw2',
                 done: bw2HasCommitmentsData,
-                title: bw2HasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
+                title: 'New Targets/Commits?',
                 subtitle: bw2HasCommitmentsData
                   ? bw2CommitmentsCount > 0
                     ? `${bw2CommitmentsCount} commitment${bw2CommitmentsCount !== 1 ? 's' : ''} recorded`
@@ -6087,10 +6295,7 @@ export default function Dashboard() {
                 onAction: () => setShowRecruitingModal(true),
                 actionLabel: bw2HasCommitmentsData ? 'Edit' : 'Yes',
                 extraTools: recruitingExtraTools,
-                inlineAction: !bw2HasCommitmentsData && !isViewOnly ? {
-                  label: 'No commits',
-                  onClick: handleNoCommitments,
-                } : bw2HasCommitmentsData && bw2ClassScore > 0 ? {
+                inlineAction: bw2HasCommitmentsData && bw2ClassScore > 0 ? {
                   label: `Class Score ${formatRecruitingClassScore(bw2ClassScore)}`,
                   onClick: () => navigate(`${pathPrefix}/recruiting/${bw2UserTidForCommits}/${currentDynasty.currentYear}`),
                 } : null,
@@ -6154,7 +6359,7 @@ export default function Dashboard() {
                           onChange={async (value) => {
                             setNewJobTeam(value)
                             await updateDynasty(currentDynasty.id, {
-                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value, teamTid: getTidFromTeamName(value, currentDynasty?.teams) ?? null },
+                              ...buildNewJobUpdate({ ...myNewJobData, takingNewJob: true, team: value, teamTid: getTidFromTeamName(value, currentDynasty?.teams) ?? null }),
                             })
                           }}
                           placeholder="Search for team..."
@@ -6176,13 +6381,15 @@ export default function Dashboard() {
                             key={pos}
                             onClick={async () => {
                               setNewJobPosition(pos)
-                              const newTeamTid = currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(newJobTeam || currentDynasty.newJobData?.team, currentDynasty.teams)
-                              const updatedTeams = newTeamTid
+                              const newTeamTid = myNewJobData?.teamTid ?? getTidFromTeamName(newJobTeam || myNewJobData?.team, currentDynasty.teams)
+                              // pendingUserId drives the OWNER's team swap at the
+                              // season flip — never set it for a member's job.
+                              const updatedTeams = (isDynastyOwner && newTeamTid)
                                 ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
-                                : currentDynasty.teams
+                                : null
                               await updateDynasty(currentDynasty.id, {
-                                newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
-                                teams: updatedTeams,
+                                ...buildNewJobUpdate({ ...myNewJobData, takingNewJob: true, position: pos }),
+                                ...(updatedTeams ? { teams: updatedTeams } : {}),
                               })
                             }}
                             className="btn-refined btn-refined--solid"
@@ -6378,13 +6585,13 @@ export default function Dashboard() {
               const w5Tid = currentDynasty.currentTid
               const w5TeamStats = w5Tid != null ? `${pathPrefix}/team/${w5Tid}/${w5Year}?tab=stats` : null
 
-              // Next season's Dynasty Points budget refreshes HERE (End of Season
-              // Recap), so this is where you record it. Year 1 has no prior recap,
-              // so that budget is entered in the preseason instead. CFB 27 only,
-              // and hidden if the user's turned off Blueprint in league preferences.
+              // Next season's Dynasty Points budget / facilities / roster NIL
+              // refresh HERE (End of Season Recap). Year 1 has no prior recap, so
+              // the budget is entered in the preseason instead. CFB 27 only, and
+              // hidden when the user has turned Blueprint off in preferences.
               if (isDynastyBlueprintEnabled(currentDynasty) && w5Tid != null) {
                 const nextYear = Number(w5Year) + 1
-                const nextBudget = getSeasonBudget(currentDynasty, nextYear)
+                const nextBudget = getSeasonBudget(currentDynasty, nextYear, w5Tid)
                 const nbDone = nextBudget != null
                 const nextBlueprint = `${pathPrefix}/team/${w5Tid}/${nextYear}?tab=blueprint`
                 w5Todos.push({
@@ -6403,8 +6610,8 @@ export default function Dashboard() {
                 // recorded for nextYear (keeping the same tier still counts — you
                 // re-select it, which stores it).
                 const facTiers = getEditionConfig(currentDynasty)?.dynastyPoints?.facilities?.tiers ?? []
-                const nextFac = getFacilities(currentDynasty, nextYear)
-                const curTierKey = getCarriedFacilityTier(currentDynasty, Number(w5Year))
+                const nextFac = getFacilities(currentDynasty, nextYear, w5Tid)
+                const curTierKey = getCarriedFacilityTier(currentDynasty, Number(w5Year), w5Tid)
                 const facDone = !!nextFac.tier
                 const nextTierLabel = facTiers.find((t) => t.key === nextFac.tier)?.label
                 const curIdx = facTiers.findIndex((t) => t.key === curTierKey)
@@ -6802,6 +7009,26 @@ export default function Dashboard() {
                   })
                 }
               }
+
+              // Staff Moves (coaching carousel) — belongs to the National
+              // Championship phase, not the End of Season Recap.
+              {
+                const scYear = Number(currentDynasty.currentYear)
+                const staffMoves = currentDynasty?.staffMovesByYear?.[scYear] || currentDynasty?.staffMovesByYear?.[String(scYear)]
+                const staffMovesDone = !!staffMoves?.completed
+                const staffMovesCount = Array.isArray(staffMoves?.moves) ? staffMoves.moves.length : 0
+                w34Todos.push({
+                  key: 'staff-moves',
+                  done: staffMovesDone,
+                  title: 'Staff Moves',
+                  subtitle: staffMovesDone
+                    ? `${staffMovesCount} coaching move${staffMovesCount === 1 ? '' : 's'} recorded`
+                    : 'Enter the coaching carousel (hires, firings, retirements)',
+                  onAction: () => setShowStaffMovesModal(true),
+                  actionLabel: staffMovesDone ? 'Edit' : 'Enter',
+                  viewTo: staffMovesDone ? `${pathPrefix}/weekly-scores/${scYear}/20?tab=coachCarousel` : null,
+                })
+              }
             }
 
             // National Championship bye (user's team didn't advance) — no
@@ -6870,7 +7097,7 @@ export default function Dashboard() {
                 onAction: askingNewJobBW34 ? async () => {
                   setTakingNewJob(true)
                   await updateDynasty(currentDynasty.id, {
-                    newJobData: { takingNewJob: true, team: '', position: '' },
+                    ...buildNewJobUpdate({ takingNewJob: true, team: '', position: '' }),
                   })
                 } : w34NewJobDone ? async () => {
                   setTakingNewJob(null)
@@ -6878,7 +7105,7 @@ export default function Dashboard() {
                   setNewJobPosition('')
                   const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                   await updateDynasty(currentDynasty.id, {
-                    newJobData: null,
+                    ...buildNewJobUpdate(null),
                     teams: updatedTeams,
                   })
                 } : undefined,
@@ -6892,7 +7119,7 @@ export default function Dashboard() {
                       // at the season rollover (matches the Edit / modal paths).
                       const updatedTeams = clearPendingUserTeam(currentDynasty.teams)
                       await updateDynasty(currentDynasty.id, {
-                        newJobData: { takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek },
+                        ...buildNewJobUpdate({ takingNewJob: false, team: null, position: null, declinedInWeek: currentDynasty.currentWeek }),
                         teams: updatedTeams,
                       })
                     }}
@@ -7007,7 +7234,7 @@ export default function Dashboard() {
             w34Todos.push({
               key: 'recruiting-bw34',
               done: w34HasCommitmentsData,
-              title: w34HasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
+              title: 'New Targets/Commits?',
               subtitle: w34HasCommitmentsData
                 ? w34CommitmentsCount > 0
                   ? `${w34CommitmentsCount} commitment${w34CommitmentsCount !== 1 ? 's' : ''} recorded`
@@ -7016,10 +7243,7 @@ export default function Dashboard() {
               onAction: () => setShowRecruitingModal(true),
               actionLabel: w34HasCommitmentsData ? 'Edit' : 'Yes',
               extraTools: recruitingExtraTools,
-              inlineAction: !w34HasCommitmentsData && !isViewOnly ? {
-                label: 'No commits',
-                onClick: handleNoCommitments,
-              } : w34HasCommitmentsData && w34ClassScore > 0 ? {
+              inlineAction: w34HasCommitmentsData && w34ClassScore > 0 ? {
                 label: `Class Score ${formatRecruitingClassScore(w34ClassScore)}`,
                 onClick: () => navigate(`${pathPrefix}/recruiting/${w34UserTidForCommits}/${currentDynasty.currentYear}`),
               } : null,
@@ -7083,7 +7307,7 @@ export default function Dashboard() {
                         onChange={async (value) => {
                           setNewJobTeam(value)
                           await updateDynasty(currentDynasty.id, {
-                            newJobData: { ...currentDynasty.newJobData, takingNewJob: true, team: value },
+                            ...buildNewJobUpdate({ ...myNewJobData, takingNewJob: true, team: value, teamTid: getTidFromTeamName(value, currentDynasty?.teams) ?? null }),
                           })
                         }}
                         placeholder="Search for team..."
@@ -7105,13 +7329,15 @@ export default function Dashboard() {
                           key={pos}
                           onClick={async () => {
                             setNewJobPosition(pos)
-                            const newTeamTid = currentDynasty.newJobData?.teamTid ?? getTidFromTeamName(currentDynasty.newJobData?.team, currentDynasty.teams)
-                            const updatedTeams = newTeamTid
+                            const newTeamTid = myNewJobData?.teamTid ?? getTidFromTeamName(myNewJobData?.team, currentDynasty.teams)
+                            // pendingUserId drives the OWNER's team swap at the
+                            // season flip — never set it for a member's job.
+                            const updatedTeams = (isDynastyOwner && newTeamTid)
                               ? setPendingUserTeam(currentDynasty.teams, newTeamTid, pos)
-                              : currentDynasty.teams
+                              : null
                             await updateDynasty(currentDynasty.id, {
-                              newJobData: { ...currentDynasty.newJobData, takingNewJob: true, position: pos },
-                              teams: updatedTeams,
+                              ...buildNewJobUpdate({ ...myNewJobData, takingNewJob: true, position: pos }),
+                              ...(updatedTeams ? { teams: updatedTeams } : {}),
                             })
                           }}
                           className="btn-refined btn-refined--solid"
@@ -7232,9 +7458,10 @@ export default function Dashboard() {
 
             // Offseason Week 1: Players Leaving. Unified via renderTodoList.
             if (week === 1) {
-              const previousTeamAbbr = currentDynasty.coachTeamByYear?.[currentDynasty.currentYear]?.team
-              const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-              const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
+              const prevEntry = currentDynasty.coachTeamByYear?.[currentDynasty.currentYear]
+              const previousTeamTid = prevEntry?.tid ?? getTidFromAbbr(prevEntry?.team, currentDynasty)
+              const currentTeamTid = getUserTeamTid(currentDynasty)
+              const switchedTeams = previousTeamTid && currentTeamTid && previousTeamTid !== currentTeamTid
 
               const hasPlayersLeavingData = currentDynasty?.playersLeavingByYear?.[currentDynasty.currentYear]?.length > 0
               const playersLeavingCount = currentDynasty?.playersLeavingByYear?.[currentDynasty.currentYear]?.length || 0
@@ -7268,7 +7495,9 @@ export default function Dashboard() {
                 title: 'Players Leaving',
                 subtitle: hasPlayersLeavingData
                   ? `${playersLeavingCount} player${playersLeavingCount !== 1 ? 's' : ''} leaving`
-                  : 'Graduating seniors, transfers, early declarations',
+                  : (switchedTeams
+                      ? 'New team — optional. Add any graduating seniors, transfers, or early declarations.'
+                      : 'Graduating seniors, transfers, early declarations'),
                 onAction: () => setShowPlayersLeavingModal(true),
                 actionLabel: hasPlayersLeavingData ? 'Edit' : 'Enter',
                 viewTo: hasPlayersLeavingData && currentDynasty?.currentTid != null
@@ -7358,7 +7587,7 @@ export default function Dashboard() {
                 o26Todos.push({
                   key: 'recruiting-week',
                   done: hasCommitmentsData,
-                  title: hasCommitmentsData ? 'Targets & Commitments' : 'New targets/commitments?',
+                  title: 'New Targets/Commits?',
                   subtitle: hasCommitmentsData
                     ? commitmentsCount > 0
                       ? `${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
@@ -7367,10 +7596,6 @@ export default function Dashboard() {
                   onAction: () => setShowRecruitingModal(true),
                   actionLabel: hasCommitmentsData ? 'Edit' : 'Yes',
                   extraTools: recruitingExtraTools,
-                  inlineAction: !hasCommitmentsData && !isViewOnly ? {
-                    label: 'No commits',
-                    onClick: handleNoCommitments,
-                  } : null,
                 })
               }
               } else if (recruitingWeekNum !== 4) {
@@ -7656,6 +7881,33 @@ export default function Dashboard() {
                   actionLabel: !hasFringeCases ? undefined : (fringeComplete ? 'Done' : 'Open'),
                   viewTo: hasFringeCaseClassData ? `${pathPrefix}/team/${teamTidF}/${offseasonDataYear}?tab=roster` : null,
                 })
+
+                // National Commits — free-form "247 Top 100" style watch list:
+                // notable recruits nationwide and where they committed, whether
+                // or not they were ever the user's target. Optional; marked done
+                // once saved (an explicit empty list counts as "confirmed none").
+                const nationalCommits = currentDynasty?.nationalCommitsByYear?.[offseasonDataYear]
+                const hasNationalCommitsData = Array.isArray(nationalCommits)
+                const nationalCommitsCount = nationalCommits?.length || 0
+                o26Todos.push({
+                  key: 'national-commits',
+                  done: hasNationalCommitsData,
+                  title: 'National Commits',
+                  subtitle: hasNationalCommitsData
+                    ? (nationalCommitsCount > 0
+                        ? `${nationalCommitsCount} recruit${nationalCommitsCount !== 1 ? 's' : ''} tracked`
+                        : 'No national commits tracked')
+                    : 'Track top recruits nationwide and where they committed',
+                  onAction: () => setShowNationalCommitsModal(true),
+                  actionLabel: hasNationalCommitsData ? 'Edit' : 'Enter',
+                  inlineAction: !hasNationalCommitsData && !isViewOnly ? {
+                    label: 'None',
+                    onClick: async () => {
+                      try { await handleNationalCommitsSave([]) }
+                      catch (e) { console.error('[national-commits] skip failed:', e); toast.error('Failed to save. Try again.') }
+                    },
+                  } : null,
+                })
               }
 
               return (
@@ -7671,9 +7923,10 @@ export default function Dashboard() {
             // Offseason Week 6: Training Results (post-flip). Unified via renderTodoList.
             if (week === 6) {
               const offseasonDataYear = currentDynasty.currentYear - 1
-              const previousTeamAbbr = currentDynasty.coachTeamByYear?.[offseasonDataYear]?.team
-              const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty)
-              const switchedTeams = previousTeamAbbr && currentTeamAbbr && previousTeamAbbr !== currentTeamAbbr
+              const prevEntry = currentDynasty.coachTeamByYear?.[offseasonDataYear]
+              const previousTeamTid = prevEntry?.tid ?? getTidFromAbbr(prevEntry?.team, currentDynasty)
+              const currentTeamTid = getUserTeamTid(currentDynasty)
+              const switchedTeams = previousTeamTid && currentTeamTid && previousTeamTid !== currentTeamTid
 
               if (switchedTeams) {
                 const skippedTodos = [{
@@ -7913,18 +8166,14 @@ export default function Dashboard() {
                         {/* Jersey Number */}
                         <span className="text-sm font-bold text-txt-secondary w-6 text-right">{player.jerseyNumber || '--'}</span>
 
-                        {/* Player Image */}
-                        <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-surface-4 group-hover:ring-surface-5 transition-all" style={{ backgroundColor: 'var(--surface-4)' }}>
-                          {player.pictureUrl ? (
-                            <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <svg className="w-5 h-5 text-txt-muted" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                              </svg>
-                            </div>
-                          )}
-                        </div>
+                        {/* Player Image — photo → team logo → silhouette */}
+                        <PlayerAvatar
+                          photoUrl={player.pictureUrl}
+                          teamLogo={getTeamLogoByTid(player.teamsByYear?.[currentDynasty.currentYear] ?? (typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team, currentDynasty)), currentDynasty.teams)}
+                          name={player.name}
+                          size={36}
+                          className="ring-2 ring-surface-4 group-hover:ring-surface-5 transition-all"
+                        />
 
                         {/* Name & Position */}
                         <div className="flex-1 min-w-0">
@@ -8256,14 +8505,15 @@ export default function Dashboard() {
               // pre-game pick (ccOpponentTid / stored opponentTid), then a
               // legacy abbr only as a last resort.
               const ccOppTid = ccGame?.perspective?.opponentTid ?? ccOpponentTid ?? ccDataForYear.opponentTid ?? null
-              const ccOpponentInfo = ccOppTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, ccOppTid) : null
+              // Resolve the opponent once (tid first, legacy abbr only as a last
+              // resort) and source every display value from that object.
+              const ccOpponentInfo = getGameTeamInfo(currentDynasty?.teams || TEAMS, ccOppTid ?? ccDataForYear.opponent)
               const ccOpponentAbbr = ccOpponentInfo?.abbr || ccDataForYear.opponent
-              const hasOpponent = !!ccOpponentAbbr
-              const ccOpponentColors = hasOpponent ? getOpponentColors(ccOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const ccMascotFromAbbr = hasOpponent ? getMascotName(ccOpponentAbbr) : null
-              const ccMascotName = ccMascotFromAbbr || (hasOpponent && getTeamLogo(ccOpponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) ? ccOpponentAbbr : null)
-              const ccOpponentName = ccMascotName || (hasOpponent ? getTeamNameFromAbbr(ccOpponentAbbr) : 'TBD')
-              const ccOpponentLogo = ccMascotName ? getTeamLogo(ccMascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+              const ccOpponentColors = ccOpponentInfo
+                ? { backgroundColor: ccOpponentInfo.primaryColor || '#6b7280', textColor: ccOpponentInfo.secondaryColor || '#ffffff' }
+                : { backgroundColor: '#6b7280', textColor: '#ffffff' }
+              const ccOpponentName = ccOpponentInfo?.name || 'TBD'
+              const ccOpponentLogo = ccOpponentInfo?.logo || (ccOppTid ? getTeamLogoByTid(ccOppTid, currentDynasty?.teams || TEAMS) : null)
               const isCurrentCCWeek = currentDynasty.currentPhase === 'conference_championship' && !ccGame
               const isWin = ccGame?.perspective?.userWon
               const userScore = ccGame?.perspective?.userScore ?? ccGame?.teamScore
@@ -8327,15 +8577,17 @@ export default function Dashboard() {
               if (hasBowlEligibility && bowlData?.bowlGame?.startsWith('CFP')) return null
               if (!userBowlGameData && !hasBowlEligibility) return null
 
-              const bowlOpponentInfo = userBowlGameData?.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, userBowlGameData.perspective.opponentTid) : null
+              const bowlOppTid = userBowlGameData?.perspective?.opponentTid ?? null
+              // Resolve the opponent once (tid first, legacy abbr only as a last
+              // resort) and source every display value from that object.
+              const bowlOpponentInfo = getGameTeamInfo(currentDynasty?.teams || TEAMS, bowlOppTid ?? bowlData?.opponent)
               const bowlOpponentAbbr = bowlOpponentInfo?.abbr || bowlData?.opponent
               const bowlGameName = userBowlGameData?.bowlName || bowlData?.bowlGame
-              const hasOpponent = !!bowlOpponentAbbr
-              const bowlOpponentColors = hasOpponent ? getOpponentColors(bowlOpponentAbbr) : { backgroundColor: '#6b7280', textColor: '#ffffff' }
-              const mascotFromAbbr = hasOpponent ? getMascotName(bowlOpponentAbbr) : null
-              const bowlMascotName = mascotFromAbbr || (hasOpponent && getTeamLogo(bowlOpponentAbbr, currentDynasty?.teams || currentDynasty?.customTeams) ? bowlOpponentAbbr : null)
-              const bowlOpponentName = bowlMascotName || (hasOpponent ? getTeamNameFromAbbr(bowlOpponentAbbr) : 'TBD')
-              const bowlOpponentLogo = bowlMascotName ? getTeamLogo(bowlMascotName, currentDynasty?.teams || currentDynasty?.customTeams) : null
+              const bowlOpponentColors = bowlOpponentInfo
+                ? { backgroundColor: bowlOpponentInfo.primaryColor || '#6b7280', textColor: bowlOpponentInfo.secondaryColor || '#ffffff' }
+                : { backgroundColor: '#6b7280', textColor: '#ffffff' }
+              const bowlOpponentName = bowlOpponentInfo?.name || 'TBD'
+              const bowlOpponentLogo = bowlOpponentInfo?.logo || (bowlOppTid ? getTeamLogoByTid(bowlOppTid, currentDynasty?.teams || TEAMS) : null)
               const isWin = userBowlGameData?.perspective?.userWon
               const userScore = userBowlGameData?.perspective?.userScore ?? userBowlGameData?.teamScore
               const opponentScore = userBowlGameData?.perspective?.opponentScore ?? userBowlGameData?.opponentScore
@@ -8389,10 +8641,11 @@ export default function Dashboard() {
               if (!cfpGame) return null
               const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
               const oppAbbr = oppInfo?.abbr
-              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
-              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
-              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+              const oppColors = oppInfo
+                ? { backgroundColor: oppInfo.primaryColor || '#6b7280', textColor: oppInfo.secondaryColor || '#fff' }
+                : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppName = oppInfo?.name || 'TBD'
+              const oppLogo = oppInfo?.logo || (cfpGame.perspective?.opponentTid ? getTeamLogoByTid(cfpGame.perspective.opponentTid, currentDynasty?.teams || TEAMS) : null)
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
               const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
@@ -8439,10 +8692,11 @@ export default function Dashboard() {
               if (!cfpGame) return null
               const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
               const oppAbbr = oppInfo?.abbr
-              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
-              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
-              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+              const oppColors = oppInfo
+                ? { backgroundColor: oppInfo.primaryColor || '#6b7280', textColor: oppInfo.secondaryColor || '#fff' }
+                : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppName = oppInfo?.name || 'TBD'
+              const oppLogo = oppInfo?.logo || (cfpGame.perspective?.opponentTid ? getTeamLogoByTid(cfpGame.perspective.opponentTid, currentDynasty?.teams || TEAMS) : null)
               const bowlName = cfpGame.bowlName || 'CFP Quarterfinal'
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
@@ -8490,10 +8744,11 @@ export default function Dashboard() {
               if (!cfpGame) return null
               const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
               const oppAbbr = oppInfo?.abbr
-              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
-              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
-              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+              const oppColors = oppInfo
+                ? { backgroundColor: oppInfo.primaryColor || '#6b7280', textColor: oppInfo.secondaryColor || '#fff' }
+                : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppName = oppInfo?.name || 'TBD'
+              const oppLogo = oppInfo?.logo || (cfpGame.perspective?.opponentTid ? getTeamLogoByTid(cfpGame.perspective.opponentTid, currentDynasty?.teams || TEAMS) : null)
               const bowlName = cfpGame.bowlName || 'CFP Semifinal'
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
@@ -8541,10 +8796,11 @@ export default function Dashboard() {
               if (!cfpGame) return null
               const oppInfo = cfpGame.perspective?.opponentTid ? getGameTeamInfo(currentDynasty?.teams || TEAMS, cfpGame.perspective.opponentTid) : null
               const oppAbbr = oppInfo?.abbr
-              const oppColors = oppAbbr ? getOpponentColors(oppAbbr) : { backgroundColor: '#6b7280', textColor: '#fff' }
-              const oppMascot = oppAbbr ? getMascotName(oppAbbr) : null
-              const oppName = oppMascot || (oppAbbr ? getTeamNameFromAbbr(oppAbbr) : 'TBD')
-              const oppLogo = oppMascot ? getTeamLogo(oppMascot, currentDynasty?.teams || currentDynasty?.customTeams) : null
+              const oppColors = oppInfo
+                ? { backgroundColor: oppInfo.primaryColor || '#6b7280', textColor: oppInfo.secondaryColor || '#fff' }
+                : { backgroundColor: '#6b7280', textColor: '#fff' }
+              const oppName = oppInfo?.name || 'TBD'
+              const oppLogo = oppInfo?.logo || (cfpGame.perspective?.opponentTid ? getTeamLogoByTid(cfpGame.perspective.opponentTid, currentDynasty?.teams || TEAMS) : null)
               const isWin = cfpGame.perspective?.userWon
               const userScore = cfpGame.perspective?.userScore ?? cfpGame.teamScore
               const oppScore = cfpGame.perspective?.opponentScore ?? cfpGame.opponentScore
@@ -9114,18 +9370,14 @@ export default function Dashboard() {
                       {/* Jersey Number */}
                       <span className="text-sm font-bold text-txt-secondary w-6 text-right">{player.jerseyNumber || '--'}</span>
 
-                      {/* Player Image */}
-                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-surface-4" style={{ backgroundColor: 'var(--surface-4)' }}>
-                        {player.pictureUrl ? (
-                          <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-txt-muted" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                            </svg>
-                          </div>
-                        )}
-                      </div>
+                      {/* Player Image — photo → team logo → silhouette */}
+                      <PlayerAvatar
+                        photoUrl={player.pictureUrl}
+                        teamLogo={getTeamLogoByTid(player.teamsByYear?.[currentDynasty.currentYear] ?? (typeof player.team === 'number' ? player.team : getTidFromAbbr(player.team, currentDynasty)), currentDynasty.teams)}
+                        name={player.name}
+                        size={32}
+                        className="ring-2 ring-surface-4"
+                      />
 
                       {/* Name & Position */}
                       <div className="flex-1 min-w-0">
@@ -9184,6 +9436,12 @@ export default function Dashboard() {
         currentRatings={teamRatings}
       />
 
+      <TeamOverallsSheetModal
+        isOpen={showTeamOverallsSheet}
+        onClose={() => setShowTeamOverallsSheet(false)}
+        year={Number(currentDynasty.currentYear)}
+      />
+
       <CoachingStaffModal
         isOpen={showCoachingStaffModal}
         onClose={() => setShowCoachingStaffModal(false)}
@@ -9203,7 +9461,7 @@ export default function Dashboard() {
         onClose={() => setShowNewJobEditModal(false)}
         onSave={handleNewJobSave}
         teamColors={teamColors}
-        currentJobData={currentDynasty.newJobData}
+        currentJobData={myNewJobData}
       />
 
       {/* GameEntryModal removed - now using game pages instead */}
@@ -9717,6 +9975,13 @@ export default function Dashboard() {
         }}
         currentYear={currentDynasty.currentYear}
         teamColors={teamColors}
+      />
+
+      {/* Staff Moves Modal (National Championship phase) */}
+      <StaffMovesModal
+        isOpen={showStaffMovesModal}
+        onClose={() => setShowStaffMovesModal(false)}
+        currentYear={currentDynasty.currentYear}
       />
 
       {/* Stats Entry Modal (End of Season Recap) */}
@@ -10254,6 +10519,15 @@ export default function Dashboard() {
         teamColors={teamColors}
       />
 
+      {/* National Commits Modal (National Signing Day) */}
+      <NationalCommitsModal
+        isOpen={showNationalCommitsModal}
+        onClose={() => setShowNationalCommitsModal(false)}
+        onSave={handleNationalCommitsSave}
+        existingCommits={currentDynasty?.nationalCommitsByYear?.[offseasonDataYear] || []}
+        teamColors={teamColors}
+      />
+
       {/* Recruiting Class Rank Modal (National Signing Day) */}
       <RecruitingClassRankModal
         isOpen={showRecruitingClassRankModal}
@@ -10268,6 +10542,7 @@ export default function Dashboard() {
         isOpen={showTrainingResultsModal}
         onClose={() => setShowTrainingResultsModal(false)}
         onSave={handleTrainingResultsSave}
+        onImportAttributes={handleTrainingResultsAttributesSave}
         currentYear={currentDynasty?.currentYear}
         teamColors={teamColors}
         players={(() => {
@@ -10317,6 +10592,7 @@ export default function Dashboard() {
         isOpen={showRecruitOverallsModal}
         onClose={() => setShowRecruitOverallsModal(false)}
         onSave={handleRecruitOverallsSave}
+        onImportAttributes={handleRecruitOverallsAttributesSave}
         currentYear={offseasonDataYear}
         teamColors={teamColors}
         recruits={(() => {
@@ -10650,23 +10926,23 @@ export default function Dashboard() {
       <ConferencesModal
         isOpen={showOffseasonConferencesModal}
         onClose={() => setShowOffseasonConferencesModal(false)}
-        onSave={async (data) => {
+        onSave={async (data, divData) => {
           // Year already flipped at Signing Day (Week 6), so currentYear IS the upcoming season
           const upcomingSeasonYear = currentDynasty.currentYear
           // Check if data is multi-year format (keys are years like "2025", "2026")
           const isMultiYear = Object.keys(data).every(key => /^\d{4}$/.test(key))
 
-          // saveConferenceAlignment fans the bulk map out to each
-          // team's per-year `byYear[year].conference` field AND
-          // continues writing the legacy stores. Routes through the
-          // dynasty's storageType automatically — no dev-mode /
-          // prod-mode branch needed here.
+          // saveConferenceAlignment fans the bulk map out to each team's per-year
+          // `byYear[year].conference` (+ `.division`) field. divData is keyed by
+          // year: { [year]: { divisions, teamDivisions } }.
           if (isMultiYear) {
             for (const [yearKey, mapForYear] of Object.entries(data)) {
-              await saveConferenceAlignment(currentDynasty.id, Number(yearKey), mapForYear)
+              const opts = divData?.[yearKey] || {}
+              await saveConferenceAlignment(currentDynasty.id, Number(yearKey), mapForYear, opts)
             }
           } else {
-            await saveConferenceAlignment(currentDynasty.id, upcomingSeasonYear, data)
+            const opts = divData?.[upcomingSeasonYear] || {}
+            await saveConferenceAlignment(currentDynasty.id, upcomingSeasonYear, data, opts)
           }
         }}
         teamColors={teamColors}

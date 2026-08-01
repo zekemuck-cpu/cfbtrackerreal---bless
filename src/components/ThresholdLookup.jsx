@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createStaffAccessor } from './staffDB';
+import { useDynasty } from '../context/DynastyContext';
 import { normalizeArch } from './archetypeWeights';
 import { recruitingPosLabel } from '../utils/recruitAttributes';
-import { useDynasty } from '../context/DynastyContext';
 import {
   DEV_TRAITS, getFormAttrs, buildRevealedPool, getAllTierProfiles,
   countBoundaries, gapToStrong,

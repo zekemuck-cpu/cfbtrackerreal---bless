@@ -1,6 +1,7 @@
 import { useEffect, useState, Suspense } from 'react'
 import { useParams, useNavigate, Outlet } from 'react-router-dom'
 import RouteFallback from '../components/RouteFallback'
+import RouteErrorBoundary from '../components/RouteErrorBoundary'
 import { useDynasty } from '../context/DynastyContext'
 import { useTeamColors } from '../hooks/useTeamColors'
 import Sidebar from '../components/Sidebar'
@@ -118,9 +119,11 @@ export default function DynastyDashboard() {
         className={`min-w-0 transition-[margin] duration-300 ${sidebarOpen ? 'lg:ml-56' : ''}`}
         style={{ paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
-        <Suspense fallback={<RouteFallback />}>
-          <Outlet />
-        </Suspense>
+        <RouteErrorBoundary>
+          <Suspense fallback={<RouteFallback />}>
+            <Outlet />
+          </Suspense>
+        </RouteErrorBoundary>
       </div>
 
       {/* Team switcher (visible when user controls 2+ teams) */}

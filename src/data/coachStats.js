@@ -8,6 +8,7 @@
  */
 
 import { getCoachNameForUid } from './leagueModel'
+import { getCoaches, getCoachesControlledBy } from './coachModel'
 
 // Game-type constants mirror DynastyContext.GAME_TYPES. Inlined here
 // to avoid the circular import (DynastyContext is the consumer surface;
@@ -59,9 +60,7 @@ function isCFPGame(g) {
  * Single source of truth — same map the timeline editor and Coach
  * Career page read. So edits in /league flow into stints immediately.
  */
-export function getCoachStints(dynasty, uid) {
-  if (!dynasty || !uid) return []
-  const yearTeams = buildYearTeamsMap(dynasty, uid)
+function stintsFromYearTeams(yearTeams) {
   const sortedYears = Object.keys(yearTeams).map(Number).filter(Number.isFinite).sort((a, b) => a - b)
   if (sortedYears.length === 0) return []
 
@@ -99,6 +98,18 @@ export function getCoachStints(dynasty, uid) {
   return closed.map(s => ({ ...s, years: s.endYear - s.startYear + 1 }))
 }
 
+/** Stints for a USER (uid) — union of all coaches they control (back-compat). */
+export function getCoachStints(dynasty, uid) {
+  if (!dynasty || !uid) return []
+  return stintsFromYearTeams(buildYearTeamsMap(dynasty, uid))
+}
+
+/** Stints for one COACH ENTITY — the career arc of a single coach. */
+export function getCoachStintsForCoach(coach) {
+  if (!coach) return []
+  return stintsFromYearTeams(buildYearTeamsMapForCoach(coach))
+}
+
 /**
  * Build a `{ year: Set<tid> }` map of which teams a uid coached each
  * year. memberTeamHistory[uid] is the SINGLE SOURCE OF TRUTH whenever
@@ -111,7 +122,39 @@ export function getCoachStints(dynasty, uid) {
  * legacy owner-only coachTeamByYear so pre-migration solo dynasties
  * still attribute correctly.
  */
+// A single coach entity's byYear → { year: Set<tid> }. One team per year, so
+// each set has at most one tid — but we keep the Set shape so the games-filter
+// loop is identical to the multi-team path.
+export function buildYearTeamsMapForCoach(coach) {
+  const out = {}
+  const byYear = coach?.byYear || {}
+  for (const [yStr, rec] of Object.entries(byYear)) {
+    const year = Number(yStr)
+    const tid = Number(rec?.teamTid)
+    if (!Number.isFinite(year) || !Number.isFinite(tid)) continue
+    out[year] = new Set([tid])
+  }
+  return out
+}
+
 function buildYearTeamsMap(dynasty, uid) {
+  // Coaches-first: union the byYear of every coach this uid controls. This is
+  // the post-migration source of truth (the migration runs in-memory on load,
+  // so it's populated for everyone with a coaching record).
+  const controlled = getCoachesControlledBy(dynasty, uid)
+  if (controlled.length > 0) {
+    const out = {}
+    for (const coach of controlled) {
+      for (const [yStr, set] of Object.entries(buildYearTeamsMapForCoach(coach))) {
+        const year = Number(yStr)
+        const dst = out[year] || (out[year] = new Set())
+        for (const t of set) dst.add(t)
+      }
+    }
+    return out
+  }
+
+  // ── Legacy fallback (pre-migration / migration gap) ──
   const out = {}
   const history = dynasty?.memberTeamHistory?.[uid]
   // History exists for this uid? Trust it as the source of truth.
@@ -142,12 +185,11 @@ function buildYearTeamsMap(dynasty, uid) {
 }
 
 /**
- * Lifetime summary for a single coach. Returns numbers (no formatting).
+ * Lifetime stat numbers for whatever `yearTeams` ({year: Set<tid>}) covers.
+ * Shared core for both the per-uid and per-coach summaries below — the games
+ * filter is identical, only the source of yearTeams differs.
  */
-export function getCoachSummary(dynasty, uid) {
-  if (!dynasty || !uid) return null
-  const yearTeams = buildYearTeamsMap(dynasty, uid)
-
+function summarizeGames(dynasty, yearTeams) {
   let wins = 0, losses = 0
   let bowlWins = 0, bowlLosses = 0
   let ccWins = 0
@@ -203,8 +245,6 @@ export function getCoachSummary(dynasty, uid) {
   const winPct = totalGames > 0 ? wins / totalGames : 0
 
   return {
-    uid,
-    name: getCoachNameForUid(dynasty, uid),
     primaryTeamTid,
     startYear,
     endYear,
@@ -222,18 +262,47 @@ export function getCoachSummary(dynasty, uid) {
 }
 
 /**
- * Summaries for every editor (commish + co-commishes + members).
- * Sorted by lifetime wins desc by default; pass a sort key:
- *   'wins' | 'winPct' | 'national' | 'conf' | 'bowl' | 'name' | 'years'
+ * Lifetime summary for one COACH ENTITY (cid). The leaderboard's row source.
+ * Returns the shared stat numbers plus { cid, uid, controlledBy, name }.
+ */
+export function getCoachSummaryForCoach(dynasty, coach) {
+  if (!dynasty || !coach) return null
+  const yearTeams = buildYearTeamsMapForCoach(coach)
+  return {
+    cid: coach.cid,
+    uid: coach.controlledBy ?? null,
+    controlledBy: coach.controlledBy ?? null,
+    name: coach.name || getCoachNameForUid(dynasty, coach.controlledBy) || 'Coach',
+    ...summarizeGames(dynasty, yearTeams),
+  }
+}
+
+/**
+ * Lifetime summary for a USER (uid) — the union of every team they coached
+ * (across all coaches they control). Back-compat for surfaces that think in
+ * users rather than coach entities (e.g. TeamYear historical records).
+ */
+export function getCoachSummary(dynasty, uid) {
+  if (!dynasty || !uid) return null
+  const yearTeams = buildYearTeamsMap(dynasty, uid)
+  return {
+    uid,
+    name: getCoachNameForUid(dynasty, uid),
+    ...summarizeGames(dynasty, yearTeams),
+  }
+}
+
+/**
+ * Summaries for every CONTROLLED coach in the dynasty (one row per coach
+ * entity, controlledBy != null). NPC coordinators are excluded from the
+ * career leaderboard. Sorted by lifetime wins desc by default; pass a sort
+ * key: 'wins' | 'winPct' | 'national' | 'conf' | 'bowl' | 'name' | 'years'
  */
 export function getAllCoachSummaries(dynasty, sortBy = 'wins') {
   if (!dynasty) return []
-  const ownerUid = dynasty.userId
-  const editors = Array.isArray(dynasty.editors) ? dynasty.editors : []
-  const allUids = new Set(editors)
-  if (ownerUid) allUids.add(ownerUid)
-  const summaries = Array.from(allUids)
-    .map(uid => getCoachSummary(dynasty, uid))
+  const summaries = Object.values(getCoaches(dynasty))
+    .filter(c => c && c.controlledBy != null)
+    .map(c => getCoachSummaryForCoach(dynasty, c))
     .filter(Boolean)
 
   const sorters = {

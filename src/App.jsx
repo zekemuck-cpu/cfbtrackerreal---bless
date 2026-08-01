@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Analytics } from '@vercel/analytics/react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { DynastyProvider } from './context/DynastyContext'
@@ -8,6 +8,7 @@ import Layout from './components/Layout'
 import { ToastProvider, ConfirmProvider } from './components/ui'
 import ScrollToTop from './components/ScrollToTop'
 import RouteFallback from './components/RouteFallback'
+import RouteErrorBoundary from './components/RouteErrorBoundary'
 
 // Eager: entry points, auth, and page wrappers (small + always-on-first-paint)
 import Login from './pages/Login'
@@ -20,15 +21,16 @@ import JoinDynasty from './pages/JoinDynasty'
 import Privacy from './pages/Privacy'
 import Terms from './pages/Terms'
 import Contact from './pages/Contact'
+import InstallApp from './pages/InstallApp'
 
 // Lazy pages with `.preload()` capability — see routes/lazyPages.js
 import {
-  Dashboard, Roster, Rankings, Stats, CoachCareer, CoachBuild, Coaches, Players, Player, PlayerEdit,
+  Dashboard, Roster, Rankings, Stats, CoachCareer, CoachBuild, Coaches, Players, ComparePlayers, Player, PlayerEdit,
   PlayersByState, AllTimeLineup, Recruiting, ScoutStaff, Leaders, Awards, AllAmericans,
   AllConference, DynastyRecords, Records, SeasonStats, TeamStats, Teams, TeamYear, BowlHistory,
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, DynastyBlueprint, CoachProfile, CoachEdit, DevTools,
-  SocialCharacter, LeaguePreferences, ImageGallery, SchemeBuilder,
+  SocialCharacter, LeaguePreferences, ImageGallery, ManageRivalries, SchemeBuilder,
   TopClasses, PlayersOfWeek, HeismanWatch, InjuryReport,
   PlayersLeaving, TrainingResults,
 } from './routes/lazyPages'
@@ -56,12 +58,14 @@ function AppRoutes() {
   return (
     <Router>
       <ScrollToTop />
+      <RouteErrorBoundary>
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Public policy pages - no auth required */}
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/install" element={<InstallApp />} />
 
           {/* Public view routes - no auth required, reuses same components */}
           <Route path="/view/:shareCode" element={<ViewDynasty />}>
@@ -75,6 +79,7 @@ function AppRoutes() {
             <Route path="coach-build" element={<CoachBuild />} />
             <Route path="coaches" element={<Coaches />} />
             <Route path="players" element={<Players />} />
+            <Route path="compare" element={<ComparePlayers />} />
             <Route path="players/state/:state" element={<PlayersByState />} />
             <Route path="all-time-lineup" element={<AllTimeLineup />} />
             <Route path="recruiting" element={<Recruiting />} />
@@ -120,6 +125,7 @@ function AppRoutes() {
             <Route path="weekly-scores/:year" element={<WeeklyScores />} />
             <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
             <Route path="cards" element={<CardCollection />} />
+            <Route path="rivalries" element={<ManageRivalries />} />
             <Route path="game/:gameId" element={<Game />} />
             <Route path="social/:charId" element={<SocialCharacter />} />
             <Route path="scheme-builder/:tid/:year" element={<SchemeBuilder />} />
@@ -187,6 +193,7 @@ function AppRoutes() {
                   <Route path="coach-build" element={<CoachBuild />} />
                   <Route path="coaches" element={<Coaches />} />
                   <Route path="players" element={<Players />} />
+                  <Route path="compare" element={<ComparePlayers />} />
                   <Route path="players/state/:state" element={<PlayersByState />} />
                   <Route path="all-time-lineup" element={<AllTimeLineup />} />
                   <Route path="recruiting" element={<Recruiting />} />
@@ -233,6 +240,7 @@ function AppRoutes() {
                   <Route path="weekly-scores/:year" element={<WeeklyScores />} />
                   <Route path="weekly-scores/:year/:week" element={<WeeklyScores />} />
                   <Route path="cards" element={<CardCollection />} />
+                  <Route path="rivalries" element={<ManageRivalries />} />
                   <Route path="game/new" element={<GameEdit />} />
                   <Route path="game/:gameId" element={<Game />} />
                   <Route path="game/:gameId/edit" element={<GameEdit />} />
@@ -252,6 +260,7 @@ function AppRoutes() {
           } />
         </Routes>
       </Suspense>
+      </RouteErrorBoundary>
     </Router>
   )
 }

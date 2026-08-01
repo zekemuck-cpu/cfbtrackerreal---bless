@@ -22,6 +22,9 @@ import {
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { getTeamNameOptions, getTeamNameAliases } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -34,6 +37,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+  const teamAbbrs = useMemo(() => getTeamNameOptions(currentDynasty?.teams, { includeFCS: false }), [currentDynasty?.teams])
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
@@ -41,12 +45,71 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+
+  // The 25 fixed All-Americans position rows, in sheet order (row 4 → row 28).
+  // Mirrors ALL_AMERICAN_POSITIONS in sheetsService.js.
+  const AA_POSITIONS = [
+    'QB', 'HB', 'HB', 'WR', 'WR', 'WR', 'TE',
+    'LT', 'LG', 'C', 'RG', 'RT',
+    'LEDG', 'REDG', 'DT', 'DT',
+    'SAM', 'MIKE', 'WILL',
+    'CB', 'CB', 'FS', 'SS',
+    'K', 'P',
+  ]
+
+  // Pre-fill the local grid with this year's EXISTING All-Americans so the modal
+  // opens ready to edit. handleLocalImport prepends 3 empty header rows and the
+  // parser reads rows[3 + i] for the 25 position rows, taking each 12-field line
+  // as: Position, FirstPlayer, FirstTeam, FirstClass, Position, SecondPlayer,
+  // SecondTeam, SecondClass, Position, FreshPlayer, FreshTeam, FreshClass. We
+  // build exactly 25 lines (one per position slot), filling the position value
+  // in fields 0/4/8 of EVERY row — this mirrors createAllAmericansOnlySheet's
+  // pre-fill AND guarantees no line is fully blank (so splitTsv, which drops
+  // blank lines, can't collapse the fixed 25-row layout and misalign import).
+  // Multi-slot positions (HB×2, WR×3, DT×2, CB×2) consume existing entries in
+  // order via a per-position used-index, exactly like the Google pre-fill.
+  const initialAllAmericansText = useMemo(() => {
+    const yearData = currentDynasty?.allAmericansByYear?.[currentYear] || {}
+    const aaFirst = {}
+    const aaSecond = {}
+    const aaFreshman = {}
+    if (yearData.allAmericans) {
+      yearData.allAmericans.forEach(entry => {
+        const pos = entry.position
+        if (entry.designation === 'first') (aaFirst[pos] = aaFirst[pos] || []).push(entry)
+        else if (entry.designation === 'second') (aaSecond[pos] = aaSecond[pos] || []).push(entry)
+        else if (entry.designation === 'freshman') (aaFreshman[pos] = aaFreshman[pos] || []).push(entry)
+      })
+    }
+    const usedFirst = {}
+    const usedSecond = {}
+    const usedFreshman = {}
+    return AA_POSITIONS.map(pos => {
+      const firstEntries = aaFirst[pos] || []
+      const secondEntries = aaSecond[pos] || []
+      const freshmanEntries = aaFreshman[pos] || []
+      if (usedFirst[pos] === undefined) usedFirst[pos] = 0
+      if (usedSecond[pos] === undefined) usedSecond[pos] = 0
+      if (usedFreshman[pos] === undefined) usedFreshman[pos] = 0
+      const first = firstEntries[usedFirst[pos]] ? firstEntries[usedFirst[pos]++] : null
+      const second = secondEntries[usedSecond[pos]] ? secondEntries[usedSecond[pos]++] : null
+      const freshman = freshmanEntries[usedFreshman[pos]] ? freshmanEntries[usedFreshman[pos]++] : null
+      return [
+        pos, first?.player || '', first?.school || '', first?.class || '',
+        pos, second?.player || '', second?.school || '', second?.class || '',
+        pos, freshman?.player || '', freshman?.school || '', freshman?.class || '',
+      ].join('\t')
+    }).join('\n')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDynasty?.allAmericansByYear, currentYear])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} All-Americans`,
@@ -64,15 +127,14 @@ CRITICAL RULES — read before anything else
 5. NO COMMAS anywhere. No commentary, totals, or extra columns. No "N/A", no dashes.
 6. BLANK field for unknown (empty between tabs). Never guess. Never invent players.
 7. Use ONLY the literal dropdown values listed below for Position, Team, and Class — wrong spelling = dropdown rejects it.
-8. Team values must be UPPERCASE abbreviations from the mapping at the bottom of this prompt — NEVER full names, city, or nickname.
-9. ONE TSV block, 25 lines, 12 tab-separated fields each — preceded by the required paste-target label line above the fence (see TSV delivery rules above).
+8. Team values must be team names from the list at the bottom of this prompt — NEVER an abbreviation, nickname, or city.
+9. ONE TSV block, 25 lines, 12 tab-separated fields each.
 
 ═══════════════════════════════════════════════════════════
-TAB "${currentYear}" — 25 data rows × 12 fields
-Paste at cell A4 of the "${currentYear}" tab
+SECTION: "${currentYear}" — 25 data rows × 12 fields
 ═══════════════════════════════════════════════════════════
 
-WHY PASTE AT A4 AND INCLUDE POSITIONS: Google Sheets pastes TSV into CONSECUTIVE cells. You cannot "skip" columns E and I — every tab in your line fills the next cell. To land data in the correct columns (B/C/D for First-Team, F/G/H for Second, J/K/L for Freshman), you MUST include the Position value in cols A/E/I. The Position value you output simply overwrites the pre-filled Position with the identical value from the list below. If you try to skip positions and paste at B4 with only 9 fields, your data will be shifted left across the middle and right blocks — CORRUPT.
+WHY INCLUDE POSITIONS IN ALL THREE SLOTS: each line has three side-by-side team blocks (First-Team, Second-Team, Freshman Team), and repeating the Position value in the 1st, 5th, and 9th fields keeps the three blocks aligned. If you drop the position fields and output only 9 fields, the middle and right blocks shift left and the data is CORRUPT.
 
 Position by row (repeat the same value in the 1st, 5th, 9th fields of that line):
   Row 4  → QB
@@ -111,7 +173,7 @@ Field formats:
     QB | HB | FB | WR | TE | LT | LG | C | RG | RT | LEDG | REDG | DT | SAM | MIKE | WILL | CB | FS | SS | K | P
   Use the position that matches the row from the list above. The same value goes in all three Position slots on that line.
 - Player (3 slots per row: First, Second, Freshman) — full name string, blank if unknown. A Freshman-team player must actually be a freshman (Fr or RS Fr).
-- Team (3 slots per row — strict dropdown) — uppercase abbreviation from the mapping at the bottom (e.g. BAMA, OSU, UGA, TEX). NEVER full names or nicknames.
+- Team (3 slots per row — strict dropdown) — team name from the list at the bottom (e.g. Alabama, Ohio State, Georgia, Texas). NEVER an abbreviation, nickname, or mascot.
 - Class (3 slots per row — strict dropdown) — must be EXACTLY one of:
     Fr | RS Fr | So | RS So | Jr | RS Jr | Sr | RS Sr
   Note the literal space in "RS Fr"/"RS So"/"RS Jr"/"RS Sr". No "Freshman", "Sophomore", "FR", "SO", "R-Fr", "RSFr".
@@ -119,7 +181,7 @@ Field formats:
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== ALL-AMERICANS — paste at cell A4 of "${currentYear}" tab ===
+=== ALL-AMERICANS ===
 <25 lines × 12 tab-separated fields, positions as listed above>
 
 ═══════════════════════════════════════════════════════════
@@ -128,17 +190,19 @@ FINAL CHECK before you send
 [ ] Exactly 25 lines in the block, one per position (order: QB, HB, HB, WR, WR, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, DT, SAM, MIKE, WILL, CB, CB, FS, SS, K, P)
 [ ] Every line has exactly 12 tab-separated fields (11 tabs per line)
 [ ] The 1st, 5th, and 9th fields on every line are the SAME position value from the row list
-[ ] All Team values are uppercase abbreviations from the mapping — no full names
+[ ] All Team values are uppercase names from the list — no full names
 [ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
 [ ] All Freshman-team Class values are Fr or RS Fr (no Sophomores or above in Freshman slot)
 [ ] Blank fields for unknowns — nothing was invented
-[ ] No commas, no header rows, no commentary INSIDE the data. The paste-target label above the fence is required (see TSV delivery rules above).`,
+[ ] No commas, no header rows, no commentary INSIDE the data.`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -168,9 +232,16 @@ FINAL CHECK before you send
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
         // Set ref immediately to prevent concurrent calls (state updates are async)
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -207,14 +278,27 @@ FINAL CHECK before you send
       }
     }
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI reply pastes at A4 (no header rows) and emits 25
+  // data lines of 12 tab-separated fields, positions included in fields 1/5/9.
+  // The parser reads rows[3 + i], so prepend 3 empty header rows to align the
+  // data to indices 3–27 — the same shape the Sheets API A1:L28 read returns.
+  const handleLocalImport = async (text) => {
+    const rows = [[], [], [], ...splitTsv(text)]
+    const data = await readAllAmericansOnlyFromSheet(null, currentYear, (currentDynasty?.teams || currentDynasty?.customTeams), { rows })
+    await onSave(data)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -330,7 +414,19 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Postseason" title={`${currentYear} All-Americans`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            columns={['Position', 'First Player', 'First Team', 'First Class', 'Position', 'Second Player', 'Second Team', 'Second Class', 'Position', 'Freshman Player', 'Freshman Team', 'Freshman Class']}
+            comboboxColumns={{ 'First Team': teamAbbrs, 'Second Team': teamAbbrs, 'Freshman Team': teamAbbrs }}
+            comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+            initialText={initialAllAmericansText}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import All-Americans"
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />

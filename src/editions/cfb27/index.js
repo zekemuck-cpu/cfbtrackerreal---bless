@@ -23,6 +23,9 @@ export default {
     coachingCarousel: true,
     scoutingWeek: true,
     commitLadder: true,
+    // Full per-player attribute entry (Training Results / Recruit Overalls can
+    // capture the whole ~50-attribute set, not just Overall).
+    attributes: true,
   },
 
   // Dynasty Points economy — reference data for the input-driven Blueprint

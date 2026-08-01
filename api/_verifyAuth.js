@@ -36,27 +36,13 @@ export async function verifyAuth(req, res) {
 // request body, so this can't be spoofed.
 export const ADMIN_EMAILS = new Set(['alex.guess1999@gmail.com']);
 
-// Emails permitted to self-grant a free 30-day premium pass. Used while
-// the app is in beta and Stripe checkout is disabled — users email the
-// dev, the dev adds them here, they self-grant from the Account page.
-// Includes ADMIN_EMAILS implicitly (admins can do everything beta can).
-// Keep alphabetised for easy auditing when the list grows.
+// Post-beta: the paid launch is live, so the self-grant allowlist is down
+// to the permanent free accounts (the owner is covered implicitly via
+// ADMIN_EMAILS). Everyone else subscribes through Stripe. Remaining beta
+// 30-day grants keep premium until they lapse on their own.
+// Grants for these emails are LIFETIME (~100y) — see api/_handlers/admin/grant-premium.js.
 export const BETA_GRANT_EMAILS = new Set([
-  'alabamaprince@gmail.com',
-  'skater1932@gmail.com',
   'zekemuck@gmail.com',
-  'couchcoach16@gmail.com',
-  'paul.540909@gmail.com',
-  'john.prince1529@gmail.com',
-  'd.carasiti@gmail.com',
-  'boisestate2525@gmail.com',
-  'yepeza23@gmail.com',
-  'tylerhorn30@gmail.com',
-  'jpj1226@gmail.com',
-  'bryceth24@gmail.com',
-  'cwilsonsimons@gmail.com',
-  'abohannon1991@gmail.com',
-  'coreyethan114@gmail.com',
 ]);
 
 /**
@@ -66,7 +52,11 @@ export const BETA_GRANT_EMAILS = new Set([
 export async function verifyAdmin(req, res) {
   const decoded = await verifyAuth(req, res);
   if (!decoded) return null;
-  if (!decoded.email || !ADMIN_EMAILS.has(decoded.email.toLowerCase())) {
+  // Require a VERIFIED email before matching the allowlist. Harmless for
+  // Google sign-in (always verified) but prevents a forged unverified
+  // email claim from passing the gate if another provider is ever enabled
+  // (audit M7).
+  if (!decoded.email || decoded.email_verified !== true || !ADMIN_EMAILS.has(decoded.email.toLowerCase())) {
     res.status(403).json({ error: 'Admin access required' });
     return null;
   }
@@ -81,9 +71,65 @@ export async function verifyAdmin(req, res) {
 export async function verifyBetaGrant(req, res) {
   const decoded = await verifyAuth(req, res);
   if (!decoded) return null;
+  if (decoded.email_verified !== true) {
+    res.status(403).json({ error: 'A verified email is required.' });
+    return null;
+  }
   const email = decoded.email?.toLowerCase();
   if (!email || (!BETA_GRANT_EMAILS.has(email) && !ADMIN_EMAILS.has(email))) {
     res.status(403).json({ error: 'Beta access required. Email the dev to be added to the allowlist.' });
+    return null;
+  }
+  return decoded;
+}
+
+/**
+ * Verify the caller AND that they currently have premium.
+ *
+ * The CFB 27 save-import endpoints burn real infrastructure per call (R2
+ * storage + a serverless parse of a ~10MB binary + up to 16k Firestore
+ * writes). They shipped with auth only, which let any signed-in free account
+ * drive that cost. Cloud storage is already premium-only, so gating these is
+ * consistent with the rest of the product rather than a new restriction.
+ *
+ * Mirrors isPremiumData in firestore.rules / subscriptionService.js:
+ *   - tier must be 'premium'
+ *   - active/trialing: premium until currentPeriodEnd (absent = no expiry)
+ *   - past_due: only inside a bounded grace deadline
+ *   - _devGranted comps count while unexpired
+ *
+ * Returns the decoded token on success; sends 401/403 and returns null
+ * otherwise, so callers just `return` when it yields null.
+ */
+export async function verifyPremium(req, res) {
+  const decoded = await verifyAuth(req, res);
+  if (!decoded) return null;
+
+  const { db } = await import('./_firebaseAdmin.js');
+  let data = null;
+  try {
+    const snap = await db.collection('users').doc(decoded.uid).get();
+    data = snap.exists ? snap.data() : null;
+  } catch (err) {
+    console.error('[verifyPremium] user lookup failed:', err);
+    res.status(500).json({ error: 'Could not verify subscription' });
+    return null;
+  }
+
+  const ms = (v) => (v?.toMillis ? v.toMillis()
+    : v?.seconds ? v.seconds * 1000
+    : v ? new Date(v).getTime() : null);
+  const end = ms(data?.currentPeriodEnd);
+  const unexpired = end == null || end > Date.now();
+
+  const premium = !!data && data.tier === 'premium' && (
+    ((data.subscriptionStatus === 'active' || data.subscriptionStatus === 'trialing') && unexpired) ||
+    (data.subscriptionStatus === 'past_due' && end != null && end > Date.now()) ||
+    (data._devGranted === true && unexpired)
+  );
+
+  if (!premium) {
+    res.status(403).json({ error: 'Premium required for CFB 27 save import', requiresUpgrade: true });
     return null;
   }
   return decoded;

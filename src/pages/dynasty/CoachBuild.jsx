@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useDynasty } from '../../context/DynastyContext'
@@ -760,8 +760,7 @@ export default function CoachBuild() {
   const navigate = useNavigate()
   const pathPrefix = usePathPrefix()
   const { id: dynastyId } = useParams()
-  const storageKey = `coachBuild_${dynastyId}`
-  const { currentDynasty } = useDynasty()
+  const { currentDynasty, updateDynasty, isViewOnly } = useDynasty()
   const { user } = useAuth()
 
   const coachName = useMemo(() => {
@@ -783,10 +782,9 @@ export default function CoachBuild() {
     return getTeamLogoRobust(tid, currentDynasty.teams) || null
   }, [currentDynasty])
 
-  // Load persisted state once on mount
-  const saved = useMemo(() => {
-    try { return JSON.parse(localStorage.getItem(storageKey)) || {} } catch { return {} }
-  }, [storageKey])
+  // Load persisted state once on mount from the dynasty object (cloud-synced
+  // for cloud dynasties, IndexedDB for local — same path as everything else).
+  const saved = useMemo(() => currentDynasty?.coachBuild || {}, [currentDynasty?.id])
 
   const [activeTab, setActiveTab] = useState('builder')
   const [levelInput, setLevelInput] = useState(String(saved.coachLevel ?? 100))
@@ -801,9 +799,14 @@ export default function CoachBuild() {
   const [hoveredArch, setHoveredArch] = useState(null)
   const [previewArchId, setPreviewArchId] = useState(null)
 
-  // Persist state to localStorage whenever anything changes
+  // Persist to the dynasty object whenever anything changes. Debounced so
+  // dragging sliders / checking boxes doesn't fire a write per change, and the
+  // initial mount is skipped so we never rewrite what we just loaded.
+  const firstSave = useRef(true)
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify({
+    if (firstSave.current) { firstSave.current = false; return }
+    if (isViewOnly || !dynastyId) return
+    const payload = {
       archetypeId,
       starterArchId,
       purchased: [...purchased],
@@ -811,8 +814,10 @@ export default function CoachBuild() {
       coachLevel,
       preorder,
       mvp,
-    }))
-  }, [archetypeId, starterArchId, purchased, checkedReqs, coachLevel, preorder, mvp, storageKey])
+    }
+    const t = setTimeout(() => { updateDynasty(dynastyId, { coachBuild: payload }) }, 700)
+    return () => clearTimeout(t)
+  }, [archetypeId, starterArchId, purchased, checkedReqs, coachLevel, preorder, mvp, dynastyId, isViewOnly])
 
   const archetype = ARCHETYPES.find(a => a.id === archetypeId) || null
   const previewArch = previewArchId ? ARCHETYPES.find(a => a.id === previewArchId) : null
@@ -961,7 +966,7 @@ export default function CoachBuild() {
   }
 
   function handleReset() {
-    localStorage.removeItem(storageKey)
+    if (!isViewOnly && dynastyId) updateDynasty(dynastyId, { coachBuild: {} })
     setArchetypeId(null)
     setStarterArchId(null)
     setPreviewArchId(null)

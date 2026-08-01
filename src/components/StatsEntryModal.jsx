@@ -12,9 +12,12 @@ import SheetModalFooter from './ui/SheetModalFooter'
 import AuthErrorModal from './AuthErrorModal'
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
 import SheetToolbar from './SheetToolbar'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 import {
   createStatsEntrySheet,
   readStatsFromSheet,
+  parseGpSnapsLocal,
   deleteGoogleSheet,
   getSheetEmbedUrl
 } from '../services/sheetsService'
@@ -48,10 +51,16 @@ export default function StatsEntryModal({
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [authErrorOccurred, setAuthErrorOccurred] = useState(false) // Prevents retry loops on auth errors
   const [createAttempts, setCreateAttempts] = useState(0) // Tracks creation attempts
-  const MAX_CREATE_ATTEMPTS = 2 // Maximum retries for sheet creation
+  // Single attempt per open. A FAILED creation must NOT auto-retry — the old
+  // value of 2 let a non-auth failure re-fire (creatingSheet is in the effect
+  // deps) and spawn a second orphan Google Sheet. An explicit retry (the
+  // AuthErrorModal Refresh, which resets createAttempts) re-arms one more.
+  const MAX_CREATE_ATTEMPTS = 1
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -80,6 +89,55 @@ export default function StatsEntryModal({
         jerseyNumber: p.jerseyNumber,
         position: p.position,
       }))
+  }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear, currentDynasty])
+
+  // Roster names for the Player column's typeahead. Constraining the typed value
+  // to an exact roster name is what actually connects the stat row to the right
+  // player — the save path resolves rows to players by case-insensitive name.
+  const rosterNames = useMemo(
+    () => userRoster.map(p => p.name).filter(Boolean).sort((a, b) => a.localeCompare(b)),
+    [userRoster]
+  )
+
+  // Alias map so EA-CFB's initial-abbreviated names ("A. Guess") and a bare last
+  // name still surface the full roster name in the dropdown as you type.
+  const rosterAliases = useMemo(() => {
+    const out = {}
+    for (const p of userRoster) {
+      if (!p.name) continue
+      const parts = p.name.trim().split(/\s+/)
+      if (parts.length < 2) continue
+      const first = parts[0]
+      const last = parts.slice(1).join(' ')
+      out[p.name] = [`${first[0]}. ${last}`, `${first[0]}.${last}`, last]
+    }
+    return out
+  }, [userRoster])
+
+  // Pre-fill the local grid with the roster's EXISTING GP/Snaps so the modal
+  // opens ready to edit. parseGpSnapsLocal reads each row as
+  // <Player>\t<Games Played>\t<Snaps Played> (row[0], row[1], row[2]); a blank
+  // GP/Snaps cell parses to null ("leave the saved value alone"), matching the
+  // Google reader. Column order: [Player, Games Played, Snaps Played].
+  const initialGpSnapsText = useMemo(() => {
+    const teamTid = overrideTeamAbbr
+      ? getTidFromAbbr(overrideTeamAbbr, currentDynasty)
+      : getCurrentTeamTid(currentDynasty)
+    const teamAbbrForRoster = overrideTeamAbbr ||
+      currentDynasty?.teams?.[currentDynasty?.currentTid]?.abbr ||
+      currentDynasty?.teamName
+    const yearKey = String(currentYear)
+    const numKey = Number(currentYear)
+    const all = currentDynasty?.players || []
+    const cell = (v) => (v === undefined || v === null ? '' : v)
+    return all
+      .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
+      .filter(p => p.name)
+      .map(p => {
+        const s = p.statsByYear?.[yearKey] ?? p.statsByYear?.[numKey] ?? p.statsByYear?.[currentYear]
+        return `${p.name}\t${cell(s?.gamesPlayed)}\t${cell(s?.snapsPlayed)}`
+      })
+      .join('\n')
   }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, overrideTeamAbbr, currentYear, currentDynasty])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
@@ -189,13 +247,11 @@ CRITICAL OUTPUT RULES
    tabs). Never guess. Never use 0 as "unknown" — 0 means "the player
    genuinely had zero snaps / zero games played".
 9. NO COMMAS in numbers: "1234" not "1,234".
-10. No header row, no totals, no commentary INSIDE the data. ONE TSV
-    block, preceded by the required paste-target label line above the
-    fence (see TSV delivery rules above).
+10. No header row, no totals, no commentary INSIDE the data. Output
+    ONLY the fenced tsv block, nothing before or after it.
 
 ═══════════════════════════════════════════════════════════
-TAB: "GP/Snaps"
-Paste at cell A2 of the "GP/Snaps" tab
+SECTION: "GP/Snaps"
 ═══════════════════════════════════════════════════════════
 
 Col | Header (protected)  | Your output                                                                 | Format
@@ -207,7 +263,7 @@ Col | Header (protected)  | Your output                                         
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== GP/SNAPS — paste at cell A2 of "GP/Snaps" tab ===
+=== GP/SNAPS ===
 <Player>\\t<Games Played>\\t<Snaps Played>
 <Player>\\t<Games Played>\\t<Snaps Played>
 ...
@@ -226,7 +282,7 @@ FINAL CHECK before you send
 [ ] Games Played is the literal value from the GP column (any view)
 [ ] No snap counts SUMMED across categories — would double-count
 [ ] No commas in any number; no decimals; no "snaps"/"games" suffix
-[ ] No header row, no totals, no commentary INSIDE the data (the paste-target label above the fence is required, see TSV delivery rules above)`,
+[ ] No header row, no totals, no commentary INSIDE the data`,
     includeTeamMap: false,
   }), [currentYear, userRoster])
 
@@ -271,7 +327,8 @@ FINAL CHECK before you send
       // Don't retry if auth error occurred or max attempts reached
       if (authErrorOccurred || createAttempts >= MAX_CREATE_ATTEMPTS) return
 
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         // ALWAYS create a fresh sheet - never reuse old sheets
         // This ensures the sheet reflects current player data (user may have edited players directly)
 
@@ -338,9 +395,13 @@ FINAL CHECK before you send
           console.error('Failed to create stats sheet:', error)
           setCreateAttempts(prev => prev + 1)
 
-          // Check for OAuth/auth errors - stop retrying and show error modal
+          // Auth errors open the re-auth modal. Anything else gets surfaced as
+          // a toast so the user isn't left staring at a blank modal — and the
+          // effect does NOT loop back to create another sheet.
           if (auth.handleError(error)) {
             setAuthErrorOccurred(true)
+          } else {
+            toast.error(auth.describeError(error, 'create the stats sheet'))
           }
         } finally {
           setCreatingSheet(false)
@@ -350,7 +411,7 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, overrideTeamAbbr, overrideTeamName, currentYear, authErrorOccurred, createAttempts])
+  }, [isOpen, useLocal, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, overrideTeamAbbr, overrideTeamName, currentYear, authErrorOccurred, createAttempts])
 
   // Reset state when modal closes - clear sheetId so a fresh sheet is created next time
   useEffect(() => {
@@ -360,9 +421,19 @@ FINAL CHECK before you send
       creatingSheetRef.current = false
       setAuthErrorOccurred(false)
       setCreateAttempts(0)
+      setUseLocal(true)
       auth.setShowAuthError(false)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits <Player>\t<Games Played>\t<Snaps Played>
+  // rows. parseGpSnapsLocal returns the SAME [{ name, gamesPlayed, snapsPlayed }]
+  // array the Google reader returns, so the existing onSave applies unchanged.
+  const handleLocalImport = async (text) => {
+    const stats = parseGpSnapsLocal(splitTsv(text))
+    await onSave(stats)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -483,7 +554,19 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Stats" title={`${currentYear} GP / Snaps`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import GP / Snaps"
+            columns={['Player', 'Games Played', 'Snaps Played']}
+            comboboxColumns={{ Player: rosterNames }}
+            comboboxAliases={rosterAliases}
+            initialText={initialGpSnapsText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

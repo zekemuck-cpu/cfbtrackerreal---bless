@@ -1,3 +1,5 @@
+import { getTeamNameOptions, getTeamInGameNames } from '../data/teamRegistry'
+
 export const TEAM_ABBR_MAPPING = `AFA = Air Force
 AKR = Akron
 BAMA = Alabama
@@ -235,49 +237,43 @@ export function buildAIPrompt({
   multiBlock = false,
 }) {
   const sections = [
-    `Your single deliverable is a TSV (tab-separated values) data file for "${title}". Not CSV, not a markdown table, not JSON, not a chat-formatted explanation — TSV. Read this whole instruction block before you start.`,
+    `You're helping a user fill in "${title}" for their college-football dynasty tracker app. The task is simple data entry: read the data they give you (usually a screenshot of an in-game screen) and hand it back as a tab-separated (TSV) code block they can paste straight into the app. This block spells out the exact columns and layout — have a read through, then reply with the data.`,
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `OUTPUT DELIVERY FORMAT — READ THIS FIRST, OBEY EXACTLY`,
+    `HOW TO HAND THE DATA BACK`,
     `═══════════════════════════════════════════════════════════`,
-    `Do NOT generate a downloadable file attachment. Do NOT use code execution, artifacts, or a file builder to create a file. Your ONLY delivery method is an inline fenced TSV code block in your chat response${multiBlock ? ' (one per tab)' : ''}, so the user can copy and paste it directly from the chat window. ".tsv" = tab-separated values, the format that pastes cleanly into Google Sheets without any post-processing on the user's end.`,
+    `Please put the data in an inline fenced TSV code block right in your reply${multiBlock ? ' (one per section)' : ''} — an ordinary code block in the chat, not a downloadable file, artifact, or code-execution output. The user copies the block out of the chat and pastes it into the app's import box, and tab-separated values are what paste cleanly there with no cleanup on their end.`,
     ``,
-    `WHY TSV (NOT CSV, NOT MARKDOWN): the user is going to paste your output directly into Google Sheets. Tabs split fields into cells in one keystroke. CSV requires escape rules for commas inside numbers; markdown tables don't paste at all. The user has confirmed empirically that pasting TSV works every time. Anything else creates work for the user. Default to TSV unless you literally cannot.`,
-    ``,
-    multiBlock
-      ? `This sheet has MULTIPLE tabs. The structure below describes one block per tab; each block must land in a DIFFERENT tab at a DIFFERENT cell. Block labels (e.g. "=== PASSING — paste at cell C2 of Passing tab ===") are paste-target markers the user reads by eye — they live OUTSIDE the data and are NOT copied into the sheet.`
-      : `This sheet has a SINGLE tab. Your entire output is one block of tab-separated data rows that the user pastes at the cell specified in the structure below.`,
+    `WHY TSV (NOT CSV, NOT MARKDOWN): the user is going to paste your output directly into the app. Tabs split fields into cells in one keystroke. CSV requires escape rules for commas inside numbers; markdown tables don't paste at all. The user has confirmed empirically that pasting TSV works every time. Anything else creates work for the user. Default to TSV unless you literally cannot.`,
     ``,
     multiBlock
-      ? `Output ONE labeled \`\`\`tsv fence PER TAB. The label line goes ABOVE its fence and tells the user where to paste; the fence contains ONLY data rows for that tab. Layout — exactly this shape, one repetition per tab:`
-      : `Output a single fenced TSV code block, preceded by ONE line that tells the user where to paste it. Layout — exactly this shape:`,
+      ? `This data has MULTIPLE sections. The structure below describes one block per section. Output one block per section, each in its OWN fenced tsv code block. Section labels (e.g. "=== PASSING ===") are markers the user reads by eye — they live OUTSIDE the data and are NOT copied into the app.`
+      : `Your entire output is ONE block of tab-separated data rows that the user copies straight into the app's import box.`,
+    ``,
     multiBlock
-      ? `      Paste this TSV into cell <CELL> of the "<Tab>" tab`
-      : `      Paste this TSV into cell <CELL> of the "<Tab>" tab    ← read the structure below for the exact cell + tab`,
+      ? `Output ONE fenced \`\`\`tsv block PER SECTION. Immediately ABOVE each fence, put a plain label line of the form "=== <SECTION NAME> ===" so the user can tell the blocks apart; the fence contains ONLY data rows for that section. Layout — exactly this shape, one repetition per section:`
+      : `Output a single fenced \`\`\`tsv code block — nothing else. Layout — exactly this shape:`,
     multiBlock
-      ? `      \`\`\`tsv`
-      : `      \`\`\`tsv`,
+      ? `      === <SECTION NAME> ===`
+      : null,
+    `      \`\`\`tsv`,
     multiBlock
-      ? `      <tab-separated data rows for this tab only>`
+      ? `      <tab-separated data rows for this section only>`
       : `      <tab-separated data rows>`,
+    `      \`\`\``,
     multiBlock
-      ? `      \`\`\``
-      : `      \`\`\``,
-    multiBlock
-      ? `  • The "Paste this TSV into cell …" line is the ONE allowed non-data line. It lives OUTSIDE the fence, immediately ABOVE the opening backticks.`
-      : `  • The "Paste this TSV into cell …" line is the ONE allowed non-data line. It lives OUTSIDE the fence, immediately ABOVE the opening backticks. Use the EXACT cell + tab name from the structure below — don't paraphrase, don't guess. The user reads this line so they know where to click before pasting.`,
+      ? `  • The "=== <SECTION NAME> ===" label is the ONLY allowed non-data line and it lives OUTSIDE the fence, immediately ABOVE the opening backticks. It just tells the user which block is which — it is NOT copied into the app.`
+      : `  • The fenced tsv block is your ENTIRE deliverable. Do NOT add a paste-target line, a cell reference, or a tab name — the user pastes the block straight into the app's import box.`,
     multiBlock ? `  • Each fence contains ONLY tab-separated data rows. No column header row, no commentary, no totals.` : `  • The fence contains ONLY tab-separated data rows. No column header row, no commentary, no totals.`,
     multiBlock
-      ? `  • Before the FIRST paste-target line: NOTHING. Between blocks: ONE blank line, nothing else. After the LAST closing fence: NOTHING.`
-      : `  • Before the paste-target line: NOTHING — no greeting, no "Here is the output:", no "Sure, ", no preamble. After the closing fence: NOTHING — no "Let me know if you need changes", no summary, no follow-up questions.`,
-    multiBlock
-      ? `  • If you must flag an ambiguity, do it ONCE at the very top before the first paste-target line, on a single line prefixed with "PRE-NOTE:".`
-      : `  • If you must flag an ambiguity, do it ONCE on a single line prefixed with "PRE-NOTE:" placed BEFORE the paste-target line — never after the fence.`,
+      ? `  • Keep the inside of each fence pure data — the app reads only what's between the backticks, so a stray sentence in there would get pasted in as if it were data. Separate blocks with a single blank line.`
+      : `  • Keep the inside of the fence pure data — the app reads only what's between the backticks, so a stray sentence in there would get pasted in as if it were data.`,
+    `  • Anything you want to say — notes, caveats, an ambiguity you had to judge, a question — is welcome OUTSIDE the fence (before or after the block). The importer ignores everything outside the code block, so feel free to add whatever context is helpful; it won't interfere with the paste.`,
     ``,
-    `Hard rules:`,
-    `  1. 100% accuracy or blank. If you are not certain about a cell, leave it blank. Never guess, never invent a plausible value.`,
+    `Formatting requirements (these keep the paste clean):`,
+    `  1. Accuracy over completeness. If you're not certain about a cell, leave it blank rather than guessing — a blank is easy for the user to fill in, a wrong value is hard to catch.`,
     `  2. Preserve the exact column order, row order, and row count described below.`,
-    `  3. No column header row, no totals row, no "N/A", no em dashes, no trailing "source: screenshot" annotations. The ONLY allowed non-data lines are the "Paste this TSV into cell …" paste-target label(s) that sit OUTSIDE the fence(s) immediately above the opening backticks, as described above.`,
+    `  3. No column header row, no totals row, no "N/A", no em dashes, no trailing "source: screenshot" annotations. The ONLY allowed non-data lines are the fence delimiters${multiBlock ? ' and the "=== <SECTION> ===" label(s) that sit OUTSIDE the fences immediately above the opening backticks' : ''}, as described above.`,
     `  4. Numbers with no thousands separators: "1234" not "1,234".`,
     `  5. Decimals use a period and match the decimal precision specified per-column (e.g. "5.8" not "5.80" not "5,8").`,
     `  6. Tab character (U+0009) between fields when producing TSV — not multiple spaces, not a pipe, not a semicolon. ASCII only inside data: no smart quotes (" "), no en/em dashes (– —), no non-breaking spaces (U+00A0), no zero-width characters (U+200B/U+FEFF).`,
@@ -285,9 +281,9 @@ export function buildAIPrompt({
     `  8. Row count: follow the structure's instructions exactly. If the structure specifies a fixed total line count or a fixed row capacity per section, emit EXACTLY that many lines — using truly empty lines (just \\n, no spaces or tabs) for unused slots so every fixed-position element lands on its correct row. If the structure doesn't specify a fixed count, output only the rows you have data for.`,
     ``,
     `═══════════════════════════════════════════════════════════`,
-    `SELF-VERIFICATION PROTOCOL — RUN THIS BEFORE SENDING`,
+    `QUICK CHECKS BEFORE YOU SEND`,
     `═══════════════════════════════════════════════════════════`,
-    `After you draft your output but BEFORE you send your reply, you MUST execute the following checks against YOUR OWN draft. Do not just read them — actually run them on the text you are about to send. If ANY check fails, fix the output and re-run the checks. Do not send output that has not passed every check.`,
+    `Once you've drafted the block, it's worth running these checks against it — they catch the small mistakes that make a paste fail. If one turns up a problem, fix it and re-check before you reply.`,
     ``,
     `CHECK 1 — Delimiter count per row.`,
     multiBlock
@@ -302,8 +298,8 @@ export function buildAIPrompt({
     `CHECK 3 — Column-to-value walk.`,
     `  Pick TWO data rows at random. For each, walk left-to-right through the columns named in the structure and confirm the value at that position matches the spec for that column (integer vs decimal vs blank, sensible magnitude, correct stat). Watch for column-order traps: if the structure flags an inverted-order tab (e.g. "TD vs Long order is swapped"), re-read those tab specs character-by-character before signing off. FIX any swap.`,
     ``,
-    `CHECK 4 — Stray text scan.`,
-    `  Re-read your draft top-to-bottom. The ONLY allowed non-data lines are: (a) the "Paste this TSV into cell <CELL> of the \"<Tab>\" tab" line(s) that sit directly above each fence, (b) the fence delimiters themselves, and (c) an optional one-line "PRE-NOTE:" if you genuinely must flag an ambiguity. Anything else is contraband: greetings, "Here is the output:", "Let me know if you need changes", "Note:", "I left X blank because…", bullet points, follow-up questions, em dashes used as connector punctuation, summaries of what you did. DELETE.`,
+    `CHECK 4 — Keep the data block clean.`,
+    `  Look INSIDE the fence: every line between the backticks should be a data row of tab-separated values${multiBlock ? ' (or a "=== <SECTION> ===" label sitting directly above a fence)' : ''} — nothing else. The app pastes everything between the backticks in as data, so if a greeting, a "Note:", an "I left X blank because…", a bullet, a totals line, or a summary ended up INSIDE the block, move it outside the fence or drop it. Prose OUTSIDE the block is fine — leave it be.`,
     ``,
     `CHECK 5 — Number/character format scan.`,
     `  Search your data rows for: commas inside numbers ("1,234" → "1234"), percent signs, units ("yds", "%"), placeholder strings ("N/A", "—", "-"), parenthetical asides, smart quotes, em dashes, non-breaking spaces. DELETE or BLANK per the rules.`,
@@ -365,8 +361,8 @@ export function buildAIPrompt({
     sections.push('', `Additional notes:`, notes.trim())
   }
   // Roster blocks — the AI uses these to expand abbreviated names (e.g.
-  // EA CFB menus display "A. Guess" but Google Sheets dropdowns reject
-  // that form; the roster map lets the AI write "Alex Guess" instead.
+  // EA CFB menus display "A. Guess" but the app matches on full names;
+  // the roster map lets the AI write "Alex Guess" instead.
   const rosterBlock = buildRosterBlock(roster, [
     '═══════════════════════════════════════════════════════════',
     rosterLabel,
@@ -375,7 +371,7 @@ export function buildAIPrompt({
     '',
     'When the screenshot shows an abbreviated form (e.g. "A. Guess", "J. Smith",',
     '"D.Hixon"), MATCH it to the full name below by last name + first-initial,',
-    'and output the FULL name (Google Sheets dropdowns reject abbreviated forms).',
+    'and output the FULL name (the app may not resolve abbreviated forms).',
     'If two players share the same last initial, use jersey number + position to',
     'disambiguate.',
     '',
@@ -404,16 +400,30 @@ export function buildAIPrompt({
     sections.push('', opponentBlock)
   }
   if (includeTeamMap) {
-    const dynamicMap = buildTeamMapFromDynasty(dynastyTeams)
+    const nameList = getTeamNameOptions(dynastyTeams, { includeFCS: true })
+    // Some teams appear in EA CFB under a different name than the app's list
+    // label (e.g. EA shows the Ragin' Cajuns as "Louisiana"; the list has
+    // "Lafayette Ragin' Cajuns"). Annotate those so the AI can bridge the
+    // in-game name to the exact list entry it must output.
+    const aliasMap = getTeamInGameNames(dynastyTeams)  // { label: primaryInGameName }
+    const annotatedList = nameList.map((name) => {
+      const ign = aliasMap[name]
+      return ign ? `${name}  (in-game name: ${ign})` : name
+    })
+    const hasAliases = Object.keys(aliasMap).length > 0
     sections.push(
       '',
-      `When a team appears, use the following abbreviations (format: ABBR = Full Name). EVERY team in this list — including any FCS placeholders or custom names — is a VALID, in-scope team for this dynasty:`,
-      dynamicMap || TEAM_ABBR_MAPPING,
+      `TEAM NAMES — whenever a team appears, output its EXACT name from the list below. Use the team NAME, never an abbreviation and never the mascot/nickname (write "Kentucky", not "UK" and not "Kentucky Wildcats"). EVERY team in this list — including any FCS placeholders or custom teams — is a VALID, in-scope team for this dynasty:`,
+      annotatedList.join('\n'),
       '',
-      `IMPORTANT — abbreviation handling:`,
-      `• The mapping above is the SOURCE OF TRUTH. The Google Sheet's strict dropdown is built from this exact list — anything else is rejected.`,
-      `• If the in-game screenshot shows a slightly different short form than what's in the mapping (e.g. screenshot shows "FCSMW" but mapping shows "FCSM", or vice versa), USE THE MAPPING's value. Match by the team's full name and direction (East / Midwest / Northwest / Southeast / West) — not by character-for-character abbreviation match.`,
-      `• Never invent an abbreviation that isn't in the mapping. If after a careful re-scan you still can't find a team in the mapping, omit that row — but check carefully first, because abbreviation drift between the in-game UI and the dropdown is a known issue.`,
+      `IMPORTANT — team name handling:`,
+      `• This list is the SOURCE OF TRUTH. The chart's dropdown accepts EXACTLY these strings — anything else (an abbreviation, a nickname, a misspelling) is rejected.`,
+      `• Copy the name character-for-character as written above. Match the team in the screenshot to this list by school; output that list entry verbatim.`,
+      `• The two Miami schools are disambiguated: output "Miami (FL)" for the Hurricanes and "Miami (OH)" for the RedHawks. Use the logo/colors/conference in the screenshot to tell them apart.`,
+      ...(hasAliases ? [
+        `• Some teams show a DIFFERENT name in EA CFB, marked above as "(in-game name: …)". When a screenshot shows that in-game name, output the LIST NAME (the part BEFORE the parenthesis), never the in-game name. Example: a screenshot showing "Louisiana" → output "Lafayette Ragin' Cajuns" (NOT "Louisiana", and NOT the similarly-named "Louisiana Tech" or "LSU").`,
+      ] : []),
+      `• Never invent a name that isn't in the list. If after a careful re-scan you still can't match a team, omit that row rather than guessing.`,
     )
   }
   return sections.join('\n')

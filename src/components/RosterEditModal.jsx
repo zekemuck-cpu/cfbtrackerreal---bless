@@ -15,12 +15,28 @@ import SheetModalFooter from './ui/SheetModalFooter'
 import {
   createRosterSheet,
   readRosterFromRosterSheet,
+  serializeRosterToTsv,
   deleteGoogleSheet,
   getSingleSheetEmbedUrl,
   prefillRosterSheet
 } from '../services/sheetsService'
 import { buildAIPrompt } from '../utils/aiPrompt'
+import { arePlayerAttributesEnabled } from '../editions'
+import { ATTRIBUTE_PROMPT_LEGEND } from '../utils/attributeEntry'
+import { POSITIONS, CLASSES, DEV_TRAITS, archetypesForPosition } from '../data/rosterOptions'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { normalizeRosterRows } from '../utils/rosterRealign'
+
+// Dropdown values for the roster grid's constrained columns. Archetype depends
+// on the row's Position, so it's a function of the row.
+const ROSTER_COLUMN_OPTIONS = {
+  Position: POSITIONS,
+  Class: CLASSES,
+  'Dev Trait': DEV_TRAITS,
+  Archetype: (row, cols) => archetypesForPosition(row[cols.indexOf('Position')]),
+}
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -43,6 +59,8 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
@@ -50,7 +68,7 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
   })
   const [highlightSave, setHighlightSave] = useState(false)
 
-  const userRoster = useMemo(() => {
+  const rosterPlayers = useMemo(() => {
     // Filter by TID (teambuilder-safe) and pass currentDynasty so the
     // legacy abbr fallback inside isPlayerOnRoster resolves teambuilder-
     // renamed teams. Previously this passed an abbr string with no
@@ -68,32 +86,72 @@ export default function RosterEditModal({ isOpen, onClose, onSave, currentYear, 
     const all = currentDynasty?.players || []
     return all
       .filter(p => isPlayerOnRoster(p, teamTid ?? teamAbbrForRoster, currentYear, currentDynasty))
-      .map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position }))
   }, [currentDynasty?.players, currentDynasty?.teams, currentDynasty?.currentTid, currentDynasty?.teamName, teamAbbr, currentYear, currentDynasty])
+
+  // Minimal shape for the AI prompt's roster block.
+  const userRoster = useMemo(
+    () => rosterPlayers.map(p => ({ name: p.name, jerseyNumber: p.jerseyNumber, position: p.position })),
+    [rosterPlayers],
+  )
+
+  // Include the Attributes column (O) only when full-attribute entry is on for
+  // this dynasty — the edition supports attributes AND "Hide all ratings" is
+  // off (arePlayerAttributesEnabled). When it's off, the roster sheet drops to
+  // a clean A–N (14 cols): otherwise the current-roster pre-fill dumps every
+  // player's stored ratings into col O, which reads as messy on an
+  // attributes-off dynasty.
+  const attributesEnabled = arePlayerAttributesEnabled(currentDynasty)
+  // Pre-fill the local grid with the current roster so Edit Roster opens on the
+  // existing team (easy mass-edit) instead of a blank table.
+  const initialRosterText = useMemo(
+    () => serializeRosterToTsv(rosterPlayers, { year: currentYear, includeAttributes: attributesEnabled }),
+    [rosterPlayers, currentYear, attributesEnabled],
+  )
+  const attrColRange = attributesEnabled ? 'A–O' : 'A–N'
+  const attrColCount = attributesEnabled ? 15 : 14
+  const attrTabChars = attributesEnabled ? 14 : 13
+  const attrColListSuffix = attributesEnabled ? ', Attributes' : ''
+  const attrTableRow = attributesEnabled
+    ? `\n O  | Attributes                | All ratings (one cell)         | "CODE value" pairs, comma-separated (CFB 27) — see the ATTRIBUTES section below; blank if no ratings visible`
+    : ''
+  const attrSection = attributesEnabled
+    ? `\n───────────────────────────────────────────────────────────
+COLUMN O — Attributes (CFB 27) — the player's ENTIRE rating set as ONE cell:
+comma-separated "CODE value" pairs using the codes below, IN THIS ORDER. Include
+every rating you can see for the player; leave the WHOLE cell blank if you have no
+ratings for them. The cell uses COMMAS between pairs (never tabs) so it stays one
+cell. Ratings are integers 0–99, no "+/-" gain deltas — if a screenshot shows
+"84 (+1)", record 84. Example cell: "AWR 84, SPD 91, ACC 92, STR 70, AGI 90, COD 88".
+
+Attribute codes (CODE=Name):
+${ATTRIBUTE_PROMPT_LEGEND}
+`
+    : ''
+  const attrOutputCol = attributesEnabled ? '\t<Attributes>' : ''
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} ${teamAbbr ? `${teamAbbr} ` : ''}Roster Edit`,
     roster: userRoster,
-    structure: `This sheet has ONE tab: "Roster". It has 14 columns (A–N) and up to 85 data rows (rows 2–86). Row 1 is the protected header row. The sheet may already be pre-filled with current roster rows — your output will REPLACE all data rows, so include every player on the roster (edits + unchanged players).
+    structure: `This sheet has ONE tab: "Roster". It has ${attrColCount} columns (${attrColRange}) and up to 85 data rows (rows 2–86). Row 1 is the protected header row. The sheet may already be pre-filled with current roster rows — your output will REPLACE all data rows, so include every player on the roster (edits + unchanged players).
 
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
 1. Output ONLY the data rows (rows 2+). NEVER output the header row.
-2. Output EXACTLY 14 tab-separated columns per line in this order: First Name, Last Name, Position, Class, Dev Trait, Jersey #, Archetype, Overall, Height, Weight, Hometown, State, Image URL, NIL.
+2. Output EXACTLY ${attrColCount} tab-separated columns per line in this order: First Name, Last Name, Position, Class, Dev Trait, Jersey #, Archetype, Overall, Height, Weight, Hometown, State, Image URL, NIL${attrColListSuffix}.
 3. One player per line. Maximum 85 lines total (rows 2 through 86).
 4. NO COMMAS anywhere — not in numbers, not in names. Weight "215" never "2,015".
 5. INTEGERS have no decimal point. Jersey # "7" not "7.0", Overall "88" not "88.0", Weight "210" not "210.0".
 6. BLANK CELL for unknowns — leave the cell empty (two tabs in a row). NEVER guess, NEVER use "N/A", "-", "0", or "unknown".
 7. Use ONLY the exact literal values listed for each dropdown column below. Wrong casing, extra spaces, or aliases (e.g. "FR" instead of "Fr") will be rejected by the dropdown.
 8. Full Name: split into First Name (column A) and Last Name (column B). Hyphens and apostrophes stay intact. Suffixes like "Jr." or "II" go on the Last Name with a space (e.g. Last Name = "Smith Jr.").
-9. No header row, no totals, no commentary INSIDE the data, no blank separator rows. The paste-target label above the fence is required (see TSV delivery rules above).
+9. No header row, no totals, no commentary INSIDE the data, no blank separator rows.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Roster" — paste at cell A2 of the "Roster" tab
+SECTION: "Roster"
 ═══════════════════════════════════════════════════════════
 
-Column layout (A→N), one player per line, tab-separated:
+Column layout (${attrColRange}), one player per line, tab-separated:
 
 Col | Header (row 1, protected) | Your value                     | Format / allowed values
 ----+---------------------------+--------------------------------+---------------------------------------------------
@@ -110,7 +168,7 @@ Col | Header (row 1, protected) | Your value                     | Format / allo
  K  | Hometown                  | City name                      | text
  L  | State                     | US state 2-letter code         | DROPDOWN (see list below) — exact literal
  M  | Image URL                 | Photo URL                      | blank unless a real URL is visible; never invent
- N  | NIL                       | Player's NIL amount (CFB 27)   | integer, no commas — blank if not shown (e.g. CFB 26)
+ N  | NIL                       | Player's NIL amount (CFB 27)   | integer, no commas — blank if not shown (e.g. CFB 26)${attrTableRow}
 
 ───────────────────────────────────────────────────────────
 COLUMN C — Position — MUST be one of these 21 values EXACTLY:
@@ -150,20 +208,20 @@ COLUMN I — Height — MUST be one of these 20 values EXACTLY (straight apostro
 COLUMN L — State — MUST be one of these 51 2-letter codes EXACTLY (uppercase):
 AL | AK | AZ | AR | CA | CO | CT | DE | FL | GA | HI | ID | IL | IN | IA | KS | KY | LA | ME | MD | MA | MI | MN | MS | MO | MT | NE | NV | NH | NJ | NM | NY | NC | ND | OH | OK | OR | PA | RI | SC | SD | TN | TX | UT | VT | VA | WA | WV | WI | WY | DC
 (No country codes. No full state names. Blank if unknown — never guess.)
-
+${attrSection}
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== ROSTER — paste at cell A2 of "Roster" tab ===
-<FirstName>\t<LastName>\t<Position>\t<Class>\t<DevTrait>\t<Jersey#>\t<Archetype>\t<Overall>\t<Height>\t<Weight>\t<Hometown>\t<State>\t<ImageURL>\t<NIL>
-<FirstName>\t<LastName>\t<Position>\t<Class>\t<DevTrait>\t<Jersey#>\t<Archetype>\t<Overall>\t<Height>\t<Weight>\t<Hometown>\t<State>\t<ImageURL>\t<NIL>
+=== ROSTER ===
+<FirstName>\t<LastName>\t<Position>\t<Class>\t<DevTrait>\t<Jersey#>\t<Archetype>\t<Overall>\t<Height>\t<Weight>\t<Hometown>\t<State>\t<ImageURL>\t<NIL>${attrOutputCol}
+<FirstName>\t<LastName>\t<Position>\t<Class>\t<DevTrait>\t<Jersey#>\t<Archetype>\t<Overall>\t<Height>\t<Weight>\t<Hometown>\t<State>\t<ImageURL>\t<NIL>${attrOutputCol}
 …one line per player, up to 85 total
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
-[ ] Every line has exactly 14 tab-separated columns (13 tab characters)
-[ ] No header row, no totals row, no commentary INSIDE the data (the paste-target label above the fence is required, see TSV delivery rules above)
+[ ] Every line has exactly ${attrColCount} tab-separated columns (${attrTabChars} tab characters)
+[ ] No header row, no totals row, no commentary INSIDE the data
 [ ] No commas in any number (Jersey, Overall, Weight)
 [ ] No decimals on integers (Jersey / Overall / Weight)
 [ ] Position is one of the 21 listed codes (NOT "LE" / "RE" / "EDGE" / "LB" / "OLB" / "OT" / "OG" / "S")
@@ -175,10 +233,15 @@ FINAL CHECK before you send
 [ ] Blank cells used for every unknown — nothing was invented
 [ ] At most 85 data lines`,
     includeTeamMap: false,
-  }), [currentYear, teamAbbr, userRoster])
+  }), [currentYear, teamAbbr, userRoster, attributesEnabled, attrColRange, attrColCount, attrTabChars, attrColListSuffix, attrTableRow, attrSection, attrOutputCol])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  // Single-attempt guard: a FAILED creation must not silently re-fire (the
+  // runaway loop that spam-created sheets). One attempt per modal-open; an
+  // explicit retry bumps auth.retryCount and re-arms exactly one more.
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -214,8 +277,17 @@ FINAL CHECK before you send
 
   // Create roster sheet when modal opens - ALWAYS create fresh with current data
   useEffect(() => {
+    // An explicit retry re-arms one fresh attempt by bumping auth.retryCount.
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        // Mark attempted BEFORE any await so a rejection can't loop back in
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -261,7 +333,7 @@ FINAL CHECK before you send
           })
         } catch (error) {
           console.error('Failed to create roster sheet:', error)
-          auth.handleError(error)
+          if (!auth.handleError(error)) toast.error(auth.describeError(error, 'create the roster sheet'))
         } finally {
           setCreatingSheet(false)
           creatingSheetRef.current = false
@@ -270,15 +342,27 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits the full 14-column roster, one player per
+  // line — exactly the columns the parser reads as row[0..13]. Each line is
+  // self-identified by player name, so no pre-filled columns and no
+  // normalization. Routes through the same onSave the sheet sync uses.
+  const handleLocalImport = async (text) => {
+    const roster = await readRosterFromRosterSheet(null, { rows: splitTsv(text) })
+    await onSave(roster)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -401,7 +485,22 @@ FINAL CHECK before you send
         <SheetModalHeader title={`${currentYear}${teamAbbr ? ` ${teamAbbr}` : ''} Roster Edit`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-y-auto min-h-0 p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Roster"
+            initialText={initialRosterText}
+            imageColumn="Image"
+            normalizeRows={normalizeRosterRows}
+            columnOptions={ROSTER_COLUMN_OPTIONS}
+            columns={attributesEnabled
+              ? ['First Name', 'Last Name', 'Position', 'Class', 'Dev Trait', 'Jersey #', 'Archetype', 'Overall', 'Height', 'Weight', 'Hometown', 'State', 'Image', 'NIL', 'Attributes']
+              : ['First Name', 'Last Name', 'Position', 'Class', 'Dev Trait', 'Jersey #', 'Archetype', 'Overall', 'Height', 'Weight', 'Hometown', 'State', 'Image', 'NIL']}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

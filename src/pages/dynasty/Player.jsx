@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useDynasty, getEncourageTransfers, getRecruitingCommitments, getPlayerClassForYear } from '../../context/DynastyContext'
+import { useDynasty, getEncourageTransfers, getRecruitingCommitments, getPlayerClassForYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
 import CardComposer from '../../components/CardComposer'
 import FlippableCard from '../../components/FlippableCard'
 import PlayerErrorBoundary from '../../components/PlayerErrorBoundary'
@@ -19,8 +19,7 @@ import { useTeamColors } from '../../hooks/useTeamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { isOpenTarget } from '../../utils/recruitingTargets'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName as getSchoolNameFromTeams, stripMascotFromName } from '../../data/teams'
-import { teamAbbreviations } from '../../data/teamAbbreviations'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr, getColorsFromTid } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFromAbbr, getColorsFromTid, getGameTeamInfo } from '../../data/teamRegistry'
 import { sideOfPosition } from '../../utils/outlookBoard'
 import { displayGroups, displayLabel } from '../../utils/recruitAttributes'
 import { getTeamColors } from '../../data/teamColors'
@@ -30,14 +29,14 @@ import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
 import { getPlayerGameLog } from '../../utils/boxScoreAggregator'
 import { canonicalBoxScore } from '../../utils/boxScoreHelpers'
-import { sortPlaysChronologically } from '../../utils/scoringPlayOrder'
+import { sortPlaysChronologically, resolveScoringTeamTids, buildScorerTidResolver } from '../../utils/scoringPlayOrder'
 import { healPlayer, PLAYER_HEAL_VERSION, normalizeAwardName } from '../../utils/playerHeal'
 import { computeLiveHonorsByPid, mergeHonorLists } from '../../utils/honorMatch'
 import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../utils/playerTimeline'
 import { computeSeasonAV } from '../../utils/approximateValue'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
 import { predictRecruitOverall } from '../../utils/scoutScore'
-import { getEditionConfig, isPcAutoDynasty } from '../../editions'
+import { getEditionConfig, isCfb27, isPcAutoDynasty } from '../../editions'
 import { getPlayerNil } from '../../data/playerNilModel'
 import nilIcon from '../../assets/blueprint/points.png'
 
@@ -207,6 +206,9 @@ function PlayerInner() {
   const [expandedGameLog, setExpandedGameLog] = useState(null) // { year, statType }
   const [showScoringHighlightsModal, setShowScoringHighlightsModal] = useState(false)
   const [selectedGameScoringPlays, setSelectedGameScoringPlays] = useState(null)
+  // Attributes tab: which recorded season to show. null = auto (current season,
+  // else most recent). User can override via the season dropdown on the tab.
+  const [attrViewYear, setAttrViewYear] = useState(null)
   const [showPhotoLightbox, setShowPhotoLightbox] = useState(false)
 
   // Sort preferences for stat tables (persisted in localStorage)
@@ -523,10 +525,18 @@ function PlayerInner() {
   // back to the flat recruit `attributes` map for scouted recruits.
   const attrSeasons = player?.attributesByYear && typeof player.attributesByYear === 'object' ? player.attributesByYear : {}
   const attrYearKeys = Object.keys(attrSeasons).map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b)
-  const attrDisplayYear = (currentYear != null && attrSeasons[currentYear]) ? Number(currentYear)
+  // Auto default: current season if it has data, else the most recent season.
+  const attrAutoYear = (currentYear != null && attrSeasons[currentYear]) ? Number(currentYear)
     : (attrYearKeys.length ? attrYearKeys[attrYearKeys.length - 1] : null)
+  // The user's dropdown pick wins when it points at a season that has data;
+  // otherwise fall back to the auto default (e.g. after switching players).
+  const attrDisplayYear = (attrViewYear != null && attrSeasons[attrViewYear]) ? Number(attrViewYear) : attrAutoYear
   const displayAttributes = (attrDisplayYear != null ? attrSeasons[attrDisplayYear] : null) || player?.attributes || null
-  const hasAttributes = !!(displayAttributes && Object.keys(displayAttributes).length)
+  // "Hide all ratings" league preference removes the Attributes tab entirely
+  // (ScoutScore still surfaces a recruit's scouted profile separately). Gated on
+  // the raw flag, not the edition, so it's a no-op on editions without ratings.
+  const ratingsHidden = dynasty?.hideAllRatings === true
+  const hasAttributes = !ratingsHidden && !!(displayAttributes && Object.keys(displayAttributes).length)
   // NIL (CFB 27+) — current-season earnings for the hero + per-year for timelines.
   const nilEnabled = !!getEditionConfig(dynasty)?.features?.nil
   const currentNil = nilEnabled ? getPlayerNil(player, currentYear) : null
@@ -605,7 +615,7 @@ function PlayerInner() {
   // the Edit button is hidden entirely rather than offering an action that
   // doesn't actually stick. Manual/CFB26 dynasties are unaffected.
   const isCfb27Auto = isPcAutoDynasty(dynasty)
-  const scoutStaffEnabled = !!dynasty?.scoutStaffEnabled
+  const scoutStaffEnabled = !!dynasty?.scoutStaffEnabled && isCfb27(dynasty) // CFB 27 only
   const hasScoutAttributes = !!(player?.attributes && Object.keys(player.attributes).length > 0)
   const enrolledOnRoster = Object.keys(player?.teamsByYear || {})
     .map(Number)
@@ -1057,16 +1067,16 @@ function PlayerInner() {
           ? getTeamLogoByTid(game.opponentTid, dynasty.teams)
           : null
 
-        // Resolve a play's team-string to a tid via the game's two teams.
-        // Returns null for legacy games missing tids or for plays whose
-        // abbr matches neither side (abbr drift / bad data).
-        const resolvePlayTid = (playTeamStr) => {
-          const u = playTeamStr?.toUpperCase()
-          if (!u) return null
-          if (t1Abbr && u === t1Abbr) return t1Tid
-          if (t2Abbr && u === t2Abbr) return t2Tid
-          return null
-        }
+        // Attribute each play to one of the game's two tids, rooted in the
+        // user's file (team abbr per tid + scorers' tid-based roster), never
+        // the base registry. Returns undefined for plays we can't place.
+        const teamTidMap = resolveScoringTeamTids(scoringSummary, {
+          team1Tid: t1Tid,
+          team2Tid: t2Tid,
+          teams: dynasty.teams,
+          getScorerTid: buildScorerTidResolver(dynasty.players, game.year),
+        })
+        const resolvePlayTid = (playTeamStr) => teamTidMap.get(playTeamStr?.toUpperCase())
 
         let playerTeamScore = 0
         let opponentScore = 0
@@ -1118,11 +1128,16 @@ function PlayerInner() {
     const pid = player?.pid
     if (pid == null) return []
     const out = []
+    // The recruit's commit graphic (if any) — a commitment is the earliest
+    // moment chronologically, so it sorts to the very BOTTOM (oldest).
+    const commitGraphicUrl = dynasty?.commitGraphics?.[pid] || null
     // Photos uploaded directly to this player (player editor → Photos).
     // They have no game context, so they sort to the top (no year/week).
     if (Array.isArray(player?.photos)) {
       for (const url of player.photos) {
-        if (url) out.push({ url, playerUpload: true })
+        if (!url) continue
+        if (commitGraphicUrl && url === commitGraphicUrl) out.push({ url, commitGraphic: true })
+        else out.push({ url, playerUpload: true })
       }
     }
     const games = dynasty?.games
@@ -1157,19 +1172,20 @@ function PlayerInner() {
         }
       }
     }
-    // Newest first: year desc, then within-season chronological position desc
-    // (rank already encodes CCG/bowls/CFP as later than the regular weeks).
+    // Newest first: player uploads lead, then game photos (year desc, within-
+    // season position desc), then the commit graphic last as the oldest moment.
+    const band = (p) => (p.commitGraphic ? 2 : p.playerUpload ? 0 : 1)
     out.sort((a, b) => {
-      // Player-uploaded photos always lead; game photos follow, newest first.
-      if (a.playerUpload && !b.playerUpload) return -1
-      if (b.playerUpload && !a.playerUpload) return 1
+      const ba = band(a)
+      const bb = band(b)
+      if (ba !== bb) return ba - bb
       const yA = Number(a.year) || 0
       const yB = Number(b.year) || 0
       if (yB !== yA) return yB - yA
       return (b.rank ?? -1) - (a.rank ?? -1)
     })
     return out
-  }, [player?.pid, player?.photos, player?.teamsByYear, player?.team, dynasty?.games, dynasty?.teams])
+  }, [player?.pid, player?.photos, player?.teamsByYear, player?.team, dynasty?.games, dynasty?.teams, dynasty?.commitGraphics])
 
   const [photoTabLightboxIdx, setPhotoTabLightboxIdx] = useState(null)
 
@@ -1937,24 +1953,35 @@ function PlayerInner() {
                 Without it, the name starts at the edge and the Edit button moves
                 inline to the right of the name (below) instead of pushing
                 everything over from the left. */}
-            {player.pictureUrl && (
+            {(player.pictureUrl || heroLogo) && (
               <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                <img
-                  src={proxyImageUrl(player.pictureUrl, 300)}
-                  alt={player.name}
-                  className="relative z-[1] w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl cursor-pointer hover:brightness-110 transition-[filter]"
-                  style={{ border: `2px solid ${teamBgText}66`, boxShadow: '0 2px 10px rgba(0,0,0,0.35)' }}
-                  onClick={() => setShowPhotoLightbox(true)}
-                  title="Click to enlarge"
-                  onError={(e) => {
-                    // wsrv hiccup (e.g. a cached error from an imgbb outage) →
-                    // fall back to the original URL, which often still loads.
-                    // Only hide if the original fails too. Same resilience
-                    // pattern used by the photo thumbnails + Game pages.
-                    if (e.currentTarget.src !== player.pictureUrl) e.currentTarget.src = player.pictureUrl
-                    else e.currentTarget.style.display = 'none'
-                  }}
-                />
+                {player.pictureUrl ? (
+                  <img
+                    src={proxyImageUrl(player.pictureUrl, 300)}
+                    alt={player.name}
+                    className="relative z-[1] w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl cursor-pointer hover:brightness-110 transition-[filter]"
+                    style={{ border: `2px solid ${teamBgText}66`, boxShadow: '0 2px 10px rgba(0,0,0,0.35)' }}
+                    onClick={() => setShowPhotoLightbox(true)}
+                    title="Click to enlarge"
+                    onError={(e) => {
+                      // wsrv hiccup (e.g. a cached error from an imgbb outage) →
+                      // fall back to the original URL, which often still loads.
+                      // Only hide if the original fails too. Same resilience
+                      // pattern used by the photo thumbnails + Game pages.
+                      if (e.currentTarget.src !== player.pictureUrl) e.currentTarget.src = player.pictureUrl
+                      else e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                ) : (
+                  // No photo → fall back to the player's team logo, keeping the
+                  // same square header frame so the layout doesn't shift.
+                  <div
+                    className="relative z-[1] w-20 h-20 sm:w-24 sm:h-24 rounded-xl flex items-center justify-center"
+                    style={{ border: `2px solid ${teamBgText}66`, boxShadow: '0 2px 10px rgba(0,0,0,0.35)', backgroundColor: `${teamBgText}14` }}
+                  >
+                    <img src={heroLogo} alt={player.name} className="w-3/5 h-3/5 object-contain" />
+                  </div>
+                )}
                 {/* Mobile Edit — tucked into the empty space under the photo. */}
                 {!isViewOnly && !isCfb27Auto && (
                   <button
@@ -2000,6 +2027,26 @@ function PlayerInner() {
                     </svg>
                   </button>
                 )}
+                {/* Compare — deep-links to the Compare Players tool with this
+                    player pre-loaded as player 1 (their most recent season). */}
+                <button
+                  onClick={() => {
+                    const yrs = [
+                      ...Object.keys(player?.teamsByYear || {}),
+                      ...Object.keys(player?.statsByYear || {}),
+                    ].map(y => parseInt(y)).filter(Number.isFinite)
+                    const yr = yrs.length ? Math.max(...yrs) : (dynasty?.currentYear ?? '')
+                    navigate(`${pathPrefix}/compare?players=${player.pid}-${yr}`)
+                  }}
+                  className="hidden sm:inline-flex items-center justify-center p-1.5 rounded-lg hover:bg-black/20 transition-colors flex-shrink-0 self-center"
+                  style={{ color: teamBgText, border: `1px solid ${teamBgText}40` }}
+                  title="Compare Player"
+                  aria-label="Compare Player"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                </button>
               </div>
 
               {/* Team link + status badges */}
@@ -2038,7 +2085,7 @@ function PlayerInner() {
                   })()
                 ) : (
                 <Link
-                  to={`${pathPrefix}/team/${resolveTid(teamAbbr, currentDynasty?.teams || TEAMS)}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
+                  to={`${pathPrefix}/team/${playerTeam?.tid ?? playerTeamRaw}/${currentYear}?tab=depthchart&player=${pid}&side=${sideOfPosition(player.position) || 'offense'}`}
                   className="inline-flex items-center gap-2 font-display font-bold hover:opacity-80 transition-opacity"
                   style={{ color: teamBgText, fontSize: 'clamp(0.95rem, 1.5vw, 1.1rem)' }}
                 >
@@ -2332,8 +2379,21 @@ function PlayerInner() {
           <div className="media-card p-3 sm:p-5 mb-4">
             <div className="flex items-baseline justify-between gap-2 mb-3">
               <h3 className="font-display font-black uppercase tracking-wide text-txt-primary" style={{ fontSize: '1.05rem' }}>Attributes</h3>
-              {attrDisplayYear != null && (
-                <span className="text-xs font-semibold text-txt-tertiary uppercase tracking-wide">{attrDisplayYear} Season</span>
+              {attrYearKeys.length > 1 ? (
+                <select
+                  value={attrDisplayYear ?? ''}
+                  onChange={(e) => setAttrViewYear(Number(e.target.value))}
+                  className="text-xs font-semibold text-txt-tertiary uppercase tracking-wide bg-surface-2 border border-surface-4 rounded-md px-2 py-1 cursor-pointer hover:text-txt-secondary transition-colors"
+                  aria-label="Attributes season"
+                >
+                  {attrYearKeys.slice().reverse().map(y => (
+                    <option key={y} value={y}>{y} Season</option>
+                  ))}
+                </select>
+              ) : (
+                attrDisplayYear != null && (
+                  <span className="text-xs font-semibold text-txt-tertiary uppercase tracking-wide">{attrDisplayYear} Season</span>
+                )
               )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-5 sm:gap-x-7 gap-y-4 items-start">
@@ -3733,7 +3793,7 @@ function PlayerInner() {
                 const prevOverall = idx > 0 ? yearData[idx - 1].overall : null
                 const ovrChange = (yd.overall && prevOverall) ? yd.overall - prevOverall : null
                 const quickStats = getQuickStatChips(yd.stats, player.position)
-                const teamTid = resolveTid(yd.team, teamsData || TEAMS)
+                const teamTid = player.teamsByYear?.[yd.year] ?? resolveTid(yd.team, teamsData || TEAMS)
                 const ydTeamColors = teamName ? getTeamColors(teamName, teamsData) : null
                 const seasonColor = ydTeamColors?.primary || teamInfo.backgroundColor
 
@@ -4094,6 +4154,7 @@ function PlayerInner() {
                         {passingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 15 + (primaryStat === 'passing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -4110,7 +4171,7 @@ function PlayerInner() {
                                 </td>
                                 <td className="px-1.5 py-2 truncate" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-1.5 py-2 text-center">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4206,6 +4267,7 @@ function PlayerInner() {
                         {rushingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 14 + (primaryStat === 'rushing' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -4222,7 +4284,7 @@ function PlayerInner() {
                                 </td>
                                 <td className="px-1.5 py-2 truncate" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-1.5 py-2 text-center">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4315,6 +4377,7 @@ function PlayerInner() {
                         {receivingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 12 + (primaryStat === 'receiving' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -4331,7 +4394,7 @@ function PlayerInner() {
                                 </td>
                                 <td className="px-1.5 py-2 truncate" style={{ color: 'var(--text-secondary)' }}>{y.class}</td>
                                 <td className="px-1.5 py-2 text-center">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4410,6 +4473,7 @@ function PlayerInner() {
                         {blockingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 5 + (primaryStat === 'blocking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -4426,7 +4490,7 @@ function PlayerInner() {
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4503,6 +4567,7 @@ function PlayerInner() {
                         {defenseYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 15 + (primaryStat === 'defense' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -4519,7 +4584,7 @@ function PlayerInner() {
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4613,6 +4678,7 @@ function PlayerInner() {
                         {kickingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 11 + (primaryStat === 'kicking' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -4629,7 +4695,7 @@ function PlayerInner() {
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4713,6 +4779,7 @@ function PlayerInner() {
                         {puntingYears.map((y, idx) => {
                           const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                           const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                           const colSpan = 10 + (primaryStat === 'punting' ? 1 : 0) + (showSnapsCol ? 1 : 0)
                           return (
@@ -4729,7 +4796,7 @@ function PlayerInner() {
                                 </td>
                                 <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                                 <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4806,6 +4873,7 @@ function PlayerInner() {
                     {kickReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                       const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                       const colSpan = 9
                       return (
@@ -4822,7 +4890,7 @@ function PlayerInner() {
                             </td>
                             <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -4893,6 +4961,7 @@ function PlayerInner() {
                     {puntReturnYears.map((y, idx) => {
                       const rowTeam = y.team || teamAbbr
                           const mascot = getMascotName(rowTeam, dynasty?.teams || dynasty?.customTeams)
+                          const rowTid = player.teamsByYear?.[y.year] ?? resolveTid(rowTeam, currentDynasty?.teams)
                       const logo = mascot ? getTeamLogo(mascot, dynasty?.teams || dynasty?.customTeams) : null
                       const colSpan = 9
                       return (
@@ -4909,7 +4978,7 @@ function PlayerInner() {
                             </td>
                             <td className="px-2 py-2.5 w-16" style={{ color: secondaryText, opacity: 0.8 }}>{y.class}</td>
                             <td className="px-2 py-2 text-center w-12">
-                                  <Link to={`${pathPrefix}/team/${resolveTid(rowTeam, currentDynasty?.teams || TEAMS)}/${y.year}`} className="hover:opacity-70 transition-opacity">
+                                  <Link to={`${pathPrefix}/team/${rowTid}/${y.year}`} className="hover:opacity-70 transition-opacity">
                                     {logo ? <img src={logo} alt={rowTeam} className="w-5 h-5 object-contain inline-block" /> : rowTeam}
                                   </Link>
                                 </td>
@@ -5090,16 +5159,37 @@ function PlayerInner() {
         Object.entries(groupDes(allAmericans))
           .sort((a, b) => (desOrder[a[0]] ?? 9) - (desOrder[b[0]] ?? 9))
           .forEach(([d, yrs]) => honorRows.push({ label: `All-American (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-americans', badge: true }))
+        // Resolve the conference each All-Conference honor belongs to (from the
+        // entry's tid/school), so the year chips link to THAT conference's page
+        // and the player actually appears — not the viewer's own conference.
+        const acConfByYear = {}
+        allConference.forEach(a => {
+          const yr = Number(a.year)
+          if (acConfByYear[yr]) return
+          let tid = a.schoolTid != null ? Number(a.schoolTid) : null
+          if (tid == null && a.school) tid = resolveTid(a.school, currentDynasty?.teams || TEAMS) || null
+          const abbr = tid != null ? (getGameTeamInfo(currentDynasty?.teams || TEAMS, tid)?.abbr || null) : (a.school || null)
+          const conf = abbr ? getTeamConferenceForDynasty(currentDynasty, abbr, yr) : null
+          if (conf) acConfByYear[yr] = conf
+        })
         Object.entries(groupDes(allConference))
           .sort((a, b) => (desOrder[a[0]] ?? 9) - (desOrder[b[0]] ?? 9))
-          .forEach(([d, yrs]) => honorRows.push({ label: `All-Conference (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-conference', badge: true }))
+          .forEach(([d, yrs]) => honorRows.push({ label: `All-Conference (${desTier(d)})`, years: uniqSortDesc(yrs), linkBase: 'all-conference', confByYear: acConfByYear, badge: true }))
         Object.values(honorMap)
           .sort((a, b) => b.years.length - a.years.length || a.label.localeCompare(b.label))
           .forEach(h => honorRows.push({ label: h.label, years: uniqSortDesc(h.years), linkBase: 'awards' }))
 
-        const YearChip = ({ year, base }) => (
+        // Append the conference segment for All-Conference links so they open
+        // the honored player's conference (route: all-conference/:year/:conf).
+        const honorLink = (base, year, confByYear) => {
+          const conf = base === 'all-conference' && confByYear?.[year]
+          return conf
+            ? `${pathPrefix}/${base}/${year}/${encodeURIComponent(String(conf).replace(/\s+/g, '-'))}`
+            : `${pathPrefix}/${base}/${year}`
+        }
+        const YearChip = ({ year, base, confByYear }) => (
           <Link
-            to={`${pathPrefix}/${base}/${year}`}
+            to={honorLink(base, year, confByYear)}
             className="px-2 py-0.5 rounded text-[11px] font-bold tabular-nums bg-surface-3 text-white hover:bg-surface-4 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
@@ -5166,12 +5256,12 @@ function PlayerInner() {
                     <div key={idx} className="flex items-center gap-2.5 px-3 py-2.5">
                       {h.badge && <HonorBadge style={{ height: '1.1em' }} />}
                       {h.years.length > 0 ? (
-                        <Link to={`${pathPrefix}/${h.linkBase}/${h.years[0]}`} className="font-semibold text-sm text-white hover:underline">{h.label}</Link>
+                        <Link to={honorLink(h.linkBase, h.years[0], h.confByYear)} className="font-semibold text-sm text-white hover:underline">{h.label}</Link>
                       ) : (
                         <span className="font-semibold text-sm text-white">{h.label}</span>
                       )}
                       <div className="flex flex-wrap gap-1">
-                        {h.years.map(yr => <YearChip key={yr} year={yr} base={h.linkBase} />)}
+                        {h.years.map(yr => <YearChip key={yr} year={yr} base={h.linkBase} confByYear={h.confByYear} />)}
                       </div>
                     </div>
                   ))}
@@ -5550,10 +5640,10 @@ function PlayerInner() {
               return 0
             }
 
-            // Tid-based "is this play from the player's team?" — same
-            // pattern as allPlayerScoringPlays (above) and the per-game
-            // path. Falls back to abbr compare for legacy games without
-            // team1Tid/team2Tid.
+            // Tid-based "is this play from the player's team?" — attribute
+            // each play to one of the game's two tids from the user's file
+            // (team abbr per tid + scorers' tid-based roster), never the base
+            // registry. Falls back to abbr compare for legacy no-tid games.
             const inT1Tid = game.team1Tid != null ? Number(game.team1Tid) : null
             const inT2Tid = game.team2Tid != null ? Number(game.team2Tid) : null
             const inT1Abbr = inT1Tid != null ? dynasty.teams?.[inT1Tid]?.abbr?.toUpperCase() : null
@@ -5566,6 +5656,12 @@ function PlayerInner() {
               inPlayerTid != null && inPlayerTid === inT2Tid ? inT2Abbr :
               (dynasty.teams?.[inPlayerTid]?.abbr || getCurrentTeamAbbr(dynasty))?.toUpperCase()
             )
+            const inTeamTidMap = resolveScoringTeamTids(scoringSummary, {
+              team1Tid: inT1Tid,
+              team2Tid: inT2Tid,
+              teams: dynasty.teams,
+              getScorerTid: buildScorerTidResolver(dynasty.players, game.year),
+            })
 
             // Calculate running scores for all plays
             let playerTeamScore = 0
@@ -5574,9 +5670,9 @@ function PlayerInner() {
               const points = getPlayPoints(play)
               const playU = play.team?.toUpperCase()
               let isPlayerTeam
-              if (inT1Tid != null && inT2Tid != null && inPlayerTid != null && inT1Abbr && inT2Abbr) {
-                const playTid = playU === inT1Abbr ? inT1Tid : (playU === inT2Abbr ? inT2Tid : null)
-                isPlayerTeam = playTid != null ? playTid === inPlayerTid : (playU === inPlayerAbbr)
+              const playSideTid = inTeamTidMap.get(playU)
+              if (playSideTid != null && inPlayerTid != null) {
+                isPlayerTeam = playSideTid === inPlayerTid
               } else {
                 isPlayerTeam = playU === inPlayerAbbr
               }
@@ -5763,13 +5859,16 @@ function PlayerInner() {
                           ? getTeamLogoByTid(gamePlayerTeamTid, dynasty.teams)
                           : null
 
-                        const resolveGamePlayTid = (playTeamStr) => {
-                          const u = playTeamStr?.toUpperCase()
-                          if (!u) return null
-                          if (gT1Abbr && u === gT1Abbr) return gT1Tid
-                          if (gT2Abbr && u === gT2Abbr) return gT2Tid
-                          return null
-                        }
+                        // Attribute each play to one of the game's two tids
+                        // from the user's file (team abbr per tid + scorers'
+                        // tid-based roster), never the base registry.
+                        const gTeamTidMap = resolveScoringTeamTids(scoringSummary, {
+                          team1Tid: gT1Tid,
+                          team2Tid: gT2Tid,
+                          teams: dynasty.teams,
+                          getScorerTid: buildScorerTidResolver(dynasty.players, game.year),
+                        })
+                        const resolveGamePlayTid = (playTeamStr) => gTeamTidMap.get(playTeamStr?.toUpperCase())
 
                         let playerTeamScore = 0
                         let opponentScore = 0
@@ -6190,7 +6289,7 @@ function PlayerInner() {
           }}
           scoringPlays={selectedGameScoringPlays.plays}
           team1Abbr={dynasty.teams?.[player.teamsByYear?.[currentYear]]?.abbr || getCurrentTeamAbbr(dynasty)}
-          team2Abbr={selectedGameScoringPlays.opponent === 'All Games' ? null : selectedGameScoringPlays.opponent}
+          team2Abbr={selectedGameScoringPlays.opponent === 'All Games' ? null : (dynasty.teams?.[selectedGameScoringPlays.game?.opponentTid]?.abbr || selectedGameScoringPlays.opponent)}
           team1Tid={player.teamsByYear?.[currentYear] != null ? Number(player.teamsByYear[currentYear]) : null}
           team2Tid={selectedGameScoringPlays.game?.opponentTid != null ? Number(selectedGameScoringPlays.game.opponentTid) : null}
           team1Logo={getTeamLogoByTid(player.teamsByYear?.[currentYear], dynasty.teams)}

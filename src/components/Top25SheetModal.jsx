@@ -6,8 +6,14 @@ import {
   refreshTop25SheetData,
   deleteGoogleSheet,
   getSingleSheetEmbedUrl,
+  parseTop25WeekLocal,
+  getTop25WeekOptions,
 } from '../services/sheetsService'
 import { saveGamesToSubcollection } from '../services/dynastyService'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { buildAIPrompt } from '../utils/aiPrompt'
+import { getTeamNameOptions, getTeamNameLabel, getTeamNameAliases } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -19,6 +25,7 @@ import {
   buildTop25Diff,
   syncGameRanksFromRankByWeek,
   affectedYearWeeksFromTop25Diff,
+  derivePreseasonPollFromTeams,
 } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
@@ -48,7 +55,7 @@ import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler'
  *   - if any year's clears (= old entries removed) exceed 30% of
  *     the prior total, the confirmation flags it as a bulk
  *     deletion
- *   - unknown abbreviations (typos / non-dynasty teams) are
+ *   - unknown team names (typos / non-dynasty teams) are
  *     surfaced separately so the user can fix them on the sheet
  */
 export default function Top25SheetModal({ isOpen, onClose }) {
@@ -65,13 +72,95 @@ export default function Top25SheetModal({ isOpen, onClose }) {
   const [isMobile, setIsMobile] = useState(isMobileDevice)
   const auth = useAuthErrorHandler()
   const [pendingSave, setPendingSave] = useState(null) // { diff, summary, alsoDelete }
+  const teamAbbrs = useMemo(() => getTeamNameOptions(currentDynasty?.teams, { includeFCS: false }), [currentDynasty?.teams])
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback
+  // for bulk multi-week catch-up.
+  const [useLocal, setUseLocal] = useState(true)
+  const weekOptions = useMemo(() => getTop25WeekOptions(), [])
+  const targetYear = Number(currentDynasty?.currentYear)
+  // Default the picker to the dynasty's current in-season week (1–16); else Preseason.
+  const defaultWeekKey = useMemo(() => {
+    const cw = Number(currentDynasty?.currentWeek)
+    return Number.isFinite(cw) && cw >= 1 && cw <= 16 ? cw : 0
+  }, [currentDynasty?.currentWeek])
+  const [selectedWeek, setSelectedWeek] = useState(0)
+  const selectedWeekLabel = useMemo(
+    () => weekOptions.find((o) => o.key === selectedWeek)?.label || `Week ${selectedWeek}`,
+    [weekOptions, selectedWeek],
+  )
   const creatingSheetRef = useRef(false)
+  // Single-attempt guard: a FAILED creation must not silently re-fire (the
+  // runaway loop that spam-created sheets). One attempt per modal-open; an
+  // explicit retry bumps auth.retryCount and re-arms exactly one more.
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
   // Track which sheet IDs have already been refreshed against the
   // current dynasty so we don't re-stomp the user's in-flight edits
   // on re-renders. One refresh per modal-open per sheet is enough —
   // it brings the sheet's pre-fill in sync with the dynasty's current
   // rankByWeek before the user starts editing.
   const refreshedSheetRef = useRef(null)
+
+  // AI prompt for the selected week's poll — output Rank<TAB>Abbr, one line
+  // per ranked team. includeTeamMap appends the dynasty's abbr mapping so the
+  // AI emits abbreviations the parser can resolve to tids.
+  const aiPrompt = useMemo(() => buildAIPrompt({
+    title: `${targetYear} Top 25 — ${selectedWeekLabel}`,
+    structure: `Output the Top 25 poll for ONE week: ${targetYear}, ${selectedWeekLabel}.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. EXACTLY 2 tab-separated fields per line: Rank<TAB>Team name.
+2. Rank is an integer 1–25, in ascending order (1 first). Output at most 25 lines.
+3. Team is an team name from the list at the bottom — NEVER a full name or nickname.
+4. Each team name appears AT MOST ONCE. Omit any rank you cannot see — never guess.
+5. NO header row, NO commentary inside the data, NO commas.
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== TOP 25 ===
+1\\t<Rank 1 name>
+2\\t<Rank 2 name>
+…
+25\\t<Rank 25 name>`,
+    includeTeamMap: true,
+    dynastyTeams: currentDynasty?.teams,
+  }), [targetYear, selectedWeekLabel, currentDynasty?.teams])
+
+  // Pre-fill the local grid with the SELECTED week's existing poll so the
+  // modal opens ready to edit instead of blank. parseTop25WeekLocal reads
+  // "Rank<TAB>Abbr" rows and is scoped to exactly the selected (year, week),
+  // so the seed must reflect ONLY that week's stored rankByWeek picture —
+  // recomputed whenever selectedWeek (or teams / year) changes. Rank slots
+  // with no team are omitted; the round-trip holds because the parser keys
+  // by rank and abbr.
+  const initialTop25Text = useMemo(() => {
+    if (!currentDynasty) return ''
+    const yearNum = Number(targetYear)
+    const wk = Number(selectedWeek)
+    const teams = currentDynasty.teams || {}
+    const byRank = new Map()
+    for (const team of Object.values(teams)) {
+      if (!team?.abbr) continue
+      const rbw = team?.byYear?.[yearNum]?.rankByWeek ?? team?.byYear?.[String(yearNum)]?.rankByWeek
+      if (!rbw) continue
+      const v = rbw[wk] ?? rbw[String(wk)]
+      if (typeof v !== 'number' || v < 1 || v > 25) continue
+      if (!byRank.has(v)) byRank.set(v, getTeamNameLabel(currentDynasty?.teams, team.tid) || String(team.abbr))
+    }
+    // Emit ALL 25 rank rows (not just the populated ones) so every rank —
+    // including empty slots like #15 — shows up as an editable row with its
+    // rank pre-filled. Omitting empty ranks made them look "skipped" and left
+    // no cell to type the team into. Blank team cells are ignored on save.
+    const lines = []
+    for (let r = 1; r <= 25; r++) {
+      const abbr = byRank.get(r)
+      lines.push(`${r}\t${abbr || ''}`)
+    }
+    return lines.join('\n')
+  }, [currentDynasty, targetYear, selectedWeek])
 
   // Track mobile breakpoint so we can swap the iframe for an
   // open-in-Sheets CTA — Google's embedded view is unusable in a
@@ -82,13 +171,19 @@ export default function Top25SheetModal({ isOpen, onClose }) {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  // Default the week picker to the current week each time the modal opens.
+  useEffect(() => {
+    if (isOpen) setSelectedWeek(defaultWeekKey)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
   // Resume session — pull sheetId off the dynasty if one's stored.
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen || useLocal) return
     if (currentDynasty?.top25SheetId && !sheetId && !showDeletedNote) {
       setSheetId(currentDynasty.top25SheetId)
     }
-  }, [isOpen, currentDynasty?.top25SheetId, sheetId, showDeletedNote])
+  }, [isOpen, useLocal, currentDynasty?.top25SheetId, sheetId, showDeletedNote])
 
   // Refresh the existing sheet's pre-fill from the current dynasty
   // every time the modal opens with a stored sheet. Without this, a
@@ -99,7 +194,7 @@ export default function Top25SheetModal({ isOpen, onClose }) {
   // with the current dynasty so the diff only contains the user's
   // actual in-modal edits.
   useEffect(() => {
-    if (!isOpen || !user || !sheetId || isViewOnly) return
+    if (!isOpen || useLocal || !user || !sheetId || isViewOnly) return
     if (refreshedSheetRef.current === sheetId) return
     refreshedSheetRef.current = sheetId
     refreshTop25SheetData(sheetId, currentDynasty).catch((error) => {
@@ -109,7 +204,7 @@ export default function Top25SheetModal({ isOpen, onClose }) {
       // open retries the refresh.
       refreshedSheetRef.current = null
     })
-  }, [isOpen, user, sheetId, isViewOnly, currentDynasty])
+  }, [isOpen, useLocal, user, sheetId, isViewOnly, currentDynasty])
 
   // Clear the refresh marker on close so the next open triggers a
   // fresh sync.
@@ -119,11 +214,20 @@ export default function Top25SheetModal({ isOpen, onClose }) {
 
   // Create the sheet on first open / after a delete.
   useEffect(() => {
-    if (!isOpen || !user || sheetId || creatingSheet || creatingSheetRef.current) return
+    // An explicit retry re-arms one fresh attempt by bumping auth.retryCount.
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
+    if (useLocal) return // local paste path — never touch Google
+    if (!isOpen || !user || sheetId || creatingSheet || creatingSheetRef.current || creationAttemptedRef.current) return
     if (!currentDynasty?.id || isViewOnly) return
     if (showDeletedNote) return
 
     const create = async () => {
+      // Mark attempted BEFORE any await so a rejection can't loop back in
+      creationAttemptedRef.current = true
       creatingSheetRef.current = true
       setCreatingSheet(true)
       try {
@@ -142,15 +246,40 @@ export default function Top25SheetModal({ isOpen, onClose }) {
       }
     }
     create()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, isViewOnly])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote, isViewOnly])
 
   // Reset state on close so re-opening starts clean.
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       setPendingSave(null)
+      creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: parse ONE week's poll into the same { teamUpdates,
+  // yearTotals, unknownAbbrs } shape readTop25FromSheet returns, then run the
+  // exact same guard → buildTop25Diff → confirm → apply pipeline. No sheet.
+  const handleLocalImport = async (text) => {
+    if (!currentDynasty) return
+    const result = parseTop25WeekLocal(splitTsv(text), currentDynasty, targetYear, selectedWeek)
+    // Same guardrail as the sheet read: refuse to clear a full poll on empty input.
+    const totals = result.yearTotals?.[targetYear]
+    if (totals && totals.newCount === 0 && totals.oldCount >= 10) {
+      toast.error('No teams recognized in the paste — refusing to clear rankings. Check the team names and try again.')
+      return
+    }
+    const summary = buildTop25Diff(currentDynasty, result.teamUpdates)
+    setPendingSave({
+      diff: result.teamUpdates,
+      summary,
+      unknownAbbrs: result.unknownAbbrs || [],
+      yearTotals: result.yearTotals,
+      alsoDelete: false,
+    })
+  }
 
   const handleParseAndPreview = async (alsoDelete) => {
     if (!sheetId || !currentDynasty) return
@@ -211,6 +340,35 @@ export default function Top25SheetModal({ isOpen, onClose }) {
         affectedWeeks,
       )
 
+      // If this save touched week 0 (preseason) for any year, rebuild that
+      // year's preseasonRankingsByYear from the new rankByWeek[0] picture. That
+      // array is what the Dashboard todo + preseason recap read, so without
+      // this a preseason poll entered from the side menu never shows up there.
+      const preseasonYears = Object.entries(affectedWeeks)
+        .filter(([, weeks]) => weeks?.has?.(0))
+        .map(([yr]) => Number(yr))
+        .filter(Number.isFinite)
+      let preseasonPatch = null
+      if (preseasonYears.length > 0) {
+        const base = { ...(currentDynasty.preseasonRankingsByYear || {}) }
+        let changed = false
+        for (const yr of preseasonYears) {
+          const derived = derivePreseasonPollFromTeams(newTeams, yr)
+          const existing = base[yr] || base[String(yr)] || []
+          // DATA-LOSS GUARD: never let a week-0 edit that derives an EMPTY poll
+          // (e.g. teams.rankByWeek[0] stale/unloaded at save time) overwrite a
+          // preseason Top 25 that was already entered — that's how an entered
+          // poll silently vanished. A deliberate full clear goes through the
+          // dedicated Preseason Top 25 modal, which guards its own empties.
+          if (derived.length === 0 && existing.length > 0) continue
+          base[yr] = derived
+          changed = true
+        }
+        // Only write when something actually changed — avoids re-writing the
+        // whole map (and touching every year's season doc) for a no-op.
+        if (changed) preseasonPatch = base
+      }
+
       const isCloud = currentDynasty.storageType === 'cloud'
 
       if (isCloud) {
@@ -264,6 +422,7 @@ export default function Top25SheetModal({ isOpen, onClose }) {
         // so the UI reflects the rank corrections immediately.
         const stateUpdates = { ...teamPathUpdates }
         if (changedGames.length > 0) stateUpdates.games = newGames
+        if (preseasonPatch) stateUpdates.preseasonRankingsByYear = preseasonPatch
         if (Object.keys(stateUpdates).length > 0) {
           await updateDynasty(currentDynasty.id, stateUpdates, { skipGamesSubcollection: true })
         }
@@ -275,6 +434,7 @@ export default function Top25SheetModal({ isOpen, onClose }) {
         if (newGames !== (currentDynasty.games || [])) {
           updatePayload.games = newGames
         }
+        if (preseasonPatch) updatePayload.preseasonRankingsByYear = preseasonPatch
         await updateDynasty(currentDynasty.id, updatePayload)
       }
 
@@ -358,7 +518,35 @@ export default function Top25SheetModal({ isOpen, onClose }) {
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
-          {creatingSheet ? (
+          {useLocal && !showDeletedNote ? (
+            <div className="flex-1 flex flex-col overflow-hidden px-5 sm:px-7 py-5 gap-3">
+              <div className="flex items-center gap-2">
+                <label htmlFor="top25-week" className="label-xs text-txt-tertiary">Week</label>
+                <select
+                  id="top25-week"
+                  value={selectedWeek}
+                  onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                  className="rounded-md border border-surface-5 bg-surface-2 px-2 py-1.5 text-sm text-txt-primary focus:outline-none focus:ring-2 focus:ring-surface-5"
+                >
+                  {weekOptions.map((o) => (
+                    <option key={o.key} value={o.key}>{o.label}</option>
+                  ))}
+                </select>
+                <span className="text-xs text-txt-tertiary ml-auto">{targetYear} season</span>
+              </div>
+              <LocalDataEntry
+                aiPrompt={aiPrompt}
+                onImport={handleLocalImport}
+                onUseGoogle={() => setUseLocal(false)}
+                onCancel={onClose}
+                importLabel="Preview changes"
+                initialText={initialTop25Text}
+                columns={['Rank', 'Team']}
+                comboboxColumns={{ 'Team': teamAbbrs }}
+                comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+              />
+            </div>
+          ) : creatingSheet ? (
             <div className="flex-1 flex items-center justify-center p-6">
               <div className="text-center">
                 <div className="animate-spin w-10 h-10 border-2 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />
@@ -559,14 +747,14 @@ function Top25DiffConfirmModal({ summary, yearTotals, unknownAbbrs, alsoDelete, 
 
           {unknownAbbrs?.length > 0 && (
             <div className="rounded-lg p-3 border border-surface-4" style={{ backgroundColor: 'rgba(245, 158, 11, 0.08)' }}>
-              <p className="text-txt-primary font-semibold mb-1">Unknown team abbreviations (skipped)</p>
+              <p className="text-txt-primary font-semibold mb-1">Unknown team names (skipped)</p>
               <ul className="list-disc list-inside text-xs space-y-0.5">
                 {unknownAbbrs.slice(0, 12).map((u, i) => (
                   <li key={i}>{u.year} {weekLabel(u.weekKey)} #{u.rank}: <span className="font-mono">{u.raw}</span></li>
                 ))}
                 {unknownAbbrs.length > 12 && <li className="opacity-70">…and {unknownAbbrs.length - 12} more</li>}
               </ul>
-              <p className="text-xs mt-1.5">These cells were ignored. Fix the abbreviations on the sheet and re-save to include them.</p>
+              <p className="text-xs mt-1.5">These cells were ignored. Fix the team names on the sheet and re-save to include them.</p>
             </div>
           )}
 

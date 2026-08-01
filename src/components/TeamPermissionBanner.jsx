@@ -19,7 +19,8 @@
 
 import { useAuth } from '../context/AuthContext'
 import { useDynasty } from '../context/DynastyContext'
-import { canWriteTeam, getRole, ROLE_COMMISH, ROLE_COCOMMISH, getCoachNameForUid, getCoachesForTeamYear } from '../data/leagueModel'
+import { canWriteTeam, getRole, ROLE_COMMISH, ROLE_COCOMMISH, getCoachNameForUid } from '../data/leagueModel'
+import { getCoaches } from '../data/coachModel'
 
 export default function TeamPermissionBanner({ tids = [], message = null }) {
   const { user } = useAuth()
@@ -40,14 +41,15 @@ export default function TeamPermissionBanner({ tids = [], message = null }) {
   // Identify the actual coach(es) for these tids in the current year so
   // the banner is concrete: "this is X's team" rather than "you don't manage this".
   const year = currentDynasty.currentYear
-  const coachUids = new Set()
-  for (const tid of cleaned) {
-    for (const u of getCoachesForTeamYear(currentDynasty, tid, year)) coachUids.add(u)
+  const cleanedSet = new Set(cleaned)
+  const coachNames = []
+  for (const c of Object.values(getCoaches(currentDynasty))) {
+    if (!c || c.controlledBy == null || c.controlledBy === user.uid) continue
+    const tid = Number(c.byYear?.[year]?.teamTid ?? c.byYear?.[String(year)]?.teamTid)
+    if (cleanedSet.has(tid)) {
+      coachNames.push(c.name || getCoachNameForUid(currentDynasty, c.controlledBy, 'another coach'))
+    }
   }
-  const coachNames = Array.from(coachUids)
-    .filter(u => u !== user.uid)
-    .map(u => getCoachNameForUid(currentDynasty, u, 'another coach'))
-    .filter(Boolean)
 
   const defaultMessage = coachNames.length > 0
     ? `Heads up — these teams belong to ${coachNames.join(', ')}. Saving here will overwrite their data.`

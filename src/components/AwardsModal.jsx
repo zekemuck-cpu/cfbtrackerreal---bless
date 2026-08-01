@@ -16,11 +16,15 @@ import {
   readAwardsFromSheet,
   deleteGoogleSheet,
   getSheetEmbedUrl,
-  sheetExists
+  sheetExists,
+  AWARDS_LIST
 } from '../services/sheetsService'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { getTeamNameOptions, getTeamNameAliases } from '../data/teamRegistry'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -33,6 +37,10 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
   const { toast } = useToast()
   const { confirm } = useConfirm()
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
+  // Team-name options for the local grid's Team column combobox, sourced from
+  // the user's own dynasty.teams (tid-rooted, same as the All-American /
+  // All-Conference inputs) so picks always match a team in their file.
+  const teamAbbrs = useMemo(() => getTeamNameOptions(currentDynasty?.teams, { includeFCS: false }), [currentDynasty?.teams])
   const [syncing, setSyncing] = useState(false)
   const [deletingSheet, setDeletingSheet] = useState(false)
   const [creatingSheet, setCreatingSheet] = useState(false)
@@ -40,6 +48,8 @@ export default function AwardsModal({ isOpen, onClose, onSave, currentYear, team
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
   const [useEmbedded, setUseEmbedded] = useState(() => {
     // Load preference from localStorage
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -84,17 +94,16 @@ CRITICAL RULES
 3. NO COMMAS in any value. No totals, no explanation text, no "N/A", no dashes.
 4. BLANK field for unknown (empty string between the tabs). Never guess, never write "Unknown", never put zero.
 5. Use ONLY the literal dropdown values listed — wrong spelling/casing = Google Sheets rejects it.
-6. Team column (D) uses the ABBREVIATION from the mapping at the bottom of this prompt — NEVER full names or mascots.
+6. Team column (D) uses the team NAME from the TEAM NAMES list at the bottom of this prompt — NEVER an abbreviation, nickname, or mascot.
 7. COACH AWARDS (rows 5 & 17 only — see the explicit list above) have cells C, D, E MERGED into ONE wide cell that holds the Team. The merge anchor is column C. For those two rows ONLY, output exactly 3 tab characters yielding 4 fields:
        CoachName<TAB>TeamAbbr<TAB><TAB>
    Concretely: field1 = CoachName, field2 = TeamAbbr, field3 = EMPTY, field4 = EMPTY.
    NEVER put the team in field 3 or 4 on a coach row — the team must land in column C (the merge anchor); fields 3 and 4 are merged-away cells D and E and MUST be empty.
    NEVER output the coach-row pattern for any other row. All 20 non-coach rows MUST output 4 fields: Player<TAB>Position<TAB>Team<TAB>Class.
-8. ONE TSV block total — exactly 22 lines, preceded by the required paste-target label line above the fence (see TSV delivery rules above).
+8. ONE TSV block total — exactly 22 lines, preceded by its "=== AWARDS ===" label above the fence.
 
 ═══════════════════════════════════════════════════════════
-TAB "${currentYear}" — 22 rows × 4 output columns
-Paste at cell B2 of the "${currentYear}" tab
+SECTION "${currentYear}" — 22 rows × 4 output columns
 ═══════════════════════════════════════════════════════════
 
 Row-by-row map. Output line N corresponds to sheet row N+1.
@@ -134,7 +143,7 @@ Field formats:
 - Position (strict dropdown) — must be EXACTLY one of these 21 values, case-sensitive:
     QB | HB | FB | WR | TE | LT | LG | C | RG | RT | LEDG | REDG | DT | SAM | MIKE | WILL | CB | FS | SS | K | P
   Do NOT use "RB", "OL", "LB", "DE", "S", "OG", "OT" — those will be REJECTED by the dropdown.
-- Team (strict dropdown) — uppercase abbreviation from the team mapping at the bottom of this prompt (e.g. BAMA, OSU, UGA). NEVER full names ("Alabama", "Ohio State") or nicknames ("Crimson Tide"). On COACH rows this is the coach's TEAM (the school the coach works for), in field 2.
+- Team (strict dropdown) — team name from the TEAM NAMES list at the bottom of this prompt (e.g. Alabama, Ohio State, Georgia). NEVER an abbreviation, nickname, or mascot ("Crimson Tide"). On COACH rows this is the coach's TEAM (the school the coach works for), in field 2.
 - Class (strict dropdown) — must be EXACTLY one of these 8 values, case-sensitive:
     Fr | RS Fr | So | RS So | Jr | RS Jr | Sr | RS Sr
   Note the literal space in "RS Fr", "RS So", "RS Jr", "RS Sr". Do NOT use "Freshman", "Sophomore", "Junior", "Senior", "FR", "SO", "JR", "SR", "RSFr", "R-Fr", etc.
@@ -142,7 +151,7 @@ Field formats:
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== AWARDS — paste at cell B2 of "${currentYear}" tab ===
+=== AWARDS ===
 <line 1, row 2,  Heisman:                   Player\\tPosition\\tTeam\\tClass>
 <line 2, row 3,  Maxwell:                   Player\\tPosition\\tTeam\\tClass>
 <line 3, row 4,  Walter Camp:               Player\\tPosition\\tTeam\\tClass>     ← PLAYER AWARD — do NOT emit a coach name here
@@ -176,15 +185,17 @@ FINAL CHECK before you send
 [ ] All 20 non-coach lines have 4 tab-separated slots: Player<TAB>Position<TAB>Team<TAB>Class (individual fields may be blank if unknown)
 [ ] All Position values are from the exact list: QB, HB, FB, WR, TE, LT, LG, C, RG, RT, LEDG, REDG, DT, SAM, MIKE, WILL, CB, FS, SS, K, P
 [ ] All Class values are from the exact list: Fr, RS Fr, So, RS So, Jr, RS Jr, Sr, RS Sr
-[ ] All Team values are uppercase abbreviations from the mapping — no full names
+[ ] All Team values are team names from the TEAM NAMES list
 [ ] Blank fields for unknowns — nothing was invented
-[ ] No award name, header row, commas, commentary, or explanation INSIDE the data. The paste-target label above the fence is required (see TSV delivery rules above).`,
+[ ] No award name, header row, commas, commentary, or explanation INSIDE the data.`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -214,9 +225,16 @@ FINAL CHECK before you send
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
         // Set ref immediately to prevent concurrent calls (state updates are async)
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -250,14 +268,34 @@ FINAL CHECK before you send
       }
     }
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI reply omits column A (award name, pre-filled on
+  // the sheet) and emits exactly 22 lines of B–E in the fixed AWARDS_LIST order.
+  // Prepend each award name by position so the parser's row[0] (award) resolves,
+  // matching the [award, ...cells] shape the Sheets API returns.
+  const handleLocalImport = async (text) => {
+    // The grid is labeled (rowLabels={AWARDS_LIST}), so LocalDataEntry serializes
+    // each row index-led ("<i>\t<B>\t<C>..."). Key each row to its award by that
+    // index rather than by line position — a dropped/blank line can no longer
+    // slide every later award onto the wrong winner.
+    const rows = splitTsv(text).map((cells) => {
+      const i = Number(cells[0])
+      return [Number.isInteger(i) ? (AWARDS_LIST[i] ?? '') : '', ...cells.slice(1)]
+    })
+    const awards = await readAwardsFromSheet(null, currentYear, (currentDynasty?.teams || currentDynasty?.customTeams), { rows })
+    await onSave(awards)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -375,7 +413,20 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Season Awards" title={`${currentYear} Awards`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Awards"
+            rowLabels={AWARDS_LIST}
+            rowLabelHeader="Award"
+            columns={['Player', 'Position', 'Team', 'Class']}
+            comboboxColumns={{ Team: teamAbbrs }}
+            comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />

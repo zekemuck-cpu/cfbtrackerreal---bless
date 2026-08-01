@@ -1,5 +1,5 @@
-import { db } from '../_firebaseAdmin.js';
-import { verifyAdmin } from '../_verifyAuth.js';
+import { db } from '../../_firebaseAdmin.js';
+import { verifyAdmin } from '../../_verifyAuth.js';
 
 /**
  * Admin-only orphan-subcollection recovery.

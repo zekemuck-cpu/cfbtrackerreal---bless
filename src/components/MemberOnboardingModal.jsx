@@ -21,13 +21,14 @@ import { useAuth } from '../context/AuthContext'
 import { useDynasty } from '../context/DynastyContext'
 import { Modal, Button, TeamLogo } from './ui'
 import { useToast } from './ui/Toast'
+import { getEditors } from '../data/leagueModel'
 import {
-  getEditors,
-  getMemberTeams,
-  getCoachesForTeamYear,
-  setMemberLabelValue,
-  claimTeamForYear,
-} from '../data/leagueModel'
+  getCoaches,
+  getCurrentTeamsForControlledCoaches,
+  applyControlledCoachTeam,
+  deriveMemberTeamsIndex,
+  generateCid,
+} from '../data/coachModel'
 
 const dismissKey = (dynastyId, uid) => `onboardingDismissed:${dynastyId}:${uid}`
 
@@ -55,7 +56,7 @@ export default function MemberOnboardingModal() {
       setIsOpen(false)
       return
     }
-    if (getMemberTeams(currentDynasty, user.uid).length > 0) {
+    if (getCurrentTeamsForControlledCoaches(currentDynasty, user.uid).length > 0) {
       setIsOpen(false)
       return
     }
@@ -78,11 +79,12 @@ export default function MemberOnboardingModal() {
         tid: Number(tid),
         name: t.name,
         abbr: t.abbr || '',
-        // Flag teams currently assigned to another member — picking one
-        // is allowed (timeline editor handles conflicts) but the user
-        // should know it's taken.
-        takenBy: getCoachesForTeamYear(currentDynasty, Number(tid), currentDynasty.currentYear)
-          .filter(u => u !== user?.uid),
+        // Flag teams currently controlled by another coach — picking one
+        // is allowed (it reassigns) but the user should know it's taken.
+        takenBy: Object.values(getCoaches(currentDynasty)).filter(c =>
+          c && c.controlledBy != null && c.controlledBy !== user?.uid &&
+          Number(c.byYear?.[currentDynasty.currentYear]?.teamTid ?? c.byYear?.[String(currentDynasty.currentYear)]?.teamTid) === Number(tid),
+        ),
       }))
       .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
   ), [teamsSource, currentDynasty, user?.uid])
@@ -111,10 +113,12 @@ export default function MemberOnboardingModal() {
       return
     }
     // Don't let a new member silently take a team another coach already
-    // controls. Reassigning a held team is a commissioner action (League
-    // Settings), not something self-onboarding should do.
-    const alreadyTaken = Object.entries(currentDynasty.memberTeams || {}).some(
-      ([uid, tids]) => uid !== user.uid && Array.isArray(tids) && tids.map(Number).includes(tid)
+    // controls. Reassigning a held team is a commissioner action.
+    const year = currentDynasty.currentYear
+    const tNum = Number(tid)
+    const alreadyTaken = Object.values(getCoaches(currentDynasty)).some(c =>
+      c && c.controlledBy != null && c.controlledBy !== user.uid &&
+      Number(c.byYear?.[year]?.teamTid ?? c.byYear?.[String(year)]?.teamTid) === tNum
     )
     if (alreadyTaken) {
       toast.error('That team is already taken by another coach. Pick an open team, or ask the commissioner to assign it to you.')
@@ -123,36 +127,26 @@ export default function MemberOnboardingModal() {
     setBusy(true)
     try {
       const trimmed = (labelDraft || '').trim()
-      const updates = {}
-      if (trimmed) {
-        updates.memberLabels = setMemberLabelValue(currentDynasty, user.uid, trimmed)
+      // Create this member's coach entity and assign the picked team.
+      const coach = {
+        cid: generateCid(),
+        name: trimmed || 'Coach',
+        controlledBy: user.uid,
+        status: 'active',
+        departedYear: null,
+        byYear: {},
       }
-
-      // Live current-year team list. Claim semantics: strip the tid from
-      // any other uid that currently holds it (the timeline editor uses
-      // the same convention — one coach per team per season).
-      const liveNext = { ...(currentDynasty.memberTeams || {}) }
-      const tNum = Number(tid)
-      for (const otherUid of Object.keys(liveNext)) {
-        if (otherUid === user.uid) continue
-        const arr = Array.isArray(liveNext[otherUid]) ? liveNext[otherUid].map(Number) : []
-        const filtered = arr.filter(t => t !== tNum)
-        if (filtered.length === arr.length) continue
-        if (filtered.length === 0) delete liveNext[otherUid]
-        else liveNext[otherUid] = filtered
+      const base = { ...getCoaches(currentDynasty), [coach.cid]: coach }
+      const { coaches } = applyControlledCoachTeam({ ...currentDynasty, coaches: base }, coach.cid, year, tNum)
+      const memberTeams = {
+        ...(currentDynasty.memberTeams || {}),
+        ...deriveMemberTeamsIndex({ ...currentDynasty, coaches }),
       }
-      liveNext[user.uid] = [tNum]
-      updates.memberTeams = liveNext
-
-      // Per-year history: same claim semantics for the current year.
-      updates.memberTeamHistory = claimTeamForYear(
-        currentDynasty.memberTeamHistory,
-        user.uid,
-        currentDynasty.currentYear,
-        tNum,
-      )
-
-      await updateDynasty(currentDynasty.id, updates)
+      await updateDynasty(currentDynasty.id, {
+        coaches,
+        memberTeams,
+        _coachesControlMigrated: true,
+      })
       toast.success(`Welcome to ${currentDynasty.dynastyName || 'the dynasty'}!`)
       setIsOpen(false)
     } catch (err) {

@@ -11,10 +11,18 @@ import {
   readGameBoxScoreFromUnifiedTab,
   readScoringSummaryFromSheet,
   readGameTeamStatsFromSheet,
+  parseGameTeamStatsTsv,
+  TEAM_STATS_ROWS,
   deleteGoogleSheet,
   getSingleSheetEmbedUrl,
   sheetExists
 } from '../services/sheetsService'
+import { splitTsv } from '../utils/tsvParse'
+import { getTeamLogoRobust } from '../utils/teamLogo'
+import PlayerStatsPasteGrid from './PlayerStatsPasteGrid'
+import LocalDataEntry from './ui/LocalDataEntry'
+import PasteEntrySteps from './ui/PasteEntrySteps'
+import Button from './ui/Button'
 import { useDynasty, isPlayerOnRoster } from '../context/DynastyContext'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from './ui/Toast'
@@ -27,8 +35,28 @@ import { getCurrentTeamAbbr, getAbbrFromTeamName, getOriginalTeamAbbr, getTidFro
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import { getPlayerStatsForTid, getTeamStatsForTid, getPlayerStatsSheetIdForTid, canonicalBoxScore, setScoringSummary } from '../utils/boxScoreHelpers'
-import { AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
+import { AI_UNIFIED_TAB, computeUnifiedTabLayout, SCORING_SUMMARY } from '../data/boxScoreConstants'
 import SheetLoadingHint from './SheetLoadingHint'
+
+// A pasted team-stats line is "<away>\t<home>", both numeric or blank. AIs
+// sometimes wrap the data in prose ("Here you go!", a trailing note); those
+// survive splitTsv as single non-numeric cells. Keep only real data rows so
+// the fixed-order index mapping (line N -> TEAM_STATS_ROWS[N]) can't be thrown
+// off by a stray sentence. A lone numeric/blank cell is a real "value\t" row
+// whose blank home value collapsed away on trim, so it stays.
+const isTeamStatsDataRow = (cells) => {
+  if (cells.length >= 2) return true
+  const v = (cells[0] ?? '').trim()
+  return v === '' || !Number.isNaN(Number(v))
+}
+
+// "First Downs" -> "firstDowns" — the camelCase key team-stats values are
+// stored under in teamStatsByTid. Matches the sheet reader + paste parser
+// exactly, so existing data round-trips back into the grid by the same key.
+const teamStatKey = (label) => label
+  .toLowerCase()
+  .replace(/[^a-z0-9]+(.)/g, (_, c) => c.toUpperCase())
+  .replace(/^./, (c) => c.toLowerCase())
 
 // Strict roster-name entry (prompt + sheet dropdown) only kicks in for teams
 // that actually have a tracked roster with plenty of players. This is the gate
@@ -83,14 +111,42 @@ export default function BoxScoreSheetModal({
   const [highlightSave, setHighlightSave] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [ignoreExistingSheetId, setIgnoreExistingSheetId] = useState(false)
+
+  // ── Local TSV paste ───────────────────────────────────────────────────
+  // A Google-free ingest path, now the DEFAULT for player + team stats AND the
+  // scoring summary — even when the game already has a Google sheet. Paste the
+  // AI's TSV straight in, no sheet created, so none of the OAuth / quota /
+  // rate-limit / grid bugs can fire. The grid pre-fills from any data already
+  // saved on the game, and the in-panel "Use Google Sheet instead" toggle still
+  // opens the existing sheet for anyone who wants it.
+  const [pasteMode, setPasteMode] = useState(['teamStats', 'playerStats', 'scoring'].includes(sheetType))
+  // The editable grid is the source of truth (30 {away,home} pairs). The raw
+  // textarea is an optional power-user view, hidden behind the expand arrow;
+  // both stay in sync. rawText holds whatever the user pasted/typed verbatim.
+  const [statRows, setStatRows] = useState(() => TEAM_STATS_ROWS.map(() => ({ away: '', home: '' })))
+  const [rawText, setRawText] = useState('')
+  const [showRaw, setShowRaw] = useState(false)
+  const [importing, setImporting] = useState(false)
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
+  // Team-stats grid inputs, keyed by column, so Tab moves DOWN a column
+  // (away 1→30, then home 1→30) instead of the default left-to-right per row.
+  const teamStatInputs = useRef({ away: [], home: [] })
+  // Prefill the paste grid from saved stats exactly once per open (so it never
+  // clobbers in-progress edits on re-render).
+  const pastePrefilledRef = useRef(false)
 
   // Resolve team abbreviations from game data
   // Try direct abbreviation fields first, then resolve from tids
   // Use explicit undefined checks to ensure we get strings, not undefined
-  const resolvedTeam1 = game?.team1 || (game?.team1Tid ? getOriginalTeamAbbr(game.team1Tid) : null) || ''
-  const resolvedTeam2 = game?.team2 || (game?.team2Tid ? getOriginalTeamAbbr(game.team2Tid) : null) || ''
+  // tid-first: resolve the live abbr from dynasty.teams[tid]; fall back to the
+  // stored string, then the static registry, only when no tid is in scope.
+  const resolvedTeam1 = (game?.team1Tid != null ? currentDynasty?.teams?.[game.team1Tid]?.abbr : null)
+    || game?.team1 || (game?.team1Tid ? getOriginalTeamAbbr(game.team1Tid) : null) || ''
+  const resolvedTeam2 = (game?.team2Tid != null ? currentDynasty?.teams?.[game.team2Tid]?.abbr : null)
+    || game?.team2 || (game?.team2Tid ? getOriginalTeamAbbr(game.team2Tid) : null) || ''
 
   // Determine teams based on game data
   // Use homeTeamTid as the source of truth for determining home/away
@@ -142,6 +198,12 @@ export default function BoxScoreSheetModal({
     homeTeamTid = getTidFromAbbr(homeTeamAbbr, currentDynasty)
     awayTeamTid = getTidFromAbbr(awayTeamAbbr, currentDynasty)
   }
+
+  // Team logos for the paste-grid headers — resolved from the tids (the team
+  // system's source of truth), with the abbr kept only as alt/fallback text.
+  const teamsForLogos = currentDynasty?.teams || currentDynasty?.customTeams
+  const homeTeamLogo = getTeamLogoRobust(homeTeamTid, teamsForLogos)
+  const awayTeamLogo = getTeamLogoRobust(awayTeamTid, teamsForLogos)
 
   // Get the game year (use game's year, fallback to dynasty's current year)
   const gameYear = game?.year || currentDynasty?.currentYear
@@ -370,7 +432,7 @@ export default function BoxScoreSheetModal({
         opponentRosterLabel: homeScoringFallback
           ? `${homeTeamAbbr} KNOWN PLAYERS (extracted from this game's scoring plays — no full roster available; use for team-assignment)`
           : `${homeTeamAbbr} ROSTER (for team-assignment, see below)`,
-        structure: `This is an OCR task: extract structured data from images into TSV. Output the full play-by-play of this game as 13-col TSV — one row per highlight line, chronological order (earliest first). Paste target: cell A2 of the "Scoring Summary" tab.
+        structure: `This is an OCR task: extract structured data from images into TSV. Output the full play-by-play of this game as 13-col TSV — one row per highlight line, chronological order (earliest first).
 
 ═══════════════════════════════════════════════════════════
 USE CODE EXECUTION — NOT MANUAL TAB COUNTING
@@ -833,7 +895,7 @@ The user pastes a screenshot of CFB26's post-game Scoring Summary page. Each ent
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ALL 9 columns (A through I) per row, paste at cell A2. The sheet has no pre-filled data rows — you fill everything below the header.
+1. Output ALL 9 columns (A through I) per row. The sheet has no pre-filled data rows — you fill everything below the header.
 2. ONE ROW PER SCORING PLAY, in chronological order (earliest quarter / latest game-clock time first). PAT attempts are NOT separate rows — they collapse into the TD row via column F (PAT Result).
 3. Output AT MOST 30 rows. Leave remaining rows blank (do not output them at all — just stop).
 4. NO COMMAS in numbers. "24" never "1,234".
@@ -841,11 +903,10 @@ CRITICAL RULES — read before anything else
 6. Use ONLY the literal dropdown values listed below for columns A, E, F, G. Strict dropdowns — wrong value is rejected.
 7. BLANK CELLS only for genuinely missing/illegible data. NEVER use "N/A". This sheet uses empty string, NOT "N/A", for plays without a PAT.
 8. EVERY scoring play in the screenshot must produce one row, and that row's column B (Scorer) MUST be filled with the name from the screenshot — for BOTH teams equally. Output is rejected if it skips opponent scorers.
-9. No header row, no commentary or explanation INSIDE the data. ONE TSV block — preceded by the paste-target label line as required by the TSV delivery rules above.
+9. No header row, no commentary or explanation INSIDE the data. ONE TSV block.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Scoring Summary" — up to 30 rows × 9 columns
-Paste your block at cell A2 of the "Scoring Summary" tab
+SECTION: "Scoring Summary" — up to 30 rows × 9 columns
 ═══════════════════════════════════════════════════════════
 
 Col | Header       | Format / Allowed values
@@ -888,7 +949,7 @@ PAT Result rules:
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== SCORING SUMMARY — paste at cell A2 of "Scoring Summary" tab ===
+=== SCORING SUMMARY ===
 <Team>\\t<Scorer>\\t<Passer>\\t<Yards>\\t<Score Type>\\t<PAT Result>\\t<Quarter>\\t<Time Left>\\t<Video Link>
 ... one row per scoring play, chronological
 
@@ -936,7 +997,7 @@ At the top of every CFB26 Team Stats screenshot, the away team's logo+abbr appea
 CRITICAL RULES — non-negotiable
 ═══════════════════════════════════════════════════════════
 1. EXACTLY 30 rows of output. Count them before you send.
-2. EACH row = "<away>\\t<home>" — exactly ONE tab character per line. No header row, no labels, no commentary INSIDE the data. The paste-target label above the fence is required (see TSV delivery rules above).
+2. EACH row = "<away>\\t<home>" — exactly ONE tab character per line. No header row, no labels, no commentary INSIDE the data.
 3. Row order is FIXED — see the 30-row table below. Row 1 = First Downs, row 2 = Total Offense, …, row 30 = Poss Seconds. Never reorder, skip, or add.
 4. Use INTEGERS everywhere EXCEPT row 26 (Punt Avg), which is a one-decimal number like 42.7.
 5. NO COMMAS in numbers ("1234", never "1,234"). NO percent signs. NO units.
@@ -1084,10 +1145,10 @@ If the screenshots showed (away → home):
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== TEAM STATS — paste at cell B2 of "Team Stats" tab ===
+=== TEAM STATS ===
 <row1 away>\\t<row1 home>
 <row2 away>\\t<row2 home>
-... (30 total rows, in the exact order above, no header inside the data, no commentary inside the data — the paste-target label above the fence is required, see TSV delivery rules above)
+... (30 total rows, in the exact order above, no header inside the data, no commentary inside the data)
 
 ═══════════════════════════════════════════════════════════
 SELF-CHECK BEFORE YOU SEND — run every line
@@ -1122,7 +1183,7 @@ SELF-CHECK BEFORE YOU SEND — run every line
     return buildAIPrompt({
       title: `${baseTitle} — ${teamAbbr} Player Stats`,
       roster: playerStatsRoster,
-      structure: `This Google Sheet has a tab named "${AI_UNIFIED_TAB.title}" that holds EVERY stat category for the ${teamAbbr} team in one place. Produce ONE tab-separated block that the user pastes at cell A1 of that tab. Stats are for the ${teamAbbr} team ONLY (opponent: ${opponentAbbrLabel}). Never include opponent players.
+      structure: `This Google Sheet has a tab named "${AI_UNIFIED_TAB.title}" that holds EVERY stat category for the ${teamAbbr} team in one place. Produce ONE tab-separated block. Stats are for the ${teamAbbr} team ONLY (opponent: ${opponentAbbrLabel}). Never include opponent players.
 
 ════════════════════════════════════════════════════════════
 THE OUTPUT: 9 SECTIONS, IN ORDER
@@ -1142,7 +1203,7 @@ This is the whole trick, and why it now works reliably:
   - The next banner comes immediately after the previous section's last data row. No blank separator rows anywhere.
   - Every DATA row has EXACTLY as many tab-separated columns as that section's HEADER. Column order is FIXED, never reorder.
 
-Output the entire block once (a fenced code block is fine so the tab characters survive copy-paste). Apart from the required paste-target label line, output nothing else: no preamble, no "here is the output", no trailing notes.
+Output the entire block once (a fenced code block is fine so the tab characters survive copy-paste). Output nothing else: no preamble, no "here is the output", no trailing notes.
 
 ════════════════════════════════════════════════════════════
 HOW TO READ THE GAME SCREENSHOTS
@@ -1188,11 +1249,35 @@ FINAL CHECK before you send
 [ ] Every DATA row has the right column count for its section, with no commas and only the allowed decimals.
 [ ] Every player is a ${teamAbbr} player${hasRoster ? ', named to match the roster' : ''} (no "#12", no "J. Smith").
 [ ] No blank separator rows, no padding rows, no zero-filled rows for players who did not appear.
-[ ] The output is just the paste-target label line and the one block, nothing else.`,
+[ ] The output is just the one block, nothing else.`,
       includeTeamMap: true,
       dynastyTeams: currentDynasty?.teams,
     })
   }, [sheetType, config.teamAbbr, config.opponentAbbr, config.isUserControlled, homeTeamAbbr, awayTeamAbbr, game?.week, gameYear, game?.boxScore, homeRosterObjects, awayRosterObjects, targetRosterObjects, homeTeamTid, awayTeamTid, targetTidNum, userTidForGameYear, currentDynasty?.teams])
+
+  // Scoring-summary local paste: pre-fill the grid with any scoring plays
+  // already on the game, serialized to the 13-col A–M TSV order the parser
+  // reads, so the modal opens on existing data for edits instead of blank.
+  const scoringInitialText = useMemo(() => {
+    if (sheetType !== 'scoring') return ''
+    const plays = game?.boxScore?.scoringSummary || []
+    return plays.map(p => [
+      p.team || '', p.scorer || '', p.passer || '', p.yards || '',
+      p.scoreType || '', p.patResult || '', p.quarter || '', p.timeLeft || '',
+      p.videoLink || '', p.down || '', p.distance || '', p.fieldPos || '',
+      p.playType || '',
+    ].join('\t')).join('\n')
+  }, [sheetType, game?.boxScore?.scoringSummary])
+
+  // Parse a pasted scoring-summary TSV through the SAME reader the Google sheet
+  // uses (its rows short-circuit), then hand the play array to onSave — no sheet
+  // created, matching the player/team-stats paste path.
+  const handleScoringImport = async (text) => {
+    const teams = currentDynasty?.teams || currentDynasty?.customTeams
+    const data = await readScoringSummaryFromSheet(null, teams, { rows: splitTsv(text) })
+    await onSave(data)
+    handleClose()
+  }
 
   // Short label used inside the Reset/Regenerate button text so the
   // user can tell at a glance what's about to be wiped (e.g. "wipe
@@ -1232,10 +1317,15 @@ FINAL CHECK before you send
 
   // Load existing sheet or create new one
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const initSheet = async () => {
       // Use ref for immediate check to prevent race conditions (state updates are async)
       // Also gate on auth.showAuthError so we don't loop on OAuth failures
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !auth.showAuthError) {
+      if (isOpen && user && !pasteMode && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !auth.showAuthError && !creationAttemptedRef.current) {
         // Optimistic existing-sheet path: in the common case the sheet
         // already exists, so render the iframe IMMEDIATELY rather than
         // making the user wait on a Drive API existence probe before
@@ -1266,6 +1356,7 @@ FINAL CHECK before you send
         }
 
         // Create new sheet - set ref immediately to prevent concurrent calls
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -1354,16 +1445,172 @@ FINAL CHECK before you send
     }
 
     initSheet()
-  }, [isOpen, user, sheetId, creatingSheet, existingSheetId, auth.retryCount, showDeletedNote, ignoreExistingSheetId])
+  }, [isOpen, user, pasteMode, sheetId, existingSheetId, auth.retryCount, showDeletedNote, ignoreExistingSheetId])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       setIgnoreExistingSheetId(false)
+      setStatRows(TEAM_STATS_ROWS.map(() => ({ away: '', home: '' })))
+      setRawText('')
+      setShowRaw(false)
+      pastePrefilledRef.current = false
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
     }
   }, [isOpen])
+
+  // Pre-fill the paste grid from any team stats already saved for this game, so
+  // reopening shows the existing numbers (editable) instead of a blank grid —
+  // the user can correct one value as they spot it. Runs once per open (ref
+  // guard) so it never overwrites edits the user is making.
+  useEffect(() => {
+    if (!isOpen || pastePrefilledRef.current) return
+    if (!pasteMode || sheetType !== 'teamStats') return
+    pastePrefilledRef.current = true
+    const away = getTeamStatsForTid(game, awayTeamTid, teamsForLogos)
+    const home = getTeamStatsForTid(game, homeTeamTid, teamsForLogos)
+    if (!away && !home) return
+    const fmt = (v) => (v == null ? '' : String(v))
+    const grid = TEAM_STATS_ROWS.map((label) => {
+      const k = teamStatKey(label)
+      return { away: fmt(away?.[k]), home: fmt(home?.[k]) }
+    })
+    setStatRows(grid)
+    setRawText(grid.map((r) => `${r.away}\t${r.home}`).join('\n'))
+  }, [isOpen, pasteMode, sheetType, game, awayTeamTid, homeTeamTid])
+
+  // ── Team-stats paste grid (pilot) ─────────────────────────────────────
+  // Raw TSV text <-> the editable grid, kept in sync both ways. tsvToStatRows
+  // parses pasted text (prose/fences stripped) onto the fixed 30-row order;
+  // statRowsToTsv renders the grid back to "<away>\t<home>" lines for the
+  // optional textarea.
+  const tsvToStatRows = (text) => {
+    const parsed = splitTsv(text).filter(isTeamStatsDataRow)
+    // If the AI echoed the stat-label column (rows like "First Downs\t18\t21"),
+    // key each row to its stat BY LABEL instead of by position — otherwise a
+    // label echo, a dropped line, or a reordered line silently shifts every
+    // stat onto the wrong row (the same class as the schedule paste bug).
+    const labelToIndex = new Map()
+    TEAM_STATS_ROWS.forEach((label, i) => labelToIndex.set(teamStatKey(label), i))
+    const labeledCount = parsed.filter(
+      (c) => c.length >= 3 && labelToIndex.has(teamStatKey(String(c[0] || '')))
+    ).length
+    if (labeledCount > 0 && labeledCount >= Math.min(5, parsed.length)) {
+      const out = TEAM_STATS_ROWS.map(() => ({ away: '', home: '' }))
+      for (const c of parsed) {
+        const idx = labelToIndex.get(teamStatKey(String(c[0] || '')))
+        if (idx == null) continue
+        out[idx] = { away: String(c[1] ?? '').trim(), home: String(c[2] ?? '').trim() }
+      }
+      return out
+    }
+    return TEAM_STATS_ROWS.map((_, i) => ({
+      away: (parsed[i]?.[0] ?? '').toString().trim(),
+      home: (parsed[i]?.[1] ?? '').toString().trim(),
+    }))
+  }
+  const statRowsToTsv = (grid) => grid.map((r) => `${r.away}\t${r.home}`).join('\n')
+
+  // Pasted/typed raw text -> fill the grid (textarea keeps the verbatim text).
+  const applyRawText = (text) => {
+    setRawText(text)
+    setStatRows(tsvToStatRows(text))
+  }
+
+
+  // Edit one cell -> update the grid AND regenerate the raw text so the table
+  // and the (optional) textarea never diverge.
+  const editStatCell = (index, side, value) => {
+    const next = statRows.map((r, i) => (i === index ? { ...r, [side]: value } : r))
+    setStatRows(next)
+    setRawText(statRowsToTsv(next))
+  }
+
+  // Tab moves DOWN the current column; at the bottom of the away column it
+  // jumps to the top of the home column. Shift+Tab reverses it. At the outer
+  // edges (top of away / bottom of home) we let the default happen so focus
+  // leaves the grid for the surrounding controls.
+  const handleStatTabDown = (e, side, i) => {
+    if (e.key !== 'Tab') return
+    const cols = ['away', 'home']
+    const rows = TEAM_STATS_ROWS.length
+    let target = null
+    if (!e.shiftKey) {
+      if (i < rows - 1) target = teamStatInputs.current[side][i + 1]
+      else {
+        const nextCol = cols[cols.indexOf(side) + 1]
+        if (nextCol) target = teamStatInputs.current[nextCol][0]
+      }
+    } else {
+      if (i > 0) target = teamStatInputs.current[side][i - 1]
+      else {
+        const prevCol = cols[cols.indexOf(side) - 1]
+        if (prevCol) target = teamStatInputs.current[prevCol][rows - 1]
+      }
+    }
+    if (target) {
+      e.preventDefault()
+      target.focus()
+      if (typeof target.select === 'function') target.select()
+    }
+  }
+
+  // Default path: read the clipboard straight into the grid, no textarea needed.
+  const pasteFromClipboard = async () => {
+    if (!navigator.clipboard?.readText) {
+      setShowRaw(true)
+      toast.error('Your browser blocks clipboard reads. Tap the arrow and paste into the text box.')
+      return
+    }
+    try {
+      const text = await navigator.clipboard.readText()
+      if (!text || !text.trim()) {
+        toast.error('Clipboard is empty. Copy the AI reply first.')
+        return
+      }
+      applyRawText(text)
+      // If nothing parsed as two columns, tabs were likely lost in copy.
+      if (splitTsv(text).filter((r) => r.length >= 2).length === 0) {
+        setShowRaw(true)
+        toast.error('Could not read away/home columns — tabs may be lost. Check the text box.')
+      }
+    } catch {
+      setShowRaw(true)
+      toast.error('Could not read the clipboard. Tap the arrow and paste into the text box.')
+    }
+  }
+
+  // Import the grid directly — no Google round-trip. Builds the same
+  // teamStatsByTid shape the sheet reader returns and hands it to the same
+  // onSave, then closes.
+  const handleImportPaste = async () => {
+    if (!statRows.some((r) => (r.away ?? '') !== '' || (r.home ?? '') !== '')) {
+      toast.error('Paste or enter the stats first.')
+      return
+    }
+    setImporting(true)
+    try {
+      const teamStatsByTid = parseGameTeamStatsTsv(statRows.map((r) => [r.away, r.home]), {
+        awayAbbr: awayTeamAbbr,
+        homeAbbr: homeTeamAbbr,
+        dynastyTeams: currentDynasty?.teams || currentDynasty?.customTeams,
+      })
+      if (Object.keys(teamStatsByTid).length === 0) {
+        toast.error('Could not match these teams. Reopen the game and try again.')
+        return
+      }
+      await onSave(teamStatsByTid)
+      toast.success('Team stats imported.')
+      onClose()
+    } catch (error) {
+      console.error('Team stats paste import failed:', error)
+      toast.error('Could not import the stats. Check the values and try again.')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   // Save sheet ID to game in dynasty (for existing games).
   //
@@ -1664,7 +1911,7 @@ FINAL CHECK before you send
     >
       <div
         className={`card-elevated w-full max-h-[calc(100dvh-4rem)] flex flex-col overflow-hidden ${
-          useEmbedded
+          useEmbedded && !pasteMode
             ? 'sm:w-[95vw] sm:h-[95dvh]'
             : 'sm:max-w-[680px] sm:h-auto'
         }`}
@@ -1673,7 +1920,138 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Box Score" title={config.title} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {pasteMode && sheetType === 'playerStats' ? (
+          <PlayerStatsPasteGrid
+            game={game}
+            targetTid={targetTidNum}
+            teamAbbr={targetTeamAbbr}
+            teamLogo={getTeamLogoRobust(targetTidNum, teamsForLogos)}
+            dynastyTeams={teamsForLogos}
+            aiPrompt={aiPrompt}
+            onImport={onSave}
+            onClose={handleClose}
+            onUseGoogle={() => setPasteMode(false)}
+            rosterNames={targetRoster}
+          />
+        ) : pasteMode && sheetType === 'scoring' ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt?.allPlays}
+            onImport={handleScoringImport}
+            onUseGoogle={() => setPasteMode(false)}
+            onCancel={handleClose}
+            importLabel="Import Scoring Summary"
+            columns={SCORING_SUMMARY.headers}
+            initialText={scoringInitialText}
+            instructions={"Screenshot the play-by-play (or just the scoring summary) for this game. The prompt already carries this game's teams and rosters — no need to be exact, just clear."}
+          >
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(aiPrompt?.scoring || '')
+                  toast.success('Scoring-summary prompt copied')
+                } catch {
+                  toast.error('Copy blocked — use "Use Google Sheet instead" to copy it there.')
+                }
+              }}
+              className="text-xs text-txt-tertiary hover:text-txt-secondary underline underline-offset-2"
+            >
+              Only have the scoring-summary screen (not full play-by-play)? Copy that prompt instead.
+            </button>
+          </LocalDataEntry>
+        ) : pasteMode ? (
+          <div className="flex-1 flex flex-col overflow-hidden gap-3">
+            {/* Unified step header: 📸 + Copy Prompt → Open AI → Paste, each with an info toggle. */}
+            <PasteEntrySteps
+              aiPrompt={aiPrompt}
+              onPaste={pasteFromClipboard}
+              showText={showRaw}
+              onToggleText={() => setShowRaw((v) => !v)}
+              hints={{ screenshot: "Take screenshots of the team stats you want to enter. It doesn't have to be exact, just clear and fully showing. Then tap Copy Prompt." }}
+            />
+
+            {showRaw && (
+              <textarea
+                value={rawText}
+                onChange={(e) => applyRawText(e.target.value)}
+                placeholder={`Paste the AI's reply here. One line per stat: away value, a tab, then home value.`}
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                rows={5}
+                className="flex-shrink-0 w-full rounded-md border border-surface-5 bg-surface-2 p-2 text-sm font-mono text-txt-primary resize-y focus:outline-none focus:ring-2 focus:ring-surface-5"
+              />
+            )}
+
+            {/* Editable grid — the source of truth. Paste fills it; edits flow
+                back to the text box. Type directly into any cell to fix a value.
+                Full gridlines (surface-5), no inter-cell gaps. */}
+            <div className="flex-1 min-h-0 overflow-y-auto rounded-md border border-surface-5">
+              <table className="w-full text-xs tabular border-collapse">
+                <thead className="sticky top-0 bg-surface-2 z-10">
+                  <tr className="text-txt-tertiary">
+                    <th className="text-left font-semibold px-2 py-1 border border-surface-5">Stat</th>
+                    <th className="px-2 py-1 border border-surface-5">
+                      <div className="flex justify-center">
+                        {awayTeamLogo
+                          ? <img src={awayTeamLogo} alt={awayTeamAbbr} title={awayTeamAbbr} className="h-5 w-5 object-contain" />
+                          : <span className="font-semibold">{awayTeamAbbr}</span>}
+                      </div>
+                    </th>
+                    <th className="px-2 py-1 border border-surface-5">
+                      <div className="flex justify-center">
+                        {homeTeamLogo
+                          ? <img src={homeTeamLogo} alt={homeTeamAbbr} title={homeTeamAbbr} className="h-5 w-5 object-contain" />
+                          : <span className="font-semibold">{homeTeamAbbr}</span>}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {TEAM_STATS_ROWS.map((label, i) => (
+                    <tr key={label}>
+                      <td className="px-2 py-0.5 text-txt-secondary whitespace-nowrap border border-surface-5">{label}</td>
+                      <td className="w-20 border border-surface-5">
+                        <input
+                          ref={(el) => { teamStatInputs.current.away[i] = el }}
+                          type="text"
+                          inputMode="decimal"
+                          value={statRows[i]?.away ?? ''}
+                          onChange={(e) => editStatCell(i, 'away', e.target.value)}
+                          onKeyDown={(e) => handleStatTabDown(e, 'away', i)}
+                          aria-label={`${label} ${awayTeamAbbr}`}
+                          className="w-full bg-transparent text-right tabular text-txt-primary px-2 py-0.5 focus:outline-none focus:bg-surface-3"
+                        />
+                      </td>
+                      <td className="w-20 border border-surface-5">
+                        <input
+                          ref={(el) => { teamStatInputs.current.home[i] = el }}
+                          type="text"
+                          inputMode="decimal"
+                          value={statRows[i]?.home ?? ''}
+                          onChange={(e) => editStatCell(i, 'home', e.target.value)}
+                          onKeyDown={(e) => handleStatTabDown(e, 'home', i)}
+                          aria-label={`${label} ${homeTeamAbbr}`}
+                          className="w-full bg-transparent text-right tabular text-txt-primary px-2 py-0.5 focus:outline-none focus:bg-surface-3"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Button variant="ghost" size="sm" onClick={() => setPasteMode(false)}>Use Google Sheet instead</Button>
+              <div className="flex gap-2 ml-auto">
+                <Button variant="secondary" size="sm" onClick={handleClose}>Cancel</Button>
+                <Button variant="primary" size="sm" onClick={handleImportPaste} disabled={importing || statRows.every((r) => !r.away && !r.home)}>
+                  {importing ? 'Importing…' : 'Import Stats'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

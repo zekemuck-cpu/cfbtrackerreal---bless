@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { proxyImageUrl } from '../utils/imageProxy'
 import { sortGamesNewestFirst } from '../utils/gameOrder'
+import { getTeamLogoByTid } from '../data/teams'
+import { resolveScoringTeamTids, buildScorerTidResolver } from '../utils/scoringPlayOrder'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 
@@ -281,19 +283,23 @@ export default function ScoringHighlightsModal({
         const key = `${play.gameInfo.year}-${play.gameInfo.week}-${oppKey}`
         if (!seen.has(key)) {
           seen.add(key)
+          const oppTid = play.gameInfo.opponentTid ?? null
+          // tid-first live resolution; stored string/logo only as legacy fallback
+          const oppName = (oppTid != null && getMascotName?.(oppTid, teamsData)) || play.gameInfo.opponent
+          const oppLogo = (oppTid != null && getTeamLogoByTid(oppTid, teamsData)) || play.gameInfo.opponentLogo
           uniqueGames.push({
             year: play.gameInfo.year,
             week: play.gameInfo.week,
             opponent: play.gameInfo.opponent,
-            opponentTid: play.gameInfo.opponentTid ?? null,
-            opponentLogo: play.gameInfo.opponentLogo,
-            label: `${play.gameInfo.year} Week ${play.gameInfo.week} vs ${play.gameInfo.opponent}`
+            opponentTid: oppTid,
+            opponentLogo: oppLogo,
+            label: `${play.gameInfo.year} Week ${play.gameInfo.week} vs ${oppName}`
           })
         }
       }
     })
     return sortGamesNewestFirst(uniqueGames)
-  }, [playsWithVideo])
+  }, [playsWithVideo, getMascotName, teamsData])
 
   // Jump to first play of selected game. Tid match for opponent is
   // preferred; abbr fallback for legacy plays.
@@ -322,20 +328,6 @@ export default function ScoringHighlightsModal({
     return players.find(p => p.name === name)
   }, [players])
 
-  // Get team logo for a team abbreviation
-  const getTeamLogoForAbbr = useCallback((abbr) => {
-    if (!abbr) return null
-    // Check if it matches team1 or team2
-    if (abbr.toUpperCase() === team1Abbr?.toUpperCase()) return team1Logo
-    if (abbr.toUpperCase() === team2Abbr?.toUpperCase()) return team2Logo
-    // Try to get from getTeamLogo function if provided
-    if (getTeamLogo && getMascotName) {
-      const mascot = getMascotName(abbr, teamsData)
-      return getTeamLogo(mascot || abbr, teamsData)
-    }
-    return null
-  }, [team1Abbr, team2Abbr, team1Logo, team2Logo, getTeamLogo, getMascotName, teamsData])
-
   // Get running score from the play data (already calculated from full game scoring summary)
   const getRunningScore = useCallback((upToIndex) => {
     const currentPlay = playsWithVideo[upToIndex]
@@ -357,23 +349,29 @@ export default function ScoringHighlightsModal({
 
     const t1Tid = team1Tid != null ? Number(team1Tid) : null
     const t2Tid = team2Tid != null ? Number(team2Tid) : null
-    const t1Abbr = (t1Tid != null && teamsData?.[t1Tid]?.abbr) || team1Abbr
-    const t2Abbr = (t2Tid != null && teamsData?.[t2Tid]?.abbr) || team2Abbr
-    const t1AbbrU = t1Abbr?.toUpperCase()
-    const t2AbbrU = t2Abbr?.toUpperCase()
+
+    // Attribute each play to one of the game's two tids, rooted in the user's
+    // file (team abbr per tid + scorers' tid-based roster), never the base
+    // registry. Year comes from the play's gameInfo for the roster lookup.
+    const fallbackYear = playsWithVideo[upToIndex]?.gameInfo?.year ?? playsWithVideo[0]?.gameInfo?.year
+    const teamTidMap = resolveScoringTeamTids(playsWithVideo, {
+      team1Tid: t1Tid,
+      team2Tid: t2Tid,
+      teams: teamsData,
+      getScorerTid: buildScorerTidResolver(players, fallbackYear),
+    })
 
     for (let i = 0; i <= upToIndex; i++) {
       const play = playsWithVideo[i]
       if (!play) continue
 
-      // Map play.team (abbr string) → tid via this game's two teams when
-      // both tids are known. Compare tids if possible; fall back to abbr
-      // compare for legacy single-tid / no-tid callers.
+      // Attribute by tid (see teamTidMap). Falls back to abbr compare only
+      // for legacy no-tid callers where the map can't resolve.
       const playUpper = play.team?.toUpperCase()
+      const side = teamTidMap.get(playUpper)
       let isTeam1
-      if (t1Tid != null && t2Tid != null && t1AbbrU && t2AbbrU) {
-        const playTid = playUpper === t1AbbrU ? t1Tid : (playUpper === t2AbbrU ? t2Tid : null)
-        isTeam1 = playTid != null ? playTid === t1Tid : (playUpper === t1AbbrU)
+      if (side != null) {
+        isTeam1 = side === t1Tid
       } else {
         isTeam1 = playUpper === team1Abbr?.toUpperCase()
       }
@@ -394,7 +392,7 @@ export default function ScoringHighlightsModal({
     }
 
     return { score1, score2 }
-  }, [playsWithVideo, team1Abbr, team2Abbr, team1Tid, team2Tid, teamsData])
+  }, [playsWithVideo, team1Abbr, team2Abbr, team1Tid, team2Tid, teamsData, players])
 
   // Clear timer on unmount
   useEffect(() => {
@@ -484,6 +482,14 @@ export default function ScoringHighlightsModal({
   const runningScore = getRunningScore(currentIndex)
   const isPassingTD = currentPlay?.scoreType === 'Passing TD'
 
+  // Live tid-first resolution for the current game's opponent header (name + logo).
+  // Fall back to the stored strings only when no opponentTid is present.
+  const headerOpponentTid = currentPlay?.gameInfo?.opponentTid
+  const headerOpponentName = (headerOpponentTid != null && getMascotName?.(headerOpponentTid, teamsData))
+    || currentPlay?.gameInfo?.opponent
+  const headerOpponentLogo = (headerOpponentTid != null && getTeamLogoByTid(headerOpponentTid, teamsData))
+    || currentPlay?.gameInfo?.opponentLogo
+
   // Get embed URL via the legacy getEmbedUrl path for ALL sources
   // (YouTube, Twitch, direct video, etc.). The modal is a dedicated
   // full-screen video-viewing context, so the brief YouTube intro
@@ -555,16 +561,16 @@ export default function ScoringHighlightsModal({
                 onClick={() => setShowGameDropdown(!showGameDropdown)}
                 className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-3 text-white rounded-md text-xs border border-surface-4 hover:border-surface-5 focus:outline-none focus:border-surface-5 max-w-[220px]"
               >
-                {currentPlay?.gameInfo?.opponentLogo && (
+                {headerOpponentLogo && (
                   <img
-                    src={currentPlay.gameInfo.opponentLogo}
+                    src={headerOpponentLogo}
                     alt=""
                     className="w-3.5 h-3.5 object-contain flex-shrink-0"
                   />
                 )}
                 <span className="flex-1 text-left truncate">
                   {currentPlay?.gameInfo
-                    ? `W${currentPlay.gameInfo.week} vs ${currentPlay.gameInfo.opponent}`
+                    ? `W${currentPlay.gameInfo.week} vs ${headerOpponentName}`
                     : 'Select game'}
                 </span>
                 <svg className="w-3 h-3 flex-shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">

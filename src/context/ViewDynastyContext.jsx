@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { getPublicDynastyWithSubcollections } from '../services/dynastyService'
+import { getPublicDynastyCached } from '../services/dynastyService'
 import { getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr } from '../data/teamRegistry'
 import { lookupByTeamYear } from './DynastyContext'
 import DynastyContext from './DynastyContext'
@@ -39,7 +39,10 @@ export function ViewDynastyProvider({ shareCode, children }) {
       try {
         setLoading(true)
         setError(null)
-        const dynastyData = await getPublicDynastyWithSubcollections(shareCode)
+        // Edge-cached load: 1 Firestore read for the version key, everything
+        // else via the CDN-cached /api/view-dynasty route. Falls back to
+        // direct Firestore reads internally if the api is unavailable.
+        const dynastyData = await getPublicDynastyCached(shareCode)
         if (!dynastyData) {
           setError('Dynasty not found or sharing is disabled')
         } else {
@@ -71,7 +74,7 @@ export function ViewDynastyProvider({ shareCode, children }) {
     loadingDynastyId: null,
     phaseOverride: null,
     setPhaseOverride: () => {},
-    userTeams: dynasty ? [{ tid: dynasty.currentTid, abbr: dynasty.teamName }] : [],
+    userTeams: dynasty ? [{ tid: dynasty.currentTid, abbr: dynasty.teams?.[dynasty.currentTid]?.abbr || dynasty.teamName }] : [],
     activeUserTid: dynasty?.currentTid ?? null,
     setActiveTeam: () => {},
     customTeams: dynasty?.customTeams || {},

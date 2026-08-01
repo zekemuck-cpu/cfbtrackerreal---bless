@@ -15,6 +15,8 @@ import {
   adminRevokePremium as svcAdminRevoke,
   deleteAccount as svcDeleteAccount
 } from '../services/subscriptionService'
+import { registerTokenRefresher } from '../services/sheetsService'
+import { PAYWALL_ENABLED } from '../config/billing'
 
 // The single Google account permitted to use the in-app dev/admin panel.
 // Server enforces this same allowlist on /api/admin/* endpoints — this
@@ -176,14 +178,42 @@ export function AuthProvider({ children }) {
     // premium status to localStorage so the next cold start can serve
     // it optimistically — keeps premium users from flashing non-premium
     // on mobile reopens while the listener reconnects.
+    // Clock-expiry timer: isPremiumSubscription compares currentPeriodEnd to
+    // NOW, but it's only re-evaluated when a NEW snapshot arrives. If premium
+    // lapses purely by the clock (webhook delayed/missing), the client keeps
+    // isPremium=true while Firestore rules (which check request.time) reject
+    // every write — edits then silently roll back. Re-derive on a timer so
+    // the client demotes itself on schedule even with no doc change.
+    let expiryTimer = null
+    const scheduleExpiryCheck = (subData) => {
+      if (expiryTimer) { clearTimeout(expiryTimer); expiryTimer = null }
+      if (!subData || !isPremiumSubscription(subData)) return
+      const cpe = subData.currentPeriodEnd
+      if (!cpe) return
+      const endMs = cpe.toDate ? cpe.toDate().getTime() : new Date(cpe).getTime()
+      if (!Number.isFinite(endMs)) return
+      // Fire shortly after expiry; cap the wait (setTimeout overflows past
+      // ~24 days, and long sessions can just re-chain) and re-chain if the
+      // deadline is still ahead when the timer fires.
+      const delay = Math.min(Math.max(endMs - Date.now() + 5000, 0), 6 * 60 * 60 * 1000)
+      expiryTimer = setTimeout(() => {
+        const stillPremium = isPremiumSubscription(subData)
+        setIsPremium(stillPremium)
+        writeCachedIsPremium(user.uid, stillPremium)
+        if (stillPremium) scheduleExpiryCheck(subData) // deadline not reached yet — re-chain
+      }, delay)
+    }
+
     subscriptionUnsubRef.current = subscribeToUserSubscription(user.uid, (subData) => {
       setSubscription(subData)
       const premium = isPremiumSubscription(subData)
       setIsPremium(premium)
       writeCachedIsPremium(user.uid, premium)
+      scheduleExpiryCheck(subData)
     })
 
     return () => {
+      if (expiryTimer) clearTimeout(expiryTimer)
       if (subscriptionUnsubRef.current) {
         subscriptionUnsubRef.current()
         subscriptionUnsubRef.current = null
@@ -363,12 +393,20 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // Upgrade to premium subscription. The API now derives uid from the
-  // verified ID token, not from the request body, so no args are needed
-  // (and supplying them wouldn't change anything).
+  // Upgrade to premium. This is the single chokepoint every "upgrade"
+  // caller funnels through (Account, Home, StorageSwitchModal). The
+  // PAYWALL_ENABLED gate lives HERE, not just in the buttons' render
+  // logic — during beta an ungated StorageSwitchModal button reached
+  // Stripe checkout directly and users were charged while the app was
+  // supposedly free. With the gate at the chokepoint, beta mode routes
+  // every upgrade intent to the Account page and no UI path can charge.
   const upgradeToPremium = async () => {
     if (!user) {
       throw new Error('Must be signed in to upgrade')
+    }
+    if (!PAYWALL_ENABLED) {
+      if (typeof window !== 'undefined') window.location.assign('/account')
+      return
     }
     await redirectToCheckout()
   }
@@ -459,6 +497,25 @@ export function AuthProvider({ children }) {
     onVisible()
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [user])
+
+  // Let the (non-React) sheetsService heal an expired OAuth token on its
+  // own. When any sheet operation finds the token expired, it calls this
+  // SILENT refresher first; only if that can't produce a token does the
+  // user ever see the reauth modal. This is what makes the Google Sheets
+  // flows "just work" across the hour-long token lifetime instead of
+  // dead-ending on "Refresh your session and try again".
+  useEffect(() => {
+    registerTokenRefresher(async () => {
+      try {
+        const ok = await refreshSession(true) // silent — no popup when the Google session is live
+        return ok ? localStorage.getItem('google_access_token') : null
+      } catch {
+        return null
+      }
+    })
+    return () => registerTokenRefresher(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const value = {
     user,

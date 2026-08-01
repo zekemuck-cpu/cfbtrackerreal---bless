@@ -45,7 +45,19 @@ export const UPDATED_AT_COL = 16
 export const SCOUTED_AT_COL = 17
 
 const NON_PORTAL_CLASSES = ['HS', 'JUCO Fr', 'JUCO So', 'JUCO Jr']
-const starsSymbolToNumber = (s) => (s ? (String(s).match(/☆/g) || []).length : 0)
+// Filled stars (★) win when present — in the mixed "★★★★☆" format the ☆ is
+// the EMPTY remainder; counting only ☆ turned pasted 4-stars into 1-stars.
+// See the matching parser in recruitSheetParse.js.
+const starsSymbolToNumber = (s) => {
+  if (!s) return 0
+  const str = String(s)
+  const filled = (str.match(/★/g) || []).length
+  if (filled > 0) return Math.min(filled, 5)
+  const outline = (str.match(/☆/g) || []).length
+  if (outline > 0) return Math.min(outline, 5)
+  const n = parseInt(str, 10)
+  return Number.isFinite(n) ? Math.max(0, Math.min(n, 5)) : 0
+}
 const trim = (v) => (v != null ? String(v).trim() : '')
 const intOrNull = (v) => (v !== '' && v != null ? parseInt(v, 10) : null)
 

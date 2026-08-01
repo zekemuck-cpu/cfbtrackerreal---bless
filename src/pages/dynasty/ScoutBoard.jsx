@@ -4,10 +4,12 @@ import { Card, EmptyState } from '../../components/ui'
 import { useDynasty } from '../../context/DynastyContext'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { getTargetStatus } from '../../utils/recruitingTargets'
-import { getScoutScoresFor, headlinePercentile, predictRecruitOverall } from '../../utils/scoutScore'
-import { matchesPositionFilter } from '../../utils/recruitFilters'
+import { getScoutScoresFor, headlinePercentile, predictRecruitOverall, ordinal } from '../../utils/scoutScore'
+import { getEditionKey } from '../../editions'
+import { POSITION_FILTER_OPTIONS, matchesPositionFilter } from '../../utils/recruitFilters'
 import { GradeReportContent, getGradeTier, DevTraitPill } from '../../components/PlayerDatabase'
-import { computeScore } from '../../components/archetypeWeights'
+import ScoutScorePanel from '../../components/ScoutScorePanel'
+import { computeScore, isHiddenDev } from '../../components/archetypeWeights'
 import { buildRevealedPool } from '../../utils/devTraitLearning'
 import { buildAttributeQualityMap } from '../../utils/devPrediction'
 import GemBustIcon from '../../components/GemBustIcon'
@@ -15,7 +17,6 @@ import ClearAllTargetsModal from '../../components/ClearAllTargetsModal'
 import { shapeTargetForDatabase, positionBucket } from '../../utils/recruitAttributes'
 import { useToast } from '../../components/ui/Toast'
 import { getTeamLogoByTid, getMascotName } from '../../data/teams'
-import { getEditionKey } from '../../editions'
 import nilBadge from '../../assets/nilBadge.png'
 import scoutedBadge from '../../assets/scoutedBadge.png'
 
@@ -228,6 +229,11 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
                 <span className="text-txt-tertiary uppercase">{rk.l}</span>
               </span>
             ))}
+            {/* Dev trait is a Scout Staff concept; in MaxPlays mode the reveal
+                mechanic doesn't apply, so a "HIDDEN" pill is just noise. Show it
+                in Scout Staff mode, or in MaxPlays mode only when the trait is
+                actually known. */}
+            {p.devTrait && (useLocalScores || !isHiddenDev(p.devTrait)) && <DevTraitPill devTrait={p.devTrait} />}
             {!committed && !lost && p.commitmentTier && (
               <span
                 className="px-1.5 py-0.5 rounded border font-black uppercase tracking-wide normal-case"
@@ -246,17 +252,36 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
           </div>
         </div>
 
-        {/* Always-visible: grade + composite score */}
+        {/* Always-visible headline. The metric must match the League
+            Preferences toggle: Scout Staff mode shows the archetype letter
+            grade + composite score; MaxPlays mode shows the ScoutScore
+            PERCENTILE as a percentile (e.g. "98th"), not a letter grade —
+            a letter grade there reads as a Scout Staff grade, which is the
+            wrong engine for MaxPlays dynasties. */}
         <div className="text-right flex-shrink-0 w-16">
-          {hasComposite ? (
-            <div className="flex flex-col items-end gap-0" title={useLocalScores ? 'Scout grade' : 'ScoutScore percentile, shown as a grade'}>
-              <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.35rem', fontWeight: 800, color: compositeTier.color }}>
-                {compositeTier.grade}
+          {/* When expanded in MaxPlays mode the ScoutScore panel's ring already
+              shows this percentile, so drop the duplicate here (keep the w-16
+              slot for alignment). Scout Staff mode keeps its grade. */}
+          {(open && !useLocalScores) ? null : hasComposite ? (
+            useLocalScores ? (
+              <div className="flex flex-col items-end gap-0" title="Scout grade">
+                <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.35rem', fontWeight: 800, color: compositeTier.color }}>
+                  {compositeTier.grade}
+                </div>
+                <div className="tabular-nums text-txt-tertiary" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
+                  {compositeSource.toFixed(1)}
+                </div>
               </div>
-              <div className="tabular-nums text-txt-tertiary" style={{ fontSize: '0.7rem', fontWeight: 700 }}>
-                {compositeSource.toFixed(1)}
+            ) : (
+              <div className="flex flex-col items-end gap-0" title="ScoutScore percentile">
+                <div className="font-display leading-none tabular-nums" style={{ fontSize: '1.2rem', fontWeight: 800, color: compositeTier.color }}>
+                  {ordinal(compositeSource)}
+                </div>
+                <div className="tabular-nums text-txt-tertiary" style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.5px' }}>
+                  PCTILE
+                </div>
               </div>
-            </div>
+            )
           ) : <span className="text-txt-muted" style={{ fontSize: '1.35rem' }}>—</span>}
         </div>
 
@@ -313,9 +338,20 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
               </span>
             )}
           </div>
-          <div className="bg-surface-2 border border-surface-4 rounded-2xl overflow-hidden">
-            <GradeReportContent player={p} allPlayers={allPlayers} weightsMap={weightsMap} pool={pool} wide />
-          </div>
+          {/* The detailed breakdown MUST match the League Preferences toggle:
+              Scout Staff mode → the archetype GradeReportContent; MaxPlays mode
+              → MaxPlaysCFB's own ScoutScore (self-fetches from his API). Before,
+              this always showed the Scout Staff report, so MaxPlays dynasties saw
+              a Scout Staff grade where Max's ScoutScore belonged. */}
+          {useLocalScores ? (
+            <div className="bg-surface-2 border border-surface-4 rounded-2xl overflow-hidden">
+              <GradeReportContent player={p} allPlayers={allPlayers} weightsMap={weightsMap} pool={pool} wide />
+            </div>
+          ) : (
+            <div className="bg-surface-2 border border-surface-4 rounded-2xl overflow-hidden p-4">
+              <ScoutScorePanel recruit={p} />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -328,6 +364,9 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
   const { updateDynasty, updateRecruitingDatabasePlayers, isViewOnly } = useDynasty()
   const { toast } = useToast()
   const canEdit = viewingOwnTeam && !isViewOnly
+  // Which MaxPlays cohort to score against (cfb26 vs cfb27) — the dynasty's
+  // edition. Stable per dynasty, so it's safe in the scoring effect's deps.
+  const sourceGame = getEditionKey(dynasty)
   const handleToggleRemove = async (pl) => {
     if (!dynasty) return
     const players = dynasty.players || []
@@ -504,7 +543,7 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     let alive = true
     if (targets.length === 0) { setScores(new Map()); return }
     setScoring(true)
-    getScoutScoresFor(targets.map((t) => ({ ...t.p, sourceGame: scoutScoreGame }))).then((map) => {
+    getScoutScoresFor(targets.map((t) => t.p), { sourceGame: scoutScoreGame }).then((map) => {
       if (!alive) return
       setScores(map)
       setScoring(false)

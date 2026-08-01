@@ -11,16 +11,21 @@ import { useToast } from '../components/ui/Toast'
 const DEMO_DYNASTY_URL = 'https://www.dropbox.com/scl/fi/hk8bmx888q0u2vyop4kpe/UK_2036_Week4.json?rlkey=yf3rt22nt37nwpsj0kq8ownnl&st=tqay1bld&dl=0'
 
 const SCREENSHOTS = [
-  { url: 'https://i.imgur.com/I7wIQZL.png' },
-  { url: 'https://i.imgur.com/WbBWBXP.png' },
-  { url: 'https://i.imgur.com/7X9r9qt.png' },
-  { url: 'https://i.imgur.com/0v1xBPd.png' },
-  { url: 'https://i.imgur.com/ChyY3AO.png' },
-  { url: 'https://i.imgur.com/kXZdP0o.png' },
-  { url: 'https://i.imgur.com/G86FXAb.png' },
-  { url: 'https://i.imgur.com/ZQkjDtp.png' },
-  { url: 'https://i.imgur.com/qxZFoYz.png' },
-  { url: 'https://i.imgur.com/pnVdMep.png' },
+  { url: 'https://i.imgur.com/LmKw1XT.png' },
+  { url: 'https://i.imgur.com/HJLEuyE.png' },
+  { url: 'https://i.imgur.com/JEbiSm6.png' },
+  { url: 'https://i.imgur.com/xtDnq0D.png' },
+  { url: 'https://i.imgur.com/HLDq8v2.png' },
+  { url: 'https://i.imgur.com/5NBzF9o.png' },
+  { url: 'https://i.imgur.com/ZghgdlU.png' },
+  { url: 'https://i.imgur.com/6L90YuG.png' },
+  { url: 'https://i.imgur.com/9ZITgHI.png' },
+  { url: 'https://i.imgur.com/0BDIQCd.png' },
+  { url: 'https://i.imgur.com/4tYsCeI.png' },
+  { url: 'https://i.imgur.com/Mj18V2o.png' },
+  { url: 'https://i.imgur.com/ikcdMLP.png' },
+  { url: 'https://i.imgur.com/Gg5bxaE.png' },
+  { url: 'https://i.imgur.com/MAWBMdJ.png' },
 ]
 
 const FEATURES = [
@@ -67,10 +72,6 @@ function SignIn({ onSignIn, onTryDemo, demoLoading }) {
           </svg>
           <span>Sign in with Google</span>
         </button>
-
-        <p className="label-xs text-txt-tertiary text-center mt-4">
-          Syncs across all your devices
-        </p>
       </Card>
 
       {/* Try-it-out: load a sample dynasty into local storage, no sign-in. */}

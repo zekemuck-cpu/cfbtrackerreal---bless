@@ -64,7 +64,8 @@ export const RECRUIT_FORM_OVERRIDES = {
 export function serializeAttributes(attrMap) {
   if (!attrMap || typeof attrMap !== 'object') return ''
   const parts = []
-  for (const name of ATTRIBUTE_COLUMNS) {
+  // Emit in the game's roster-table order so the cell reads like the screen.
+  for (const name of GAME_ATTRIBUTE_ORDER) {
     const v = attrMap[name]
     if (v == null || v === '') continue
     const n = Number(v)
@@ -100,8 +101,32 @@ export const ATTRIBUTE_COLUMNS = [
   // Coverage
   'Man Coverage', 'Zone Coverage', 'Press',
   // Special teams (added beyond the Scout Staff config — not graded yet, but
-  // recordable for K/P recruits and rostered players)
-  'Kick Power', 'Kick Accuracy', 'Kick Return',
+  // recordable for K/P/LS recruits and rostered players)
+  'Kick Power', 'Kick Accuracy', 'Kick Return', 'Long Snap',
+]
+
+// The order CFB 27 lists attributes in on the roster table (left→right), as the
+// user reads them off-screen. ATTRIBUTE_COLUMNS is grouped by category (a fixed
+// storage/parse order); this is purely a PRESENTATION order for the AI prompt,
+// the serialized "CODE value" cell, and the per-player entry grid — so pasted or
+// hand-entered ratings line up with what's on screen. Any ATTRIBUTE_COLUMNS name
+// not listed here is appended, so a newly added attribute can never silently
+// drop out of serialization.
+const GAME_ORDER_BASE = [
+  'Speed', 'Acceleration', 'Agility', 'Change of Direction', 'Strength', 'Awareness',
+  'Carrying', 'BC Vision', 'Break Tackle', 'Trucking', 'Stiff Arm', 'Spin Move', 'Juke Move',
+  'Catching', 'Catch In Traffic', 'Spectacular Catch', 'Short Route', 'Medium Route', 'Deep Route', 'Release',
+  'Jumping',
+  'Throw Power', 'Short Accuracy', 'Medium Accuracy', 'Deep Accuracy', 'Throw On Run', 'Under Pressure', 'Break Sack', 'Play Action',
+  'Pass Block', 'Pass Block Power', 'Pass Block Finesse', 'Run Block', 'Run Block Power', 'Run Block Finesse', 'Lead Block', 'Impact Blocking',
+  'Play Recognition', 'Tackle', 'Hit Power', 'Block Shedding', 'Finesse Moves', 'Power Moves', 'Pursuit',
+  'Man Coverage', 'Zone Coverage', 'Press',
+  'Kick Return', 'Kick Power', 'Kick Accuracy',
+  'Stamina', 'Toughness', 'Injury', 'Long Snap',
+]
+export const GAME_ATTRIBUTE_ORDER = [
+  ...GAME_ORDER_BASE.filter((n) => ATTRIBUTE_COLUMNS.includes(n)),
+  ...ATTRIBUTE_COLUMNS.filter((n) => !GAME_ORDER_BASE.includes(n)),
 ]
 
 // Game positions → the position bucket used by BASE_POSITION_CONFIG.
@@ -241,34 +266,46 @@ export const ATTRIBUTE_ABBR = {
   'Kick Power': 'KPW', 'Kick Accuracy': 'KAC',
   // Full CFB 27 backend set (rostered players)
   'Jumping': 'JMP', 'Stamina': 'STA', 'Toughness': 'TGH', 'Injury': 'INJ',
-  'Play Action': 'PLA', 'Stiff Arm': 'SFA', 'Trucking': 'TRK', 'Lead Block': 'LBK',
-  'Kick Return': 'KR',
+  'Play Action': 'PAC', 'Stiff Arm': 'SFA', 'Trucking': 'TRK', 'Lead Block': 'LBK',
+  'Kick Return': 'RET', 'Long Snap': 'LSP',
 }
 
 // Display grouping for the full attribute set — used by the Player page Attributes
 // tab and the Player editor Attributes tab. The union of these groups must cover
 // ATTRIBUTE_COLUMNS; any column not listed falls into a generated "Other" group
 // (see ratingsGroups()) so a newly added attribute can never silently disappear.
+// Groups are ordered to follow the game's roster-table sequence (physical →
+// ball carrier → receiving → passing → blocking → front seven → coverage →
+// special teams → durability); ratingsGroups() sorts the attrs WITHIN each
+// group by that same game order, so the editor reads top-to-bottom like the
+// in-game roster while keeping the useful category headers + position accenting.
 export const RATINGS_GROUP_DEFS = [
   { label: 'Physical',      attrs: ['Awareness', 'Speed', 'Acceleration', 'Strength', 'Agility', 'Change of Direction', 'Jumping'] },
-  { label: 'Durability',    attrs: ['Stamina', 'Toughness', 'Injury'] },
-  { label: 'Passing',       attrs: ['Throw Power', 'Short Accuracy', 'Medium Accuracy', 'Deep Accuracy', 'Throw On Run', 'Under Pressure', 'Break Sack', 'Play Action'] },
   { label: 'Ball Carrier',  attrs: ['Carrying', 'Break Tackle', 'Juke Move', 'Spin Move', 'BC Vision', 'Stiff Arm', 'Trucking'] },
   { label: 'Receiving',     attrs: ['Catching', 'Catch In Traffic', 'Spectacular Catch', 'Short Route', 'Medium Route', 'Deep Route', 'Release'] },
+  { label: 'Passing',       attrs: ['Throw Power', 'Short Accuracy', 'Medium Accuracy', 'Deep Accuracy', 'Throw On Run', 'Under Pressure', 'Break Sack', 'Play Action'] },
   { label: 'Blocking',      attrs: ['Run Block', 'Run Block Power', 'Run Block Finesse', 'Pass Block', 'Pass Block Power', 'Pass Block Finesse', 'Impact Blocking', 'Lead Block'] },
   { label: 'Front Seven',   attrs: ['Block Shedding', 'Tackle', 'Hit Power', 'Power Moves', 'Finesse Moves', 'Pursuit', 'Play Recognition'] },
   { label: 'Coverage',      attrs: ['Man Coverage', 'Zone Coverage', 'Press'] },
-  { label: 'Special Teams', attrs: ['Kick Power', 'Kick Accuracy', 'Kick Return'] },
+  { label: 'Special Teams', attrs: ['Kick Power', 'Kick Accuracy', 'Kick Return', 'Long Snap'] },
+  { label: 'Durability',    attrs: ['Stamina', 'Toughness', 'Injury'] },
 ]
 
 // RATINGS_GROUP_DEFS plus a generated "Other" bucket for any ATTRIBUTE_COLUMNS
 // entry not explicitly grouped — guarantees full coverage of the attribute set.
+// Attrs within each group are sorted into the game's roster-table order.
 export function ratingsGroups() {
+  const gameIdx = (name) => {
+    const i = GAME_ATTRIBUTE_ORDER.indexOf(name)
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i
+  }
+  const sortAttrs = (attrs) => [...attrs].sort((a, b) => gameIdx(a) - gameIdx(b))
   const grouped = new Set(RATINGS_GROUP_DEFS.flatMap(g => g.attrs))
   const leftover = ATTRIBUTE_COLUMNS.filter(a => !grouped.has(a))
+  const base = RATINGS_GROUP_DEFS.map(g => ({ ...g, attrs: sortAttrs(g.attrs) }))
   return leftover.length
-    ? [...RATINGS_GROUP_DEFS, { label: 'Other', attrs: leftover }]
-    : RATINGS_GROUP_DEFS
+    ? [...base, { label: 'Other', attrs: sortAttrs(leftover) }]
+    : base
 }
 
 // In-game display labels for the canonical attribute names — used by the read-only

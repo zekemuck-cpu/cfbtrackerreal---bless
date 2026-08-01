@@ -235,6 +235,10 @@ export function getCoachNameForUid(dynasty, uid, fallback = null) {
   if (!dynasty || !uid) return fallback || ''
   const label = dynasty.memberLabels?.[uid]
   if (label) return label
+  // Local coaches (synthetic, owner-controlled seats) have no role
+  // placeholder — they're just "a coach the user tracks". Default to
+  // 'Coach' so an unnamed seat still reads sensibly everywhere.
+  if (isLocalCoachId(uid)) return fallback || 'Coach'
   // Legacy fallback — pre-migration owner-only field. Stays for read
   // compatibility; nothing in the app writes it as of this commit.
   if (uid === dynasty.userId && dynasty.coachName) return dynasty.coachName
@@ -645,4 +649,123 @@ export function buildCommishTransfer(dynasty, newCommishUid) {
     editors: nextEditors,
     coCommishes: nextCoCommishes,
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Local coaches — extra coaching careers a single user tracks themselves.
+//
+// When one person runs multiple teams in a dynasty, 99% of the time they
+// want each team tracked as its OWN coach (its own name, record, Coach
+// Career) — not lumped under one identity holding several teams. A "local
+// coach" is a synthetic, non-login member seat the controlling user owns:
+//
+//   localCoaches: { [localId]: { owner: <uid>, createdAt: <ms> } }
+//
+// The id is prefixed `lc_` so it never collides with a real Firebase uid
+// and is safe as a Firestore field-path segment (no colon/dot). Every
+// per-id map the app already keys by uid — memberLabels, memberTeams,
+// memberPhotos, memberCoachingStaff, memberTeamHistory — works unchanged
+// for a localId, so stats / Coach Career / leaderboard all derive for
+// free. Only ENUMERATION sites (which previously listed editors[]+owner)
+// need to also include local-coach ids; getAllCoachIds() is that hook.
+//
+// Creation is gated to commish + co-commishes (canManageMembers) — the
+// same roles that may already shepherd multiple teams — so the controlling
+// user always has unrestricted write to the seat's team data (no Firestore
+// rule change needed; owner + co-commish game writes are uncapped).
+// ─────────────────────────────────────────────────────────────────────
+
+export const LOCAL_COACH_PREFIX = 'lc_'
+
+/** True iff `id` is a synthetic local-coach seat id (not a real uid). */
+export function isLocalCoachId(id) {
+  return typeof id === 'string' && id.startsWith(LOCAL_COACH_PREFIX)
+}
+
+/** Mint a fresh local-coach id. Reuses the invite-token alphabet so the
+ *  suffix is path-safe (uppercase + digits, no separators). */
+export function createLocalCoachId() {
+  return LOCAL_COACH_PREFIX + createInviteToken(16)
+}
+
+/** The raw registry map. */
+export function getLocalCoachesMap(dynasty) {
+  const m = dynasty?.localCoaches
+  return m && typeof m === 'object' ? m : {}
+}
+
+/** All local-coach ids registered in this dynasty. */
+export function getLocalCoachIds(dynasty) {
+  return Object.keys(getLocalCoachesMap(dynasty))
+}
+
+/** The uid that owns (controls) a given local coach, or null. */
+export function getLocalCoachOwner(dynasty, id) {
+  return getLocalCoachesMap(dynasty)[id]?.owner ?? null
+}
+
+/** True iff `uid` controls local coach `id`. */
+export function ownsLocalCoach(dynasty, uid, id) {
+  return !!uid && getLocalCoachOwner(dynasty, id) === uid
+}
+
+/** Local-coach ids owned by `uid`. */
+export function getLocalCoachesForOwner(dynasty, uid) {
+  if (!uid) return []
+  return getLocalCoachIds(dynasty).filter(id => getLocalCoachOwner(dynasty, id) === uid)
+}
+
+/** Returns the next localCoaches map with `id` added (for dual-mode /
+ *  local-storage writes; cloud uses the dot-notation atomic instead). */
+export function addLocalCoachToMap(dynasty, id, owner, createdAt) {
+  const map = { ...getLocalCoachesMap(dynasty) }
+  if (!id) return map
+  map[id] = { owner: owner || null, createdAt: createdAt ?? null }
+  return map
+}
+
+/** Returns the next localCoaches map with `id` removed. */
+export function removeLocalCoachFromMap(dynasty, id) {
+  const map = { ...getLocalCoachesMap(dynasty) }
+  delete map[id]
+  return map
+}
+
+/**
+ * Every coach identity in the dynasty, in display order: owner first,
+ * then the other editors, then local-coach seats. This is the single
+ * enumeration hook — leaderboard, Coach Career picker, and member-count
+ * surfaces all build from it so local coaches show up everywhere a real
+ * member does.
+ */
+export function getAllCoachIds(dynasty) {
+  const out = []
+  const owner = dynasty?.userId
+  if (owner) out.push(owner)
+  for (const uid of getEditors(dynasty)) {
+    if (!out.includes(uid)) out.push(uid)
+  }
+  for (const id of getLocalCoachIds(dynasty)) {
+    if (!out.includes(id)) out.push(id)
+  }
+  return out
+}
+
+/**
+ * The tids a user can CONTROL (switch to and write) in the current
+ * dynasty: their own memberTeams plus the teams held by every local
+ * coach they own. Own teams come first so they stay the default active
+ * team. Used by the TeamSwitcher / active-team layer so a separately
+ * tracked coach's team is still drivable by the person running it.
+ */
+export function getControllableTeamsForUser(dynasty, uid) {
+  const out = getMemberTeams(dynasty, uid)
+  if (!uid) return out
+  const merged = [...out]
+  for (const id of getLocalCoachesForOwner(dynasty, uid)) {
+    for (const tid of getMemberTeams(dynasty, id)) {
+      if (!merged.includes(tid)) merged.push(tid)
+    }
+  }
+  return merged
 }

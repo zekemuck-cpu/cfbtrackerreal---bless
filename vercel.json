@@ -1,5 +1,19 @@
 {
+  "functions": {
+    "api/cfb27-save-parse.js": {
+      "includeFiles": "node_modules/madden-franchise/data/**",
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
   ]
 }

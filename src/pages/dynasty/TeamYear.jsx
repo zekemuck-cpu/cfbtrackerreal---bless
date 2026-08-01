@@ -2,12 +2,13 @@ import { useState, useRef, useMemo, useLayoutEffect, useEffect } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { getEditionConfig, isPcAutoDynasty, isDynastyBlueprintEnabled } from '../../editions'
+import { getEditionConfig, isDynastyBlueprintEnabled, isPcAutoDynasty } from '../../editions'
 import DynastyBlueprintPanel from '../../components/DynastyBlueprintPanel'
 import { ProgramGradesBody } from '../../components/ProgramGradesBody'
 import { getCoachByRole } from '../../data/coachModel'
-import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, calculateTeamRecordFromGames, getTeamRecord, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving, getTeamRatingsForYear } from '../../context/DynastyContext'
+import { useDynasty, getLockedCoachingStaff, detectGameType, GAME_TYPES, getCustomConferencesForYear, getGamesByType, isPlayerOnRoster, getUserGamePerspective, getTeamConferenceForDynasty, getTeamConferenceLabel, calculateTeamRecordFromGames, getTeamRecord, getTeamRanking, getRecruitingCommitments, getPlayerPositionForYear, getPlayerOverallForYear, lookupByTeamYear, getPlayersLeaving, getTeamRatingsForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
+import { useCompareSelection, buildCompareUrl, COMPARE_ICON_PATH } from '../../hooks/useCompareSelection'
 import { StatRings } from '../../components/CfbUI'
 // Team colors are derived from the viewed team, not the user's team
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -18,6 +19,7 @@ import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../../data/conferen
 import { bowlLogos } from '../../data/bowlLogos'
 import { getCFPGameId, getSlotIdFromBowlName, getCFPSlotDisplayName, getFirstRoundSlotId } from '../../data/cfpConstants'
 // GameDetailModal and GameEntryModal removed - now using game pages
+import PlayerAvatar from '../../components/PlayerAvatar'
 import RosterEditModal from '../../components/RosterEditModal'
 import ScheduleEntryModal from '../../components/ScheduleEntryModal'
 import StatsEntryModal from '../../components/StatsEntryModal'
@@ -40,6 +42,85 @@ import { getRivalryTrophyForTeams } from '../../utils/trophyEngine'
 import { computeLiveHonorsByPid, mergeHonorLists, matchHonorToPlayer } from '../../utils/honorMatch'
 import TeamOutlook from '../../components/TeamOutlook'
 import RivalriesTab from '../../components/RivalriesTab'
+
+// Selection checkbox shown on roster rows while the compare picker is active.
+function CompareCheck({ active, selected, accent, accentText }) {
+  if (!active) return null
+  return (
+    <span
+      className="flex-shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-colors"
+      style={{
+        borderColor: selected ? accent : 'var(--surface-5)',
+        backgroundColor: selected ? accent : 'transparent',
+        color: accentText,
+      }}
+    >
+      {selected && (
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+    </span>
+  )
+}
+
+// Shrinks its children (CSS zoom, shrink-only) to fit the bounded width they're
+// given, instead of ellipsizing. Content-aware: on displays where the content
+// already fits, zoom stays 1 and nothing changes; it only kicks in when the
+// text would otherwise be cut off (e.g. a long school name like "South Alabama"
+// on a narrow phone). Loop-safe measurement: the applied zoom is tracked in a
+// ref so we recover the natural width rather than feeding the shrunk width back.
+function FitText({ children, className = '', minZoom = 0.5 }) {
+  const outerRef = useRef(null)
+  const innerRef = useRef(null)
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)
+  useLayoutEffect(() => {
+    const outer = outerRef.current, inner = innerRef.current
+    if (!outer || !inner) return
+    const measure = () => {
+      const avail = outer.clientWidth
+      // Skip measurements taken before the element has been laid out — a
+      // transient 0/tiny width would compute a dramatic shrink that then sticks.
+      // The observers below re-fire once real layout arrives.
+      if (avail <= 0) return
+      const applied = zoomRef.current || 1
+      const natural = inner.getBoundingClientRect().width / applied
+      // +1px tolerance so a sub-pixel overshoot doesn't nudge an unwanted shrink.
+      // Reset to 1 whenever the text fits, so any earlier bad shrink self-heals.
+      const next = natural > avail + 1 && natural > 0 ? Math.max(minZoom, (avail / natural) * 0.995) : 1
+      if (Math.abs(next - zoomRef.current) > 0.005) {
+        zoomRef.current = next
+        setZoom(next)
+      }
+    }
+    measure()
+    const raf = requestAnimationFrame(measure)
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(outer)
+    // Observe the INNER too: the display font swaps in after mount with different
+    // metrics, changing the natural width without resizing the outer — without
+    // this the zoom sticks at whatever the fallback font measured (the bug where
+    // some team names render shrunk and others don't).
+    ro?.observe(inner)
+    // Belt-and-suspenders: re-measure once web fonts finish loading.
+    let cancelled = false
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(() => { if (!cancelled) measure() })
+    }
+    return () => { cancelled = true; cancelAnimationFrame(raf); ro?.disconnect() }
+    // Run once + re-measure via the observers / fonts.ready only. WITHOUT this
+    // empty dep array the layout effect re-ran every render and setZoom looped
+    // until React aborted with "Maximum update depth exceeded" (#185). The
+    // >0.005 convergence guard keeps the inner-observer feedback loop stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <div ref={outerRef} className={`min-w-0 overflow-hidden ${className}`}>
+      <div ref={innerRef} className="w-fit" style={{ zoom, transformOrigin: 'left center' }}>{children}</div>
+    </div>
+  )
+}
 
 // Map abbreviation to mascot name for logo lookup
 // Accepts optional teamsData for tid-based teambuilder support
@@ -509,6 +590,8 @@ export default function TeamYear() {
   const currentDynasty = _dyn || {}
   const { toast } = useToast()
   const pathPrefix = usePathPrefix()
+  // Multi-select "compare players" picker for the roster tab.
+  const compare = useCompareSelection()
 
   // Check if dynasty data is being lazily loaded from Firebase
   const isLoadingDynastyData = loadingDynastyId === currentDynasty?.id
@@ -762,6 +845,8 @@ export default function TeamYear() {
   // Conference with custom conferences support (year-specific)
   // Uses getTeamConferenceForDynasty which checks: manual override -> custom conferences -> default conferences
   const conference = getTeamConferenceForDynasty(currentDynasty, teamAbbr, selectedYear)
+  // Display label appends the division when the conference is split, e.g. "SEC (East)".
+  const conferenceLabel = getTeamConferenceLabel(currentDynasty, teamAbbr, selectedYear) || conference
   const conferenceLogo = conference ? getConferenceLogo(conference) : null
   const mascotName = team?.name || ''
   // Single source of truth for this team's logo: dynasty.teams[tid].logo, with
@@ -1758,7 +1843,9 @@ export default function TeamYear() {
   const allPlayers = currentDynasty.players || []
 
   const teamPlayers = allPlayers.filter(p =>
-    isPlayerOnRoster(p, tid, selectedYear)
+    // Pass currentDynasty so teambuilder-renamed teams and legacy abbr-string
+    // teamsByYear resolve correctly — without it this roster renders empty.
+    isPlayerOnRoster(p, tid, selectedYear, currentDynasty)
   )
 
   // Placeholder images: imported rosters often set every player's pictureUrl to
@@ -2786,13 +2873,13 @@ export default function TeamYear() {
                   invisible native <select> is overlaid so the OS dropdown still
                   changes teams. */}
               <div className="relative inline-flex items-center gap-1.5 min-w-0">
-                <div className="leading-[0.92] min-w-0">
-                  {/* Full school name at every breakpoint. The clamp font +
-                      truncate handle the rare too-long name gracefully; there's
-                      ample room for the school name even on mobile, so don't
-                      force the abbreviation. */}
+                {/* Full school name at every breakpoint. FitText shrinks it just
+                    enough to stay whole on the displays where it would otherwise
+                    be cut off (long names on narrow phones); everywhere it fits,
+                    it renders at the natural clamp size unchanged. */}
+                <FitText className="leading-[0.92]">
                   <div
-                    className="font-display font-extrabold uppercase tracking-tight truncate"
+                    className="font-display font-extrabold uppercase tracking-tight whitespace-nowrap"
                     style={{ color: teamBgText, fontSize: 'clamp(1.125rem, 2.6vw, 2.125rem)' }}
                   >
                     {getSchoolName(mascotName) || teamInfo.name}
@@ -2801,12 +2888,12 @@ export default function TeamYear() {
                     const sch = getSchoolName(mascotName) || ''
                     const masc = (mascotName || '').slice(sch.length).trim()
                     return masc ? (
-                      <div className="font-display font-semibold uppercase tracking-[0.06em] truncate" style={{ color: teamBgText, opacity: 0.82, fontSize: 'clamp(0.75rem, 1.2vw, 0.95rem)' }}>
+                      <div className="font-display font-semibold uppercase tracking-[0.06em] whitespace-nowrap" style={{ color: teamBgText, opacity: 0.82, fontSize: 'clamp(0.75rem, 1.2vw, 0.95rem)' }}>
                         {masc}
                       </div>
                     ) : null
                   })()}
-                </div>
+                </FitText>
                 <svg className="w-5 h-5 flex-shrink-0 pointer-events-none" style={{ color: teamBgText, opacity: 0.7 }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -2989,7 +3076,7 @@ export default function TeamYear() {
                     style={{ color: teamBgText, opacity: 0.85 }}
                     title={`View ${conference} standings`}
                   >
-                    {confRank ? `${ordinal(confRank)} in ${conference}` : conference}
+                    {confRank ? `${ordinal(confRank)} in ${conferenceLabel}` : conferenceLabel}
                   </Link>
                 )}
               </div>
@@ -3302,7 +3389,14 @@ export default function TeamYear() {
           if (!game) return null
           const rawOpp = game._isFlippedPerspective ? game._displayOpponent : game.opponent
           const oppAbbr = getAbbrFromTeamName(rawOpp) || rawOpp
-          const oppTeam = getTeamByAbbr(teamsSource, oppAbbr)
+          // Prefer the opponent tid when the game carries team1Tid/team2Tid
+          // (unified format); resolve the opponent live from teams[tid] so a
+          // rename/TeamBuilder takeover reflects immediately. Abbr fallback
+          // covers legacy/converted games with no tid in scope.
+          const t1 = game.team1Tid != null ? Number(game.team1Tid) : null
+          const t2 = game.team2Tid != null ? Number(game.team2Tid) : null
+          const oppTid = t1 === tid ? t2 : (t2 === tid ? t1 : null)
+          const oppTeam = (oppTid != null ? teamsSource[oppTid] : null) || getTeamByAbbr(teamsSource, oppAbbr)
           const oppMascot = oppTeam?.name || getMascotName(oppAbbr, teamsSource)
           const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot, teamsSource) : null)
           const result = game._isFlippedPerspective ? game._displayResult : game.result
@@ -3949,7 +4043,7 @@ export default function TeamYear() {
                       </span>
                     </div>
                     <div className="flex flex-col items-center justify-center px-2 flex-shrink-0 gap-0.5">
-                      {ngRivalryTrophy && (
+                      {ngRivalryTrophy?.image ? (
                         <img
                           src={ngRivalryTrophy.image}
                           alt={ngRivalryTrophy.gameName || ngRivalryTrophy.name}
@@ -3957,7 +4051,9 @@ export default function TeamYear() {
                           className="h-10 w-auto object-contain"
                           style={{ filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.5))' }}
                         />
-                      )}
+                      ) : ngRivalryTrophy ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-yellow-400" title={ngRivalryTrophy.name}>Rivalry</span>
+                      ) : null}
                       <span
                         className="text-[10px] font-bold uppercase"
                         style={{ letterSpacing: '2px', color: '#fff', opacity: 0.6 }}
@@ -4240,6 +4336,39 @@ export default function TeamYear() {
                   )
                 })}
               </div>
+              {/* Compare players — select multiple, then Confirm to open the
+                  Compare Players page with them side by side. */}
+              {!compare.active ? (
+                <button
+                  onClick={compare.start}
+                  className="flex-shrink-0 self-center p-1.5 sm:p-2 rounded-lg transition-colors text-txt-secondary hover:text-txt-primary hover:bg-surface-3"
+                  title="Compare players"
+                  aria-label="Compare players"
+                >
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={COMPARE_ICON_PATH} />
+                  </svg>
+                </button>
+              ) : (
+                <div className="flex-shrink-0 self-center flex items-center gap-1">
+                  <button
+                    onClick={() => { if (compare.count >= 2) navigate(buildCompareUrl(pathPrefix, compare.selected, selectedYear)) }}
+                    disabled={compare.count < 2}
+                    className="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: teamInfo.backgroundColor, color: teamBgText }}
+                    title={compare.count < 2 ? 'Select at least 2 players' : 'Compare selected players'}
+                  >
+                    Confirm ({compare.count})
+                  </button>
+                  <button
+                    onClick={compare.cancel}
+                    className="px-2 py-1 rounded-lg text-xs font-semibold text-txt-secondary hover:text-txt-primary hover:bg-surface-3 transition-colors"
+                    title="Cancel compare"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               {!isViewOnly && (
                 <button
                   onClick={() => setShowRosterModal(true)}
@@ -4264,9 +4393,10 @@ export default function TeamYear() {
                   <Link
                     key={player.pid}
                     to={`${pathPrefix}/player/${player.pid}`}
-                    className="flex items-center gap-3 px-3 py-3 hover:bg-surface-3 transition-colors"
-                   
+                    onClick={(e) => { if (compare.active) { e.preventDefault(); compare.toggle(player.pid) } }}
+                    className={`flex items-center gap-3 px-3 py-3 hover:bg-surface-3 transition-colors ${compare.active && compare.isSelected(player.pid) ? 'bg-surface-3' : ''}`}
                   >
+                    <CompareCheck active={compare.active} selected={compare.isSelected(player.pid)} accent={teamInfo.backgroundColor} accentText={teamBgText} />
                     {/* Jersey */}
                     <div className="w-10 flex-shrink-0 text-center">
                       <span className="text-base font-bold tabular text-txt-primary">
@@ -4279,7 +4409,7 @@ export default function TeamYear() {
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setQuickImagePlayer(player) }}
-                        className="relative group flex-shrink-0"
+                        className={`relative group flex-shrink-0 ${compare.active ? 'pointer-events-none' : ''}`}
                         title="Click to add/change photo"
                       >
                         {player.pictureUrl ? (
@@ -4397,14 +4527,19 @@ export default function TeamYear() {
                     return (
                       <tr
                         key={player.pid}
-                        className="cursor-pointer border-b border-surface-4 hover:bg-surface-3 transition-colors"
-                       
-                        onClick={() => navigate(`${pathPrefix}/player/${player.pid}`)}
+                        className={`cursor-pointer border-b border-surface-4 hover:bg-surface-3 transition-colors ${compare.active && compare.isSelected(player.pid) ? 'bg-surface-3' : ''}`}
+                        onClick={() => compare.active ? compare.toggle(player.pid) : navigate(`${pathPrefix}/player/${player.pid}`)}
                       >
                         <td className="py-2 px-3 text-center">
-                          <span className="text-base font-bold tabular text-txt-primary">
-                            {player.jerseyNumber || '—'}
-                          </span>
+                          {compare.active ? (
+                            <div className="flex items-center justify-center">
+                              <CompareCheck active selected={compare.isSelected(player.pid)} accent={teamInfo.backgroundColor} accentText={teamBgText} />
+                            </div>
+                          ) : (
+                            <span className="text-base font-bold tabular text-txt-primary">
+                              {player.jerseyNumber || '—'}
+                            </span>
+                          )}
                         </td>
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-3">
@@ -4412,20 +4547,10 @@ export default function TeamYear() {
                               <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setQuickImagePlayer(player) }}
-                                className="relative group flex-shrink-0"
+                                className={`relative group flex-shrink-0 ${compare.active ? 'pointer-events-none' : ''}`}
                                 title="Click to add/change photo"
                               >
-                                {player.pictureUrl ? (
-                                  <div className="w-9 h-9 rounded-full overflow-hidden border border-surface-5">
-                                    <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
-                                  </div>
-                                ) : (
-                                  <div className="w-9 h-9 rounded-full flex items-center justify-center bg-surface-3 text-txt-muted border border-surface-5">
-                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                    </svg>
-                                  </div>
-                                )}
+                                <PlayerAvatar photoUrl={realPhoto(player.pictureUrl)} teamLogo={teamLogo} name={player.name} size={36} />
                                 {!player.pictureUrl && (
                                   <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center" style={{ backgroundColor: 'var(--surface-4)' }}>
                                     <svg className="w-2 h-2" fill="none" stroke="white" viewBox="0 0 24 24" strokeWidth={2.5}>
@@ -4435,24 +4560,18 @@ export default function TeamYear() {
                                   </div>
                                 )}
                               </button>
-                            ) : player.pictureUrl ? (
+                            ) : (
                               <Link
                                 to={`${pathPrefix}/player/${player.pid}`}
-                                className="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden block border border-surface-5"
+                                className={`flex-shrink-0 block ${compare.active ? 'pointer-events-none' : ''}`}
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <img src={proxyImageUrl(player.pictureUrl, 300)} alt={player.name} className="w-full h-full object-cover" />
+                                <PlayerAvatar photoUrl={realPhoto(player.pictureUrl)} teamLogo={teamLogo} name={player.name} size={36} />
                               </Link>
-                            ) : (
-                              <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-surface-3 text-txt-muted border border-surface-5">
-                                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                </svg>
-                              </div>
                             )}
                             <Link
                               to={`${pathPrefix}/player/${player.pid}`}
-                              className="font-bold text-txt-primary"
+                              className={`font-bold text-txt-primary ${compare.active ? 'pointer-events-none' : ''}`}
                               onClick={(e) => e.stopPropagation()}
                             >
                               {player.name}
@@ -4608,6 +4727,7 @@ export default function TeamYear() {
               {playerStats.passing.length > 0 && (
                 <SortableStatsTable
                   title="Passing"
+                  teamLogo={teamLogo}
                   rows={playerStats.passing}
                   defaultSortKey="yds"
                   accentColor={accentColor}
@@ -4654,6 +4774,7 @@ export default function TeamYear() {
               {playerStats.rushing.length > 0 && (
                 <SortableStatsTable
                   title="Rushing"
+                  teamLogo={teamLogo}
                   rows={playerStats.rushing}
                   defaultSortKey="yds"
                   accentColor={accentColor}
@@ -4695,6 +4816,7 @@ export default function TeamYear() {
               {playerStats.receiving.length > 0 && (
                 <SortableStatsTable
                   title="Receiving"
+                  teamLogo={teamLogo}
                   rows={playerStats.receiving}
                   defaultSortKey="yds"
                   accentColor={accentColor}
@@ -4730,6 +4852,7 @@ export default function TeamYear() {
               {playerStats.blocking.length > 0 && (
                 <SortableStatsTable
                   title="Blocking"
+                  teamLogo={teamLogo}
                   rows={playerStats.blocking}
                   defaultSortKey="pancakes"
                   accentColor={accentColor}
@@ -4753,6 +4876,7 @@ export default function TeamYear() {
               {playerStats.defense.length > 0 && (
                 <SortableStatsTable
                   title="Defense"
+                  teamLogo={teamLogo}
                   rows={playerStats.defense}
                   defaultSortKey="tot"
                   accentColor={accentColor}
@@ -4796,6 +4920,7 @@ export default function TeamYear() {
               {playerStats.kicking.length > 0 && (
                 <SortableStatsTable
                   title="Kicking"
+                  teamLogo={teamLogo}
                   rows={playerStats.kicking}
                   defaultSortKey="fgm"
                   accentColor={accentColor}
@@ -4828,6 +4953,7 @@ export default function TeamYear() {
               {playerStats.punting.length > 0 && (
                 <SortableStatsTable
                   title="Punting"
+                  teamLogo={teamLogo}
                   rows={playerStats.punting}
                   defaultSortKey="yds"
                   accentColor={accentColor}
@@ -4861,6 +4987,7 @@ export default function TeamYear() {
               {playerStats.kickReturn && playerStats.kickReturn.length > 0 && (
                 <SortableStatsTable
                   title="Kick Return"
+                  teamLogo={teamLogo}
                   rows={playerStats.kickReturn}
                   defaultSortKey="yds"
                   accentColor={accentColor}
@@ -4892,6 +5019,7 @@ export default function TeamYear() {
               {playerStats.puntReturn && playerStats.puntReturn.length > 0 && (
                 <SortableStatsTable
                   title="Punt Return"
+                  teamLogo={teamLogo}
                   rows={playerStats.puntReturn}
                   defaultSortKey="yds"
                   accentColor={accentColor}
@@ -5265,8 +5393,12 @@ export default function TeamYear() {
               const displayTeamScore = game._isFlippedPerspective ? game._displayTeamScore : game.teamScore
               const displayOpponentScore = game._isFlippedPerspective ? game._displayOpponentScore : game.opponentScore
 
-              // Use tid-based lookup for opponent data (supports teambuilder teams)
-              const oppTeam = getTeamByAbbr(teamsSource, displayOpponent)
+              // Prefer the opponent tid when the game carries team1Tid/team2Tid
+              // (unified format); resolve live from teams[tid], abbr fallback otherwise.
+              const t1 = game.team1Tid != null ? Number(game.team1Tid) : null
+              const t2 = game.team2Tid != null ? Number(game.team2Tid) : null
+              const oppTid = t1 === tid ? t2 : (t2 === tid ? t1 : null)
+              const oppTeam = (oppTid != null ? teamsSource[oppTid] : null) || getTeamByAbbr(teamsSource, displayOpponent)
               const oppMascot = oppTeam?.name || getMascotName(displayOpponent, teamsSource)
               const oppLogo = oppTeam?.logo || (oppMascot ? getTeamLogo(oppMascot, teamsSource) : null)
               const oppColors = oppTeam
@@ -5498,17 +5630,7 @@ export default function TeamYear() {
                         >
                           {statLeaders?.topPasser && statLeaders.topPasser.yards > 0 ? (
                             <>
-                              {statLeaders.topPasser.player?.pictureUrl ? (
-                                <img src={proxyImageUrl(statLeaders.topPasser.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${rowText}20` }} />
-                              ) : teamLogo ? (
-                                <span className="w-7 h-7 rounded-full bg-white p-1 items-center justify-center flex-shrink-0 hidden xl:flex">
-                                  <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-                                </span>
-                              ) : (
-                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${rowText}20` }}>
-                                  <span className="text-xs font-bold" style={{ color: rowTextMuted }}>{statLeaders.topPasser.name.charAt(0)}</span>
-                                </div>
-                              )}
+                              <PlayerAvatar photoUrl={realPhoto(statLeaders.topPasser.player?.pictureUrl)} teamLogo={teamLogo} name={statLeaders.topPasser.player?.name} size={28} className="hidden xl:flex" />
                               <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: rowTextMuted }}>{getDisplayLastName(statLeaders.topPasser.name)}</span>
                               <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: rowText }}>{statLeaders.topPasser.yards}</span>
                             </>
@@ -5524,17 +5646,7 @@ export default function TeamYear() {
                         >
                           {statLeaders?.topRusher && statLeaders.topRusher.yards > 0 ? (
                             <>
-                              {statLeaders.topRusher.player?.pictureUrl ? (
-                                <img src={proxyImageUrl(statLeaders.topRusher.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${rowText}20` }} />
-                              ) : teamLogo ? (
-                                <span className="w-7 h-7 rounded-full bg-white p-1 items-center justify-center flex-shrink-0 hidden xl:flex">
-                                  <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-                                </span>
-                              ) : (
-                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${rowText}20` }}>
-                                  <span className="text-xs font-bold" style={{ color: rowTextMuted }}>{statLeaders.topRusher.name.charAt(0)}</span>
-                                </div>
-                              )}
+                              <PlayerAvatar photoUrl={realPhoto(statLeaders.topRusher.player?.pictureUrl)} teamLogo={teamLogo} name={statLeaders.topRusher.player?.name} size={28} className="hidden xl:flex" />
                               <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: rowTextMuted }}>{getDisplayLastName(statLeaders.topRusher.name)}</span>
                               <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: rowText }}>{statLeaders.topRusher.yards}</span>
                             </>
@@ -5550,17 +5662,7 @@ export default function TeamYear() {
                         >
                           {statLeaders?.topReceiver && statLeaders.topReceiver.yards > 0 ? (
                             <>
-                              {statLeaders.topReceiver.player?.pictureUrl ? (
-                                <img src={proxyImageUrl(statLeaders.topReceiver.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${rowText}20` }} />
-                              ) : teamLogo ? (
-                                <span className="w-7 h-7 rounded-full bg-white p-1 items-center justify-center flex-shrink-0 hidden xl:flex">
-                                  <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-                                </span>
-                              ) : (
-                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${rowText}20` }}>
-                                  <span className="text-xs font-bold" style={{ color: rowTextMuted }}>{statLeaders.topReceiver.name.charAt(0)}</span>
-                                </div>
-                              )}
+                              <PlayerAvatar photoUrl={realPhoto(statLeaders.topReceiver.player?.pictureUrl)} teamLogo={teamLogo} name={statLeaders.topReceiver.player?.name} size={28} className="hidden xl:flex" />
                               <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: rowTextMuted }}>{getDisplayLastName(statLeaders.topReceiver.name)}</span>
                               <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: rowText }}>{statLeaders.topReceiver.yards}</span>
                             </>
@@ -5576,17 +5678,7 @@ export default function TeamYear() {
                         >
                           {statLeaders?.topTackler && statLeaders.topTackler.tackles > 0 ? (
                             <>
-                              {statLeaders.topTackler.player?.pictureUrl ? (
-                                <img src={proxyImageUrl(statLeaders.topTackler.player.pictureUrl, 300)} alt="" className="w-7 h-7 rounded-full object-cover border flex-shrink-0 hidden xl:block" style={{ borderColor: `${rowText}20` }} />
-                              ) : teamLogo ? (
-                                <span className="w-7 h-7 rounded-full bg-white p-1 items-center justify-center flex-shrink-0 hidden xl:flex">
-                                  <img src={teamLogo} alt="" className="w-full h-full object-contain" />
-                                </span>
-                              ) : (
-                                <div className="w-7 h-7 rounded-full items-center justify-center flex-shrink-0 hidden xl:flex" style={{ backgroundColor: `${rowText}20` }}>
-                                  <span className="text-xs font-bold" style={{ color: rowTextMuted }}>{statLeaders.topTackler.name.charAt(0)}</span>
-                                </div>
-                              )}
+                              <PlayerAvatar photoUrl={realPhoto(statLeaders.topTackler.player?.pictureUrl)} teamLogo={teamLogo} name={statLeaders.topTackler.player?.name} size={28} className="hidden xl:flex" />
                               <span className="text-[10px] lg:text-xs truncate min-w-0" style={{ color: rowTextMuted }}>{getDisplayLastName(statLeaders.topTackler.name)}</span>
                               <span className="text-xs lg:text-sm font-bold flex-shrink-0" style={{ color: rowText }}>{statLeaders.topTackler.tackles}</span>
                             </>
@@ -5707,19 +5799,24 @@ export default function TeamYear() {
 
               // Get opponent from ccData or teamCCGame (tid-based). Prefer the
               // canonical opponentTid; fall back to a legacy abbr.
-              let ccOpponentAbbr = ccData?.opponentTid
-                ? (teamsSource?.[ccData.opponentTid]?.abbr || null)
+              let ccOppTid = ccData?.opponentTid != null ? Number(ccData.opponentTid) : null
+              let ccOpponentAbbr = ccOppTid != null
+                ? (teamsSource?.[ccOppTid]?.abbr || null)
                 : ccData?.opponent
               let ccIsTeam1 = false
               if (!ccOpponentAbbr && teamCCGame) {
                 const ccTeam1Tid = teamCCGame.team1Tid || resolveTid(teamCCGame.team1, teamsSource)
                 ccIsTeam1 = ccTeam1Tid === tid
                 ccOpponentAbbr = ccIsTeam1 ? teamCCGame.team2 : teamCCGame.team1
+                ccOppTid = ccIsTeam1
+                  ? (teamCCGame.team2Tid || resolveTid(teamCCGame.team2, teamsSource))
+                  : (teamCCGame.team1Tid || resolveTid(teamCCGame.team1, teamsSource))
               }
               if (!ccOpponentAbbr) return null
 
-              // Use tid-based lookup for CC opponent data (supports teambuilder teams)
-              const ccOppTeam = getTeamByAbbr(teamsSource, ccOpponentAbbr)
+              // Resolve CC opponent live from teams[tid] when a tid is in scope
+              // (ccData.opponentTid or the CC game's team tids); abbr fallback.
+              const ccOppTeam = (ccOppTid != null ? teamsSource[ccOppTid] : null) || getTeamByAbbr(teamsSource, ccOpponentAbbr)
               const ccOppLogo = ccOppTeam?.logo || (getMascotName(ccOpponentAbbr, teamsSource) ? getTeamLogo(getMascotName(ccOpponentAbbr, teamsSource), teamsSource) : null)
               const ccOppColors = ccOppTeam
                 ? { backgroundColor: ccOppTeam.primaryColor, textColor: ccOppTeam.secondaryColor }
@@ -5819,8 +5916,12 @@ export default function TeamYear() {
               if (!hasBowlScheduled || bowlGamePlayed || selectedYear !== currentDynasty.currentYear) return null
 
               const bowlOpponentValue = bowlData.opponent
-              // Use tid-based lookup for bowl opponent data (supports teambuilder teams)
-              const bowlOppTeam = getTeamByAbbr(teamsSource, bowlOpponentValue)
+              // Prefer the eligibility record's opponentTid when present so a
+              // renamed/TeamBuilder opponent resolves live from teams[tid]; this
+              // legacy path is gated on the stored .opponent abbr, which stays
+              // the fallback.
+              const bowlOppTid = bowlData.opponentTid != null ? Number(bowlData.opponentTid) : null
+              const bowlOppTeam = (bowlOppTid != null ? teamsSource[bowlOppTid] : null) || getTeamByAbbr(teamsSource, bowlOpponentValue)
               const oppLogo = bowlOppTeam?.logo || (getMascotName(bowlOpponentValue, teamsSource) ? getTeamLogo(getMascotName(bowlOpponentValue, teamsSource), teamsSource) : null)
               const oppColors = bowlOppTeam
                 ? { backgroundColor: bowlOppTeam.primaryColor, textColor: bowlOppTeam.secondaryColor }
@@ -6414,23 +6515,7 @@ export default function TeamYear() {
                         className="grid grid-cols-[40px_1fr] sm:grid-cols-[44px_minmax(140px,1.5fr)_56px_64px_minmax(180px,2fr)_minmax(140px,auto)] gap-x-3 sm:gap-x-5 items-center px-4 py-2.5 border-b border-surface-4 last:border-b-0 hover:bg-surface-3 transition-colors"
                       >
                         {/* Photo */}
-                        {player.pictureUrl ? (
-                          <img
-                            src={proxyImageUrl(player.pictureUrl, 300)}
-                            alt={player.name}
-                            className="w-9 h-9 sm:w-10 sm:h-10 object-cover rounded-md flex-shrink-0"
-                            style={{ border: '1px solid var(--surface-4)' }}
-                          />
-                        ) : (
-                          <div
-                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-md flex items-center justify-center flex-shrink-0"
-                            style={{ backgroundColor: 'var(--surface-3)', border: '1px solid var(--surface-4)' }}
-                          >
-                            <span className="text-[10px] font-black uppercase text-txt-secondary tabular-nums" style={{ letterSpacing: '0.05em' }}>
-                              {(player.position || 'ATH').slice(0, 3)}
-                            </span>
-                          </div>
-                        )}
+                        <PlayerAvatar photoUrl={realPhoto(player.pictureUrl)} teamLogo={teamLogo} name={player.name} size={40} />
 
                         {/* Name + class. On mobile we cram pos/ovr/career
                             into the second cell as a compact stack. */}
@@ -6633,24 +6718,28 @@ export default function TeamYear() {
         // Calculate AP Top 25 finishes
         const apTop25Finishes = yearRecords.filter(yr => yr.finalRank && yr.finalRank <= 25)
 
-        // Calculate All-Americans for this team. p.allAmericans is the real
-        // per-player field (was previously read as the nonexistent p.honors/
-        // p.awards, so this count was always 0) — merged with honors
-        // re-derived live from dynasty.allAmericansByYear, since cfb27
-        // auto-sync never copies synced honors onto the player record (see
-        // utils/honorMatch.js).
+        // All-Americans for this team. Honors live in p.allAmericans (array of
+        // { designation, year, school, schoolTid }); the legacy p.honors/p.awards
+        // fields this used to read no longer exist, so the count was always 0.
+        //
+        // Merged with honors re-derived live from dynasty.allAmericansByYear,
+        // because a cfb27 auto-sync never copies synced honors onto the player
+        // record (see utils/honorMatch.js) — without the merge a PC dynasty
+        // counts zero.
+        //
+        // Membership is decided PER HONOR, tid-first: a player counts for this
+        // team only if the honor itself was earned WITH this team. Testing
+        // "was ever on this team AND has any honor" instead would credit a
+        // team for an All-American a player won years later somewhere else.
         const liveHonorsByPidForTeam = computeLiveHonorsByPid(currentDynasty)
         const teamAllAmericans = (currentDynasty.players || []).filter(p => {
-          // Check if player was on this team and has all-american honors
-          const wasOnTeam = Object.entries(p.teamsByYear || {}).some(([year, team]) => {
-            const playerTid = resolveTid(team, teamsSource)
-            return playerTid === tid
-          }) || resolveTid(p.team, teamsSource) === tid
-
-          if (!wasOnTeam) return false
-
-          const honors = mergeHonorLists(p.allAmericans || [], liveHonorsByPidForTeam.get(p.pid)?.allAmericans || [])
-          return honors.length > 0
+          const aa = mergeHonorLists(p.allAmericans || [], liveHonorsByPidForTeam.get(p.pid)?.allAmericans || [])
+          if (!Array.isArray(aa) || aa.length === 0) return false
+          return aa.some(h => {
+            let hTid = h.schoolTid != null ? Number(h.schoolTid) : null
+            if (hTid == null && h.school) hTid = resolveTid(h.school, teamsSource) || null
+            return hTid === tid
+          })
         })
 
         // Get all games for this team to calculate user history
@@ -6700,18 +6789,24 @@ export default function TeamYear() {
           if (!userTidInYear) return
           const g1Tid = g.team1Tid || resolveTid(g.team1, teamsSource)
           const g2Tid = g.team2Tid || resolveTid(g.team2, teamsSource)
-          const hasScores = g.team1Score != null && g.team2Score != null
+          // Require a PLAYED (or non-zero-score) game — an unplayed 0-0 schedule
+          // placeholder for an upcoming matchup must not count. Previously the
+          // catch-all `else` also bucketed a 0-0 tie into the loss column, so
+          // upcoming games showed up as phantom losses (e.g. "Vs UK 0-2").
+          const played = g.isPlayed === true ||
+            (g.team1Score != null && g.team2Score != null && (g.team1Score > 0 || g.team2Score > 0))
           if (userTidInYear === tid) {
             // User WAS coaching this team that year — an "As Coach" game.
-            if ((g1Tid === tid || g2Tid === tid) && hasScores) userAsTeamGames.push({ game: g, userTid: tid })
+            if ((g1Tid === tid || g2Tid === tid) && played) userAsTeamGames.push({ game: g, userTid: tid })
             return
           }
           const userInGame = g1Tid === userTidInYear || g2Tid === userTidInYear
-          if (userInGame && hasScores) {
+          if (userInGame && played) {
             const userIsTeam1 = g1Tid === userTidInYear
-            const userWon = userIsTeam1 ? g.team1Score > g.team2Score : g.team2Score > g.team1Score
-            if (userWon) userVsTeamWins++
-            else userVsTeamLosses++
+            const userScore = userIsTeam1 ? g.team1Score : g.team2Score
+            const oppScore = userIsTeam1 ? g.team2Score : g.team1Score
+            if (userScore > oppScore) userVsTeamWins++
+            else if (userScore < oppScore) userVsTeamLosses++
             userVsTeamGames.push({ game: g, userTid: userTidInYear })
           }
         })
@@ -7182,11 +7277,7 @@ export default function TeamYear() {
                                     }}
                                   >
                                     <span className="text-right tabular flex-shrink-0" style={{ fontFamily: "var(--font-display)", fontSize: isFirst ? '1.4rem' : '1rem', letterSpacing: '0.5px', lineHeight: 1, width: isFirst ? '1.6rem' : '1.25rem', color: rankColor, fontWeight: isFirst ? 700 : 600 }}>{rank}</span>
-                                    {player.pictureUrl ? (
-                                      <img src={proxyImageUrl(player.pictureUrl, 300)} alt="" className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full object-cover flex-shrink-0`} style={{ border: isFirst ? '1.5px solid var(--accent-warning)' : '1px solid var(--surface-4)' }} />
-                                    ) : (
-                                      <div className={`${isFirst ? 'w-10 h-10' : 'w-8 h-8'} rounded-full bg-surface-4 flex-shrink-0`} />
-                                    )}
+                                    <PlayerAvatar photoUrl={realPhoto(player.pictureUrl)} teamLogo={teamLogo} name={player.name} size={isFirst ? 40 : 32} />
                                     <div className="flex-1 min-w-0">
                                       <span className={`${isFirst ? 'text-[15px]' : 'text-sm'} font-semibold text-txt-primary hover:underline truncate block`}>{player.name}</span>
                                       <p className="text-[11px] text-txt-tertiary truncate m-0">{player.position && `${player.position} · `}{yearsLabel}</p>
@@ -7399,6 +7490,8 @@ export default function TeamYear() {
         dynastyTeams={teamsSource}
         initialRecord={displayRecord ? { wins: displayRecord.wins, losses: displayRecord.losses } : null}
         initialConference={lookupByTeamYear(currentDynasty.conferenceByTeamYear, currentDynasty, tid, selectedYear) || conference || ''}
+        manualRecord={storedRecord}
+        initialRatings={getTeamRatingsForYear(currentDynasty, tid, selectedYear)}
       />
 
 
@@ -7672,11 +7765,7 @@ export default function TeamYear() {
                 >
                   <span className="w-5 text-center text-xs font-bold tabular-nums flex-shrink-0 text-txt-tertiary">{i + 1}</span>
                   <span className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: `${accentColor}1f` }}>
-                    {p.pictureUrl
-                      ? <img src={proxyImageUrl(p.pictureUrl, 120)} alt="" className="w-full h-full object-cover" />
-                      : teamLogo
-                        ? <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
-                        : <span className="text-xs font-bold" style={{ color: accentColor }}>{(p.name || '?').charAt(0)}</span>}
+                    <PlayerAvatar photoUrl={realPhoto(p.pictureUrl)} teamLogo={teamLogo} name={p.name} size={32} />
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold text-txt-primary truncate group-hover:underline">{p.name}</div>

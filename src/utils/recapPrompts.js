@@ -232,49 +232,51 @@ function getConferenceAlignmentForYear(dynasty, year) {
 
   const startYear = Number(dynasty.startYear) || 2024
 
-  // Step 1: Base map from legacy bulk stores.
-  let baseMap = null
-  const byYear = dynasty.customConferencesByYear?.[yearNum]
-    || dynasty.customConferencesByYear?.[String(yearNum)]
-  if (byYear && typeof byYear === 'object' && Object.keys(byYear).length > 0) {
-    baseMap = byYear
-  } else if (dynasty.customConferencesByYear && typeof dynasty.customConferencesByYear === 'object') {
-    const minYear = Math.max(startYear, yearNum - 10)
-    for (let y = yearNum - 1; y >= minYear; y--) {
-      const prev = dynasty.customConferencesByYear[y] || dynasty.customConferencesByYear[String(y)]
-      if (prev && typeof prev === 'object' && Object.keys(prev).length > 0) {
-        baseMap = prev
-        break
+  // Per-team resolution — the single source of truth (mirrors
+  // getCustomConferencesForYear): teams[tid].byYear[year].conference with
+  // carry-back to the most recent prior season set. Bulk stores are backfilled
+  // into this field on load, so only realigned teams carry a value.
+  const minOverrideYear = Math.max(startYear, yearNum - 25)
+  const overrides = new Map() // abbr UPPERCASE → conferenceName
+  for (const team of Object.values(dynasty.teams || {})) {
+    const abbr = team?.abbr
+    if (!abbr) continue
+    let conf = team?.byYear?.[yearNum]?.conference ?? team?.byYear?.[String(yearNum)]?.conference
+    if (!conf && team?.byYear) {
+      for (let y = yearNum - 1; y >= minOverrideYear; y--) {
+        const c = team.byYear[y]?.conference ?? team.byYear[String(y)]?.conference
+        if (c) { conf = c; break }
       }
     }
-  }
-  if (!baseMap && dynasty.customConferences && typeof dynasty.customConferences === 'object'
-      && Object.keys(dynasty.customConferences).length > 0) {
-    baseMap = dynasty.customConferences
-  }
-
-  const sourceMap = baseMap || DEFAULT_CONFERENCES
-
-  // Step 2: Collect per-team overrides. Canonical (byYear.conference) wins by being applied last.
-  const overrides = new Map() // abbr UPPERCASE → conferenceName
-
-  // Legacy conferenceByTeamYear (lower priority — applied first)
-  const legacy = dynasty.conferenceByTeamYear || {}
-  for (const [abbr, byYearMap] of Object.entries(legacy)) {
-    if (!abbr || !byYearMap || typeof byYearMap !== 'object') continue
-    const conf = byYearMap[yearNum] ?? byYearMap[String(yearNum)]
     if (conf) overrides.set(abbr.toUpperCase(), conf)
   }
 
-  // Canonical teams[tid].byYear[year].conference (higher priority — applied last)
-  for (const team of Object.values(dynasty.teams || {})) {
-    const yd = team?.byYear?.[yearNum] || team?.byYear?.[String(yearNum)]
-    const conf = yd?.conference
-    const abbr = team?.abbr
-    if (conf && abbr) overrides.set(abbr.toUpperCase(), conf)
+  // Fallback for a dynasty whose per-team field wasn't populated (no realignment,
+  // or an un-migrated load): resolve from the legacy bulk stores.
+  let baseMap = null
+  if (overrides.size === 0) {
+    const byYear = dynasty.customConferencesByYear?.[yearNum]
+      || dynasty.customConferencesByYear?.[String(yearNum)]
+    if (byYear && typeof byYear === 'object' && Object.keys(byYear).length > 0) {
+      baseMap = byYear
+    } else if (dynasty.customConferencesByYear && typeof dynasty.customConferencesByYear === 'object') {
+      const minYear = Math.max(startYear, yearNum - 10)
+      for (let y = yearNum - 1; y >= minYear; y--) {
+        const prev = dynasty.customConferencesByYear[y] || dynasty.customConferencesByYear[String(y)]
+        if (prev && typeof prev === 'object' && Object.keys(prev).length > 0) { baseMap = prev; break }
+      }
+    }
+    if (!baseMap && dynasty.customConferences && typeof dynasty.customConferences === 'object'
+        && Object.keys(dynasty.customConferences).length > 0) {
+      baseMap = dynasty.customConferences
+    }
   }
 
-  // Step 3: Clone base map, apply overrides.
+  // Per-team overrides apply on top of the real-world default alignment; the
+  // bulk fallback (when no per-team data) uses its own snapshot as the base.
+  const sourceMap = baseMap || DEFAULT_CONFERENCES
+
+  // Clone base map, apply overrides.
   const result = {}
   for (const [conf, confTeams] of Object.entries(sourceMap)) {
     result[conf] = Array.isArray(confTeams) ? [...confTeams] : []
@@ -394,7 +396,7 @@ Wrap your ENTIRE response in a single fenced markdown block:
 # (your recap here, using markdown headings, **bold**, and paragraphs)
 \`\`\`
 
-The fence preserves markdown when the user copies the text on mobile. Do not include any text before the opening fence or after the closing fence — no preamble, no "Here's your recap:", no follow-up offer.
+The fence preserves markdown when the user copies the text on mobile. The only text allowed outside the fence is an optional short data-flag note ABOVE the opening fence — a sentence or two, used solely when the data genuinely needs explaining (a contradiction, an impossible or misattributed stat, an ambiguous result); it stays in the chat for the user and is stripped automatically on paste. Otherwise include no text before or after the fence — no "Here's your recap:", no follow-up offer.
 
 Inside the fence:
 - Open with your HEADLINE as the H1 (e.g., "# Tennessee falls to Missouri; Georgia drops from top five"). The headline IS the title — do NOT add a separate "# YEAR Week N Recap" line above it. For the Season Preview, the H1 is the headline (e.g., "# 2034 season preview: Georgia, Ohio State headline a wide-open field").
@@ -420,7 +422,7 @@ export const OUTPUT_FORMAT_SOCIAL = `
 ═══════════════════════════════════════════════════════════
 OUTPUT FORMAT — TWO FENCED BLOCKS REQUIRED
 ═══════════════════════════════════════════════════════════
-Output EXACTLY two fenced blocks in the order below. No text before the first block, no text between the blocks, no text after the second block.
+Output the two fenced blocks below, in order. The ONLY text allowed outside them is an optional short DATA-FLAG NOTE ABOVE BLOCK 1 — a sentence or two, used solely when the data genuinely needs explaining (a self-contradiction, an impossible or misattributed stat, an ambiguous result you had to resolve). That note stays in the chat for the user to read and is stripped automatically when they paste, so it never pollutes the saved recap. No text BETWEEN the blocks, and no text AFTER the second block. When there's nothing to flag, output only the two blocks.
 
 BLOCK 1 — the weekly recap:
 \`\`\`markdown
@@ -1451,7 +1453,7 @@ export function buildWeekRecapPrompt(dynasty, year, week, opts = {}) {
     outputFormatStr,
     ...(socialBlock ? [
       ``,
-      `REMINDER: Your response = two fenced blocks. BLOCK 1: \`\`\`markdown recap\`\`\` — BLOCK 2: \`\`\`cfb-social posts\`\`\`. The social posts instructions are at the very end of this prompt, after the DATA section. Finish the recap block completely, close its fence, then immediately open the cfb-social fence.`,
+      `REMINDER: Your response = two fenced blocks. BLOCK 1: \`\`\`markdown recap\`\`\` — BLOCK 2: \`\`\`cfb-social posts\`\`\`. The social posts instructions are at the very end of this prompt, after the DATA section. Finish the recap block completely, close its fence, then immediately open the cfb-social fence. (The only text allowed OUTSIDE the two blocks is an optional short data-flag note above BLOCK 1, when the data genuinely needs explaining — it is stripped automatically on paste.)`,
     ] : []),
     ``,
     `═══════════════════════════════════════════════════════════`,
@@ -1744,7 +1746,7 @@ export function buildPreseasonTop25Prompt(dynasty, year) {
     `   1. ONE team abbreviation per line. No rank numbers, no full names, no mascots, no city names, no "Tied with…" notes.`,
     `   2. Abbreviations MUST come from the TEAM ABBREVIATIONS list at the bottom of this prompt — these are the only abbrs the user's strict-dropdown sheet will accept. Anything else is rejected on paste.`,
     `   3. EXACTLY 25 lines (or 24 lines + 1 blank line, etc., if the screenshot only had partial data — leave the missing slot blank, don't pad with a guess).`,
-    `   4. No header row, no commentary, no closing remarks. The user pastes your output starting at cell B2 of the sheet (or copies into the tracker's row form). Anything other than 25 lines of team abbreviations breaks both flows.`,
+    `   4. No header row, no commentary, no closing remarks. The user pastes your output straight into the app. Anything other than 25 lines of team abbreviations breaks the import.`,
     `   5. Wrap your output in a single \`\`\`tsv ... \`\`\` fenced block so the user can copy-paste cleanly without selecting any prose.`,
     ``,
     `If you generated a PRE-NOTE (Mode B only, no prior data), put it on a single line ABOVE the fenced block — never inside it.`,

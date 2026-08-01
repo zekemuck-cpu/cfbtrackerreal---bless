@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect, useRef, lazy, Suspense } from 'react'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { Link, useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { useDynasty, getRecruitingCommitments, lookupByTeamYear, isPlayerOnRoster } from '../../context/DynastyContext'
+import { useDynasty, getRecruitingCommitments, buildRecruitingCommitmentUpdate, buildRecruitingCommitmentRemoval, lookupByTeamYear, isPlayerOnRoster } from '../../context/DynastyContext'
 import { inferPlayStyle } from '../../utils/scoutGrade'
 import { scoutCalibration } from '../../utils/scoutLearning'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import RecruitingCommitmentsModal from '../../components/RecruitingCommitmentsModal'
 import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
-import { TEAMS, resolveTid, getCurrentTeamAbbr, getTidFromAbbr, getOriginalTeamAbbr, getColorsFromTid } from '../../data/teamRegistry'
+import { TEAMS, resolveTid, getCurrentTeamAbbr, getCurrentTeamTid, getTidFromAbbr, getColorsFromTid } from '../../data/teamRegistry'
 import { getTeamLogoByTid, stripMascotFromName } from '../../data/teams'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { PageHero, Card, Badge, Button, Select, EmptyState, TeamLogo } from '../../components/ui'
@@ -17,7 +17,7 @@ import { sideOfPosition } from '../../utils/outlookBoard'
 import { finePositionGroup } from '../../data/positionGroups'
 import { POSITION_FILTER_OPTIONS, matchesPositionFilter } from '../../utils/recruitFilters'
 import TeamPermissionBanner from '../../components/TeamPermissionBanner'
-import { partitionRecruitingRows, reconcileRecruitingRows, isOpenTarget, resolveTargetCommitment, buildCommitmentRecord } from '../../utils/recruitingTargets'
+import { partitionRecruitingRows, reconcileRecruitingRows, isOpenTarget, isMyTarget, resolveTargetCommitment, buildCommitmentRecord } from '../../utils/recruitingTargets'
 import { carryRecruitingNilForward } from '../../data/playerNilModel'
 import ScoutBoard from './ScoutBoard'
 // Scout Staff is an opt-in (League Preferences) replacement for the MaxPlaysCFB
@@ -27,7 +27,9 @@ import TargetResolutionModal from '../../components/TargetResolutionModal'
 import RecruitCard from '../../components/RecruitCard'
 import { buildRevealedPool } from '../../utils/devTraitLearning'
 import { buildAttributeQualityMap } from '../../utils/devPrediction'
-import { isPcAutoDynasty } from '../../editions'
+import { isCfb27, isPcAutoDynasty } from '../../editions'
+import CommitGraphicModal from '../../components/CommitGraphicModal'
+import CommitGraphicViewer from '../../components/CommitGraphicViewer'
 import { TopClassesBody } from './TopClasses'
 
 const stateFullNames = {
@@ -116,7 +118,14 @@ export default function Recruiting() {
   // Targets are a "my team" planning tool — they only belong to the user's own
   // team, so they're scoped to it (never shown on another team's class).
   const currentTeamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty?.teamName
-  const currentTeamTid = resolveTid(currentTeamAbbr, TEAMS)
+  // Resolve the user's team by TID (the source of truth), not by round-tripping
+  // the abbr through the STATIC registry. getCurrentTeamTid reads
+  // userId/currentTid against dynasty.teams, so it matches the URL's selectedTid
+  // (also a dynasty tid) even for teambuilder teams. The old abbr→static-TEAMS
+  // path resolved to a DIFFERENT tid for teambuilder/renamed teams, making the
+  // user's OWN recruiting page read as "another team's class."
+  const currentTeamTid = getCurrentTeamTid(currentDynasty)
+    ?? resolveTid(currentTeamAbbr, currentDynasty?.teams || TEAMS)
   const selectedTid = tidParam ? parseInt(tidParam, 10) : currentTeamTid
   const isOwnTeam = Number(selectedTid) === Number(currentTeamTid)
 
@@ -129,11 +138,13 @@ export default function Recruiting() {
   // being viewed: the CURRENT recruiting year opens on Targets (you're
   // actively scouting); past/future years open on Commitments (reviewing a
   // finished class).
-  const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled
+  const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled && isCfb27(currentDynasty) // CFB 27 only
   const viewingYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : Number(currentDynasty?.currentYear))
   const isCurrentRecruitingYear = viewingYear !== 'all' && viewingYear === Number(currentDynasty?.currentYear)
+  // isMyTarget: in a shared league every member's open targets live in the
+  // same player pool, so scope this to the viewer's own team.
   const hasTargetsThisYear = isCurrentRecruitingYear && isOwnTeam
-    && (currentDynasty?.players || []).some((p) => p?.isTarget && Number(p.targetYear) === viewingYear)
+    && (currentDynasty?.players || []).some((p) => p?.isTarget && isMyTarget(p, currentTeamTid) && Number(p.targetYear) === viewingYear)
   const defaultTab = scoutStaffEnabled ? 'targets' : hasTargetsThisYear ? 'targets' : 'commitments'
   const tabParam = searchParams.get('tab')
   // 'database'/'outlook'/'thresholds'/'counts' are Scout Staff's own Recruiting
@@ -143,6 +154,8 @@ export default function Recruiting() {
   const KNOWN_TABS = ['targets', 'commitments', 'database', 'outlook', 'thresholds', 'counts']
   const activeTab = KNOWN_TABS.includes(tabParam) ? tabParam : defaultTab
   const setActiveTab = (t) => setParam('tab', t === defaultTab ? null : t, null)
+  // When Scout Staff is off the tab is hidden entirely, so the Recruiting page
+  // is byte-identical to before the feature (Commitments / Targets only).
   const tabOrder = scoutStaffEnabled
     ? [
         { k: 'targets', l: 'Targets' },
@@ -152,6 +165,7 @@ export default function Recruiting() {
         { k: 'thresholds', l: 'Thresholds' },
         { k: 'counts', l: 'Scouting Needs' },
       ]
+    // Scout Staff off → tab hidden entirely (page identical to pre-feature).
     : [{ k: 'commitments', l: 'Commitments' }, { k: 'targets', l: 'Targets' }]
 
   // Tab switches only touch the URL's query string, not its pathname, so the
@@ -186,6 +200,8 @@ export default function Recruiting() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [showRankModal, setShowRankModal] = useState(false)
+  const [graphicRecruit, setGraphicRecruit] = useState(null) // { recruit, pid, headshot } for the edit modal
+  const [graphicViewer, setGraphicViewer] = useState(null) // { recruit, pid, headshot } for the full-screen view
   // Targets (Big Board) toolbar now renders here in the hero (so it's the
   // exact same DOM element as Commitments' toolbar, not a separate card) —
   // boardStats mirrors ScoutBoard's live counts/sort value, and
@@ -213,12 +229,42 @@ export default function Recruiting() {
   const dynastyTeam = currentDynasty?.teams?.[selectedTid]
   const team = baseTeam ? { ...baseTeam, ...dynastyTeam } : dynastyTeam
   const teamAbbr = team?.abbr || baseTeam?.abbr || currentTeamAbbr
+  const commitSchoolName = team?.name || baseTeam?.name || teamAbbr || 'the school'
+
+  // Commit graphics live in a small pid-keyed map (drives the card button) AND
+  // are added to the player's photos so they show on the player page. The
+  // graphic is unshifted to the front of player.photos so it leads the gallery
+  // (player-uploaded photos already sort ahead of game photos, in array order).
+  const saveCommitGraphic = async (pid, url) => {
+    if (!pid || isViewOnly) return
+    const oldUrl = currentDynasty.commitGraphics?.[pid] || ''
+
+    const nextMap = { ...(currentDynasty.commitGraphics || {}) }
+    if (url) nextMap[pid] = url
+    else delete nextMap[pid]
+
+    const players = (currentDynasty.players || []).map((p) => {
+      if (String(p.pid) !== String(pid)) return p
+      const existing = Array.isArray(p.photos) ? p.photos : []
+      // Drop the previous commit graphic and any duplicate of the new url.
+      const cleaned = existing.filter((u) => u && u !== oldUrl && u !== url)
+      return { ...p, photos: url ? [url, ...cleaned] : cleaned }
+    })
+
+    await updateDynasty(
+      currentDynasty.id,
+      { commitGraphics: nextMap, players },
+      { changedPlayerPids: [pid] },
+    )
+  }
   const selectedYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : currentDynasty?.currentYear)
 
   // Open targets for this class — drives the "Resolve Targets" action + modal.
   const openTargets = useMemo(
-    () => (currentDynasty?.players || []).filter(p => isOpenTarget(p) && Number(p.targetYear) === Number(selectedYear)),
-    [currentDynasty?.players, selectedYear],
+    // Scoped to the team whose board this is: in a shared league every
+    // member's targets sit in the same players array (see isMyTarget).
+    () => (currentDynasty?.players || []).filter(p => isOpenTarget(p) && isMyTarget(p, selectedTid) && Number(p.targetYear) === Number(selectedYear)),
+    [currentDynasty?.players, selectedYear, selectedTid],
   )
 
   // Offensive identity of the class's team (pass/run/balanced) → feeds the
@@ -423,7 +469,7 @@ export default function Recruiting() {
     })
   }
 
-  const handleRecruitingSave = async (recruits) => {
+  const handleRecruitingSave = async (recruits, { mode = 'append' } = {}) => {
     if (!currentDynasty?.id) return
 
     const existingPlayers = currentDynasty.players || []
@@ -531,7 +577,11 @@ export default function Recruiting() {
             isPortal: true,
             isRecruit: true,
             recruitYear: selectedYear,
-            previousTeam: recruit.previousTeam || getOriginalTeamAbbr(previousTeamTid) || existingPlayer.previousTeam,
+            // Durable identity of the origin school is fromTid (written above);
+            // this string is back-compat only. Resolve it LIVE from the origin
+            // tid rather than snapshotting a static base abbr, so a later rename
+            // of that school doesn't leave a stale label. No static registry.
+            previousTeam: recruit.previousTeam || currentDynasty?.teams?.[previousTeamTid]?.abbr || existingPlayer.previousTeam,
             devTrait: recruit.devTrait ?? existingPlayer.devTrait,
             stars: recruit.stars ?? existingPlayer.stars,
             nationalRank: recruit.nationalRank ?? existingPlayer.nationalRank,
@@ -608,46 +658,54 @@ export default function Recruiting() {
     // recruitingCommitments holds ONLY commitments to this team (M1): plain
     // commit rows plus any tracked target that resolved to us. Open / elsewhere
     // targets are excluded so they never inflate the class score.
-    const commitmentData = { edit: [...commitRows, ...committedToUs] }
+    //
+    // MERGE, don't replace. The TSV-paste flow sends ONLY the new rows (the
+    // prompt tells the AI "output ONLY the NEW rows"), so replacing the store
+    // with just this batch wiped every previously-added recruit off the board.
+    // We merge the incoming rows onto the existing commitments, keyed by name
+    // (a re-paste of the same recruit updates in place). The Google-Sheet flow
+    // passes mode:'replace' because its sheet is prefilled with the full class,
+    // so the sheet IS authoritative and a removed row should delete.
+    const incomingCommits = [...commitRows, ...committedToUs]
+    // Compute the new `edit` bucket, then let buildRecruitingCommitmentUpdate do
+    // the store writing — it reads the current union, preserves every sibling
+    // bucket, and writes both stores so they can't drift or clobber. Replace
+    // mode (Google Sheet = authoritative full class) consolidates to edit.
+    let editRecords
+    if (mode === 'replace') {
+      editRecords = incomingCommits
+    } else {
+      // Paste flow: the AI sends ONLY the new rows. Merge them into `edit`,
+      // keyed by name, on top of the existing edit bucket.
+      const prevEdit = getRecruitingCommitments(currentDynasty, selectedTid ?? teamAbbr, selectedYear)?.edit || []
+      const normName = (n) => String(n || '').toLowerCase().trim()
+      const byName = new Map()
+      for (const c of prevEdit) { const k = normName(c?.name); if (k) byName.set(k, c) }
+      for (const c of incomingCommits) { const k = normName(c?.name); if (k) byName.set(k, c) }
+      editRecords = Array.from(byName.values())
+    }
+
+    // Persist only the players that actually changed (new signees + updated
+    // records), not the whole roster. handleRecruitingSave never removes a
+    // player, so a full deleteOrphans rewrite is unnecessary — and, per the
+    // handleResolveTargets note, a full rewrite races the stale-snapshot guard
+    // and can revert the commitments/teams fields written alongside it (the
+    // "I refresh and they're all gone" symptom).
+    const existingByPid = new Map(existingPlayers.map((p) => [String(p.pid), p]))
+    const changedPlayerPids = finalPlayers
+      .filter((p) => existingByPid.get(String(p.pid)) !== p)
+      .map((p) => p.pid)
 
     const updates = {
       players: finalPlayers,
-      nextPID: nextPID
+      nextPID: nextPID,
+      ...buildRecruitingCommitmentUpdate(currentDynasty, {
+        tid: selectedTid, teamAbbr, year: selectedYear,
+        bucket: 'edit', records: editRecords, replaceAllBuckets: mode === 'replace',
+      }),
     }
 
-    if (selectedTid && currentDynasty.teams) {
-      const existingTeams = currentDynasty.teams
-      const existingTeamData = existingTeams[selectedTid] || {}
-      const existingByYear = existingTeamData.byYear || {}
-      const existingYearData = existingByYear[selectedYear] || {}
-
-      updates.teams = {
-        ...existingTeams,
-        [selectedTid]: {
-          ...existingTeamData,
-          byYear: {
-            ...existingByYear,
-            [selectedYear]: {
-              ...existingYearData,
-              recruitingCommitments: commitmentData
-            }
-          }
-        }
-      }
-    }
-
-    const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
-    // dual-keyed (rename-safe)
-    updates.recruitingCommitmentsByTeamYear = {
-      ...existingByTeamYear,
-      [teamAbbr]: {
-        ...(existingByTeamYear[teamAbbr] || {}),
-        [selectedYear]: commitmentData
-      },
-      ...(selectedTid ? { [selectedTid]: { ...(existingByTeamYear[selectedTid] || {}), [selectedYear]: commitmentData } } : {})
-    }
-
-    await updateDynasty(currentDynasty.id, updates)
+    await updateDynasty(currentDynasty.id, updates, { changedPlayerPids })
   }
 
   // In-app target resolution (Phase 4). `resolutions` is { pid: commitmentTid }.
@@ -680,34 +738,49 @@ export default function Recruiting() {
     const updates = { players: newPlayers }
 
     if (committedToUs.length && selectedTid && currentDynasty.teams) {
-      const existingTeams = currentDynasty.teams
-      const existingTeamData = existingTeams[selectedTid] || {}
-      const existingByYear = existingTeamData.byYear || {}
-      const existingYearData = existingByYear[selectedYear] || {}
-      const prevEdit = existingYearData.recruitingCommitments?.edit || []
+      // Append the newly committed-to-you records into `edit` (dedup by pid) on
+      // top of the current union, then write both stores via the shared helper.
+      const prevEdit = getRecruitingCommitments(currentDynasty, selectedTid ?? teamAbbr, selectedYear)?.edit || []
       const prevPids = new Set(prevEdit.map((c) => c.pid))
       const merged = [...prevEdit, ...committedToUs.filter((c) => !prevPids.has(c.pid))]
-      const commitmentData = { edit: merged }
-
-      updates.teams = {
-        ...existingTeams,
-        [selectedTid]: {
-          ...existingTeamData,
-          byYear: { ...existingByYear, [selectedYear]: { ...existingYearData, recruitingCommitments: commitmentData } },
-        },
-      }
-      const existingByTeamYear = currentDynasty.recruitingCommitmentsByTeamYear || {}
-      updates.recruitingCommitmentsByTeamYear = {
-        ...existingByTeamYear,
-        [teamAbbr]: { ...(existingByTeamYear[teamAbbr] || {}), [selectedYear]: commitmentData },
-        [selectedTid]: { ...(existingByTeamYear[selectedTid] || {}), [selectedYear]: commitmentData },
-      }
+      Object.assign(updates, buildRecruitingCommitmentUpdate(currentDynasty, {
+        tid: selectedTid, teamAbbr, year: selectedYear, bucket: 'edit', records: merged,
+      }))
     }
 
     // Only the resolved players changed — persist just those (not the whole
     // roster) so the save stays sub-second and the commitment fields written
     // alongside don't get reverted by a stale listener snapshot mid-write.
     await updateDynasty(currentDynasty.id, updates, { changedPlayerPids: changedPids })
+  }
+
+  // Remove a committed recruit that's stuck on the board (no decommit action
+  // existed before). Deletes the player from dynasty.players AND strips them
+  // from every commitments bucket in one write, so they leave both stores and
+  // the class score updates. `removeTarget` holds the pending recruit while the
+  // confirm dialog is open.
+  const [removeTarget, setRemoveTarget] = useState(null)
+  const [removing, setRemoving] = useState(false)
+  const handleRemoveCommit = async (recruit, resolvedPid) => {
+    if (isViewOnly || !currentDynasty || !recruit) return
+    setRemoving(true)
+    try {
+      const pid = resolvedPid || recruit.pid || null
+      const players = currentDynasty.players || []
+      const changedPlayerPids = []
+      const updates = {}
+      if (pid != null) {
+        updates.players = players.filter(p => String(p.pid) !== String(pid))
+        changedPlayerPids.push(pid)
+      }
+      Object.assign(updates, buildRecruitingCommitmentRemoval(currentDynasty, {
+        tid: selectedTid, teamAbbr, year: selectedYear, pid, name: recruit.name,
+      }))
+      await updateDynasty(currentDynasty.id, updates, { changedPlayerPids })
+    } finally {
+      setRemoving(false)
+      setRemoveTarget(null)
+    }
   }
 
   const playersByName = useMemo(() => {
@@ -888,6 +961,9 @@ export default function Recruiting() {
                     stars: currentPlayer.stars, nationalRank: currentPlayer.nationalRank, stateRank: currentPlayer.stateRank,
                     positionRank: currentPlayer.positionRank, gemBust: currentPlayer.gemBust,
                     previousTeam: currentPlayer.previousTeam || commit.previousTeam,
+                    // Durable origin-school identity for portal transfers, so the
+                    // FROM-chip resolves the school's live logo/name off tid.
+                    previousTeamTid: currentPlayer.movementByYear?.[Number(year)]?.fromTid ?? currentPlayer.movementByYear?.[year]?.fromTid ?? null,
                     isPortal: currentPlayer.isPortal ?? commit.isPortal, pid: currentPlayer.pid
                   }),
                   commitmentWeek: key, recruitYear: Number(year)
@@ -921,6 +997,7 @@ export default function Recruiting() {
                   stars: currentPlayer.stars, nationalRank: currentPlayer.nationalRank, stateRank: currentPlayer.stateRank,
                   positionRank: currentPlayer.positionRank, gemBust: currentPlayer.gemBust,
                   previousTeam: currentPlayer.previousTeam || commit.previousTeam,
+                  previousTeamTid: currentPlayer.movementByYear?.[Number(year)]?.fromTid ?? currentPlayer.movementByYear?.[year]?.fromTid ?? null,
                   isPortal: currentPlayer.isPortal ?? commit.isPortal, pid: currentPlayer.pid
                 }),
                 commitmentWeek: key, recruitYear: Number(year)
@@ -955,6 +1032,7 @@ export default function Recruiting() {
                 positionRank: currentPlayer.positionRank,
                 gemBust: currentPlayer.gemBust,
                 previousTeam: currentPlayer.previousTeam || commit.previousTeam,
+                previousTeamTid: currentPlayer.movementByYear?.[Number(selectedYear)]?.fromTid ?? currentPlayer.movementByYear?.[selectedYear]?.fromTid ?? null,
                 isPortal: currentPlayer.isPortal ?? commit.isPortal,
                 pid: currentPlayer.pid
               }),
@@ -1643,22 +1721,45 @@ export default function Recruiting() {
                 interactive={!!linkPid}
                 playStyle={playStyle}
                 model={scoutModel}
-                scoutStaffEnabled={!!currentDynasty?.scoutStaffEnabled}
+                scoutStaffEnabled={scoutStaffEnabled}
                 weightsMap={weightsMap}
                 pool={revealedPool}
+                graphicUrl={linkPid ? (currentDynasty.commitGraphics?.[linkPid] || null) : null}
+                onOpenGraphic={linkPid ? () => {
+                  const target = { recruit, pid: linkPid, headshot: player?.pictureUrl || recruit.pictureUrl || '' }
+                  // Existing graphic -> full-screen view; none yet -> straight to the editor.
+                  if (currentDynasty.commitGraphics?.[linkPid]) setGraphicViewer(target)
+                  else setGraphicRecruit(target)
+                } : null}
               />
             )
 
-            return linkPid ? (
-              <Link
-                key={`${recruit.name}-${index}`}
-                to={`${pathPrefix}/player/${linkPid}`}
-                className="block"
+            // Remove overlay — sibling of the Link (not inside it) so its own
+            // click never triggers navigation. Only on your own team's board
+            // when editable. Opens a confirm dialog before deleting.
+            const canRemove = isOwnTeam && !isViewOnly
+            const removeBtn = canRemove ? (
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRemoveTarget({ recruit, pid: linkPid }) }}
+                title="Remove from your commitments"
+                aria-label={`Remove ${recruit.name} from your commitments`}
+                className="absolute top-1 right-1 z-20 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide leading-none transition-transform active:scale-95"
+                style={{ backgroundColor: 'rgba(0,0,0,0.45)', color: '#fff' }}
               >
-                {cardContent}
-              </Link>
-            ) : (
-              <div key={`${recruit.name}-${index}`}>{cardContent}</div>
+                Remove
+              </button>
+            ) : null
+
+            return (
+              <div key={`${recruit.name}-${index}`} className="relative">
+                {linkPid ? (
+                  <Link to={`${pathPrefix}/player/${linkPid}`} className="block">
+                    {cardContent}
+                  </Link>
+                ) : cardContent}
+                {removeBtn}
+              </div>
             )
           })}
         </div>
@@ -1670,7 +1771,7 @@ export default function Recruiting() {
         </Card>
         )
       ) : ['database', 'outlook', 'thresholds', 'counts'].includes(activeTab) ? (
-        currentDynasty?.scoutStaffEnabled ? (
+        scoutStaffEnabled ? (
           <Suspense fallback={<div className="py-12 text-center text-sm text-txt-tertiary">Loading Scout Staff…</div>}>
             <ScoutStaff year={selectedYear} section={activeTab} onNavigate={setActiveTab} toolbarActionsRef={staffActionsRef} onToolbarReady={fields => setStaffStats(s => ({ ...s, ...fields }))} />
           </Suspense>
@@ -1688,7 +1789,9 @@ export default function Recruiting() {
           positionFilter={positionFilter}
           recruitTypeFilter={viewMode}
           viewingOwnTeam={isOwnTeam}
-          scoutStaffEnabled={!!currentDynasty?.scoutStaffEnabled}
+          onResolveTargets={!isViewOnly && openTargets.length > 0 ? () => setShowResolveModal(true) : null}
+          resolveCount={openTargets.length}
+          scoutStaffEnabled={scoutStaffEnabled}
           boardActionsRef={boardActionsRef}
           onBoardReady={setBoardStats}
         />
@@ -1724,6 +1827,47 @@ export default function Recruiting() {
         seasonLabel={!isAllSeasons ? `${selectedYear} ${teamFullName}` : ''}
         teamColors={teamColorsRaw}
       />
+
+      <CommitGraphicViewer
+        isOpen={!!graphicViewer}
+        onClose={() => setGraphicViewer(null)}
+        url={graphicViewer?.pid ? (currentDynasty.commitGraphics?.[graphicViewer.pid] || '') : ''}
+        onEdit={!isViewOnly ? () => { setGraphicRecruit(graphicViewer); setGraphicViewer(null) } : null}
+      />
+
+      <CommitGraphicModal
+        isOpen={!!graphicRecruit}
+        onClose={() => setGraphicRecruit(null)}
+        recruit={graphicRecruit?.recruit}
+        headshot={graphicRecruit?.headshot}
+        schoolName={commitSchoolName}
+        graphicUrl={graphicRecruit?.pid ? (currentDynasty.commitGraphics?.[graphicRecruit.pid] || '') : ''}
+        onSave={(url) => saveCommitGraphic(graphicRecruit?.pid, url)}
+        canEdit={!isViewOnly}
+        accent={teamAccent}
+      />
+
+      <Modal
+        isOpen={!!removeTarget}
+        onClose={() => { if (!removing) setRemoveTarget(null) }}
+        title="Remove commitment"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-txt-secondary">
+            Remove <span className="font-semibold text-txt-primary">{removeTarget?.recruit?.name}</span> from your commitments? This takes them off your board and out of your class score. This cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setRemoveTarget(null)} disabled={removing}>Cancel</Button>
+            <Button
+              variant="danger"
+              onClick={() => handleRemoveCommit(removeTarget.recruit, removeTarget.pid)}
+              disabled={removing}
+            >
+              {removing ? 'Removing…' : 'Remove'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={showHistoryModal}

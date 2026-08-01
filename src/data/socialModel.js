@@ -17,7 +17,7 @@
  *     the universe being 100% complete.
  */
 
-import { stripMascotFromName } from './teams'
+import { stripMascotFromName, getTidFromTeamText } from './teams'
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
@@ -551,7 +551,9 @@ function resolveTeamToken(token, teamsById) {
   for (const [tid, team] of Object.entries(teamsById || {})) {
     if (team?.abbr && team.abbr.toUpperCase() === upper) return Number(tid)
   }
-  return null
+  // Fall back to tolerant resolution so a beat:/fan: author given a full team
+  // name ("Ohio State", "Kentucky Wildcats") resolves instead of being dropped.
+  return getTidFromTeamText(t, teamsById)
 }
 
 /** Merge new posts into an existing week array, deduped/upserted by post id. */

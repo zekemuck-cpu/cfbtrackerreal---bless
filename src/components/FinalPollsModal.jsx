@@ -14,6 +14,9 @@ import SheetToolbar from './SheetToolbar'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
+import { getTeamNameOptions, getTeamNameLabel, getTidFromAbbr, getTeamNameAliases } from '../data/teamRegistry'
 import {
   createFinalPollsSheet,
   readFinalPollsFromSheet,
@@ -38,7 +41,10 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  const teamAbbrs = useMemo(() => getTeamNameOptions(currentDynasty?.teams, { includeFCS: false }), [currentDynasty?.teams])
 
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
   })
@@ -46,6 +52,8 @@ export default function FinalPollsModal({ isOpen, onClose, onSave, currentYear, 
   const [regenerating, setRegenerating] = useState(false)
 
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
   const modalColors = useMemo(() => getModalColors(teamColors), [teamColors])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
@@ -58,18 +66,17 @@ You fill column B (Top 25 team for that rank).
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. Output ONLY column B (one team abbreviation per line). NEVER output column A (rank), the header row, or any rank labels.
+1. Output ONLY column B (one team name per line). NEVER output column A (rank), the header row, or any rank labels.
 2. Row order is FIXED: rank 1 first, rank 25 last. EXACTLY 25 lines of output.
-3. Each line has EXACTLY 1 field: <Team abbreviation>
-4. Team values must be UPPERCASE abbreviations from the mapping at the bottom — NEVER full names or nicknames.
-5. NO COMMAS. No commentary INSIDE the data. No rank numbers. No header row. No tabs. The paste-target label above the fence is required (see TSV delivery rules above).
-6. Each team abbreviation must appear AT MOST ONCE across all 25 ranks — no duplicates in the poll.
+3. Each line has EXACTLY 1 field: <Team name>
+4. Team values must be team names from the list at the bottom — NEVER an abbreviation, nickname, or mascot.
+5. NO COMMAS. No commentary INSIDE the data. No rank numbers. No header row. No tabs.
+6. Each team name must appear AT MOST ONCE across all 25 ranks — no duplicates in the poll.
 7. BLANK line for unknown ranks (just an empty line between two filled ranks). Never guess.
-8. ONE block, preceded by the required paste-target label line above the fence (see TSV delivery rules above).
+8. ONE block — output ONLY the fenced block, nothing before or after it.
 
 ═══════════════════════════════════════════════════════════
-TAB "Polls" — 25 rows × 1 output column
-Paste at cell B2 of the "Polls" tab
+SECTION "Polls" — 25 rows × 1 output column
 ═══════════════════════════════════════════════════════════
 
 Row-by-row mapping:
@@ -103,50 +110,50 @@ Sheet Row | Col A (PROTECTED, DO NOT OUTPUT) | Your output: Top 25 team
    26     | 25                               | <Rank 25 team>
 
 Per-line output (1 field):
-<Team abbreviation>
+<Team name>
 
 Field format:
-- Top 25 team (strict dropdown) — UPPERCASE abbreviation from the team mapping at the bottom (e.g. OSU, BAMA, UGA). One team per rank. Blank if unknown.
+- Top 25 team (strict dropdown) — team name from the TEAM NAMES list at the bottom (e.g. Ohio State, Alabama, Georgia). One team per rank. Blank if unknown.
 
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== FINAL POLL — paste at cell B2 of "Polls" tab ===
-<rank 1 abbr>
-<rank 2 abbr>
-<rank 3 abbr>
-<rank 4 abbr>
-<rank 5 abbr>
-<rank 6 abbr>
-<rank 7 abbr>
-<rank 8 abbr>
-<rank 9 abbr>
-<rank 10 abbr>
-<rank 11 abbr>
-<rank 12 abbr>
-<rank 13 abbr>
-<rank 14 abbr>
-<rank 15 abbr>
-<rank 16 abbr>
-<rank 17 abbr>
-<rank 18 abbr>
-<rank 19 abbr>
-<rank 20 abbr>
-<rank 21 abbr>
-<rank 22 abbr>
-<rank 23 abbr>
-<rank 24 abbr>
-<rank 25 abbr>
+=== FINAL POLL ===
+<rank 1 name>
+<rank 2 name>
+<rank 3 name>
+<rank 4 name>
+<rank 5 name>
+<rank 6 name>
+<rank 7 name>
+<rank 8 name>
+<rank 9 name>
+<rank 10 name>
+<rank 11 name>
+<rank 12 name>
+<rank 13 name>
+<rank 14 name>
+<rank 15 name>
+<rank 16 name>
+<rank 17 name>
+<rank 18 name>
+<rank 19 name>
+<rank 20 name>
+<rank 21 name>
+<rank 22 name>
+<rank 23 name>
+<rank 24 name>
+<rank 25 name>
 
 ═══════════════════════════════════════════════════════════
 FINAL CHECK before you send
 ═══════════════════════════════════════════════════════════
 [ ] Exactly 25 lines in the block, rank 1 first, rank 25 last
 [ ] Every line has exactly 1 field (no tabs, no commas)
-[ ] All team values are uppercase abbreviations from the mapping — no full names
+[ ] All team values are uppercase names from the list — no full names
 [ ] No team duplicated across the 25 ranks
 [ ] Blank lines for unknowns — nothing invented
-[ ] No rank numbers, no header row, no commentary INSIDE the data. The paste-target label above the fence is required (see TSV delivery rules above).`,
+[ ] No rank numbers, no header row, no commentary INSIDE the data.`,
     includeTeamMap: true,
     dynastyTeams: currentDynasty?.teams,
   }), [currentYear, currentDynasty?.teams])
@@ -179,8 +186,15 @@ FINAL CHECK before you send
   }, [isOpen, sheetId, useEmbedded])
 
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        creationAttemptedRef.current = true
         creatingSheetRef.current = true
         setCreatingSheet(true)
         try {
@@ -199,15 +213,52 @@ FINAL CHECK before you send
       }
     }
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
       setSheetId(null)
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: feed the parser the SAME [rank, abbr] rows the sheet
+  // produces. The AI reply lists teams in rank order (rank column is normally
+  // pre-filled on the sheet), so a 1-cell line gets its rank from position.
+  const handleLocalImport = async (text) => {
+    const lines = splitTsv(text)
+    const rows = lines.map((cells, i) => (cells.length >= 2 ? cells : [String(i + 1), (cells[0] ?? '')]))
+    const polls = await readFinalPollsFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows })
+    await onSave(polls)
+    onClose()
+  }
+
+  // Pre-fill the local grid with this year's saved Top 25. This is a
+  // SINGLE-COLUMN, POSITION-BASED format: handleLocalImport derives each team's
+  // rank from its line position (line i -> rank i+1) because splitTsv drops
+  // blank lines. So the pre-fill can only round-trip when the saved poll is a
+  // CONTIGUOUS 1..N (no internal gaps) — otherwise a blank rank would collapse
+  // and shift every team below it. When the saved media list is dense from
+  // rank 1, emit one team name per line in rank order; when it is ragged (has a gap),
+  // leave the grid blank rather than emit a mis-ranked pre-fill.
+  const initialText = useMemo(() => {
+    const media = currentDynasty?.finalPollsByYear?.[currentYear]?.media
+      || currentDynasty?.finalPollsByYear?.[String(currentYear)]?.media
+      || []
+    if (!Array.isArray(media) || media.length === 0) return ''
+    const sorted = [...media]
+      .filter(m => m && m.team && typeof m.rank === 'number' && m.rank >= 1)
+      .sort((a, b) => a.rank - b.rank)
+    if (sorted.length === 0) return ''
+    // Require a contiguous 1..N sequence for a safe positional round-trip.
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].rank !== i + 1) return ''
+    }
+    return sorted.map(m => getTeamNameLabel(currentDynasty?.teams, m.tid ?? getTidFromAbbr(m.team, currentDynasty)) || m.team).join('\n')
+  }, [currentDynasty?.finalPollsByYear, currentYear])
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -312,7 +363,19 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Postseason" title={`${currentYear} Final Top 25`} onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Final Polls"
+            columns={['Team']}
+            comboboxColumns={{ 'Team': teamAbbrs }}
+            comboboxAliases={getTeamNameAliases(currentDynasty?.teams)}
+            initialText={initialText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin w-12 h-12 border-4 rounded-full mx-auto mb-4" style={{ borderColor: 'var(--text-primary)', borderTopColor: 'transparent' }} />

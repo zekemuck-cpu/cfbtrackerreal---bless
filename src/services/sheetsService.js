@@ -1,16 +1,27 @@
 // Note: Firebase auth import removed - we use OAuth tokens from localStorage directly
 // This allows Google Sheets to work with free tier (IndexedDB) users who have signed in with Google
 import { teamAbbreviations, getTeamAbbreviationsList, getSelectableTeamsList, getSchedulableTeamsList } from '../data/teamAbbreviations'
-import { getAbbrFromTeamName, getTidFromAbbr, TEAMS as DEFAULT_TEAMS } from '../data/teamRegistry'
+import { getAbbrFromTeamName, getTidFromAbbr, getAbbrFromTid, TEAMS as DEFAULT_TEAMS, getTeamNameOptions } from '../data/teamRegistry'
+import { getTidFromTeamText } from '../data/teams'
 import { conferenceTeams as CANONICAL_CONFERENCES } from '../data/conferenceTeams'
 import { STAT_TABS, STAT_TAB_ORDER, SCORING_SUMMARY, SCORE_TYPES, PAT_RESULTS, QUARTERS, DOWNS, PLAY_TYPES, AI_UNIFIED_TAB, computeUnifiedTabLayout } from '../data/boxScoreConstants'
 import { isPlayerOnRoster, getPlayerClassForYear } from '../context/DynastyContext'
-import { OAuthError } from '../utils/authErrors'
+import { OAuthError, RateLimitError } from '../utils/authErrors'
 import { parseRecruitingRows, parseAttributes, RECRUITING_READ_RANGE, TOTAL_COLS, PID_COL, NIL_COL, UPDATED_AT_COL, colLetter } from '../utils/recruitSheetParse'
+import { normalizeWeeklyScoreRow, normalizeWeeklyScoreRows } from '../utils/weeklyScoreRealign'
 import { ATTRIBUTE_COLUMNS, ATTRIBUTE_ABBR, attributeNamesFor, serializeAttributes } from '../utils/recruitAttributes'
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3/files'
+
+// A SILENT token-refresh callback registered by AuthContext. This service
+// lives outside React, so it can't call the auth context directly — the
+// app registers a refresher on mount. It lets getAccessToken() recover an
+// expired token with no error UI (the common "my token quietly expired
+// after an hour" case heals itself). Returns a fresh token string, or null
+// if a silent refresh isn't possible (then we fall back to the reauth modal).
+let _tokenRefresher = null
+export function registerTokenRefresher(fn) { _tokenRefresher = fn }
 
 // Default timeout for any single Google API call. Without a timeout,
 // a stalled connection can hang the modal for minutes and present as
@@ -30,23 +41,80 @@ const DEFAULT_FETCH_TIMEOUT_MS = 30000
 // isAuthError()'s keyword patterns — the reauth modal never fires.
 // 401 from Google APIs ALWAYS means the OAuth token is expired or revoked,
 // so there is no ambiguity about whether to throw here.
+// Transient rate limits (HTTP 429, and 403 rateLimitExceeded) clear within
+// seconds, so a short bounded backoff lets a burst-throttled call succeed on
+// its own instead of dead-ending the user. This is the core of the "works for
+// my team, fails for the next one" report: creating each sheet is several
+// write calls and Google caps writes at ~60/user/minute, so the 2nd-3rd sheet
+// in quick succession trips the burst limit. Drive-storage-full (403
+// storageQuotaExceeded) is NOT retried — waiting won't free space.
+// 2 retries catches the short burst spikes (the per-minute write cap clearing
+// over the next few seconds). A SUSTAINED limit won't clear within any
+// reasonable in-request wait, so we fail fast after this and let the toast tell
+// the user to wait a minute — rather than stacking long delays across the
+// several calls each sheet creation makes.
+const RATE_LIMIT_MAX_RETRIES = 2
+const RATE_LIMIT_BACKOFF_MS = [1000, 3000]
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
 async function fetchWithTimeout(url, init = {}, { timeoutMs = DEFAULT_FETCH_TIMEOUT_MS, label } = {}) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const response = await fetch(url, { ...init, signal: controller.signal })
-    if (response.status === 401) {
-      throw new OAuthError('Google API returned 401 — OAuth token expired or revoked. Please re-authenticate.')
+  for (let attempt = 0; ; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal })
+      if (response.status === 401) {
+        throw new OAuthError('Google API returned 401 — OAuth token expired or revoked. Please re-authenticate.')
+      }
+      // Google returns 403 for several unrelated reasons. Peek at the body
+      // (clone so the caller can still read it) and classify:
+      //   - token / scope / permission   → reauth flow (OAuthError)
+      //   - rate / quota                 → retriable RateLimitError
+      //   - Drive storage full           → non-retriable RateLimitError
+      // Previously every 403 that wasn't auth dead-ended as a generic
+      // "Could not create the sheet" toast with bogus "refresh session" advice.
+      if (response.status === 403) {
+        let reason = ''
+        try {
+          const body = await response.clone().json()
+          reason = String(
+            body?.error?.errors?.[0]?.reason ||
+            body?.error?.status ||
+            body?.error?.message ||
+            body?.error_description ||
+            ''
+          ).toLowerCase()
+        } catch {
+          // Unreadable/non-JSON 403 — the dominant cause here is a stale
+          // token, so route it to reauth rather than a dead-end toast.
+          reason = 'unreadable-treat-as-auth'
+        }
+        if (/storage.?quota/.test(reason)) {
+          throw new RateLimitError('Google Drive storage is full.', { retriable: false })
+        }
+        if (/ratelimit|rate limit|userratelimit|quotaexceeded|quota exceeded|resource_exhausted/.test(reason)) {
+          if (attempt < RATE_LIMIT_MAX_RETRIES) { clearTimeout(timer); await sleep(RATE_LIMIT_BACKOFF_MS[attempt]); continue }
+          throw new RateLimitError('Google API rate limit (403) — too many requests in a short window.')
+        }
+        if (/insufficient|scope|permission|token|auth|credential|unauthor/.test(reason)) {
+          throw new OAuthError('Google API returned 403 — token expired or missing the required scope. Please re-authenticate.')
+        }
+      }
+      // Plain 429 — always a rate limit. Back off and retry, then give up.
+      if (response.status === 429) {
+        if (attempt < RATE_LIMIT_MAX_RETRIES) { clearTimeout(timer); await sleep(RATE_LIMIT_BACKOFF_MS[attempt]); continue }
+        throw new RateLimitError('Google API rate limit (429) — too many requests in a short window.')
+      }
+      return response
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        const tag = label ? ` (${label})` : ''
+        throw new Error(`Google API request timed out after ${Math.round(timeoutMs / 1000)}s${tag}. Try again.`)
+      }
+      throw err
+    } finally {
+      clearTimeout(timer)
     }
-    return response
-  } catch (err) {
-    if (err?.name === 'AbortError') {
-      const tag = label ? ` (${label})` : ''
-      throw new Error(`Google API request timed out after ${Math.round(timeoutMs / 1000)}s${tag}. Try again.`)
-    }
-    throw err
-  } finally {
-    clearTimeout(timer)
   }
 }
 
@@ -61,6 +129,20 @@ async function getAccessToken() {
     const expiryTime = parseInt(tokenExpiry)
     if (Date.now() < expiryTime) {
       return storedToken
+    }
+  }
+
+  // Token missing or expired — try a SILENT refresh before failing. When
+  // the Google session is still alive this returns a fresh token with no
+  // popup and no error UI, so the operation just proceeds. We only fall
+  // through to throwing (→ the reauth modal) if a silent refresh can't get
+  // one (e.g. the underlying Google session itself ended).
+  if (_tokenRefresher) {
+    try {
+      const fresh = await _tokenRefresher()
+      if (fresh) return fresh
+    } catch {
+      // fall through to throw below
     }
   }
 
@@ -132,7 +214,7 @@ export async function createDynastySheet(dynastyName, coachName, year) {
               title: 'Roster',
               gridProperties: {
                 rowCount: 86,
-                columnCount: 14,
+                columnCount: 15,
                 frozenRowCount: 1
               }
             }
@@ -213,9 +295,16 @@ function getTeamsWithCustom(dynastyTeams = null) {
 }
 
 // Get list of team abbreviations with dynastyTeams support
+// Team-column dropdown values for the sheet builders. Charts now use team NAMES
+// (and the AI prompts output names), but existing sheets/prefills may still hold
+// abbreviations. Return BOTH the name labels and the abbreviations so a strict
+// ONE_OF_LIST dropdown accepts either — a pasted name (the new default) OR a
+// legacy/prefilled abbr. The read path resolves both back to a tid.
 function getTeamAbbreviationsListWithCustom(dynastyTeams = null) {
   const teams = getTeamsWithCustom(dynastyTeams)
-  return Object.keys(teams).sort()
+  const abbrs = Object.keys(teams)
+  const names = getTeamNameOptions(dynastyTeams, { includeFCS: true })
+  return Array.from(new Set([...names, ...abbrs])).sort()
 }
 
 // Generate conditional formatting rules for team colors (case-insensitive)
@@ -678,7 +767,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: getSelectableTeamsList(dynastyTeams).map(abbr => ({ userEnteredValue: abbr }))
+              values: [...getTeamNameOptions(dynastyTeams, { includeFCS: false }), ...getSelectableTeamsList(dynastyTeams)].map(v => ({ userEnteredValue: v }))
             },
             showCustomUi: true,
             strict: true
@@ -698,7 +787,7 @@ async function initializeSheetHeaders(spreadsheetId, accessToken, scheduleSheetI
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: getSchedulableTeamsList(dynastyTeams).map(abbr => ({ userEnteredValue: abbr }))
+              values: [...getTeamNameOptions(dynastyTeams, { includeFCS: true }), ...getSchedulableTeamsList(dynastyTeams)].map(v => ({ userEnteredValue: v }))
             },
             showCustomUi: true,
             strict: true
@@ -1095,7 +1184,7 @@ export async function createRosterSheet(dynastyName, year) {
               title: 'Roster',
               gridProperties: {
                 rowCount: 86,
-                columnCount: 14,
+                columnCount: 15,
                 frozenRowCount: 1
               }
             }
@@ -1297,7 +1386,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: getSelectableTeamsList(dynastyTeams).map(abbr => ({ userEnteredValue: abbr }))
+              values: [...getTeamNameOptions(dynastyTeams, { includeFCS: false }), ...getSelectableTeamsList(dynastyTeams)].map(v => ({ userEnteredValue: v }))
             },
             showCustomUi: true,
             strict: true
@@ -1317,7 +1406,7 @@ async function initializeScheduleSheetOnly(spreadsheetId, accessToken, scheduleS
           rule: {
             condition: {
               type: 'ONE_OF_LIST',
-              values: ['BYE', ...getSchedulableTeamsList(dynastyTeams)].map(abbr => ({ userEnteredValue: abbr }))
+              values: ['BYE', ...getTeamNameOptions(dynastyTeams, { includeFCS: true }), ...getSchedulableTeamsList(dynastyTeams)].map(v => ({ userEnteredValue: v }))
             },
             showCustomUi: true,
             strict: true
@@ -1746,26 +1835,32 @@ async function initializeRosterSheetOnly(spreadsheetId, accessToken, rosterSheet
 }
 
 // Read schedule data from a Schedule-only sheet
-export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams = null) {
+export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    // Get OAuth access token (works for both free and paid tiers)
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      // Get OAuth access token (works for both free and paid tiers)
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Schedule!A2:D100`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Schedule!A2:D100`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to read schedule')
       }
-    )
 
-    if (!response.ok) {
-      throw new Error('Failed to read schedule')
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     return rows
       .filter(row => row[2]) // Has CPU Team (opponent)
@@ -1775,8 +1870,22 @@ export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams 
           location = 'away'
         }
 
-        const userTeamAbbr = (row[1] || '').toUpperCase()
-        const opponentAbbr = row[2].toUpperCase()
+        // Resolve teams tolerantly: the cell may hold an abbreviation, a full
+        // name with mascot, or a bare school name (users often paste team
+        // names straight from the game). getTidFromTeamText handles all three;
+        // we then normalize the stored string to the resolved abbreviation.
+        const userTeamRaw = (row[1] || '').trim()
+        const opponentRaw = (row[2] || '').trim()
+
+        const userTeamTid = userTeamRaw ? getTidFromTeamText(userTeamRaw, dynastyTeams) : null
+        const opponentTid = opponentRaw ? getTidFromTeamText(opponentRaw, dynastyTeams) : null
+
+        const userTeamAbbr = userTeamTid != null
+          ? (getAbbrFromTid(dynastyTeams, userTeamTid) || getAbbrFromTid(DEFAULT_TEAMS, userTeamTid) || userTeamRaw.toUpperCase())
+          : userTeamRaw.toUpperCase()
+        const opponentAbbr = opponentTid != null
+          ? (getAbbrFromTid(dynastyTeams, opponentTid) || getAbbrFromTid(DEFAULT_TEAMS, opponentTid) || opponentRaw.toUpperCase())
+          : opponentRaw.toUpperCase()
 
         // parseInt("0") is 0 (falsy), so a plain `|| index + 1` fallback
         // would silently re-assign Week 0 entries to the row index + 1 and
@@ -1788,9 +1897,9 @@ export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams 
         return {
           week,
           userTeam: userTeamAbbr,
-          userTeamTid: userTeamAbbr ? getTidFromAbbr(userTeamAbbr, dynastyTeams) : null,
+          userTeamTid,
           opponent: opponentAbbr,
-          opponentTid: opponentAbbr ? getTidFromAbbr(opponentAbbr, dynastyTeams) : null,
+          opponentTid,
           location
         }
       })
@@ -1804,26 +1913,31 @@ export async function readScheduleFromScheduleSheet(spreadsheetId, dynastyTeams 
 }
 
 // Read roster data from a Roster-only sheet
-export async function readRosterFromRosterSheet(spreadsheetId) {
+export async function readRosterFromRosterSheet(spreadsheetId, opts = {}) {
   try {
-    // Get OAuth access token (works for both free and paid tiers)
-    const accessToken = await getAccessToken()
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      // Get OAuth access token (works for both free and paid tiers)
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:O100`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Roster!A2:O100`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        throw new Error('Failed to read roster')
       }
-    )
 
-    if (!response.ok) {
-      throw new Error('Failed to read roster')
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Helper to normalize height to 6'1" format
     const normalizeHeight = (heightStr) => {
@@ -1845,7 +1959,7 @@ export async function readRosterFromRosterSheet(spreadsheetId) {
     }
 
     return rows
-      .filter(row => row[0] && row[7]) // Has first name (col A) and overall rating (col H)
+      .filter(row => row[0]) // Has a first name (col A). Overall (col H) may be blank — it defaults to 0 below rather than dropping the player, because roster import REPLACES the roster, so a dropped row silently DELETES that player.
       .map(row => ({
         name: `${row[0] || ''} ${row[1] || ''}`.trim(),  // Combine first + last name
         firstName: row[0] || '',                          // A: First Name
@@ -1872,6 +1986,35 @@ export async function readRosterFromRosterSheet(spreadsheetId) {
 
 // Pre-fill roster data into a Roster-only sheet. `year` (optional) selects which
 // season's NIL to pre-fill into col N (CFB 27+); omitted → blank NIL column.
+// Serialize roster players to the local-paste TSV — the SAME column order the
+// Google sheet + readRosterFromRosterSheet use (First Name … NIL [, Attributes]).
+// Used to pre-fill the local grid so "Edit Roster" opens on the current roster
+// instead of a blank table. includeAttributes adds the 15th (col O) cell.
+export function serializeRosterToTsv(players, { year = null, includeAttributes = true } = {}) {
+  const splitName = (fullName) => {
+    if (!fullName) return { firstName: '', lastName: '' }
+    const parts = String(fullName).trim().split(/\s+/)
+    if (parts.length === 1) return { firstName: parts[0], lastName: '' }
+    return { firstName: parts[0], lastName: parts.slice(1).join(' ') }
+  }
+  const nilFor = (p) => (year != null ? (p.nilByYear?.[year] ?? p.nilByYear?.[String(year)] ?? '') : '')
+  const attrsFor = (p) => {
+    const byYear = (year != null && p.attributesByYear)
+      ? (p.attributesByYear[year] ?? p.attributesByYear[String(year)]) : null
+    return serializeAttributes(byYear || p.attributes || null)
+  }
+  return (players || []).map((p) => {
+    const { firstName, lastName } = p.firstName ? { firstName: p.firstName, lastName: p.lastName || '' } : splitName(p.name)
+    const row = [
+      firstName, lastName, p.position || '', p.year || '', p.devTrait || '',
+      p.jerseyNumber || '', p.archetype || '', p.overall || '', p.height || '',
+      p.weight || '', p.hometown || '', p.state || '', p.pictureUrl || '', nilFor(p),
+    ]
+    if (includeAttributes) row.push(attrsFor(p))
+    return row.map((v) => (v == null ? '' : String(v))).join('\t')
+  }).join('\n')
+}
+
 export async function prefillRosterSheet(spreadsheetId, players, year = null) {
   try {
     // Get OAuth access token (works for both free and paid tiers)
@@ -2214,7 +2357,7 @@ export async function readRosterFromSheet(spreadsheetId, dynastyTeams = null) {
     }
 
     return rows
-      .filter(row => row[0] && row[7]) // Has first name (col A) and overall rating (col H)
+      .filter(row => row[0]) // Has a first name (col A). Overall (col H) may be blank — it defaults to 0 below rather than dropping the player, because roster import REPLACES the roster, so a dropped row silently DELETES that player.
       .map(row => ({
         name: `${row[0] || ''} ${row[1] || ''}`.trim(),  // Combine first + last name
         firstName: row[0] || '',                          // A: First Name
@@ -2803,29 +2946,35 @@ async function initializeConferenceChampionshipSheet(spreadsheetId, accessToken,
 }
 
 // Read Conference Championship data from sheet
-export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readConferenceChampionshipsFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    console.log('[readCCSheet] Reading from spreadsheet:', spreadsheetId)
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      console.log('[readCCSheet] Reading from spreadsheet:', spreadsheetId)
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Conference Championships!A2:G11`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Conference Championships!A2:G11`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read CC data: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read CC data: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      console.log('[readCCSheet] Raw data from API:', data)
+      rows = data.values || []
+      console.log('[readCCSheet] Rows:', rows)
     }
-
-    const data = await response.json()
-    console.log('[readCCSheet] Raw data from API:', data)
-    const rows = data.values || []
-    console.log('[readCCSheet] Rows:', rows)
 
     // Parse into structured data with tid fields for teambuilder support
     const championships = rows.map(row => {
@@ -3324,6 +3473,66 @@ export async function readConferenceChampionshipsHistoryFromSheet(spreadsheetId,
   return { years, byYear }
 }
 
+// LOCAL-PASTE parse for multi-year Conference Championships History. The Google
+// reader above fetches one tab PER YEAR and reads each tab's 5-column grid
+// (Conference, Team1, Team2, Score1, Score2) positionally. splitTsv can't carry
+// per-year tabs (blank lines + "=== … ===" labels stripped), so the local paste
+// is SELF-DESCRIBING per row:
+//
+//   Year<TAB>Conference<TAB>Team1<TAB>Team2<TAB>Score1<TAB>Score2
+//
+// We group by the per-row year (col 0) and, within a year, emit the SAME
+// per-conference championship objects the Google reader returns. Returns the
+// SAME { years, byYear } shape, so the modal's existing guardrail + save
+// (saveConferenceChampionshipsHistoryFromSheet) apply unchanged — that save is
+// year-authoritative (replaces a year's CC games) and dedupes by conference, so
+// omitting a year from the paste leaves it untouched and omitting a conference
+// within an included year simply doesn't create that game.
+export function parseConferenceChampionshipsHistoryLocal(rows, dynastyTeams = null) {
+  const byYear = {}
+  for (const row of (rows || [])) {
+    const year = Number(String(row?.[0] || '').trim())
+    if (!Number.isFinite(year)) continue
+    const conference = row?.[1] || ''
+    const team1Abbr = (row?.[2] || '').toUpperCase()
+    const team2Abbr = (row?.[3] || '').toUpperCase()
+    const rawT1Score = row?.[4]
+    const rawT2Score = row?.[5]
+    const team1Score = (rawT1Score !== '' && rawT1Score != null) ? parseInt(rawT1Score, 10) : null
+    const team2Score = (rawT2Score !== '' && rawT2Score != null) ? parseInt(rawT2Score, 10) : null
+    const team1Tid = team1Abbr ? getTidFromAbbr(team1Abbr, dynastyTeams) : null
+    const team2Tid = team2Abbr ? getTidFromAbbr(team2Abbr, dynastyTeams) : null
+
+    let winner = null
+    let winnerTid = null
+    if (team1Score != null && team2Score != null && !Number.isNaN(team1Score) && !Number.isNaN(team2Score)) {
+      if (team1Score > team2Score) {
+        winner = team1Abbr || null
+        winnerTid = team1Tid
+      } else if (team2Score > team1Score) {
+        winner = team2Abbr || null
+        winnerTid = team2Tid
+      }
+    }
+
+    if (!byYear[year]) byYear[year] = []
+    byYear[year].push({
+      conference,
+      team1: team1Abbr,
+      team2: team2Abbr,
+      team1Tid,
+      team2Tid,
+      team1Score: Number.isFinite(team1Score) ? team1Score : null,
+      team2Score: Number.isFinite(team2Score) ? team2Score : null,
+      winner,
+      winnerTid,
+    })
+  }
+
+  const years = Object.keys(byYear).map(Number).filter(Number.isFinite).sort((a, b) => b - a)
+  return { years, byYear }
+}
+
 // Bowl games list for Bowl Week 1 (25 regular bowls + 4 CFP First Round = 29 games)
 const BOWL_GAMES_WEEK_1 = [
   '68 Ventures Bowl',
@@ -3429,6 +3638,130 @@ const ALL_BOWL_GAMES = [...BOWL_GAMES_WEEK_1, ...BOWL_GAMES_WEEK_2]
 
 // Create Bowl Week 1 sheet with all bowl games (including CFP First Round with pre-filled teams)
 // excludeGames: array of game names to exclude (user's CFP First Round game, user's bowl game)
+// ── Staff Moves (coaching carousel) ──────────────────────────────────
+//
+// A single-tab sheet mirroring the in-game Staff Moves board (minus prestige).
+// Columns A–F: Name, Prev Pos, Prev School, New Pos, New School, Reason. The
+// local-paste path is the default; this is the "Use Google Sheet instead"
+// fallback. readStaffMovesFromSheet returns raw rows[][] so the SAME
+// parseStaffMovesRows (utils/staffMoves.js) handles both paths.
+
+async function initializeStaffMovesSheet(spreadsheetId, accessToken, sheetId, moves, rowCount, dynastyTeams = null) {
+  const teamAbbrs = getTeamAbbreviationsListWithCustom(dynastyTeams)
+  const roleList = ['HC', 'OC', 'DC']
+  const headers = ['Name', 'Prev Pos', 'Prev School', 'New Pos', 'New School', 'Reason']
+  const dataRows = (moves || []).map((m) => ({
+    values: [
+      { userEnteredValue: { stringValue: String(m.name ?? '') } },
+      { userEnteredValue: { stringValue: String(m.prevRole ?? '') } },
+      { userEnteredValue: { stringValue: String(m.prevTeamAbbr ?? '') } },
+      { userEnteredValue: { stringValue: String(m.newRole ?? '') } },
+      { userEnteredValue: { stringValue: String(m.newTeamAbbr ?? '') } },
+      { userEnteredValue: { stringValue: String(m.reason ?? '') } },
+    ],
+  }))
+
+  const requests = [
+    {
+      updateCells: {
+        range: { sheetId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 6 },
+        rows: [{ values: headers.map((h) => ({ userEnteredValue: { stringValue: h } })) }],
+        fields: 'userEnteredValue',
+      },
+    },
+  ]
+  if (dataRows.length) {
+    requests.push({
+      updateCells: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: 1 + dataRows.length, startColumnIndex: 0, endColumnIndex: 6 },
+        rows: dataRows,
+        fields: 'userEnteredValue',
+      },
+    })
+  }
+  // Position dropdowns (Prev Pos col 1, New Pos col 3) — lenient so blanks pass.
+  for (const col of [1, 3]) {
+    requests.push({
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: col, endColumnIndex: col + 1 },
+        rule: { condition: { type: 'ONE_OF_LIST', values: roleList.map((r) => ({ userEnteredValue: r })) }, showCustomUi: true, strict: false },
+      },
+    })
+  }
+  // School dropdowns (Prev School col 2, New School col 4) — lenient so blank /
+  // "---" (retired / NFL) pass without a validation error.
+  for (const col of [2, 4]) {
+    requests.push({
+      setDataValidation: {
+        range: { sheetId, startRowIndex: 1, endRowIndex: rowCount + 1, startColumnIndex: col, endColumnIndex: col + 1 },
+        rule: { condition: { type: 'ONE_OF_LIST', values: teamAbbrs.map((a) => ({ userEnteredValue: a })) }, showCustomUi: true, strict: false },
+      },
+    })
+  }
+  requests.push({
+    addProtectedRange: {
+      protectedRange: { range: { sheetId, startRowIndex: 0, endRowIndex: 1 }, description: 'Header row - do not edit', warningOnly: true },
+    },
+  })
+
+  const batchResponse = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests }),
+  })
+  if (!batchResponse.ok) {
+    const error = await batchResponse.json()
+    console.error('Error initializing staff moves sheet:', error)
+    throw new Error(`Failed to initialize staff moves sheet: ${error.error?.message || 'Unknown error'}`)
+  }
+}
+
+export async function createStaffMovesSheet(dynastyName, year, existingMoves = [], dynastyTeams = null) {
+  try {
+    const accessToken = await getAccessToken()
+    const moves = Array.isArray(existingMoves) ? existingMoves : []
+    const rowCount = Math.max(moves.length, 40)
+    const response = await fetchWithTimeout(SHEETS_API_BASE, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        properties: { title: `${dynastyName} - Staff Moves ${year}` },
+        sheets: [{ properties: { title: 'Staff Moves', gridProperties: { rowCount: rowCount + 5, columnCount: 6, frozenRowCount: 1 } } }],
+      }),
+    })
+    if (!response.ok) {
+      const error = await response.json()
+      console.error('Sheets API error:', error)
+      throw new Error(`Failed to create staff moves sheet: ${error.error?.message || 'Unknown error'}`)
+    }
+    const sheet = await response.json()
+    const gridSheetId = sheet.sheets[0].properties.sheetId
+    await initializeStaffMovesSheet(sheet.spreadsheetId, accessToken, gridSheetId, moves, rowCount, dynastyTeams)
+    await shareSheetPublicly(sheet.spreadsheetId, accessToken)
+    return { spreadsheetId: sheet.spreadsheetId, spreadsheetUrl: sheet.spreadsheetUrl }
+  } catch (error) {
+    console.error('Error creating staff moves sheet:', error)
+    throw error
+  }
+}
+
+// Read Staff Moves rows. Returns raw rows[][] (data.values) so the caller runs
+// the same parseStaffMovesRows used by the local-paste path.
+export async function readStaffMovesFromSheet(spreadsheetId, opts = {}) {
+  if (opts.rows) return opts.rows
+  const accessToken = await getAccessToken()
+  const response = await fetchWithTimeout(
+    `${SHEETS_API_BASE}/${spreadsheetId}/values/Staff Moves!A2:F1000`,
+    { headers: { 'Authorization': `Bearer ${accessToken}` } }
+  )
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(`Failed to read staff moves: ${error.error?.message || 'Unknown error'}`)
+  }
+  const data = await response.json()
+  return data.values || []
+}
+
 export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], excludeGames = [], existingBowlWeek1 = [], existingCFPFirstRound = [], dynastyTeams = null) {
   try {
     const accessToken = await getAccessToken()
@@ -3488,40 +3821,56 @@ export async function createBowlWeek1Sheet(dynastyName, year, cfpSeeds = [], exc
   }
 }
 
-// Generate conditional formatting rules for team colors in bowl sheet
+// Generate conditional formatting rules for team colors in bowl sheet.
+// getTeamsWithCustom is tid-based (built from dynasty.teams[tid]), so every
+// team in the dynasty — FBS, FCS placeholder, and custom/teambuilder — gets a
+// rule. Sheet cells now hold team NAMES (prefill + AI both output names), so we
+// match on the name; we also keep an abbr rule so legacy/abbr pastes still
+// color. TEXT_EQ is case-insensitive, covering "Wyoming"/"wyoming" alike.
 function generateBowlTeamFormattingRules(sheetId, columnIndex, rowCount, dynastyTeams = null) {
   const rules = []
   const teams = getTeamsWithCustom(dynastyTeams)
 
+  const range = {
+    sheetId,
+    startRowIndex: 1,
+    endRowIndex: rowCount + 1,
+    startColumnIndex: columnIndex,
+    endColumnIndex: columnIndex + 1,
+  }
+
   for (const [abbr, teamData] of Object.entries(teams)) {
-    rules.push({
-      addConditionalFormatRule: {
-        rule: {
-          ranges: [{
-            sheetId: sheetId,
-            startRowIndex: 1,
-            endRowIndex: rowCount + 1,
-            startColumnIndex: columnIndex,
-            endColumnIndex: columnIndex + 1
-          }],
-          booleanRule: {
-            condition: {
-              type: 'TEXT_EQ',
-              values: [{ userEnteredValue: abbr }]
+    const format = {
+      backgroundColor: hexToRgb(teamData.backgroundColor),
+      textFormat: {
+        foregroundColor: hexToRgb(teamData.textColor),
+        bold: true,
+        italic: true,
+      },
+    }
+    // Match values the cell can actually contain: the team NAME (default for
+    // prefills and AI output) and the ABBR (legacy pastes). Dedup so a team
+    // whose name equals its abbr doesn't emit two identical rules.
+    const matchValues = Array.from(
+      new Set([teamData.name, abbr].filter((v) => v && String(v).trim() !== '')),
+    )
+    for (const matchValue of matchValues) {
+      rules.push({
+        addConditionalFormatRule: {
+          rule: {
+            ranges: [{ ...range }],
+            booleanRule: {
+              condition: {
+                type: 'TEXT_EQ',
+                values: [{ userEnteredValue: String(matchValue) }],
+              },
+              format,
             },
-            format: {
-              backgroundColor: hexToRgb(teamData.backgroundColor),
-              textFormat: {
-                foregroundColor: hexToRgb(teamData.textColor),
-                bold: true,
-                italic: true
-              }
-            }
-          }
+          },
+          index: 0,
         },
-        index: 0
-      }
-    })
+      })
+    }
   }
 
   return rules
@@ -3836,29 +4185,38 @@ async function initializeBowlWeek1Sheet(spreadsheetId, accessToken, sheetId, bow
 }
 
 // Read Bowl Games data from sheet
-export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readBowlGamesFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    // The caller reshapes its self-describing rows into this parser's column
+    // layout (game rows: bowl name in col A; poll rows: blank col A, abbr in
+    // col B, rank in col C) — the parse logic below is unchanged.
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const rowCount = BOWL_GAMES_WEEK_1.length
-    console.log('[readBowlGamesFromSheet] Reading', rowCount, 'rows from sheet:', spreadsheetId)
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:G${rowCount + 28}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const rowCount = BOWL_GAMES_WEEK_1.length
+      console.log('[readBowlGamesFromSheet] Reading', rowCount, 'rows from sheet:', spreadsheetId)
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:G${rowCount + 28}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read bowl data: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read bowl data: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
+      console.log('[readBowlGamesFromSheet] Got', rows.length, 'rows from API')
     }
-
-    const data = await response.json()
-    const rows = data.values || []
-    console.log('[readBowlGamesFromSheet] Got', rows.length, 'rows from API')
 
     // Parse into structured data with tid fields for teambuilder support.
     // Rows with a non-empty Col A (bowl name) are game rows.
@@ -4354,26 +4712,39 @@ async function initializeWeeklyScoresSheet(spreadsheetId, accessToken, sheetId, 
   }
 }
 
-export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynastyTeams = null) {
+// Weekly-score paste self-heal lives in its own util so it can be unit-tested
+// without pulling in this module's Firebase/context dependencies. Re-exported
+// here so existing importers (WeeklyScoresModal) keep their import path.
+export { normalizeWeeklyScoreRow, normalizeWeeklyScoreRows }
+
+export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
-    // Read through the full sheet (games region + bye section header
-    // + 25 bye rows) in one call — the parser splits them by which
-    // row range they came from.
-    const range = `${sheetTitle}!A2:G${WEEKLY_SCORES_TOTAL_ROWS + 1}`
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
+      // Read through the full sheet (games region + bye section header
+      // + 25 bye rows) in one call — the parser splits them by which
+      // row range they came from. Read out to col I (not just G) so that
+      // if the AI paste shifted columns (extra blank between each team's
+      // Rank and Score → away score lands in col H), the normalizer below
+      // can still recover the away score instead of truncating it.
+      const range = `${sheetTitle}!A2:I${WEEKLY_SCORES_TOTAL_ROWS + 1}`
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
-      { headers: { 'Authorization': `Bearer ${accessToken}` } }
-    )
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+        { headers: { 'Authorization': `Bearer ${accessToken}` } }
+      )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read weekly scores: ${error.error?.message || 'Unknown error'}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read weekly scores: ${error.error?.message || 'Unknown error'}`)
+      }
+
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     const parseRank = (raw) => {
       if (raw === undefined || raw === '' || raw === null) return null
@@ -4414,14 +4785,18 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
     // Track rows the parser dropped so the caller can surface them
     // in the save-confirmation modal (instead of silent loss).
     const droppedRows = []
+    // Recover the extra-blank-column shift (see normalizeWeeklyScoreRow above).
+    const normalizeShiftedRow = normalizeWeeklyScoreRow
+
     // Content-based classification — works regardless of where the
     // AI's paste lands the rows. A row is a game when both team
     // columns (A and D) are non-empty AND the team abbrs differ.
     // A row is a bye-rank entry when col A has a recognized abbr,
     // col D is empty, and col B has a 1-25 rank. Anything else
     // (blank rows, the section banner row) is skipped silently.
-    for (const row of rows) {
-      if (!row) continue
+    for (const rawRow of rows) {
+      if (!rawRow) continue
+      const row = normalizeShiftedRow(rawRow)
       const colA = (row[0] || '').toUpperCase().trim()
       const colD = (row[3] || '').toUpperCase().trim()
       if (!colA) continue
@@ -4430,7 +4805,7 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
       if (!colD) {
         const byeRank = parseRank(row[1])
         if (byeRank == null) continue
-        const byeTid = getTidFromAbbr(colA, dynastyTeams)
+        const byeTid = getTidFromTeamText(colA, dynastyTeams)
         if (!byeTid) {
           droppedRows.push({ kind: 'bye', reason: 'unknown-abbr', team: colA, rank: byeRank })
           continue
@@ -4451,8 +4826,12 @@ export async function readWeeklyScoresFromSheet(spreadsheetId, sheetTitle, dynas
       const neutralFlag = (row[6] || '').toString().trim().toUpperCase()
       const neutral = neutralFlag === 'Y' || neutralFlag === 'YES' || neutralFlag === '1' || neutralFlag === 'TRUE'
 
-      const homeTid = getTidFromAbbr(homeAbbr, dynastyTeams)
-      const awayTid = getTidFromAbbr(awayAbbr, dynastyTeams)
+      // Columns A/D are team NAMES (per the prompt), but the AI can also emit an
+      // abbr. getTidFromTeamText handles abbr → name → tolerant school match
+      // (apostrophes, "&", and short forms like "NC State"), where the old
+      // getTidFromAbbr dropped "HAWAI'I" / "NC STATE" as unknown.
+      const homeTid = getTidFromTeamText(homeAbbr, dynastyTeams)
+      const awayTid = getTidFromTeamText(awayAbbr, dynastyTeams)
       if (!homeTid || !awayTid) {
         droppedRows.push({
           kind: 'game',
@@ -4951,27 +5330,36 @@ async function initializeBowlWeek2Sheet(spreadsheetId, accessToken, sheetId, bow
 }
 
 // Read Bowl Week 2 Games data from sheet
-export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readBowlWeek2GamesFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    // The caller reshapes its self-describing rows into this parser's column
+    // layout (game rows: bowl name in col A; poll rows: blank col A, abbr in
+    // col B, rank in col C) — the parse logic below is unchanged.
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const rowCount = BOWL_GAMES_WEEK_2.length
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:G${rowCount + 28}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const rowCount = BOWL_GAMES_WEEK_2.length
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Bowl Games!A2:G${rowCount + 28}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read bowl week 2 data: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read bowl week 2 data: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Parse into structured data with tid fields for teambuilder support.
     // Rows with empty Col A are post-bowl poll entries (abbr in col B, rank in col C).
@@ -5348,26 +5736,32 @@ async function initializeCFPSeedsSheet(spreadsheetId, accessToken, sheetId, dyna
 }
 
 // Read CFP Seeds from sheet
-export async function readCFPSeedsFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readCFPSeedsFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP Seeds!A2:B13`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP Seeds!A2:B13`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read CFP seeds: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read CFP seeds: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Parse into structured data - ALWAYS include tid for teambuilder support
     const seeds = rows.map(row => {
@@ -5639,26 +6033,32 @@ async function initializeCFPFirstRoundSheet(spreadsheetId, accessToken, sheetId,
 }
 
 // Read CFP First Round results from sheet
-export async function readCFPFirstRoundFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readCFPFirstRoundFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP First Round!A2:E5`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP First Round!A2:E5`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read CFP First Round: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read CFP First Round: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Parse into structured data - ALWAYS include tid for teambuilder support
     const games = rows.map(row => {
@@ -5922,26 +6322,35 @@ async function initializeCFPQuarterfinalsSheet(spreadsheetId, accessToken, sheet
 }
 
 // Read CFP Quarterfinals results from sheet
-export async function readCFPQuarterfinalsFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readCFPQuarterfinalsFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-placed TSV rows in place (no Google fetch).
+    // The caller (handleLocalImport) is responsible for placing each game's
+    // row at the index this parser's rowToByeSeed expects, AND for filling
+    // col A with the configured bowl name — the parse logic below is unchanged.
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP Quarterfinals!A2:F5`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/CFP Quarterfinals!A2:F5`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read CFP Quarterfinals: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read CFP Quarterfinals: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // BULLETPROOF: Sheet rows are in fixed order by bye seed: 4, 1, 3, 2
     // This maps row index to bye seed for slot determination
@@ -6466,8 +6875,22 @@ function validateConferenceData(conferences, yearLabel = '', dynastyTeams = null
   }
 }
 
-export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readConferencesFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    // opts.rows is the SAME rows[][] the Sheets API returns — row 0 is the
+    // conference-name header, rows 1..N are the per-column team slots. We run
+    // it through the IDENTICAL parse + validate path used for the legacy
+    // single "Conferences" tab, so an incomplete or duplicate paste throws in
+    // validateConferenceData BEFORE anything is returned to the destructive
+    // save. Returns the flat { conf: [teams] } shape, which onSave applies to
+    // the current year (matching the legacy single-tab contract).
+    if (opts.rows) {
+      const conferences = parseConferenceSheetData(opts.rows)
+      validateConferenceData(conferences, '', dynastyTeams)
+      return conferences
+    }
+
     const accessToken = await getAccessToken()
 
     // First, get spreadsheet metadata to find all sheet tabs
@@ -6820,6 +7243,30 @@ export async function readStatsFromSheet(spreadsheetId, dynastyTeams = null) {
     console.error('Error reading stats from sheet:', error)
     throw error
   }
+}
+
+// Local (no-Google) counterpart of readStatsFromSheet. Takes splitTsv rows
+// (the "=== GP/SNAPS ===" label and code fences are already stripped) and
+// returns the SAME [{ name, gamesPlayed, snapsPlayed }] shape the Google
+// reader produces, so the existing onSave applies unchanged. Blank cell = null
+// ("don't touch the saved value"), never 0 — same semantics as the reader.
+export function parseGpSnapsLocal(rows) {
+  const parseIntOrNull = (raw) => {
+    if (raw === undefined || raw === null) return null
+    const s = String(raw).trim()
+    if (s === '') return null
+    const n = parseInt(s, 10)
+    return Number.isFinite(n) ? n : null
+  }
+  return (rows || [])
+    .map((row) => ({
+      name: String(row[0] || '').trim(),
+      gamesPlayed: parseIntOrNull(row[1]),
+      snapsPlayed: parseIntOrNull(row[2]),
+    }))
+    // Drop a stray header row and require a real player name (the strict
+    // dropdown the Google flow enforced is replaced here by this filter).
+    .filter((p) => p.name && p.name.toLowerCase() !== 'player')
 }
 
 // ============================================
@@ -7377,6 +7824,67 @@ export async function readDetailedStatsFromSheet(spreadsheetId, dynastyTeams = n
   }
 }
 
+// LOCAL-PASTE parse for Detailed Stats. The Google reader above reads NINE tabs
+// (one fetch per stat category) and reads each player row POSITIONALLY: col A =
+// Name, col B = Snaps (read-only), then the stat columns in the fixed order of
+// DETAILED_STATS_TABS[tabName]. splitTsv can't carry nine separate tabs (blank
+// lines + "=== … ===" labels are stripped), so the local paste is
+// SELF-DESCRIBING per row:
+//
+//   TabName<TAB>PlayerName<TAB><stat col 1><TAB><stat col 2>…
+//
+// TabName (col 0) picks the category and thus the column ORDER; PlayerName is
+// col 1; the remaining cells map positionally into DETAILED_STATS_TABS[TabName]
+// — the SAME positional read the Google reader does, minus the Snaps column
+// (which the reader discards anyway). Returns the SAME
+// { tabName: [ { name, <col>: value } ] } shape, so the existing onSave (which
+// keys by category + player NAME + column-name string, never by row index)
+// applies unchanged. Unknown players/stats are simply omitted.
+export function parseDetailedStatsLocal(rows) {
+  // Case-insensitive tab-name resolver so "kick return"/"KICK RETURN" match the
+  // canonical "Kick Return" key.
+  const tabByLower = {}
+  for (const tab of Object.keys(DETAILED_STATS_TABS)) tabByLower[tab.toLowerCase()] = tab
+  // Common natural-language variants the AI/user writes for a category so a
+  // near-miss header doesn't silently drop that whole category's rows.
+  const CATEGORY_ALIASES = {
+    'defense': 'Defensive', 'defensive stats': 'Defensive', 'defense stats': 'Defensive',
+    'kickoff return': 'Kick Return', 'kickoff returns': 'Kick Return', 'kick returns': 'Kick Return',
+    'punt returns': 'Punt Return', 'receiving stats': 'Receiving', 'rushing stats': 'Rushing',
+    'passing stats': 'Passing', 'kicking stats': 'Kicking', 'punting stats': 'Punting',
+    'blocking stats': 'Blocking',
+  }
+  const resolveTab = (key) => {
+    const k = String(key || '').trim().toLowerCase()
+    if (!k) return undefined
+    if (tabByLower[k]) return tabByLower[k]
+    const alias = CATEGORY_ALIASES[k]
+    return alias && DETAILED_STATS_TABS[alias] ? alias : undefined
+  }
+
+  const result = {}
+  for (const row of (rows || [])) {
+    const tabName = resolveTab(row[0])
+    const name = String(row[1] || '').trim()
+    // A row needs a recognized category and a player name; otherwise skip.
+    if (!tabName || !name) continue
+
+    const statColumns = DETAILED_STATS_TABS[tabName]
+    const player = { name }
+    statColumns.forEach((col, i) => {
+      // Stat cells start at row index 2 (after TabName + PlayerName), mirroring
+      // the Google reader's `row[i + 2]` (Name + Snaps offset).
+      const value = row[i + 2]
+      player[col] = value !== undefined && value !== '' ? (isNaN(parseFloat(value)) ? value : parseFloat(value)) : null
+    })
+
+    if (!result[tabName]) result[tabName] = []
+    result[tabName].push(player)
+  }
+
+  return result
+}
+
 // Conference order for standings sheet
 const CONFERENCE_ORDER = [
   'ACC', 'American', 'Big 12', 'Big Ten', 'C-USA', 'Independent', 'MAC', 'MWC', 'Pac-12', 'SEC', 'Sun Belt'
@@ -7717,27 +8225,39 @@ async function prefillConferenceStandingsData(spreadsheetId, accessToken, existi
 /**
  * Read conference standings from Google Sheet
  */
-export async function readConferenceStandingsFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readConferenceStandingsFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: rows are already section-tagged. The Google sheet
+    // pre-fills cols A (conference) and B (rank) and reads them back here, so
+    // each row already carries its conference in row[0]. The local prompt asks
+    // the AI to emit those same 7 columns per line —
+    // Conference⇥Rank⇥Team⇥Wins⇥Losses⇥PointsFor⇥PointsAgainst — so the pasted
+    // rows flow through the EXACT same per-row grouping below (group by row[0]
+    // conference). No separate parser needed.
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    // Read all data from the Standings tab
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Standings!A2:G250`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      // Read all data from the Standings tab
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Standings!A2:G250`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read standings: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read standings: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Parse rows into standings by conference
     const standings = {}
@@ -8074,27 +8594,33 @@ async function prefillFinalPollsData(spreadsheetId, accessToken, sheetId, existi
  * shape — `coaches` is left as an empty array purely so legacy
  * persistence code that destructures it doesn't choke.
  */
-export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readFinalPollsFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    // Read all data from the Polls tab (rank + Top 25 abbr)
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Polls!A2:B26`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      // Read all data from the Polls tab (rank + Top 25 abbr)
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Polls!A2:B26`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read polls: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read polls: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Parse rows into the single Top 25 list. Storing tid alongside
     // abbr keeps downstream lookups stable across teambuilder renames.
@@ -8455,10 +8981,71 @@ export async function readTeamStatsFromSheet(spreadsheetId, dynastyTeams = null)
   }
 }
 
+// LOCAL-PASTE parse for Team Stats. The Google reader above reads two tabs
+// (Offense col B, Defense col B) POSITIONALLY, indexing each value into the
+// fixed TEAM_STATS_OFFENSE / TEAM_STATS_DEFENSE label arrays. splitTsv can't
+// preserve that two-tab layout (blank-line + "=== … ===" stripping), so the
+// local paste is SELF-DESCRIBING per row instead:
+//
+//   Section<TAB>StatLabel<TAB>Value
+//
+// Section ∈ {OFFENSE, DEFENSE} picks which key map to use; StatLabel is looked
+// up in that map (NOT by position), so line order is irrelevant and unknown
+// stats can simply be omitted. Returns the SAME flat { key: number|null }
+// object shape the Google reader returns (all 15 keys present, absent stats =
+// null), so the existing onSave (which replaces teamStatsByYear[year]) applies
+// unchanged.
+export function parseTeamStatsLocal(rows) {
+  // Case-insensitive label → key lookup, per section. yardsPerPlay is derived
+  // downstream but the sheet has a row for it, so we keep it here for parity.
+  const offenseByLabel = {}
+  for (const label of TEAM_STATS_OFFENSE) offenseByLabel[label.toLowerCase()] = TEAM_STATS_OFFENSE_KEY_MAP[label]
+  const defenseByLabel = {}
+  for (const label of TEAM_STATS_DEFENSE) defenseByLabel[label.toLowerCase()] = TEAM_STATS_DEFENSE_KEY_MAP[label]
+
+  // Seed every key to null so the returned object matches the Google reader's
+  // shape (which always emits all keys, null for blanks).
+  const stats = {}
+  for (const label of TEAM_STATS_OFFENSE) {
+    const key = TEAM_STATS_OFFENSE_KEY_MAP[label]
+    if (key) stats[key] = null
+  }
+  for (const label of TEAM_STATS_DEFENSE) {
+    const key = TEAM_STATS_DEFENSE_KEY_MAP[label]
+    if (key) stats[key] = null
+  }
+
+  for (const row of (rows || [])) {
+    const section = String(row[0] || '').trim().toUpperCase()
+    const label = String(row[1] || '').trim().toLowerCase()
+    const rawValue = row[2]
+    if (!label) continue
+
+    // Resolve the key from the section's map; fall back to the other section's
+    // map only if the label is unique there (defends against a mis-tagged
+    // section without cross-contaminating an offense/defense pair — the two
+    // label sets don't overlap, so this is safe).
+    let key = null
+    if (section === 'OFFENSE') key = offenseByLabel[label]
+    else if (section === 'DEFENSE') key = defenseByLabel[label]
+    if (!key) key = offenseByLabel[label] || defenseByLabel[label]
+    if (!key) continue
+
+    if (rawValue === undefined || rawValue === '' || rawValue === null) {
+      stats[key] = null
+    } else {
+      const n = parseFloat(rawValue)
+      stats[key] = Number.isFinite(n) ? n : null
+    }
+  }
+
+  return stats
+}
+
 // Awards columns and list
 const AWARDS_COLUMNS = ['Award', 'Player', 'Position', 'Team', 'Class']
 
-const AWARDS_LIST = [
+export const AWARDS_LIST = [
   'Heisman',
   'Maxwell',
   'Walter Camp',
@@ -8868,29 +9455,35 @@ export async function createAwardsSheet(currentYear, awardsByYear = {}, dynastyT
  * @param {string} spreadsheetId - The Google Sheet ID
  * @param {number} year - The year tab to read from
  */
-export async function readAwardsFromSheet(spreadsheetId, year, dynastyTeams = null) {
+export async function readAwardsFromSheet(spreadsheetId, year, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const lastCol = String.fromCharCode(65 + AWARDS_COLUMNS.length - 1)
+      const lastCol = String.fromCharCode(65 + AWARDS_COLUMNS.length - 1)
 
-    // Read all data rows from the specified year tab
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A2:${lastCol}${AWARDS_LIST.length + 1}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+      // Read all data rows from the specified year tab
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A2:${lastCol}${AWARDS_LIST.length + 1}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read awards: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read awards: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Coach awards have merged cells - team is in column C (row[2]) instead of D (row[3])
     const COACH_AWARDS = ['Bear Bryant Coach of the Year', 'Broyles']
@@ -8914,9 +9507,15 @@ export async function readAwardsFromSheet(spreadsheetId, year, dynastyTeams = nu
           .replace(/[^a-z0-9]+(.)/g, (_, chr) => chr.toUpperCase())
           .replace(/^./, str => str.toLowerCase())
 
-        // Resolve abbr → tid so downstream consumers (CoachCareer stint
-        // attribution, Awards player lookup) survive teambuilder renames.
-        const tid = team ? getTidFromAbbr(team, dynastyTeams) : null
+        // Resolve the team text → tid so downstream consumers (Awards card
+        // display, CoachCareer stint attribution, player lookup) survive
+        // teambuilder/edition renames. Use getTidFromTeamText (abbr OR name OR
+        // alias OR tolerant name scan) — the same robust resolver the
+        // All-American/All-Conference readers use — so a team entered by name
+        // or a non-registry abbr still lands on the right tid (getTidFromAbbr
+        // alone missed these, which is why some award cards showed no
+        // logo/wrong school).
+        const tid = team ? getTidFromTeamText(team, dynastyTeams) : null
         awards[key] = {
           player,
           position,
@@ -9532,10 +10131,12 @@ export async function readAllAmericansFromSheet(spreadsheetId, year, dynastyTeam
     const data = await response.json()
     const rows = data.values || []
 
-    // Helper to extract team data from rows. Resolve school abbr → tid at
-    // read time so post-rename teambuilder teams keep their honor links.
+    // Helper to extract team data from rows. Resolve the school text → tid at
+    // read time so post-rename teambuilder teams keep their honor links. Use
+    // getTidFromTeamText (abbr OR name OR alias OR tolerant name scan) so a
+    // school entered by name or a non-registry abbr still resolves.
     const tidFor = (abbr) => {
-      const t = abbr ? getTidFromAbbr(abbr, dynastyTeams) : null
+      const t = abbr ? getTidFromTeamText(abbr, dynastyTeams) : null
       return t != null ? Number(t) : null
     }
     const extractTeamData = (startRow, teamLabel) => {
@@ -9990,29 +10591,35 @@ export async function createAllAmericansOnlySheet(currentYear, allAmericansByYea
  * @param spreadsheetId - The Google Sheets ID
  * @param year - The year tab to read from
  */
-export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynastyTeams = null) {
+export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
-
     const numPositions = ALL_AMERICAN_POSITIONS.length
 
-    // Read all data from the specified year tab (28 rows)
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A1:L28`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
+
+      // Read all data from the specified year tab (28 rows)
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/'${year}'!A1:L28`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read data: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read data: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Extract All-Americans data starting at row 4 (index 3)
     const allAmericans = []
@@ -10027,6 +10634,7 @@ export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynasty
           position: row[0] || ALL_AMERICAN_POSITIONS[i],
           player: row[1],
           school: (row[2] || '').toUpperCase(),
+          schoolTid: getTidFromTeamText((row[2] || ''), dynastyTeams),
           class: row[3] || ''
         })
       }
@@ -10039,6 +10647,7 @@ export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynasty
           position: row[4] || ALL_AMERICAN_POSITIONS[i],
           player: row[5],
           school: (row[6] || '').toUpperCase(),
+          schoolTid: getTidFromTeamText((row[6] || ''), dynastyTeams),
           class: row[7] || ''
         })
       }
@@ -10051,6 +10660,7 @@ export async function readAllAmericansOnlyFromSheet(spreadsheetId, year, dynasty
           position: row[8] || ALL_AMERICAN_POSITIONS[i],
           player: row[9],
           school: (row[10] || '').toUpperCase(),
+          schoolTid: getTidFromTeamText((row[10] || ''), dynastyTeams),
           class: row[11] || ''
         })
       }
@@ -10461,10 +11071,12 @@ export async function readAllConferenceFromSheet(spreadsheetId, conferences = AL
       const rows = data.values || []
 
       // Extract All-Conference data starting at row 4 (index 3). Resolve
-      // school abbr → tid at read time so post-rename teambuilder teams
-      // keep their honor links.
-      const tidFor = (abbr) => {
-        const t = abbr ? getTidFromAbbr(abbr, dynastyTeams) : null
+      // school text → tid at read time so post-rename teambuilder teams keep
+      // their honor links. Use getTidFromTeamText (the tolerant, mascot-strip
+      // resolver the All-Americans reader uses) so full names AND custom teams
+      // resolve — getTidFromAbbr alone missed both, leaving schoolTid null.
+      const tidFor = (text) => {
+        const t = text ? getTidFromTeamText(text, dynastyTeams) : null
         return t != null ? Number(t) : null
       }
       const confEntries = []
@@ -10473,7 +11085,7 @@ export async function readAllConferenceFromSheet(spreadsheetId, conferences = AL
 
         // First-Team (cols 0-3)
         if (row[1]) {
-          const school = (row[2] || '').toUpperCase()
+          const school = (row[2] || '').trim().toUpperCase()
           confEntries.push({
             team: 'all-conference',
             designation: 'first',
@@ -10487,7 +11099,7 @@ export async function readAllConferenceFromSheet(spreadsheetId, conferences = AL
 
         // Second-Team (cols 4-7)
         if (row[5]) {
-          const school = (row[6] || '').toUpperCase()
+          const school = (row[6] || '').trim().toUpperCase()
           confEntries.push({
             team: 'all-conference',
             designation: 'second',
@@ -10501,7 +11113,7 @@ export async function readAllConferenceFromSheet(spreadsheetId, conferences = AL
 
         // Freshman Team (cols 8-11)
         if (row[9]) {
-          const school = (row[10] || '').toUpperCase()
+          const school = (row[10] || '').trim().toUpperCase()
           confEntries.push({
             team: 'all-conference',
             designation: 'freshman',
@@ -10533,6 +11145,66 @@ export async function readAllConferenceFromSheet(spreadsheetId, conferences = AL
     console.error('Error reading all-conference data:', error)
     throw error
   }
+}
+
+// LOCAL-PASTE parse for All-Conference. The Google reader above groups by TAB
+// (one fetch per conference tab) and reads a fixed 12-column-per-row grid. The
+// local paste cannot carry that grid (splitTsv drops blank lines + the
+// "=== … ===" tab labels), so each pasted line is SELF-DESCRIBING instead:
+//
+//   Conference<TAB>Designation<TAB>Position<TAB>Player<TAB>School<TAB>Class
+//
+// Designation ∈ {first, second, freshman}. We group by the per-row conference
+// (col 0) and emit the SAME { allConference, allConferenceByConference } shape
+// the Google reader returns — entries carry their own designation/position/
+// school, so downstream save (handleAllConferenceSave) keys by conference and
+// honor identity, never by array index or row order.
+export function parseAllConferenceLocal(rows, dynastyTeams = null) {
+  // Tolerant resolver (mascot-strip, full names, custom teams) — matches the
+  // All-Americans reader so AC entries aren't left with a null schoolTid.
+  const tidFor = (text) => {
+    const t = text ? getTidFromTeamText(text, dynastyTeams) : null
+    return t != null ? Number(t) : null
+  }
+  const normDesignation = (raw) => {
+    const s = String(raw || '').trim().toLowerCase()
+    if (s.startsWith('first') || s === '1' || s === '1st') return 'first'
+    if (s.startsWith('second') || s === '2' || s === '2nd') return 'second'
+    if (s.startsWith('fresh') || s === 'fr') return 'freshman'
+    return null
+  }
+
+  const allConferenceByConference = {}
+  for (const row of (rows || [])) {
+    const conference = (row[0] || '').trim()
+    const designation = normDesignation(row[1])
+    const position = (row[2] || '').trim()
+    const player = (row[3] || '').trim()
+    // A row needs at minimum a conference, a recognized designation, and a
+    // player name — otherwise it is noise (header echo, stray line) and is
+    // skipped rather than written as a corrupt honor.
+    if (!conference || !designation || !player) continue
+    const school = (row[4] || '').toUpperCase().trim()
+    const playerClass = (row[5] || '').trim()
+
+    const entry = {
+      team: 'all-conference',
+      designation,
+      position,
+      player,
+      school,
+      schoolTid: tidFor(school),
+      class: playerClass
+    }
+    if (!allConferenceByConference[conference]) allConferenceByConference[conference] = []
+    allConferenceByConference[conference].push(entry)
+  }
+
+  const allConference = []
+  for (const conf of Object.keys(allConferenceByConference)) {
+    allConference.push(...allConferenceByConference[conf])
+  }
+  return { allConference, allConferenceByConference }
 }
 
 // Transfer/Leaving reasons for Players Leaving sheet
@@ -10825,26 +11497,32 @@ async function initializePlayersLeavingSheet(spreadsheetId, accessToken, sheetId
 }
 
 // Read players leaving data from Google Sheet
-export async function readPlayersLeavingFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readPlayersLeavingFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Players Leaving!A2:B100`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Players Leaving!A2:B100`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read players leaving data: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read players leaving data: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Parse rows into player leaving objects
     const playersLeaving = rows
@@ -11089,26 +11767,32 @@ export async function createDraftResultsSheet(dynastyName, year, playersLeavingT
 }
 
 // Read draft results from Google Sheet
-export async function readDraftResultsFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readDraftResultsFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Draft Results!A2:B100`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Draft Results!A2:B100`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read draft results: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read draft results: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Parse rows — column A = player name, column B = draft round.
     // Both columns are now AI/user-supplied; position and overall are looked
@@ -11600,38 +12284,131 @@ export async function createRecruitingSheet(dynastyName, year, dynastyTeams = nu
   }
 }
 
-// Convert star symbols to number
+// Re-push the current app recruits into an existing recruiting sheet's
+// Commitments body (rows 2..N+1), using the SAME column layout createRecruitingSheet
+// prefills with. A recruiting sheet is created once and cached per phase/week
+// (dynasty.recruitingSheet_<year>_<key>); recruits added afterward through the
+// local/in-app entry paths never touch that sheet, so on reopen it would show a
+// stale subset (e.g. app has 3 targets, the cached sheet still shows the 1 that
+// existed when it was first created). Calling this on reuse keeps the sheet in
+// sync with the app.
+//
+// Intentionally does NOT clear rows beyond the current set, so recruits a user
+// typed straight into the sheet (below the prefill) are preserved. Best-effort:
+// a failure is logged and swallowed so the user still gets their sheet.
+export async function refreshRecruitingSheetPrefill(spreadsheetId, recruits, dynastyTeams = null, year = null) {
+  if (!spreadsheetId || !Array.isArray(recruits) || recruits.length === 0) return
+  try {
+    const accessToken = await getAccessToken()
+    const teams = getTeamsWithCustom(dynastyTeams)
+    const previousTeamAsAbbr = (v) => {
+      if (v === null || v === undefined || v === '') return ''
+      const s = String(v)
+      if (Number.isNaN(Number(s))) return s
+      const tid = Number(s)
+      for (const [abbr, t] of Object.entries(teams)) {
+        if (Number(t?.tid) === tid) return abbr
+      }
+      return ''
+    }
+    const attrsToLabeledCell = (recruit) => {
+      const attrs = recruit.attributes
+      if (!attrs || typeof attrs !== 'object') return ''
+      const order = attributeNamesFor(recruit.position, recruit.archetype) || Object.keys(attrs)
+      return order
+        .filter(n => attrs[n] != null && attrs[n] !== '')
+        .map(n => `${ATTRIBUTE_ABBR[n] || n} ${attrs[n]}`)
+        .join(', ')
+    }
+    const values = recruits.map(r => ([
+      r.name ?? '',
+      r.class || 'HS',
+      r.position ?? '',
+      r.archetype ?? '',
+      starsNumberToSymbol(r.stars),
+      r.nationalRank || '',
+      r.stateRank || '',
+      r.positionRank || '',
+      r.height ?? '',
+      r.weight || '',
+      r.hometown ?? '',
+      r.state ?? '',
+      r.gemBust ?? '',
+      r.devTrait || '',
+      previousTeamAsAbbr(r.previousTeam),
+      r.commitment ?? '',
+      attrsToLabeledCell(r),
+      ...ATTRIBUTE_COLUMNS.slice(1).map(() => ''),
+      r.pid ?? '',
+      r.nilByYear?.[year] ?? r.nilByYear?.[String(year)] ?? '',
+      r.updatedAt ?? '',
+    ]))
+    const range = `Commitments!A2:${colLetter(UPDATED_AT_COL)}${values.length + 1}`
+    const response = await fetchWithTimeout(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values }),
+      }
+    )
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error?.message || `HTTP ${response.status}`)
+    }
+  } catch (error) {
+    if (error?.isAuthError) throw error
+    console.warn('refreshRecruitingSheetPrefill failed (non-blocking):', error?.message || error)
+  }
+}
+
+// Convert star symbols to number. Filled stars (★) win when present — in the
+// mixed ratings format "★★★★☆" the ☆ is the EMPTY remainder, and counting ☆
+// (the old behavior) turned a pasted 4-star into 1 and an all-filled entry
+// into 0 ("all recruits show 1 star or no stars"). Outline-only strings
+// (what our own sheets write) and plain numbers still parse.
 function starsSymbolToNumber(starsStr) {
   if (!starsStr) return 0
-  return (starsStr.match(/☆/g) || []).length
+  const str = String(starsStr)
+  const filled = (str.match(/★/g) || []).length
+  if (filled > 0) return Math.min(filled, 5)
+  const outline = (str.match(/☆/g) || []).length
+  if (outline > 0) return Math.min(outline, 5)
+  const n = parseInt(str, 10)
+  return Number.isFinite(n) ? Math.max(0, Math.min(n, 5)) : 0
 }
 
 // Read recruiting commitments from Google Sheet
-export async function readRecruitingFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readRecruitingFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    // Range is wide (A–AA) so the optional Targets columns (P = Commitment,
-    // Q–Z = attributes, AA = hidden pid) round-trip, and tall enough for a full
-    // season of targets — far more than the legacy ~99-row commitments cap. A
-    // legacy commitments sheet (only A–O filled) parses identically; the extra
-    // columns simply come back blank. See utils/recruitSheetParse.js.
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/${RECRUITING_READ_RANGE}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+      // Range is wide (A–AA) so the optional Targets columns (P = Commitment,
+      // Q–Z = attributes, AA = hidden pid) round-trip, and tall enough for a full
+      // season of targets — far more than the legacy ~99-row commitments cap. A
+      // legacy commitments sheet (only A–O filled) parses identically; the extra
+      // columns simply come back blank. See utils/recruitSheetParse.js.
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/${RECRUITING_READ_RANGE}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read recruiting data: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read recruiting data: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     return parseRecruitingRows(rows)
   } catch (error) {
@@ -12013,6 +12790,31 @@ export async function readTrainingResultsFromSheet(spreadsheetId, dynastyTeams =
   }
 }
 
+// Local (no-Google) counterpart of readTrainingResultsFromSheet. The Training
+// Results AI prompt already emits the full self-describing 4-column row
+// (Player<TAB>Position<TAB>Past OVR<TAB>New OVR) and matches by name, so the
+// same prompt drives the local paste. Returns the SAME shape the reader does.
+export function parseTrainingResultsLocal(rows) {
+  const intOrNull = (raw) => {
+    if (raw === undefined || raw === null) return null
+    const s = String(raw).trim()
+    if (s === '') return null
+    const n = parseInt(s, 10)
+    return Number.isFinite(n) ? n : null
+  }
+  return (rows || [])
+    .map((row) => ({
+      playerName: String(row[0] || '').trim(),
+      position: String(row[1] || '').trim(),
+      pastOverall: intOrNull(row[2]),
+      newOverall: intOrNull(row[3]) ?? 0,
+    }))
+    // Drop a stray header row; require a real name and a valid new overall
+    // (mirrors the reader, which needs row[0] && row[3] in 40–99).
+    .filter((r) => r.playerName && r.playerName.toLowerCase() !== 'player')
+    .filter((r) => r.newOverall >= 40 && r.newOverall <= 99)
+}
+
 // ============================================
 // Encourage Transfers Sheet Functions
 // ============================================
@@ -12251,27 +13053,33 @@ async function initializeEncourageTransfersSheet(spreadsheetId, accessToken, she
 }
 
 // Read encourage transfers data from sheet
-export async function readEncourageTransfersFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readEncourageTransfersFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const range = 'Encourage Transfers!A2:D'
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
+      const range = 'Encourage Transfers!A2:D'
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          }
         }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read encourage transfers: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read encourage transfers: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     // Return only players marked for transfer (checkbox is TRUE)
     const transferPlayers = rows
@@ -12586,6 +13394,30 @@ export async function readRecruitOverallsFromSheet(spreadsheetId, dynastyTeams =
     console.error('Error reading recruit overalls:', error)
     throw error
   }
+}
+
+// Local (no-Google) counterpart of readRecruitOverallsFromSheet. The Google
+// prompt emits only cols E/F in fixed row order (relies on the sheet's
+// pre-filled Name column); the LOCAL prompt instead leads each row with the
+// recruit's name so paste order doesn't matter. Rows are
+// Name<TAB>Overall<TAB>Jersey#. Returns { name, overall, jerseyNumber } — the
+// fields handleRecruitOverallsSave matches on.
+export function parseRecruitOverallsLocal(rows) {
+  const intOrNull = (raw) => {
+    if (raw === undefined || raw === null) return null
+    const s = String(raw).trim()
+    if (s === '') return null
+    const n = parseInt(s, 10)
+    return Number.isFinite(n) ? n : null
+  }
+  return (rows || [])
+    .map((row) => ({
+      name: String(row[0] || '').trim(),
+      overall: intOrNull(row[1]) ?? 0,
+      jerseyNumber: String(row[2] ?? '').trim(),
+    }))
+    .filter((r) => r.name && r.name.toLowerCase() !== 'name')
+    .filter((r) => r.overall >= 40 && r.overall <= 99)
 }
 
 // ============================================
@@ -13089,8 +13921,149 @@ async function prefillUnifiedAITab(spreadsheetId, accessToken, sheetId, existing
   await writeUnifiedTab(spreadsheetId, accessToken, sheetId, existingData)
 }
 
-// Read the unified tab back into the same { passing: [...], rushing: [...], ... } shape
-// the 9-tab reader produces. Sections with no rows return [].
+// Pure parse of unified-tab rows -> { passing: [...], rushing: [...], ... } —
+// the same shape the 9-tab reader produces, sections with no rows return [].
+// Exported so the local TSV paste path produces identical data with no fetch:
+// pass it splitTsv(pastedText). Banner-anchored: locate each section by its
+// "═══ TITLE ═══" banner in column A and read the data rows that follow until
+// the next banner, rather than trusting fixed row numbers. This tolerates a
+// paste with the wrong line count or no blank padding (the #1 failure mode).
+export function parseUnifiedBoxScoreRows(rows) {
+  const layout = computeUnifiedTabLayout()
+  // Strip banner decoration before matching so a banner survives however the AI
+  // dressed it up: box-drawing rules ("═══"/"───"/"━━━"), markdown bold/heading
+  // ("**PASSING**", "## Passing"), pipe-table borders, en/em dashes — all
+  // normalize to the bare title. Without this, a decorated-but-not-"═══" banner
+  // was unrecognized and the whole category silently dropped.
+  const norm = (s) => String(s || '')
+    .replace(/[═─━—–\-*#~`|]+/g, ' ')
+    .replace(/\s+/g, ' ').trim().toUpperCase()
+  const titleToSection = {}
+  for (const section of layout.sections) titleToSection[norm(section.title)] = section
+  // Fuzzy banner resolver: exact normalized title, else a section whose every
+  // title word appears in the banner — so "RECEIVING STATS" or a decorated
+  // "═══ RECEIVING ═══" still maps to the Receiving section instead of silently
+  // dropping that whole category. Only applied to single-cell banner lines
+  // (restEmpty below), so a data row can never be mistaken for a banner.
+  const resolveSectionTitle = (a) => {
+    const key = norm(a)
+    if (titleToSection[key]) return titleToSection[key]
+    const words = new Set(key.split(' ').filter(Boolean))
+    for (const section of layout.sections) {
+      const tWords = norm(section.title).split(' ').filter(Boolean)
+      if (tWords.length && tWords.every((w) => words.has(w))) return section
+    }
+    return null
+  }
+
+  // A full header row ALSO identifies its section — each section's header list
+  // is distinctive ("Player Name, Carries, Yards, TD, Fumbles, …" is uniquely
+  // Rushing). This makes the banners OPTIONAL: a paste whose banners the AI
+  // dropped, merged, or mangled still attributes correctly as long as the
+  // header rows survive. Matches only when the row's leading cells equal a
+  // section's headers exactly (first cell "Player Name" required), so a real
+  // data row (first cell = a player's name) can never be mistaken for a header.
+  const normCell = (s) => String(s || '').trim().toLowerCase()
+  const resolveSectionHeader = (cells) => {
+    if (!cells || cells.length < 2) return null
+    const rowKeys = cells.map(normCell)
+    for (const section of layout.sections) {
+      const secKeys = section.headers.map(normCell)
+      if (secKeys.length <= rowKeys.length && secKeys.every((h, i) => h === rowKeys[i])) return section
+    }
+    return null
+  }
+
+  const boxScore = {}
+  for (const section of layout.sections) boxScore[section.key] = []
+
+  let current = null
+  const seen = new Set() // sections already read — ignore any later duplicate banner
+  for (let r = 0; r < (rows || []).length; r++) {
+    const row = rows[r] || []
+    const a = (row[0] || '').trim()
+    if (!a) continue
+
+    // Banner line: decorated with ═, or a bare section title on its own row.
+    const decorated = a.includes('═')
+    const asTitle = resolveSectionTitle(a)
+    const restEmpty = row.slice(1).every(c => !String(c || '').trim())
+    if (decorated || (asTitle && restEmpty)) {
+      // First occurrence of a known section wins; a duplicate banner (stale
+      // leftover from a re-paste) or an unrecognized decorated line stops
+      // attribution so its rows can't be misread into a section.
+      if (asTitle && !seen.has(asTitle.key)) { seen.add(asTitle.key); current = asTitle }
+      else current = null
+      continue
+    }
+    // A recognizable header row opens its section when no banner did (banners
+    // optional); if a banner just opened the same section, this simply skips
+    // the header line. A header for an already-seen section is ignored.
+    const asHeader = resolveSectionHeader(row)
+    if (asHeader) {
+      if (current?.key !== asHeader.key && !seen.has(asHeader.key)) {
+        seen.add(asHeader.key)
+        current = asHeader
+      }
+      continue
+    }
+    if (!current) continue
+    // Skip the section's column-header row (column A === "Player Name").
+    if (a.toLowerCase() === String(current.headers[0]).toLowerCase()) continue
+
+    const headerToKey = buildHeaderKeyMap(current.key, current.headers)
+    const entry = { playerName: a }
+    current.headers.forEach((header, idx) => {
+      if (idx === 0) return
+      const value = row[idx] || ''
+      entry[headerToKey[idx]] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
+    })
+    boxScore[current.key].push(entry)
+  }
+  return boxScore
+}
+
+// Inverse of parseUnifiedBoxScoreRows: a boxScore -> unified TSV (a "═══ TITLE
+// ═══" banner, the header row, then one line per entry) for each section that
+// has rows. Seeds / round-trips the raw textarea in the local paste grid.
+export function serializeUnifiedBoxScoreToTsv(boxScore) {
+  const layout = computeUnifiedTabLayout()
+  const lines = []
+  for (const section of layout.sections) {
+    const entries = (boxScore && boxScore[section.key]) || []
+    if (entries.length === 0) continue
+    const keyMap = buildHeaderKeyMap(section.key, section.headers)
+    lines.push(`═══ ${section.title.toUpperCase()} ═══`)
+    lines.push(section.headers.join('\t'))
+    for (const entry of entries) {
+      const cells = section.headers.map((header, idx) => {
+        const v = idx === 0 ? (entry.playerName ?? '') : (entry[keyMap[idx]] ?? '')
+        return v == null ? '' : String(v)
+      })
+      lines.push(cells.join('\t'))
+    }
+  }
+  return lines.join('\n')
+}
+
+// Section metadata for the editable paste grid: display headers plus the entry
+// key each column binds to (fieldKeys[0] === 'playerName'). Lets the UI render
+// and edit the boxScore without re-deriving the header->key mapping.
+export function getUnifiedBoxScoreSections() {
+  const layout = computeUnifiedTabLayout()
+  return layout.sections.map((s) => {
+    const keyMap = buildHeaderKeyMap(s.key, s.headers)
+    return {
+      key: s.key,
+      title: s.title,
+      headers: s.headers,
+      fieldKeys: s.headers.map((_, idx) => keyMap[idx]),
+    }
+  })
+}
+
+// Read the unified tab back into the same { passing: [...], rushing: [...], ... }
+// shape the 9-tab reader produces. Sections with no rows return [].
 export async function readGameBoxScoreFromUnifiedTab(spreadsheetId) {
   try {
     const accessToken = await getAccessToken()
@@ -13107,54 +14080,7 @@ export async function readGameBoxScoreFromUnifiedTab(spreadsheetId) {
       return null
     }
     const data = await response.json()
-    const rows = data.values || []
-
-    // Banner-anchored read: locate each section by its "═══ TITLE ═══"
-    // banner in column A and read the data rows that follow until the next
-    // banner — rather than trusting fixed row numbers. This tolerates an AI
-    // paste that has the wrong line count or no blank padding (the #1 failure
-    // mode), and stays backward-compatible with old fixed-layout sheets,
-    // whose banners still sit where this scan finds them.
-    const norm = (s) => String(s || '').replace(/═/g, '').replace(/\s+/g, ' ').trim().toUpperCase()
-    const titleToSection = {}
-    for (const section of layout.sections) titleToSection[norm(section.title)] = section
-
-    const boxScore = {}
-    for (const section of layout.sections) boxScore[section.key] = []
-
-    let current = null
-    const seen = new Set() // sections already read — ignore any later duplicate banner
-    for (let r = 0; r < rows.length; r++) {
-      const row = rows[r] || []
-      const a = (row[0] || '').trim()
-      if (!a) continue
-
-      // Banner line: decorated with ═, or a bare section title on its own row.
-      const decorated = a.includes('═')
-      const asTitle = titleToSection[norm(a)]
-      const restEmpty = row.slice(1).every(c => !String(c || '').trim())
-      if (decorated || (asTitle && restEmpty)) {
-        // First occurrence of a known section wins; a duplicate banner (stale
-        // leftover from a re-paste) or an unrecognized decorated line stops
-        // attribution so its rows can't be misread into a section.
-        if (asTitle && !seen.has(asTitle.key)) { seen.add(asTitle.key); current = asTitle }
-        else current = null
-        continue
-      }
-      if (!current) continue
-      // Skip the section's column-header row (column A === "Player Name").
-      if (a.toLowerCase() === String(current.headers[0]).toLowerCase()) continue
-
-      const headerToKey = buildHeaderKeyMap(current.key, current.headers)
-      const entry = { playerName: a }
-      current.headers.forEach((header, idx) => {
-        if (idx === 0) return
-        const value = row[idx] || ''
-        entry[headerToKey[idx]] = value === '' ? null : (isNaN(Number(value)) ? value : Number(value))
-      })
-      boxScore[current.key].push(entry)
-    }
-    return boxScore
+    return parseUnifiedBoxScoreRows(data.values || [])
   } catch (error) {
     console.error('Error reading unified AI tab:', error)
     return null
@@ -13670,7 +14596,49 @@ export async function readGameBoxScoreFromSheet(spreadsheetId, dynastyTeams = nu
 // we now stop at col M, so any col-N+ data on legacy sheets is
 // silently dropped on the next sync. The frontend reconstructs the
 // highlight string from the structured atoms in A-M instead.
-export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
+  // Filter + map shared by the live-sheet read AND the local-paste path. Keep a
+  // row when the team column is set AND at least one other meaningful field is
+  // set. Scoring-play detection is via col E (Score Type) / col F (2PT in PAT
+  // Result), NEVER col M — that keeps scoring-only users on the same strict
+  // filter; PBP-only rows survive via the down / playType / scorer signals.
+  const buildFromRows = (rows) => rows
+    .filter(row => {
+      const hasTeam = row[0] && row[0].trim()
+      if (!hasTeam) return false
+      const hasScoreType = row[4] && row[4].trim()
+      const patResult = (row[5] || '').trim()
+      const is2PTAttempt = patResult.includes('2PT')
+      if (hasScoreType || is2PTAttempt) return true
+      const hasDown = row[9] && row[9].trim()
+      const hasPlayType = row[12] && row[12].trim()
+      const hasScorer = row[1] && row[1].trim()
+      return hasDown || hasPlayType || hasScorer
+    })
+    .map(row => ({
+      // Legacy 9-col fields (A-I).
+      team: (row[0] || '').trim().toUpperCase(),
+      scorer: (row[1] || '').trim(),
+      passer: (row[2] || '').trim(),
+      yards: (row[3] || '').trim(),
+      scoreType: (row[4] || '').trim(),
+      patResult: (row[5] || '').trim(),
+      quarter: (row[6] || '').trim(),
+      timeLeft: (row[7] || '').trim(),
+      videoLink: (row[8] || '').trim(),
+      // Play-by-play extension (J-M). Empty on legacy / scoring-only rows.
+      down: (row[9] || '').trim(),
+      distance: (row[10] || '').trim(),
+      fieldPos: (row[11] || '').trim(),
+      playType: (row[12] || '').trim(),
+    }))
+
+  // Local paste path: the caller passes pre-split rows (splitTsv output), so we
+  // skip the Google Sheets network fetch entirely and run the same filter/map.
+  if (Array.isArray(opts.rows)) {
+    return buildFromRows(opts.rows)
+  }
+
   try {
     const accessToken = await getAccessToken()
 
@@ -13691,62 +14659,7 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
     }
 
     const data = await response.json()
-    const rows = data.values || []
-
-    // Filter: keep a row when the team column is set AND at least
-    // one other meaningful field is set. Two failure modes this
-    // guards against:
-    //   (a) A user clicking the Team dropdown on an unused row by
-    //       accident and walking away — old reader dropped these
-    //       (because hasScoreType was false), and we MUST preserve
-    //       that behavior for scoring-only users so their data shape
-    //       doesn't change.
-    //   (b) A stray PBP-only edit where only one field was filled.
-    //       We also drop that.
-    //
-    // Critical: scoring-play detection here is via column E
-    // (Score Type) and column F (PAT Result, for 2PT), NEVER via
-    // column M (Play Type). That keeps scoring-only users on the
-    // same strict filter the old reader used. PBP-only rows are
-    // accepted via the playType / down / scorer signals — all-plays
-    // uploads populate at least one of those on every row.
-    return rows
-      .filter(row => {
-        const hasTeam = row[0] && row[0].trim()
-        if (!hasTeam) return false
-        const hasScoreType = row[4] && row[4].trim()
-        const patResult = (row[5] || '').trim()
-        const is2PTAttempt = patResult.includes('2PT')
-        // Old strict-scoring path — preserved exactly for back-compat.
-        if (hasScoreType || is2PTAttempt) return true
-        // New PBP path — accept non-scoring play rows when at least
-        // one descriptive PBP field is filled. Without this guard a
-        // user who only typed in column A on a row would get a stray
-        // empty record in their array; with it, a row needs to carry
-        // real data to survive the filter.
-        const hasDown = row[9] && row[9].trim()
-        const hasPlayType = row[12] && row[12].trim()
-        const hasScorer = row[1] && row[1].trim()
-        return hasDown || hasPlayType || hasScorer
-      })
-      .map(row => ({
-        // Legacy 9-col fields (A-I).
-        team: (row[0] || '').trim().toUpperCase(),
-        scorer: (row[1] || '').trim(),
-        passer: (row[2] || '').trim(),
-        yards: (row[3] || '').trim(),
-        scoreType: (row[4] || '').trim(),
-        patResult: (row[5] || '').trim(),
-        quarter: (row[6] || '').trim(),
-        timeLeft: (row[7] || '').trim(),
-        videoLink: (row[8] || '').trim(),
-        // Play-by-play extension (J-M). Empty strings on legacy
-        // sheets / scoring-only rows; populated on all-plays rows.
-        down: (row[9] || '').trim(),
-        distance: (row[10] || '').trim(),
-        fieldPos: (row[11] || '').trim(),
-        playType: (row[12] || '').trim(),
-      }))
+    return buildFromRows(data.values || [])
   } catch (error) {
     console.error('Error reading scoring summary:', error)
     throw error
@@ -13754,7 +14667,7 @@ export async function readScoringSummaryFromSheet(spreadsheetId, dynastyTeams = 
 }
 
 // Team stats row labels for game team stats sheet (entry order)
-const TEAM_STATS_ROWS = [
+export const TEAM_STATS_ROWS = [
   'First Downs',
   'Total Offense',
   'Total Plays',
@@ -14139,6 +15052,42 @@ export async function readGameTeamStatsFromSheet(spreadsheetId, dynastyTeams = n
   }
 }
 
+// Parse PASTED Team Stats TSV into the same teamStatsByTid map that
+// readGameTeamStatsFromSheet returns — the no-Google ingest path.
+//
+// The AI prompt for team stats emits exactly 30 lines of "<away>\t<home>"
+// (column A's stat label is pre-filled/protected, so it is never output, and
+// there is no header row). `rows` is that TSV after splitTsv(): an array of
+// [awayValue, homeValue] cells. Stat labels therefore come from the fixed
+// TEAM_STATS_ROWS order (by index), and the team abbreviations come from the
+// GAME (the paste carries neither). Value coercion mirrors the sheet reader
+// 1:1 so paste and Google round-trips produce identical stored data.
+export function parseGameTeamStatsTsv(rows, { awayAbbr, homeAbbr, dynastyTeams = null } = {}) {
+  const toCamelKey = (label) => label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+(.)/g, (_, c) => c.toUpperCase())
+    .replace(/^./, (c) => c.toLowerCase())
+
+  const awayEntry = { teamAbbr: awayAbbr || '' }
+  const homeEntry = { teamAbbr: homeAbbr || '' }
+
+  for (let i = 0; i < TEAM_STATS_ROWS.length; i++) {
+    const row = rows[i] || []
+    const camelKey = toCamelKey(TEAM_STATS_ROWS[i])
+    const awayValue = (row[0] ?? '').toString().trim()
+    const homeValue = (row[1] ?? '').toString().trim()
+    awayEntry[camelKey] = awayValue === '' ? null : (isNaN(Number(awayValue)) ? awayValue : Number(awayValue))
+    homeEntry[camelKey] = homeValue === '' ? null : (isNaN(Number(homeValue)) ? homeValue : Number(homeValue))
+  }
+
+  const teamStatsByTid = {}
+  const awayTid = awayAbbr ? getTidFromAbbr(awayAbbr, dynastyTeams) : null
+  const homeTid = homeAbbr ? getTidFromAbbr(homeAbbr, dynastyTeams) : null
+  if (awayTid != null) teamStatsByTid[Number(awayTid)] = awayEntry
+  if (homeTid != null) teamStatsByTid[Number(homeTid)] = homeEntry
+  return teamStatsByTid
+}
+
 // Pre-fill team stats sheet with existing data (single tab with columns B=away, C=home)
 async function prefillTeamStatsData(spreadsheetId, accessToken, teamStatsData) {
   if (!teamStatsData) return
@@ -14445,26 +15394,32 @@ export async function createTransferDestinationsSheet(dynastyName, year, transfe
  * @param {string} spreadsheetId - The Google Sheet ID
  * @returns {Array} Array of { playerName, newTeam }
  */
-export async function readTransferDestinationsFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readTransferDestinationsFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const response = await fetchWithTimeout(
-      `${SHEETS_API_BASE}/${spreadsheetId}/values/Transfer Destinations!A2:B`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+      const response = await fetchWithTimeout(
+        `${SHEETS_API_BASE}/${spreadsheetId}/values/Transfer Destinations!A2:B`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read transfer destinations: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read transfer destinations: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     const destinations = rows
       .filter(row => row[0] && row[1]) // Must have both player name and new team
@@ -14699,25 +15654,31 @@ export async function prefillRosterHistorySheet(spreadsheetId, players, years = 
  * Read roster history from sheet
  * Returns array of { playerName, pid, teamsByYear: { year: team } }
  */
-export async function readRosterHistoryFromSheet(spreadsheetId, years = [2025, 2026], dynastyTeams = null) {
+export async function readRosterHistoryFromSheet(spreadsheetId, years = [2025, 2026], dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
-    const endCol = String.fromCharCode(65 + 1 + years.length)
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
+      const endCol = String.fromCharCode(65 + 1 + years.length)
 
-    const response = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A2:${endCol}500`, {
-      headers: { 'Authorization': `Bearer ${accessToken}` }
-    })
+      const response = await fetchWithTimeout(`${SHEETS_API_BASE}/${spreadsheetId}/values/Roster History!A2:${endCol}500`, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read roster history: ${error.error?.message || 'Unknown error'}`)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read roster history: ${error.error?.message || 'Unknown error'}`)
+      }
+
+      const data = await response.json()
+      rows = data.values || []
     }
 
-    const data = await response.json()
-    const rows = data.values || []
-
     return rows
-      .filter(row => row[0] && row[1]) // Must have name and PID
+      .filter(row => row[0]) // Must have a name. PID (col B) may be blank — the
+      // user can't know internal PIDs; the modal falls back to name matching.
       .map(row => {
         const teamsByYear = {}
         const teamsByYearTid = {}  // New tid-based version
@@ -15097,30 +16058,36 @@ async function initializePortalTransferClassSheet(spreadsheetId, accessToken, sh
  * @param {string} spreadsheetId - The Google Sheet ID
  * @returns {Array} Array of { playerName, position, currentClass, newClass, pid }
  */
-export async function readPortalTransferClassFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readPortalTransferClassFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    // Read columns A through E (col E = Jersey #). Older sheets that
-    // were created before the Jersey # column was added are 4 cols wide;
-    // the extra range just returns shorter rows and row[4] is undefined.
-    const range = encodeURIComponent("'Portal Transfers'!A2:E100")
-    const response = await fetchWithTimeout(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+      // Read columns A through E (col E = Jersey #). Older sheets that
+      // were created before the Jersey # column was added are 4 cols wide;
+      // the extra range just returns shorter rows and row[4] is undefined.
+      const range = encodeURIComponent("'Portal Transfers'!A2:E100")
+      const response = await fetchWithTimeout(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read portal transfer class: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read portal transfer class: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     const results = rows
       .filter(row => row[0] && row[3]) // Must have player name and new class
@@ -15463,27 +16430,33 @@ async function initializeFringeCaseClassSheet(spreadsheetId, accessToken, sheetI
  * @param {string} spreadsheetId - The Google Sheet ID
  * @returns {Array} Array of { playerName, position, currentClass, gamesPlayed, newClass }
  */
-export async function readFringeCaseClassFromSheet(spreadsheetId, dynastyTeams = null) {
+export async function readFringeCaseClassFromSheet(spreadsheetId, dynastyTeams = null, opts = {}) {
   try {
-    const accessToken = await getAccessToken()
+    // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+    let rows
+    if (opts.rows) {
+      rows = opts.rows
+    } else {
+      const accessToken = await getAccessToken()
 
-    const range = encodeURIComponent("'Fringe Cases'!A2:E100")
-    const response = await fetchWithTimeout(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+      const range = encodeURIComponent("'Fringe Cases'!A2:E100")
+      const response = await fetchWithTimeout(
+        `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(`Failed to read fringe case class: ${error.error?.message || 'Unknown error'}`)
       }
-    )
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(`Failed to read fringe case class: ${error.error?.message || 'Unknown error'}`)
+      const data = await response.json()
+      rows = data.values || []
     }
-
-    const data = await response.json()
-    const rows = data.values || []
 
     const results = rows
       .filter(row => row[0] && row[4]) // Must have player name and new class
@@ -15955,14 +16928,6 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
   const meta = await metaRes.json()
   const tabs = (meta.sheets || []).map(s => s.properties)
 
-  // Reverse map: abbr → tid (case-insensitive). We use this to convert
-  // each cell's text back to a tid.
-  const abbrToTid = new Map()
-  for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
-    if (!team?.abbr) continue
-    abbrToTid.set(String(team.abbr).toUpperCase(), Number(tidKey))
-  }
-
   const NUM_COLS = 1 + TOP25_WEEK_KEYS.length
   const NUM_ROWS = 1 + TOP25_NUM_RANKS
 
@@ -16029,7 +16994,8 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
         const raw = (row[cIdx] || '').trim()
         if (!raw) continue
         const weekKey = TOP25_WEEK_KEYS[cIdx - 1]
-        const tid = abbrToTid.get(raw.toUpperCase())
+        // Resolve tolerantly (team name / abbr / mascot-stripped school name).
+        const tid = getTidFromTeamText(raw, dynasty.teams)
         if (tid == null) {
           unknownAbbrs.push({ year, weekKey, rank, raw })
           continue
@@ -16095,6 +17061,104 @@ export async function readTop25FromSheet(spreadsheetId, dynasty) {
           if (!teamUpdates[tidKey][yearStr]) teamUpdates[tidKey][yearStr] = {}
           teamUpdates[tidKey][yearStr][wk] = null
         }
+      }
+    }
+  }
+
+  return { yearTotals, teamUpdates, unknownAbbrs }
+}
+
+// Week options for the local Top 25 paste picker (one entry per rankByWeek key).
+export function getTop25WeekOptions() {
+  const label = (w) => {
+    if (w === 0) return 'Preseason'
+    if (w === 16) return 'Conf Championships'
+    if (w === 101) return 'CFP First Round'
+    if (w === 102) return 'CFP Quarterfinals'
+    if (w === 103) return 'CFP Semifinals'
+    if (w === 104) return 'National Championship'
+    if (w === 105) return 'Final'
+    return `Week ${w}`
+  }
+  return TOP25_WEEK_KEYS.map((w) => ({ key: w, label: label(w) }))
+}
+
+// Local (no-Google) counterpart of readTop25FromSheet, scoped to ONE (year,
+// week). The user pastes a single week's poll (Rank<TAB>Abbr, or a bare Abbr
+// per line with rank = line order) and this returns the SAME { yearTotals,
+// teamUpdates, unknownAbbrs } shape the grid reader does — so buildTop25Diff /
+// applyTop25SheetDiff and the whole confirm-and-apply pipeline are reused
+// unchanged. Only the selected week is "touched", so every other week's
+// existing rankings are preserved exactly as the sheet reader would.
+export function parseTop25WeekLocal(rows, dynasty, year, weekKey) {
+  if (!dynasty) throw new Error('parseTop25WeekLocal: dynasty is required')
+  const yearNum = Number(year)
+  const yearStr = String(yearNum)
+  const wk = Number(weekKey)
+
+  const newEntries = {} // tidKey -> rank
+  const unknownAbbrs = []
+  let seq = 0
+  for (const row of (rows || [])) {
+    // Accept "<rank>\t<abbr>" OR a bare "<abbr>" (rank = running line order).
+    // A rank-only row ("15" with no team) is an intentionally-empty rank slot —
+    // detect it by a leading numeric cell even when the team cell is blank (a
+    // "15\t" line splits to just ["15"]), so it's skipped as blank below rather
+    // than misread as a team literally named "15".
+    let rank
+    let rawAbbr
+    if (/^\d{1,2}$/.test(String(row[0] ?? '').trim())) {
+      rank = parseInt(row[0], 10)
+      rawAbbr = String(row[1] || '').trim()
+    } else {
+      rawAbbr = String(row[0] || '').trim()
+      rank = seq + 1
+    }
+    if (!rawAbbr) continue
+    if (!(rank >= 1 && rank <= TOP25_NUM_RANKS)) continue
+    seq = Math.max(seq, rank)
+    // Resolve tolerantly: the poll grid + AI prompt emit team NAMES, not abbrs.
+    const tid = getTidFromTeamText(rawAbbr, dynasty.teams)
+    if (tid == null) {
+      unknownAbbrs.push({ year: yearNum, weekKey: wk, rank, raw: rawAbbr })
+      continue
+    }
+    newEntries[String(tid)] = rank
+  }
+
+  const newCount = Object.keys(newEntries).length
+  // oldCount across ALL weeks of the year — same guardrail input the reader uses.
+  let oldCount = 0
+  for (const team of Object.values(dynasty.teams || {})) {
+    const rbw = team?.byYear?.[yearNum]?.rankByWeek ?? team?.byYear?.[yearStr]?.rankByWeek
+    if (!rbw) continue
+    for (const v of Object.values(rbw)) {
+      if (typeof v === 'number' && v >= 1 && v <= 25) oldCount += 1
+    }
+  }
+  const yearTotals = { [yearNum]: { oldCount, newCount } }
+
+  // Seed new entries for the selected week.
+  const teamUpdates = {}
+  for (const [tidKey, rank] of Object.entries(newEntries)) {
+    teamUpdates[tidKey] = { [yearStr]: { [wk]: rank } }
+  }
+
+  // Removal nulls: the selected week IS touched, so any team that had an old
+  // rank THIS week but isn't in the paste gets cleared. Past years are
+  // protected (never generate removals), matching the reader.
+  const dynastyCurrentYear = Number(dynasty.currentYear)
+  if (!(Number.isFinite(dynastyCurrentYear) && yearNum < dynastyCurrentYear)) {
+    for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
+      const oldRbw = team?.byYear?.[yearNum]?.rankByWeek ?? team?.byYear?.[yearStr]?.rankByWeek
+      if (!oldRbw) continue
+      const hasOldThisWeek = oldRbw[wk] != null || oldRbw[String(wk)] != null
+      if (!hasOldThisWeek) continue
+      const carried = teamUpdates[tidKey]?.[yearStr] || {}
+      if (!(wk in carried) && !(String(wk) in carried)) {
+        if (!teamUpdates[tidKey]) teamUpdates[tidKey] = {}
+        if (!teamUpdates[tidKey][yearStr]) teamUpdates[tidKey][yearStr] = {}
+        teamUpdates[tidKey][yearStr][wk] = null
       }
     }
   }
@@ -16324,30 +17388,28 @@ export async function createPreseasonRankingsSheet(dynastyName, year, dynasty) {
  *     unknownAbbrs: [{ rank, raw }],    // abbrs not in dynasty.teams
  *   }
  */
-export async function readPreseasonRankingsFromSheet(spreadsheetId, dynasty, year) {
+export async function readPreseasonRankingsFromSheet(spreadsheetId, dynasty, year, opts = {}) {
   if (!dynasty) throw new Error('readPreseasonRankingsFromSheet: dynasty is required')
 
-  const accessToken = await getAccessToken()
-  const NUM_COLS = 2
-  const NUM_ROWS = 1 + PRESEASON_NUM_RANKS
-  const range = `'${year} Preseason Top 25'!A1:B${NUM_ROWS}`
+  // Local-paste path: parse pre-split TSV rows in place (no Google fetch).
+  let rows
+  if (opts.rows) {
+    rows = opts.rows
+  } else {
+    const accessToken = await getAccessToken()
+    const NUM_ROWS = 1 + PRESEASON_NUM_RANKS
+    const range = `'${year} Preseason Top 25'!A1:B${NUM_ROWS}`
 
-  const res = await fetch(
-    `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
-  )
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(`readPreseasonRankingsFromSheet: values get failed — ${err.error?.message || res.status}`)
-  }
-  const data = await res.json()
-  const rows = data.values || []
-
-  // Build abbr → tid lookup.
-  const abbrToTid = new Map()
-  for (const [tidKey, team] of Object.entries(dynasty.teams || {})) {
-    if (!team?.abbr) continue
-    abbrToTid.set(String(team.abbr).toUpperCase(), Number(tidKey))
+    const res = await fetch(
+      `${SHEETS_API_BASE}/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    )
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(`readPreseasonRankingsFromSheet: values get failed — ${err.error?.message || res.status}`)
+    }
+    const data = await res.json()
+    rows = data.values || []
   }
 
   const entries = []
@@ -16356,7 +17418,8 @@ export async function readPreseasonRankingsFromSheet(spreadsheetId, dynasty, yea
     const row = rows[r] || []
     const raw = (row[1] || '').trim()
     if (!raw) continue
-    const tid = abbrToTid.get(raw.toUpperCase())
+    // Resolve tolerantly: the poll grid + AI prompt emit team NAMES, not abbrs.
+    const tid = getTidFromTeamText(raw, dynasty.teams)
     if (tid == null) {
       unknownAbbrs.push({ rank: r, raw })
       continue

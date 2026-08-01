@@ -1,6 +1,6 @@
 import { AwsClient } from 'aws4fetch';
-import { verifyAdmin } from '../_verifyAuth.js';
-import { setCors } from '../_cors.js';
+import { verifyAdmin } from '../../_verifyAuth.js';
+import { setCors } from '../../_cors.js';
 
 /**
  * Admin-only: list every uploaded image in the R2 bucket so the in-app gallery

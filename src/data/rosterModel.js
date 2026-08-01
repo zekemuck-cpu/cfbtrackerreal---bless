@@ -330,6 +330,66 @@ export function syncDerivedFieldsFromV2(player, currentYear) {
     const asNum = Number(v)
     normalizedTeamsByYear[n] = Number.isFinite(asNum) ? asNum : v
   }
+  // Preserve stint-based teamHistory before it's dropped at the end of this
+  // function. teamHistory is the sole roster source for imported / stint-editor
+  // players, and isPlayerOnRoster reads teamsByYear ONLY — so any year that
+  // lives only in teamHistory silently vanishes once teamHistory is deleted.
+  //
+  // Previously this only ran when teamsByYear was ENTIRELY empty, to avoid
+  // resurrecting a departed player. But a player with a PARTIAL teamsByYear
+  // (e.g. only the current year, seeded by saveRoster) plus a teamHistory
+  // covering earlier years took the skip path and lost every earlier year.
+  // So we now backfill missing years even when teamsByYear has data, but with
+  // two guards that preserve the original anti-resurrection intent:
+  //   1. Never fill a year BEYOND the last year already in teamsByYear —
+  //      teamsByYear is the source of truth for where the roster ends, so a
+  //      stale/open stint can't extend a player past a departure that shows
+  //      up simply as teamsByYear ending.
+  //   2. Cap OPEN stints (toYear null) at any recorded departure year, so an
+  //      un-closed stint doesn't run through the current year past a real exit.
+  // The inner `== null` guard still ensures we only fill gaps, never overwrite.
+  if (Array.isArray(player.teamHistory) && player.teamHistory.length > 0) {
+    const cyNum = Number(currentYear)
+    const existingYears = Object.keys(normalizedTeamsByYear).map(Number).filter(Number.isFinite)
+    const maxExistingYear = existingYears.length ? Math.max(...existingYears) : null
+
+    // Earliest recorded departure (movementByYear + legacy movements[]). Note
+    // bare legacy 'transfer' is an ARRIVAL, not a departure.
+    const DEP_TYPES = new Set(['departure', 'entered_portal', 'transferred_out', 'graduated', 'declared_for_draft', 'encouraged_to_transfer'])
+    const DEP_SHAPES = new Set(['transfer_out', 'graduated', 'pro_draft'])
+    let earliestDepYear = null
+    for (const [yStr, m] of Object.entries(player.movementByYear || {})) {
+      const y = Number(yStr)
+      if (Number.isFinite(y) && m && (DEP_TYPES.has(m.type) || DEP_SHAPES.has(m.departure))) {
+        if (earliestDepYear == null || y < earliestDepYear) earliestDepYear = y
+      }
+    }
+    for (const m of (Array.isArray(player.movements) ? player.movements : [])) {
+      const y = Number(m?.year)
+      if (Number.isFinite(y) && m && DEP_TYPES.has(m.type)) {
+        if (earliestDepYear == null || y < earliestDepYear) earliestDepYear = y
+      }
+    }
+
+    for (const stint of player.teamHistory) {
+      const stintTid = Number(stint?.teamTid ?? stint?.tid)
+      const from = Number(stint?.fromYear)
+      if (!Number.isFinite(stintTid) || !Number.isFinite(from)) continue
+      const toNum = Number(stint?.toYear)
+      const hasExplicitTo = stint?.toYear != null && stint?.toYear !== '' && Number.isFinite(toNum)
+      let to = hasExplicitTo ? toNum : (Number.isFinite(cyNum) ? cyNum : from)
+      // Guard 2: open stint capped at a recorded departure.
+      if (!hasExplicitTo && earliestDepYear != null && earliestDepYear >= from) {
+        to = Math.min(to, earliestDepYear)
+      }
+      // Guard 1: never extend beyond the known roster span.
+      if (maxExistingYear != null) to = Math.min(to, maxExistingYear)
+      for (let y = from; y <= to && y - from < 60; y++) {
+        if (normalizedTeamsByYear[y] == null) normalizedTeamsByYear[y] = stintTid
+      }
+    }
+  }
+
   const normalizedOverallByYear = {}
   for (const [k, v] of Object.entries(player.overallByYear || {})) {
     const n = Number(k)

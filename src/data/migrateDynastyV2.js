@@ -210,8 +210,18 @@ export function migrateDynastyToV2(dynasty) {
       }
     }
 
+    // Trim teamsByYear years that are stale because the player's college
+    // career is genuinely OVER. Only a TERMINAL departure — graduated or
+    // pro-draft — makes later roster years impossible. A transfer_out / portal
+    // exit is NOT terminal: the player legitimately enrolls (and plays) at a
+    // new school in following years, and a recommit brings them right back to
+    // the same team. The old code trimmed after ANY departure (transfer_out
+    // included), which DELETED every post-transfer year — including a
+    // just-flipped next season — emptying future rosters. Restrict to terminal
+    // departures so real membership is never removed.
+    const TERMINAL_DEPARTURES = new Set(['graduated', 'pro_draft'])
     const departureYears = Object.entries(mvOut)
-      .filter(([, m]) => m?.type === 'departure')
+      .filter(([, m]) => m?.type === 'departure' && TERMINAL_DEPARTURES.has(m?.departure))
       .map(([y]) => Number(y))
     if (departureYears.length > 0) {
       const lastDep = Math.max(...departureYears)

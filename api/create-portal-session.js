@@ -32,12 +32,14 @@ export default async function handler(req, res) {
 
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://dynastytracker.app'}/`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.dynastytracker.app'}/`,
     });
 
     return res.status(200).json({ url: session.url });
   } catch (error) {
+    // Log details server-side, return a generic message (audit M6) — raw
+    // Stripe/SDK errors can leak internal identifiers.
     console.error('Error creating portal session:', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Could not open the billing portal. Please try again.' });
   }
 }

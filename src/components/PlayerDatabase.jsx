@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createStaffAccessor } from './staffDB';
+import { useDynasty } from '../context/DynastyContext';
 import { archetypeBaseScore, computeScore, calcWeightedAvg, gemBustBonus, isHiddenDev, normalizeArch, STAR_BONUS, getScoreConfidence } from './archetypeWeights';
 import { buildRevealedPool, getFormAttrs } from '../utils/devTraitLearning';
 import { buildAttributeQualityMap, predictFloorCeiling, describeFloorCeilingPills } from '../utils/devPrediction';
@@ -7,7 +8,6 @@ import { ATTRIBUTE_ABBR, positionBucket, recruitingPosLabel } from '../utils/rec
 import { resolveRecruitGroup } from '../utils/recruitGroup';
 import { OPTIONS_REGISTRY } from './ScoutingReport';
 import GemBustIcon from './GemBustIcon';
-import { useDynasty } from '../context/DynastyContext';
 import { useAuthErrorHandler } from '../hooks/useAuthErrorHandler';
 import AuthErrorModal from './AuthErrorModal';
 import ConfirmModal from './ConfirmModal';

@@ -13,7 +13,8 @@ import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { PageHero, Card, EmptyState, TeamLogo, Badge } from '../../components/ui'
 import { getRole, ROLE_COMMISH, ROLE_COCOMMISH } from '../../data/leagueModel'
-import { getAllCoachSummaries, getCoachStints } from '../../data/coachStats'
+import { getAllCoachSummaries, getCoachStintsForCoach } from '../../data/coachStats'
+import { getCoach } from '../../data/coachModel'
 
 const SORT_OPTIONS = [
   { key: 'wins',     label: 'Wins' },
@@ -133,12 +134,12 @@ export default function Coaches() {
             const isYou = user?.uid === s.uid
             const team = s.primaryTeamTid != null ? teamsSource[s.primaryTeamTid] : null
             const teamName = team?.name || (s.primaryTeamTid != null ? `Team ${s.primaryTeamTid}` : '—')
-            const careerLink = `${pathPrefix}/coach-career?uid=${encodeURIComponent(s.uid)}`
+            const careerLink = `${pathPrefix}/coach-career?coach=${encodeURIComponent(s.cid)}`
 
             // Stint summary — abbreviated team list with year ranges.
             // "Wisconsin (2025-2027) Kentucky (2028-NOW)" — gives the
             // career arc at a glance without opening Coach Career.
-            const stints = getCoachStints(currentDynasty, s.uid)
+            const stints = getCoachStintsForCoach(getCoach(currentDynasty, s.cid))
             const stintLabel = (() => {
               if (stints.length <= 1) return null
               const parts = stints.slice(-3).map(st => {
@@ -157,7 +158,7 @@ export default function Coaches() {
 
             return (
               <Link
-                key={s.uid}
+                key={s.cid}
                 to={careerLink}
                 className="coach-row group block px-3 py-3 transition-colors hover:bg-surface-3 no-underline"
                 style={{ borderTop: idx > 0 ? '1px solid var(--surface-4)' : 'none' }}

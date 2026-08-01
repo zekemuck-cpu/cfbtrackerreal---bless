@@ -176,6 +176,21 @@ export default function JoinDynasty() {
       setStatus('success')
       setTimeout(() => navigate(`/dynasty/${dynastyId}`), 700)
     } catch (err) {
+      // Resume safety net: a prior attempt may have already added us to
+      // editors[] before the client saw success. Re-running phase 2 then
+      // fails because arrayUnion is a no-op and the redemption rule needs
+      // editors to grow by exactly one (audit M5). If we can now read the
+      // dynasty and we're already a member, the join effectively succeeded.
+      try {
+        const d = await getDynasty(dynastyId)
+        if (d && (d.userId === user.uid || (Array.isArray(d.editors) && d.editors.includes(user.uid)))) {
+          setStatus('success')
+          setTimeout(() => navigate(`/dynasty/${dynastyId}`), 700)
+          return
+        }
+      } catch {
+        // still can't read — fall through to the error state
+      }
       console.error('[JoinDynasty] redeem failed:', err)
       setErrorMessage(err?.message || 'Failed to join.')
       setStatus('rules_blocked')

@@ -57,7 +57,7 @@ const stateFullNames = {
   DC: 'Washington, D.C.',
 }
 
-export default function RecruitCard({ recruit, player, bg, text, teamsData, teamLogo = null, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null, scoutStaffEnabled = false, weightsMap = null, pool = null }) {
+export default function RecruitCard({ recruit, player, bg, text, teamsData, teamLogo = null, isAllSeasons = false, interactive = false, playStyle = 'balanced', model = null, graphicUrl = null, onOpenGraphic = null, scoutStaffEnabled = false, weightsMap = null, pool = null }) {
   const teamBgText = text
   const teamAccent = bg
   const teamsSource = teamsData || {}
@@ -86,7 +86,12 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, team
     ? `${recruit.height || ''}${recruit.height && recruit.weight ? ', ' : ''}${recruit.weight ? `${recruit.weight} lbs` : ''}`
     : null
 
-  const previousTeamTid = recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam, teamsSource) : null
+  // Prefer the durable origin-school tid (movementByYear[year].fromTid, threaded
+  // onto the commit) so the FROM-chip logo/name resolve LIVE from dynasty.teams
+  // even after that school is renamed. Only round-trip the stored abbr string
+  // when no fromTid is available (legacy commits).
+  const previousTeamTid = (recruit.previousTeamTid != null ? Number(recruit.previousTeamTid) : null)
+    ?? (recruit.previousTeam ? getTidFromAbbr(recruit.previousTeam, teamsSource) : null)
   const transferLogo = previousTeamTid ? getTeamLogoByTid(previousTeamTid, teamsSource) : null
   const rawPreviousTeamName = previousTeamTid && teamsSource[previousTeamTid]?.name
     ? teamsSource[previousTeamTid].name
@@ -114,7 +119,7 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, team
       padding="none"
       variant="bordered"
       interactive={interactive}
-      className="h-full overflow-hidden group"
+      className="relative h-full overflow-hidden group"
       style={{
         color: teamBgText,
         borderColor: `${teamBgText}33`,
@@ -122,6 +127,28 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, team
         backgroundImage: 'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.30) 100%)',
       }}
     >
+      {/* Commit-graphic button — top-left so it clears the stars. The card is a
+          link to the player page, so stop the click from navigating. */}
+      {onOpenGraphic && (
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenGraphic() }}
+          aria-label={graphicUrl ? 'View commit graphic' : 'Add commit graphic'}
+          title={graphicUrl ? 'View commit graphic' : 'Add commit graphic'}
+          className="absolute top-1 left-1 z-10 w-6 h-6 rounded-md flex items-center justify-center transition-transform active:scale-95"
+          style={{
+            backgroundColor: graphicUrl ? teamBgText : 'rgba(0,0,0,0.35)',
+            color: graphicUrl ? teamAccent : teamBgText,
+          }}
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <path d="M21 15l-5-5L5 21" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
+
       <div className="p-2 sm:p-3 flex flex-col h-full gap-1.5 sm:gap-2.5">
         {/* === IDENTITY BAND === photo + name + pos·class + stars */}
         <div className="flex flex-col items-center gap-1 sm:gap-1.5 text-center">

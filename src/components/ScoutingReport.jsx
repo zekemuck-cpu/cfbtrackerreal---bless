@@ -89,8 +89,6 @@ export default function ScoutingReport({ setView, players, setPlayers }) {
         const img = await getStaffData('scout_img');
         const name = await getStaffData('scout_name');
 
-        console.log("Database fetch result:", { img, name }); // DEBUG: Check console
-
         if (img) setScoutImg(img);
         if (name) setScoutName(name);
       } catch (err) {

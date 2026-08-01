@@ -52,7 +52,11 @@ export default function RecruitingCommitmentsModal({
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const [createAttempts, setCreateAttempts] = useState(0)
   const [authErrorOccurred, setAuthErrorOccurred] = useState(false)
-  const MAX_CREATE_ATTEMPTS = 2
+  // Single attempt per open. A FAILED creation must NOT auto-retry — the old
+  // value of 2 let a non-auth failure re-fire (creatingSheet is in the effect
+  // deps) and spawn a second orphan Google Sheet. An explicit retry (re-auth
+  // bumps auth.retryCount, which resets the flags) re-arms one more.
+  const MAX_CREATE_ATTEMPTS = 1
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
 

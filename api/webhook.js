@@ -28,6 +28,45 @@ const tierFromStatus = (status) => (PAID_STATUSES.has(status) ? 'premium' : 'fre
 
 const tsFromUnix = (unix) => (unix ? new Date(unix * 1000) : null);
 
+// current_period_end moved off the top-level subscription object and onto
+// each subscription ITEM in recent Stripe API versions (basil/clover, which
+// this account's webhook + the pinned stripe SDK v20 both use). Read the
+// top-level for older payloads and fall back to the first item's value so
+// the user doc always gets a real billing-period end (a null there breaks
+// the past_due grace window and the "next billing" display).
+const subPeriodEndUnix = (sub) =>
+  sub?.current_period_end ?? sub?.items?.data?.[0]?.current_period_end ?? null;
+
+// When a payment fails the subscription goes past_due. We keep write
+// access for a bounded grace window (mirrored by firestore.rules, which
+// now requires past_due to have a future currentPeriodEnd). Without a
+// bound a failed-payment account would retain premium forever (audit H2).
+const PAST_DUE_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// A beta/dev grant only suppresses Stripe-driven downgrades while it is
+// still active. Once the 30-day grant lapses (currentPeriodEnd in the
+// past) Stripe events — including cancellation, refund and dispute — take
+// effect normally. Previously _devGranted was a permanent shield, so a
+// beta user who also paid could charge back and keep premium (audit H3/H4).
+const millisOf = (ts) =>
+  ts?.toMillis ? ts.toMillis() : (typeof ts?._seconds === 'number' ? ts._seconds * 1000 : null);
+
+function isActiveDevGrant(userData) {
+  if (!userData?._devGranted) return false;
+  const endMs = millisOf(userData.currentPeriodEnd);
+  // No expiry recorded → treat as active (legacy grants), but a recorded
+  // expiry in the past means the grant has lapsed and no longer shields.
+  return endMs == null || endMs > Date.now();
+}
+
+// Out-of-order protection: an event created before the last one we
+// processed for this user must not overwrite newer state. Applied to
+// EVERY tier-mutating handler (previously only subscription.*).
+function isStaleEvent(userData, event) {
+  const lastMs = millisOf(userData?.lastStripeEventCreated);
+  return !!lastMs && lastMs > event.created * 1000;
+}
+
 /**
  * Find the user doc to update for a given Stripe event. Tries (in order):
  *   1. metadata.firebaseUserId on the subscription / object (set at
@@ -93,13 +132,27 @@ export default async function handler(req, res) {
   // succeeded once. Use a transaction so concurrent deliveries don't
   // double-process.
   const eventRef = db.collection('webhookEvents').doc(event.id);
-  let alreadyProcessed = false;
+  // A still-running sibling invocation marks the event 'processing'. Treat
+  // a recent 'processing' as an in-flight duplicate so concurrent Stripe
+  // redeliveries don't both fall through and double-process. A STALE
+  // 'processing' (older than this window, i.e. a crashed prior run) is
+  // allowed to reprocess so an event can't get permanently stuck.
+  const PROCESSING_LOCK_MS = 60 * 1000;
+  let duplicate = false;
   try {
     await db.runTransaction(async (tx) => {
       const existing = await tx.get(eventRef);
-      if (existing.exists && existing.data()?.status === 'processed') {
-        alreadyProcessed = true;
+      const data = existing.exists ? existing.data() : null;
+      if (data?.status === 'processed') {
+        duplicate = true;
         return;
+      }
+      if (data?.status === 'processing') {
+        const startedMs = millisOf(data.receivedAt);
+        if (startedMs == null || (Date.now() - startedMs) < PROCESSING_LOCK_MS) {
+          duplicate = true;
+          return;
+        }
       }
       tx.set(eventRef, {
         type: event.type,
@@ -110,10 +163,14 @@ export default async function handler(req, res) {
       }, { merge: true });
     });
   } catch (e) {
-    console.warn('[Webhook] idempotency tx failed (continuing):', e.message);
+    // Do NOT continue past a failed idempotency transaction — that was the
+    // bug that let concurrent deliveries double-process. Return 500 so
+    // Stripe retries the delivery cleanly (audit C2).
+    console.error('[Webhook] idempotency tx failed:', e.message);
+    return res.status(500).json({ error: 'Idempotency check failed; retry' });
   }
-  if (alreadyProcessed) {
-    console.log(`[Webhook] duplicate event ${event.id}, skipping`);
+  if (duplicate) {
+    console.log(`[Webhook] duplicate/in-flight event ${event.id}, skipping`);
     return res.status(200).json({ received: true, duplicate: true });
   }
 
@@ -133,18 +190,27 @@ export default async function handler(req, res) {
           break;
         }
 
+        const userRef = db.collection('users').doc(firebaseUserId);
+        const userData = (await userRef.get()).data() || {};
+        if (isStaleEvent(userData, event)) {
+          console.log('[Webhook] checkout.session.completed older than last processed; skipping');
+          await logEvent(event, 'skipped_stale');
+          break;
+        }
+
         // Pull subscription detail to populate accurate fields.
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
 
-        await db.collection('users').doc(firebaseUserId).set({
+        await userRef.set({
           tier: tierFromStatus(subscription.status),
           stripeCustomerId: customerId,
           subscriptionId,
           subscriptionStatus: subscription.status,
-          currentPeriodEnd: tsFromUnix(subscription.current_period_end),
+          currentPeriodEnd: tsFromUnix(subPeriodEndUnix(subscription)),
           cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
           cancelAt: tsFromUnix(subscription.cancel_at),
           pendingDowngrade: false, // re-subscribed
+          lastStripeEventCreated: tsFromUnix(event.created),
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
 
@@ -185,8 +251,8 @@ export default async function handler(req, res) {
         // user who has since moved to a beta grant, the Stripe webhook
         // would otherwise overwrite their tier back to whatever Stripe
         // reports.
-        if (userData._devGranted) {
-          console.log(`[Webhook] ${event.type}: user ${userRef.id} has _devGranted, skipping Stripe state write`);
+        if (isActiveDevGrant(userData)) {
+          console.log(`[Webhook] ${event.type}: user ${userRef.id} has an active _devGranted, skipping Stripe state write`);
           await logEvent(event, 'skipped_dev_granted');
           break;
         }
@@ -196,7 +262,7 @@ export default async function handler(req, res) {
           stripeCustomerId: customerId,
           subscriptionId: subscription.id,
           subscriptionStatus: subscription.status,
-          currentPeriodEnd: tsFromUnix(subscription.current_period_end),
+          currentPeriodEnd: tsFromUnix(subPeriodEndUnix(subscription)),
           cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
           cancelAt: tsFromUnix(subscription.cancel_at),
           // Clear pendingDowngrade if user is back to paid; set it if not.
@@ -226,8 +292,13 @@ export default async function handler(req, res) {
         // no longer this Stripe sub.
         const userSnap = await userRef.get();
         const userData = userSnap.data() || {};
-        if (userData._devGranted) {
-          console.log(`[Webhook] subscription.deleted: user ${userRef.id} has _devGranted, skipping downgrade`);
+        if (isStaleEvent(userData, event)) {
+          console.log('[Webhook] subscription.deleted older than last processed; skipping');
+          await logEvent(event, 'skipped_stale');
+          break;
+        }
+        if (isActiveDevGrant(userData)) {
+          console.log(`[Webhook] subscription.deleted: user ${userRef.id} has an active _devGranted, skipping downgrade`);
           await logEvent(event, 'skipped_dev_granted');
           break;
         }
@@ -255,11 +326,22 @@ export default async function handler(req, res) {
         const userRef = await findUserRefForCustomer({ customerId });
         if (!userRef) { await logEvent(event, 'skipped_no_user'); break; }
 
+        const userData = (await userRef.get()).data() || {};
+        if (isStaleEvent(userData, event)) { await logEvent(event, 'skipped_stale'); break; }
+
+        // Stamp a bounded grace deadline. The rules require past_due to
+        // carry a FUTURE currentPeriodEnd, so this is what keeps a
+        // failed-payment account from staying premium forever (audit H2).
+        // A later invoice.payment_succeeded restores the real period end.
+        const graceDeadline = new Date(Date.now() + PAST_DUE_GRACE_MS);
+
         await userRef.set({
           subscriptionStatus: 'past_due',
+          currentPeriodEnd: graceDeadline,
+          lastStripeEventCreated: tsFromUnix(event.created),
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
-        console.log(`[Webhook] payment failed: user ${userRef.id}`);
+        console.log(`[Webhook] payment failed: user ${userRef.id}, grace until ${graceDeadline.toISOString()}`);
         break;
       }
 
@@ -274,12 +356,17 @@ export default async function handler(req, res) {
         const userRef = await findUserRefForCustomer({ customerId });
         if (!userRef) { await logEvent(event, 'skipped_no_user'); break; }
 
+        const userData = (await userRef.get()).data() || {};
+        if (isStaleEvent(userData, event)) { await logEvent(event, 'skipped_stale'); break; }
+        if (isActiveDevGrant(userData)) { await logEvent(event, 'skipped_dev_granted'); break; }
+
         const subscription = await stripe.subscriptions.retrieve(subscriptionId);
         await userRef.set({
           tier: tierFromStatus(subscription.status),
           subscriptionStatus: subscription.status,
-          currentPeriodEnd: tsFromUnix(subscription.current_period_end),
+          currentPeriodEnd: tsFromUnix(subPeriodEndUnix(subscription)),
           pendingDowngrade: false,
+          lastStripeEventCreated: tsFromUnix(event.created),
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
         console.log(`[Webhook] payment succeeded: user ${userRef.id} status=${subscription.status}`);
@@ -298,11 +385,12 @@ export default async function handler(req, res) {
         const userRef = await findUserRefForCustomer({ customerId });
         if (!userRef) { await logEvent(event, 'skipped_no_user'); break; }
 
-        // Don't clobber a beta self-grant when refunding a (separate)
-        // old Stripe charge.
-        const userSnap = await userRef.get();
-        if (userSnap.data()?._devGranted) {
-          console.log(`[Webhook] charge.refunded: user ${userRef.id} has _devGranted, skipping`);
+        // Only an ACTIVE beta self-grant shields against a refund — a
+        // lapsed grant no longer suppresses money-reversal downgrades
+        // (audit H3/H4).
+        const userData = (await userRef.get()).data() || {};
+        if (isActiveDevGrant(userData)) {
+          console.log(`[Webhook] charge.refunded: user ${userRef.id} has an active _devGranted, skipping`);
           await logEvent(event, 'skipped_dev_granted');
           break;
         }
@@ -312,6 +400,7 @@ export default async function handler(req, res) {
             tier: 'free',
             subscriptionStatus: 'refunded',
             pendingDowngrade: true,
+            lastStripeEventCreated: tsFromUnix(event.created),
             updatedAt: FieldValue.serverTimestamp(),
           }, { merge: true });
           console.log(`[Webhook] full refund: user ${userRef.id} → free`);
@@ -333,11 +422,11 @@ export default async function handler(req, res) {
         const userRef = await findUserRefForCustomer({ customerId });
         if (!userRef) { await logEvent(event, 'skipped_no_user'); break; }
 
-        // Disputes from a stranger shouldn't reach a beta-granted user
-        // either — defensive consistency with the refund path.
-        const userSnap = await userRef.get();
-        if (userSnap.data()?._devGranted) {
-          console.log(`[Webhook] dispute.created: user ${userRef.id} has _devGranted, skipping`);
+        // Only an ACTIVE beta self-grant shields against a chargeback
+        // (audit H3/H4); a lapsed grant lets the dispute downgrade apply.
+        const userData = (await userRef.get()).data() || {};
+        if (isActiveDevGrant(userData)) {
+          console.log(`[Webhook] dispute.created: user ${userRef.id} has an active _devGranted, skipping`);
           await logEvent(event, 'skipped_dev_granted');
           break;
         }
@@ -346,6 +435,7 @@ export default async function handler(req, res) {
           tier: 'free',
           subscriptionStatus: 'disputed',
           pendingDowngrade: true,
+          lastStripeEventCreated: tsFromUnix(event.created),
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
         console.log(`[Webhook] dispute opened: user ${userRef.id} → free`);
@@ -358,6 +448,9 @@ export default async function handler(req, res) {
         const userRef = await findUserRefForCustomer({ customerId: customer.id });
         if (!userRef) { await logEvent(event, 'skipped_no_user'); break; }
 
+        const userData = (await userRef.get()).data() || {};
+        if (isStaleEvent(userData, event)) { await logEvent(event, 'skipped_stale'); break; }
+
         await userRef.set({
           tier: 'free',
           subscriptionStatus: 'canceled',
@@ -366,6 +459,7 @@ export default async function handler(req, res) {
           cancelAtPeriodEnd: false,
           cancelAt: null,
           pendingDowngrade: true,
+          lastStripeEventCreated: tsFromUnix(event.created),
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
         console.log(`[Webhook] stripe customer deleted: user ${userRef.id}`);

@@ -19,6 +19,8 @@ import {
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -38,9 +40,15 @@ export default function PortalTransferClassModal({ isOpen, onClose, onSave, curr
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const [createAttempts, setCreateAttempts] = useState(0)
   const [authErrorOccurred, setAuthErrorOccurred] = useState(false)
-  const MAX_CREATE_ATTEMPTS = 2
+  // Single attempt per open. A FAILED creation must NOT auto-retry — the old
+  // value of 2 let a non-auth failure re-fire (creatingSheet is in the effect
+  // deps) and spawn a second orphan Google Sheet. An explicit retry (re-auth
+  // bumps auth.retryCount, which resets the flags below) re-arms one more.
+  const MAX_CREATE_ATTEMPTS = 1
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -123,7 +131,7 @@ CRITICAL OUTPUT RULES
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== PORTAL TRANSFERS — paste at cell D2 of "Portal Transfers" tab ===
+=== PORTAL TRANSFERS ===
 <class for Row 2 player>\\t<jersey # for Row 2 player>
 <class for Row 3 player>\\t<jersey # for Row 3 player>
 …exactly ${n} line${n !== 1 ? 's' : ''}
@@ -141,6 +149,95 @@ FINAL CHECK before you send
 [ ] No extra columns beyond D and E, no commentary INSIDE the data`,
     })
   }, [currentYear, portalTransfers])
+
+  // LOCAL-PASTE prompt: self-describing rows, no pre-filled column to align
+  // against. The AI emits ONE line per portal transfer, as
+  // PlayerName<TAB>Class<TAB>Jersey — so a paste carries its own identity and
+  // the save matches by name (omitted players are unchanged).
+  const localAiPrompt = useMemo(() => buildAIPrompt({
+    title: `${currentYear} Portal Transfer Class Assignment`,
+    structure: `Output ONE line per portal transfer whose updated ${currentYear + 1} class you can read. Each line is SELF-DESCRIBING — it carries the player's own name — so there is NO pre-filled column to line up against and NO fixed row order.
+
+For each portal transfer, read TWO things from the roster screenshots:
+
+  1) The YEAR column value — translate using this mapping:
+
+       Game shows → Output
+       FR         → Fr
+       FR(RS)     → RS Fr
+       SO         → So
+       SO(RS)     → RS So
+       JR         → Jr
+       JR(RS)     → RS Jr
+       SR         → Sr
+       SR(RS)     → RS Sr
+
+  2) The JERSEY # (the number on their jersey / next to their name) — an
+     integer 0-99. This is OPTIONAL: leave it blank if you can't see it.
+
+═══════════════════════════════════════════════════════════
+CRITICAL RULES — read before anything else
+═══════════════════════════════════════════════════════════
+1. Each line has EXACTLY 3 tab-separated fields: PlayerName<TAB>Class<TAB>Jersey.
+2. NO header row. NO blank lines. NO commentary, totals, or labels INSIDE the data.
+3. OMIT any portal transfer whose class you cannot read — do NOT pad, do NOT guess. A player with no line is left unchanged.
+4. The order does not matter — each line stands on its own.
+5. PlayerName: the full player name exactly as it should appear.
+6. Class MUST be one of these EXACT strings: Fr | So | Jr | Sr | RS Fr | RS So | RS Jr | RS Sr — Title Case, "RS" uppercase, exactly one space. NOT "RSFr", NOT "Rs Fr".
+7. Jersey: an integer 0-99 (no "#", no decimals, no commas) OR blank. If blank, still emit the trailing tab so the line has 3 fields (PlayerName<TAB>Class<TAB>).
+
+═══════════════════════════════════════════════════════════
+PER-LINE OUTPUT (3 tab-separated fields)
+═══════════════════════════════════════════════════════════
+<Player Name><TAB><Class><TAB><Jersey #>
+
+═══════════════════════════════════════════════════════════
+REQUIRED OUTPUT FORMAT
+═══════════════════════════════════════════════════════════
+=== PORTAL TRANSFERS ===
+<Player Name>\\t<Class>\\t<Jersey #>
+<Player Name>\\t<Class>\\t<Jersey #>
+…one line per portal transfer; omit any you cannot read
+
+(Each \\t represents a LITERAL TAB character — use actual tabs, not the text "\\t".)
+
+═══════════════════════════════════════════════════════════
+FINAL CHECK before you send
+═══════════════════════════════════════════════════════════
+[ ] Every line has exactly 3 tab-separated fields (two tabs)
+[ ] Every Class value is one of: Fr, So, Jr, Sr, RS Fr, RS So, RS Jr, RS Sr (exact casing, single space)
+[ ] Jersey #s are integers 0-99 or blank — no decimals, no "#", no commas
+[ ] No blank lines, no header row, no commentary INSIDE the data`,
+  }), [currentYear])
+
+  // Pre-fill the local grid with each portal transfer's existing class + jersey
+  // so the modal opens ready to edit. The local import reshapes each pasted
+  // row as [name, '', '', class, jersey], and the parser requires a name and a
+  // class — so we emit "PlayerName<TAB>Class<TAB>Jersey" per transfer.
+  // Prefer any already-saved selection for this year; otherwise fall back to
+  // the transfer's incoming class + roster jersey (the same values the Google
+  // sheet pre-fills). Round-trip safe: re-importing unchanged reproduces the
+  // saved selections.
+  const initialText = useMemo(() => {
+    const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 5
+    const dataYear = isAfterYearFlip ? Number(currentYear) - 1 : Number(currentYear)
+    const saved = currentDynasty?.portalTransferClassByYear?.[dataYear] || []
+    const savedByName = new Map()
+    for (const s of saved) {
+      if (s?.playerName) savedByName.set(s.playerName.toLowerCase().trim(), s)
+    }
+    return (portalTransfers || [])
+      .map(t => {
+        const match = savedByName.get((t.name || '').toLowerCase().trim())
+        const cls = match?.selectedClass || t.incomingClass || ''
+        const jerseyRaw = match?.jerseyNumber ?? t.jerseyNumber
+        const jersey = (jerseyRaw != null && jerseyRaw !== '') ? String(jerseyRaw) : ''
+        if (!t.name || !cls) return null
+        return `${t.name}\t${cls}\t${jersey}`
+      })
+      .filter(Boolean)
+      .join('\n')
+  }, [portalTransfers, currentDynasty?.portalTransferClassByYear, currentDynasty?.currentPhase, currentDynasty?.currentWeek, currentYear])
 
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
@@ -184,7 +281,8 @@ FINAL CHECK before you send
   useEffect(() => {
     const createSheet = async () => {
       if (authErrorOccurred || createAttempts >= MAX_CREATE_ATTEMPTS) return
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -215,8 +313,13 @@ FINAL CHECK before you send
         } catch (error) {
           console.error('Failed to create portal transfer class sheet:', error)
           setCreateAttempts(prev => prev + 1)
+          // Auth errors open the re-auth modal. Anything else gets surfaced as
+          // a toast so the user isn't stuck — and the effect does NOT loop back
+          // to create another sheet.
           if (auth.handleError(error)) {
             setAuthErrorOccurred(true)
+          } else {
+            toast.error(auth.describeError(error, 'create the portal transfer class sheet'))
           }
         } finally {
           setCreatingSheet(false)
@@ -226,7 +329,18 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, portalTransfers, currentYear, sheetKey, authErrorOccurred, createAttempts])
+  }, [isOpen, useLocal, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote, portalTransfers, currentYear, sheetKey, authErrorOccurred, createAttempts])
+
+  // When the user re-authenticates (retryCount bumps via the AuthErrorModal's
+  // Refresh), clear the blocking flags so the create effect retries with the
+  // fresh token — otherwise authErrorOccurred stays true and the modal is stuck
+  // until the user manually closes and reopens it.
+  useEffect(() => {
+    if (auth.retryCount > 0) {
+      setAuthErrorOccurred(false)
+      setCreateAttempts(0)
+    }
+  }, [auth.retryCount])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -235,8 +349,20 @@ FINAL CHECK before you send
       setCreateAttempts(0)
       setAuthErrorOccurred(false)
       creatingSheetRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits PlayerName<TAB>Class<TAB>Jersey rows. The
+  // parser reads name=row[0], class=row[3], jersey=row[4], so reshape each
+  // pasted [name, class, jersey] triple into the parser's 5-column layout.
+  // Downstream save matches by name, so omitting unchanged players is correct.
+  const handleLocalImport = async (text) => {
+    const rows = splitTsv(text).map(c => [c[0], '', '', (c[1] ?? ''), (c[2] ?? '')])
+    const classSelections = await readPortalTransferClassFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows })
+    await onSave(classSelections)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -361,7 +487,17 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Transfer Portal" title="Portal Transfer Class" onClose={handleClose} />
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
 
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={localAiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Portal Transfer Classes"
+            columns={['Player', 'Class', 'Jersey #']}
+            initialText={initialText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div

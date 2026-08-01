@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { teamAbbreviations } from '../data/teamAbbreviations'
 import { getTeamLogo } from '../data/teams'
 import { getTeamColors } from '../data/teamColors'
+import { getTidFromTeamName } from '../data/teamRegistry'
 import { useDynasty } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
 
@@ -24,12 +25,16 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
   // so iterating dynasty.teams gives the correct full list with no special-casing needed.
   const allTeams = useMemo(() => {
     if (!dynastyTeams) return staticTeams
-    return Object.values(dynastyTeams)
-      .filter(t => !t.isFCS && t.name && t.abbr)
+    // Use Object.entries so each option carries its tid (the map key). tid is
+    // the durable identity we store on the pick and resolve live names from.
+    return Object.entries(dynastyTeams)
+      .filter(([, t]) => !t.isFCS && t.name && t.abbr)
+      .map(([tid, t]) => ({ ...t, tid: Number(tid) }))
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [dynastyTeams])
   const [takingNewJob, setTakingNewJob] = useState(null)
   const [selectedTeam, setSelectedTeam] = useState('')
+  const [selectedTeamTid, setSelectedTeamTid] = useState(null)
   const [selectedPosition, setSelectedPosition] = useState('')
   const [teamSearch, setTeamSearch] = useState('')
   const [showTeamDropdown, setShowTeamDropdown] = useState(false)
@@ -41,11 +46,19 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
       if (currentJobData) {
         setTakingNewJob(currentJobData.takingNewJob ?? null)
         setSelectedTeam(currentJobData.team || '')
+        // Prefer the stored tid; fall back to resolving it from the saved
+        // name for jobs saved before teamTid was tracked.
+        setSelectedTeamTid(
+          currentJobData.teamTid != null
+            ? Number(currentJobData.teamTid)
+            : (currentJobData.team ? getTidFromTeamName(currentJobData.team, dynastyTeams) : null)
+        )
         setSelectedPosition(currentJobData.position || '')
       } else {
         // Reset if no data
         setTakingNewJob(null)
         setSelectedTeam('')
+        setSelectedTeamTid(null)
         setSelectedPosition('')
       }
       setTeamSearch('')
@@ -77,13 +90,17 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
     onSave({
       takingNewJob,
       team: takingNewJob ? selectedTeam : null,
+      // Durable identity for the consumer (DynastyContext prefers teamTid,
+      // falling back to resolving the name). Name kept for back-compat.
+      teamTid: takingNewJob ? (selectedTeamTid ?? null) : null,
       position: takingNewJob ? selectedPosition : null
     })
     onClose()
   }
 
-  const handleTeamSelect = (teamName) => {
-    setSelectedTeam(teamName)
+  const handleTeamSelect = (team) => {
+    setSelectedTeam(team.name)
+    setSelectedTeamTid(team.tid ?? null)
     setTeamSearch('')
     setShowTeamDropdown(false)
   }
@@ -180,7 +197,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
             <div className="relative" ref={dropdownRef}>
               <input
                 type="text"
-                value={teamSearch || (selectedTeam ? (teamAbbreviations[selectedTeam]?.name || selectedTeam) : '')}
+                value={teamSearch || (selectedTeam ? (dynastyTeams?.[selectedTeamTid]?.name || selectedTeam) : '')}
                 onChange={(e) => {
                   setTeamSearch(e.target.value)
                   setShowTeamDropdown(true)
@@ -210,7 +227,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                       return (
                         <button
                           key={team.abbr}
-                          onClick={() => handleTeamSelect(team.name)}
+                          onClick={() => handleTeamSelect(team)}
                           className="w-full px-4 py-2 text-left hover:bg-surface-3 flex items-center gap-2"
                         >
                           {logo && (
@@ -247,7 +264,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
                   </div>
                 )}
                 <span className="font-semibold" style={{ color: 'var(--surface-1)' }}>
-                  {teamAbbreviations[selectedTeam]?.name || selectedTeam}
+                  {dynastyTeams?.[selectedTeamTid]?.name || selectedTeam}
                 </span>
               </div>
             )}
@@ -298,7 +315,7 @@ export default function NewJobEditModal({ isOpen, onClose, onSave, teamColors, c
               {takingNewJob === false ? (
                 'Staying with current team'
               ) : selectedTeam && selectedPosition ? (
-                `${selectedPosition === 'HC' ? 'Head Coach' : selectedPosition === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'} at ${teamAbbreviations[selectedTeam]?.name || selectedTeam}`
+                `${selectedPosition === 'HC' ? 'Head Coach' : selectedPosition === 'OC' ? 'Offensive Coordinator' : 'Defensive Coordinator'} at ${dynastyTeams?.[selectedTeamTid]?.name || selectedTeam}`
               ) : (
                 'Select team and position above'
               )}

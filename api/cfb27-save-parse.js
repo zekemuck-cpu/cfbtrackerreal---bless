@@ -20,10 +20,24 @@ import { extractFullSave } from './_lib/cfb27Extract/extractPlayers.cjs';
  * app's schema (src/data/cfb27SaveImport.js does that mapping).
  *
  * Verified end-to-end against a real 9.4MB DYNASTY-* save: ~2s to parse.
+ *
+ * BUNDLING NOTE (see vercel.json "functions"): madden-franchise (pulled in via
+ * extractFullSave) resolves its reference data at RUNTIME —
+ * fs.readFileSync(path.join(__dirname, `../data/interned-strings/${dir}/${name}`))
+ * and friends. @vercel/nft traces module specifiers, including dynamic
+ * import(), but it cannot follow an fs read built from interpolated strings,
+ * so none of those JSON files get bundled by default. The build and the
+ * deploy both succeed; it fails only when someone actually parses a save,
+ * as "ENOENT ... slotsLookup.json". vercel.json force-includes
+ * node_modules/madden-franchise/data/** to cover all four directories it
+ * reads (lookup-files, schemas, interned-strings, zstd-dicts).
  */
 
 export const config = {
-  maxDuration: 30,
+  // Parsing a ~10 MB binary save will not reliably finish inside a shorter
+  // default; also set via vercel.json's "functions" key for this file, which
+  // takes precedence — kept in sync here so this isn't the only place to look.
+  maxDuration: 60,
 };
 
 function r2Configured() {

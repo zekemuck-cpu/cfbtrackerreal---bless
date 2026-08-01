@@ -21,6 +21,8 @@ import { getCurrentTeamAbbr, getCurrentTeamTid } from '../data/teamRegistry'
 import { getModalColors } from '../utils/colorUtils'
 import { buildAIPrompt } from '../utils/aiPrompt'
 import SheetLoadingHint from './SheetLoadingHint'
+import LocalDataEntry from './ui/LocalDataEntry'
+import { splitTsv } from '../utils/tsvParse'
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false
@@ -40,6 +42,8 @@ export default function PlayersLeavingModal({ isOpen, onClose, onSave, currentYe
   const [showDeletedNote, setShowDeletedNote] = useState(false)
   const auth = useAuthErrorHandler()
   const [isMobile, setIsMobile] = useState(false)
+  // Local paste is the DEFAULT; the Google Sheet flow is the opt-in fallback.
+  const [useLocal, setUseLocal] = useState(true)
 
   const [useEmbedded, setUseEmbedded] = useState(() => {
     return localStorage.getItem('sheetEmbedPreference') === 'true'
@@ -73,11 +77,11 @@ CRITICAL RULES — read before anything else
 2. Every line has EXACTLY 2 tab-separated columns (1 tab character): Player<TAB>Transfer Reason.
 3. Column A (Player) must EXACTLY match a player name from the current roster — the Player column is a strict dropdown. Match capitalisation, spacing, and suffixes (Jr./II) character-for-character. A mismatch will silently drop the row.
 4. Column B (Transfer Reason) MUST be one of the 16 literal values listed below — exact case, exact spacing. No free text.
-5. No header row, no blank lines, no commentary INSIDE the data, no totals. The paste-target label above the fence is required (see TSV delivery rules above).
+5. No header row, no blank lines, no commentary INSIDE the data, no totals.
 6. No commas anywhere.
 
 ═══════════════════════════════════════════════════════════
-TAB: "Players Leaving" — paste at cell A2 of the "Players Leaving" tab
+SECTION: "Players Leaving"
 ═══════════════════════════════════════════════════════════
 
 Column layout, tab-separated:
@@ -99,7 +103,7 @@ Notes on reason selection:
 ═══════════════════════════════════════════════════════════
 REQUIRED OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════
-=== PLAYERS LEAVING — paste at cell A2 of "Players Leaving" tab ===
+=== PLAYERS LEAVING ===
 <Roster Name 1>\t<Reason 1>
 <Roster Name 2>\t<Reason 2>
 …one line per departing player, every player from the screenshots
@@ -114,7 +118,7 @@ FINAL CHECK before you send
     Players cut off at the edge of a screenshot still count.
 [ ] One row per player in the uploaded screenshots — every single one, no skipping
 [ ] Every line has exactly 2 tab-separated columns (1 tab character)
-[ ] No header row, no commentary INSIDE the data, no totals (the paste-target label above the fence is required, see TSV delivery rules above)
+[ ] No header row, no commentary INSIDE the data, no totals
 [ ] Every Player value matches a current roster name exactly (case + spacing)
 [ ] Every Transfer Reason is one of the 16 literal values listed (exact case)
 [ ] No commas in any cell
@@ -122,8 +126,23 @@ FINAL CHECK before you send
     includeTeamMap: false,
   }), [currentYear, userRoster])
 
+  // Pre-fill the local grid with the players-leaving list already saved for this
+  // year so re-opening the modal shows prior entries instead of a blank grid.
+  // Source: playersLeavingByYear[currentYear] (what handlePlayersLeavingSave
+  // persisted). Column order mirrors the local parser (Player, Transfer Reason):
+  // serialize playerName + reason. Rows need both values to round-trip.
+  const initialText = useMemo(() => {
+    const saved = currentDynasty?.playersLeavingByYear?.[currentYear] || []
+    return saved
+      .filter(p => p.playerName && p.reason)
+      .map(p => `${p.playerName}\t${p.reason}`)
+      .join('\n')
+  }, [currentDynasty?.playersLeavingByYear, currentYear])
+
   // Ref to prevent concurrent sheet creation (state updates are async, refs are immediate)
   const creatingSheetRef = useRef(false)
+  const creationAttemptedRef = useRef(false)
+  const lastRetryCountRef = useRef(auth.retryCount)
 
   useEffect(() => {
     setIsMobile(isMobileDevice())
@@ -159,8 +178,15 @@ FINAL CHECK before you send
 
   // Create players leaving sheet when modal opens
   useEffect(() => {
+    if (auth.retryCount !== lastRetryCountRef.current) {
+      lastRetryCountRef.current = auth.retryCount
+      creationAttemptedRef.current = false
+    }
+
     const createSheet = async () => {
-      if (isOpen && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote) {
+      // Don't create a Google Sheet while the local paste path is active.
+      if (isOpen && !useLocal && user && !sheetId && !creatingSheet && !creatingSheetRef.current && !showDeletedNote && !creationAttemptedRef.current) {
+        creationAttemptedRef.current = true
         // Set ref immediately to prevent concurrent calls (state updates are async)
         creatingSheetRef.current = true
         setCreatingSheet(true)
@@ -201,15 +227,26 @@ FINAL CHECK before you send
     }
 
     createSheet()
-  }, [isOpen, user, sheetId, creatingSheet, currentDynasty?.id, auth.retryCount, showDeletedNote])
+  }, [isOpen, useLocal, user, sheetId, currentDynasty?.id, auth.retryCount, showDeletedNote])
 
   // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setShowDeletedNote(false)
       creatingSheetRef.current = false
+      creationAttemptedRef.current = false
+      setUseLocal(true)
     }
   }, [isOpen])
+
+  // Local paste import: the AI emits Player<TAB>Reason rows, exactly the two
+  // columns the parser reads as row[0]/row[1] — no pre-filled columns, so the
+  // pasted rows map straight through with no normalization.
+  const handleLocalImport = async (text) => {
+    const playersLeaving = await readPlayersLeavingFromSheet(null, (currentDynasty?.teams || currentDynasty?.customTeams), { rows: splitTsv(text) })
+    await onSave(playersLeaving)
+    onClose()
+  }
 
   const handleSyncFromSheet = async () => {
     if (!sheetId) return
@@ -334,7 +371,17 @@ FINAL CHECK before you send
         <SheetModalHeader eyebrow="Offseason" title="Players Leaving" onClose={handleClose} />
 
         <div className="flex-1 flex flex-col overflow-hidden p-4 sm:p-6">
-        {isLoading ? (
+        {useLocal && !showDeletedNote ? (
+          <LocalDataEntry
+            aiPrompt={aiPrompt}
+            onImport={handleLocalImport}
+            onUseGoogle={() => setUseLocal(false)}
+            onCancel={handleClose}
+            importLabel="Import Players Leaving"
+            columns={['Player', 'Transfer Reason']}
+            initialText={initialText}
+          />
+        ) : isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div
