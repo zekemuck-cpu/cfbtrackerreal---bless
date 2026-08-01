@@ -199,7 +199,16 @@ async function resolveRef(save, refString) {
  * (GameOffensiveStats/GameDefensiveStats/GameKickingStats) and the table it
  * landed in IS the signal for which stat category the row holds.
  */
-async function resolveRefWithTable(save, refString) {
+/**
+ * @param {object} [attribsByTableName] - optional map of table name -> field
+ *   list. When the resolved reference's table has an entry here, its FIRST
+ *   readRecords() call is restricted to exactly those fields instead of
+ *   decoding everything the table stores — safe because the table name isn't
+ *   known until the reference is decoded, so this can't be decided by the
+ *   caller ahead of time the way the player table's read is. Every existing
+ *   caller that doesn't pass this keeps today's unrestricted behavior.
+ */
+async function resolveRefWithTable(save, refString, attribsByTableName) {
   if (!refString || typeof refString !== 'string' || refString.length < 16) return null;
   const tableId = parseInt(refString.slice(0, 15), 2);
   const rowNumber = parseInt(refString.slice(15), 2);
@@ -207,7 +216,8 @@ async function resolveRefWithTable(save, refString) {
   const table = save.getTableById(tableId);
   if (!table) return null;
   if (!table.records || table.records.length === 0) {
-    await table.readRecords();
+    const attribs = attribsByTableName ? attribsByTableName[table.name] : undefined;
+    await table.readRecords(attribs);
   }
   const rec = table.records[rowNumber];
   if (!rec || rec.isEmpty) return null;
@@ -1949,9 +1959,34 @@ function pickFields(rec, fieldList) {
  * @param {object} F - buildPlayerFieldPicker(playerTable) output
  * @param {number[]} playedWeeks - week numbers (SeasonWeek convention) with at least one played game
  */
+// The four stat-category tables a player's weekly GameStats slot can resolve
+// into hold thousands of rows each (offensive/defensive alone: tens of
+// thousands combined in a real save) — restricting each to only the columns
+// pickFields() below actually reads cuts the dominant chunk of this
+// function's memory use, which otherwise comes from fully decoding every
+// row of every one of these tables the moment the FIRST player's slot
+// happens to land in it.
+function playerGameStatsAttribsByTable() {
+  return {
+    GameOffensiveStats: GAME_OFFENSIVE_STAT_FIELDS,
+    GameOffensiveKPReturnStats: GAME_OFFENSIVE_STAT_FIELDS,
+    GameDefensiveStats: GAME_DEFENSIVE_STAT_FIELDS,
+    GameDefensiveKPReturnStats: GAME_DEFENSIVE_STAT_FIELDS,
+    GameKickingStats: GAME_KICKING_STAT_FIELDS,
+    GameOLineStats: GAME_OLINE_STAT_FIELDS,
+  };
+}
+
 async function buildGameStats(save, playerTable, teamRecords, F, playedWeeks) {
   const teamStatsByWeek = {};
   const playerStatsByWeek = {};
+  const playerStatsAttribs = playerGameStatsAttribsByTable();
+  // GameStats[]/TeamStats[] are array-type tables with one auto-named slot
+  // field per possible week (GameStats0..GameStats22) — restricting to just
+  // the weeks actually played avoids decoding ~20 unused slots per player/
+  // team on top of the ones below.
+  const teamArrAttribs = { 'TeamStats[]': playedWeeks.map((w) => `TeamStats${w}`) };
+  const playerArrAttribs = { 'GameStats[]': playedWeeks.map((w) => `GameStats${w}`) };
   for (const week of playedWeeks) {
     teamStatsByWeek[week] = {};
     playerStatsByWeek[week] = [];
@@ -1964,12 +1999,12 @@ async function buildGameStats(save, playerTable, teamRecords, F, playedWeeks) {
       const rawTid = Number(readCell(teamRec, 'TeamIndex'));
       if (!Number.isFinite(rawTid)) continue;
       const ref = readCell(teamRec, 'TeamGameStatsRegSeason');
-      const arrRow = ref ? (await resolveRefWithTable(save, ref))?.rec : null;
+      const arrRow = ref ? (await resolveRefWithTable(save, ref, teamArrAttribs))?.rec : null;
       if (!arrRow) continue;
       for (const week of playedWeeks) {
         let slotRef;
         try { slotRef = arrRow[`TeamStats${week}`]; } catch (err) { continue; }
-        const resolved = await resolveRefWithTable(save, slotRef);
+        const resolved = await resolveRefWithTable(save, slotRef, { TeamStats: TEAM_GAME_STAT_FIELDS });
         if (!resolved) continue;
         teamStatsByWeek[week][rawTid] = pickFields(resolved.rec, TEAM_GAME_STAT_FIELDS);
       }
@@ -1981,13 +2016,13 @@ async function buildGameStats(save, playerTable, teamRecords, F, playedWeeks) {
       if (!rec || rec.isEmpty) continue;
       const ref = readCell(rec, F.gameStats);
       if (!ref) continue;
-      const arrRow = (await resolveRefWithTable(save, ref))?.rec;
+      const arrRow = (await resolveRefWithTable(save, ref, playerArrAttribs))?.rec;
       if (!arrRow) continue;
 
       for (const week of playedWeeks) {
         let slotRef;
         try { slotRef = arrRow[`GameStats${week}`]; } catch (err) { continue; }
-        const resolved = await resolveRefWithTable(save, slotRef);
+        const resolved = await resolveRefWithTable(save, slotRef, playerStatsAttribs);
         if (!resolved) continue;
 
         const tableName = resolved.table.name;
@@ -2210,10 +2245,25 @@ async function extractFullSave(filePath, opts = {}) {
   const save = await openSave(filePath);
 
   const playerTable = findPlayerTable(save, null);
-  await playerTable.readRecords();
+  // Field names are resolvable off table.schema.attributes alone (attached
+  // during the file's initial parse(), independent of any table's own
+  // readRecords()) — computed BEFORE reading records so the read below can
+  // ask for exactly these fields instead of decoding all ~288 raw fields
+  // the game stores per player. Every consumer of this table (below, plus
+  // buildRecruitingBoard/buildGameStats/buildDepthCharts, which all share
+  // this same table object via resolveRef's tableId lookup — see
+  // resolveRef's header comment) only ever reads this picker's fields plus
+  // the rating columns, so restricting to exactly that set here is safe:
+  // resolveRef only re-reads a table it finds with zero records already
+  // loaded, so it won't widen this back out once it's been read.
   const playerFieldPicker = buildPlayerFieldPicker(playerTable);
   const playerFieldNames = new Set(playerTable.schema.attributes.map((f) => f.name));
   const presentRatings = schema.RATING_FIELDS.filter((r) => playerFieldNames.has(r));
+  const playerAttribsToLoad = [...new Set([
+    ...Object.values(playerFieldPicker).filter(Boolean),
+    ...presentRatings,
+  ])];
+  await playerTable.readRecords(playerAttribsToLoad);
 
   // Confirmed sharded across multiple simultaneously-populated instances,
   // same shape as PlayerAward/Recruit/SeasonGame/Coach — getBestTable's
