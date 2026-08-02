@@ -154,10 +154,16 @@ function AttributesCell({ attrKeys, attrs, onChange }) {
 
 // Batch-edit every currently-visible recruit (real Targets AND actual
 // recruitingDatabasePlayers entries — the same combined set the Database
-// table shows) in one big scrollable grid, all rows/columns visible at once
-// (no pagination — you scroll, you never page). The Name column is sticky
-// (stays pinned to the left edge while scrolling right) so you always know
-// whose row you're on, even out at the Attributes columns on the far right.
+// table shows) in one big scrollable grid. Paginated (BATCH_PAGE_SIZE rows
+// at a time, see below) — a long-running dynasty's recruit list can run
+// into the thousands, and every row here is several LIVE input/select
+// controls, so unbounded rendering got sluggish faster than the read-only
+// Database table does. The Name column is sticky (stays pinned to the left
+// edge while scrolling right) so you always know whose row you're on, even
+// out at the Attributes columns on the far right. Pagination only bounds
+// what's rendered — the full `rows` edit state (every field, every deleted
+// flag) is tracked regardless of page, so paging away and back, or saving,
+// never loses an edit made on another page.
 //
 // Delete works for every row, but means two different things depending on
 // where the recruit lives: a recruitingDatabasePlayers entry is deleted
@@ -182,6 +188,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
   const [rows, setRows] = useState([])
   const [search, setSearch] = useState('')
   const [saving, setSaving] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const seededRef = useRef(false)
 
   // Re-seed from the live player list every time the modal is (re)opened —
@@ -199,6 +206,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
         return { pid: p.pid, original: p, attrKeys, form: recruitToForm(p, attrKeys), recentRank: p.recentRank ?? '', deleted: false }
       }))
       setSearch('')
+      setCurrentPage(1)
     }
     if (!isOpen) seededRef.current = false
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -227,6 +235,26 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
     if (!q) return rows
     return rows.filter(r => r.form.name.toLowerCase().includes(q) || r.form.rawPosition.toLowerCase().includes(q))
   }, [rows, search])
+
+  // Same rationale as the read-only Database table's pagination: a
+  // long-running dynasty's recruit list can run into the thousands, and
+  // every row here is several LIVE <input>/<select> controls (much heavier
+  // than a read-only <tr>), so unbounded rendering gets sluggish faster
+  // than the plain table does. Smaller page size than the read-only
+  // table's for that reason. Pagination only bounds what's RENDERED —
+  // `rows` (the full edit state: every field, every deleted flag) is
+  // untouched, so paging away and back never loses an in-progress edit.
+  const BATCH_PAGE_SIZE = 25
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / BATCH_PAGE_SIZE))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const pagedRows = visibleRows.slice((safeCurrentPage - 1) * BATCH_PAGE_SIZE, safeCurrentPage * BATCH_PAGE_SIZE)
+
+  // A new search term should always start back at the top of the (new)
+  // result set rather than stranding the user on whatever page number
+  // they were on for the previous filter.
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search])
 
   const pendingDeleteCount = rows.filter(r => r.deleted).length
   const changedCount = rows.filter(r => !r.deleted && formsDiffer(r.form, recruitToForm(r.original, r.attrKeys), r.attrKeys)).length
@@ -323,7 +351,7 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.map(r => {
+                {pagedRows.map(r => {
                   const isDbOnly = isFromRecruitingDatabase?.(r.original)
                   return (
                     <tr key={r.pid} className={r.deleted ? 'opacity-40' : undefined}>
@@ -381,6 +409,31 @@ export default function RecruitingDatabaseBatchEditModal({ isOpen, onClose, play
               </tbody>
             </table>
           </div>
+
+          {visibleRows.length > BATCH_PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-3 flex-shrink-0 text-xs text-txt-tertiary">
+              <span>
+                Rows {(safeCurrentPage - 1) * BATCH_PAGE_SIZE + 1}–{Math.min(safeCurrentPage * BATCH_PAGE_SIZE, visibleRows.length)} of {visibleRows.length}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setCurrentPage(pg => Math.max(1, pg - 1))}
+                  disabled={safeCurrentPage <= 1}
+                  className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border border-surface-4 text-txt-secondary hover:bg-surface-3 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                >
+                  Prev
+                </button>
+                <span className="px-2 tabular-nums">Page {safeCurrentPage} of {totalPages}</span>
+                <button
+                  onClick={() => setCurrentPage(pg => Math.min(totalPages, pg + 1))}
+                  disabled={safeCurrentPage >= totalPages}
+                  className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border border-surface-4 text-txt-secondary hover:bg-surface-3 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between gap-3 pt-1 flex-shrink-0">
             <span className="text-xs text-txt-tertiary">

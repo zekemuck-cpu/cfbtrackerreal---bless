@@ -1214,6 +1214,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [editingDevFor, setEditingDevFor] = useState(null);
   const [sortConfig, setSortConfig] = useState({ key: 'recency', dir: 'desc' });
+  const [currentPage, setCurrentPage] = useState(1);
   const [scoutImg, setScoutImg] = useState('');
   const [scoutName, setScoutName] = useState('National Scout');
 
@@ -1674,6 +1675,31 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
     return 0;
   });
 
+  // A long-running dynasty's Recruiting Database can run into the
+  // thousands of recruits (the write path was already hardened for
+  // ~10k — see saveRecruitingDatabaseSubcollection's diff-based batching).
+  // Rendering every row as a real <tr> got slow/laggy at that scale since
+  // nothing bounded the DOM node count. Paginate the render instead of
+  // virtualizing: filters/search/sort all stay exactly as they were
+  // (instant, over the full in-memory array) — only the table body is
+  // sliced to one page's worth of rows.
+  const PAGE_SIZE = 50;
+  const totalPages = Math.max(1, Math.ceil(sortedPlayers.length / PAGE_SIZE));
+  // Clamp rather than reset to 1 on every render — a filter/sort change
+  // that shrinks the list past the current page number should snap back,
+  // but changes that don't affect page count (e.g. toggling sort direction
+  // with the same result count) shouldn't jump the user back to page 1.
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const pagedPlayers = sortedPlayers.slice((safeCurrentPage - 1) * PAGE_SIZE, safeCurrentPage * PAGE_SIZE);
+
+  // Reset to page 1 whenever the filtered/sorted SET changes shape — a new
+  // search term or position filter should always start the user back at
+  // the top of the (new) result set, not strand them on whatever page
+  // number they were on for the previous filter.
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterPos, sortConfig.key, sortConfig.dir]);
+
   const SortTh = ({ sortKey, children, className = '' }) => {
     const active = sortConfig.key === sortKey;
     return (
@@ -1856,7 +1882,7 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
                   </td>
                 </tr>
               ) : (
-                sortedPlayers.map((pl, i) => {
+                pagedPlayers.map((pl, i) => {
                   const score = computeScore(pl, weightsMap, pool);
                   const tier  = getGradeTier(score);
                   const scouted = hasScoutedAttributes(pl);
@@ -1987,6 +2013,31 @@ export default function PlayerDatabase({ players, roleContext, teamColors, teamL
           </table>
         </div>
       </div>
+
+      {filteredPlayers.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-3 px-1 text-xs text-txt-tertiary">
+          <span>
+            Showing {(safeCurrentPage - 1) * PAGE_SIZE + 1}–{Math.min(safeCurrentPage * PAGE_SIZE, filteredPlayers.length)} of {filteredPlayers.length}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(pg => Math.max(1, pg - 1))}
+              disabled={safeCurrentPage <= 1}
+              className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border border-surface-4 text-txt-secondary hover:bg-surface-3 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            >
+              Prev
+            </button>
+            <span className="px-2 tabular-nums">Page {safeCurrentPage} of {totalPages}</span>
+            <button
+              onClick={() => setCurrentPage(pg => Math.min(totalPages, pg + 1))}
+              disabled={safeCurrentPage >= totalPages}
+              className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border border-surface-4 text-txt-secondary hover:bg-surface-3 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
