@@ -28,6 +28,7 @@ import {
   rehydrateSeasonalShapes,
   PER_YEAR_FIELDS,
   PER_TEAM_YEAR_FIELDS,
+  foldTeamsByYearFieldsFromFlat,
 } from './seasonSubcollection'
 
 const DYNASTIES_COLLECTION = 'dynasties'
@@ -2020,7 +2021,13 @@ function assemblePublicDynasty(mainDoc, { players, games, weekRecaps, seasonalRe
       ? (recruitingDatabase || [])
       : ((recruitingDatabase && recruitingDatabase.length > 0) ? recruitingDatabase : (mainDoc.recruitingDatabasePlayers || []))
 
-    return {
+    // Fold rankByWeek/division/schoolGrades/recruitingClassConferenceRank/
+    // recruitingClassStats back into teams[tid].byYear[year] — same as the
+    // owner-side load path (DynastyContext.jsx's applyMigrations) — so
+    // public/shared views read correct rank data for a migrated dynasty
+    // instead of missing it (these fields were stripped off the main-doc
+    // `teams` map by updateDynasty and only live in `mergedSeasonal` now).
+    return foldTeamsByYearFieldsFromFlat({
       ...mainDoc,
       ...mergedSeasonal,
       players: playersOut,
@@ -2029,7 +2036,7 @@ function assemblePublicDynasty(mainDoc, { players, games, weekRecaps, seasonalRe
       socialFeedByYear: socialFeedData || {},
       socialCharacters: socialCharData || {},
       recruitingDatabasePlayers: recruitingDbOut,
-    }
+    })
   }
 }
 

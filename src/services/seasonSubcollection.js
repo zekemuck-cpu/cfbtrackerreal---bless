@@ -110,6 +110,20 @@ export const PER_TEAM_YEAR_FIELDS = [
   'teamRecordsByTeamYear',
   'trainingResultsByTeamYear',
   'transferDestinationsByTeamYear',
+  // The following five mirror data that previously ONLY lived nested inside
+  // dynasty.teams[tid].byYear[year] on the main doc (no flat ByTeamYear
+  // twin existed pre-migration, unlike everything else in this list). Of
+  // those nested fields, rankByWeek is the dominant contributor to the
+  // main doc's unbounded growth — every team's full week-by-week rank
+  // history, forever, times ~136 teams. See DynastyContext.jsx's
+  // updateDynasty (the `TEAMS_BYYEAR_TO_SEASONAL_FIELD` extraction) and
+  // `foldTeamsByYearFieldsFromFlat` for the write/read routing that keeps
+  // dynasty.teams[tid].byYear[year].X reading exactly as it always has.
+  'rankByWeekByTeamYear',
+  'divisionByTeamYear',
+  'schoolGradesByTeamYear',
+  'recruitingClassConferenceRankByTeamYear',
+  'recruitingClassStatsByTeamYear',
 ]
 
 // Map of legacy-main-doc-field-name → season-doc-field-name. The
@@ -127,6 +141,88 @@ const ALL_SEASONAL_FIELDS = new Set([...PER_YEAR_FIELDS, ...PER_TEAM_YEAR_FIELDS
 /** Fast `is this field season-scoped?` test for the updateDynasty router. */
 export function isSeasonalField(fieldName) {
   return ALL_SEASONAL_FIELDS.has(fieldName)
+}
+
+// teams[tid].byYear[year] sub-fields that are ALSO fully covered by a flat
+// *ByTeamYear field — either because they never had one until this migration
+// (rankByWeek/division/schoolGrades/recruitingClassConferenceRank/
+// recruitingClassStats — rankByWeek is the dominant one: every team's full
+// week-by-week rank history, forever, times ~136 teams, the actual driver
+// behind `teams` showing up as one of DangerZone's biggest-field offenders),
+// or because they've long been dual-written to both places (schedule,
+// teamRatings, coachingStaff, etc. — every save* flow already updates both
+// the inline copy and the flat twin, so the inline copy is pure redundant
+// weight on the main doc).
+//
+// `conference` and `record`/`teamRecord` are DELIBERATELY excluded even
+// though they're dual-written too — existing comments elsewhere in the
+// codebase (DynastyContext.jsx) document `teams[tid].byYear[year].conference`
+// as the canonical source with the flat `conferenceByTeamYear` as a
+// secondary fallback (the reverse of every other field here), and
+// `record`/`teamRecord` are written by two different functions under two
+// different key names into the same flat store — both signal messier,
+// less-verified history than the rest of this list. Not worth the risk for
+// two fields that are cheap (a conference string, a W-L record) relative to
+// rankByWeek's actual size impact. Revisit only after independently
+// auditing every read site for those two.
+export const TEAMS_BYYEAR_FLAT_FIELDS = {
+  rankByWeekByTeamYear: 'rankByWeek',
+  divisionByTeamYear: 'division',
+  schoolGradesByTeamYear: 'schoolGrades',
+  recruitingClassConferenceRankByTeamYear: 'recruitingClassConferenceRank',
+  recruitingClassStatsByTeamYear: 'recruitingClassStats',
+  schedulesByTeamYear: 'schedule',
+  teamRatingsByTeamYear: 'teamRatings',
+  coachingStaffByTeamYear: 'coachingStaff',
+  preseasonSetupByTeamYear: 'preseasonSetup',
+  recruitingCommitmentsByTeamYear: 'recruitingCommitments',
+  recruitingClassRankByTeamYear: 'recruitingClassRank',
+  playersLeavingByTeamYear: 'playersLeaving',
+  draftResultsByTeamYear: 'draftResults',
+  transferDestinationsByTeamYear: 'transferDestinations',
+  portalTransferClassByTeamYear: 'portalTransferClass',
+  fringeCaseClassByTeamYear: 'fringeCaseClass',
+  trainingResultsByTeamYear: 'trainingResults',
+  conferenceChampionshipDataByTeamYear: 'conferenceChampionshipData',
+  bowlEligibilityDataByTeamYear: 'bowlEligibilityData',
+  encourageTransfersByTeamYear: 'encourageTransfers',
+  recruitsByTeamYear: 'recruits',
+}
+
+/**
+ * Reconstruct dynasty.teams[tid].byYear[year].{rankByWeek,division,...}
+ * from the flat *ByTeamYear fields rehydrated onto the dynasty object (see
+ * rehydrateSeasonalShapes) — so every existing read site (rankByWeek alone
+ * has 30+ direct call sites across the app) keeps working unchanged even
+ * though updateDynasty now strips these fields off the main-doc `teams` map
+ * before persisting it. Pure; returns the same object if nothing needed
+ * folding (a dynasty that's never gone through the new write path, or a
+ * local/non-cloud dynasty that never gets these flat fields at all).
+ *
+ * Object keys are always strings in a plain JS object regardless of
+ * whether they were assigned as a number or a string, so `teams[tidKey]` /
+ * `byYear[yearKey]` match correctly here with no explicit coercion needed.
+ */
+export function foldTeamsByYearFieldsFromFlat(dynasty) {
+  if (!dynasty || !dynasty.teams || typeof dynasty.teams !== 'object') return dynasty
+  let teams = dynasty.teams
+  let touched = false
+  for (const [flatField, subField] of Object.entries(TEAMS_BYYEAR_FLAT_FIELDS)) {
+    const flatData = dynasty[flatField]
+    if (!flatData || typeof flatData !== 'object') continue
+    for (const [tidKey, yearMap] of Object.entries(flatData)) {
+      if (!yearMap || typeof yearMap !== 'object' || !teams[tidKey]) continue
+      for (const [yearKey, value] of Object.entries(yearMap)) {
+        if (value === undefined) continue
+        if (!touched) { teams = { ...teams }; touched = true }
+        const team = teams[tidKey]
+        const byYear = team.byYear || {}
+        const yearData = byYear[yearKey] || {}
+        teams[tidKey] = { ...team, byYear: { ...byYear, [yearKey]: { ...yearData, [subField]: value } } }
+      }
+    }
+  }
+  return touched ? { ...dynasty, teams } : dynasty
 }
 
 /**
@@ -484,6 +580,151 @@ export async function migrateSeasonalFieldsToSubcollection(dynastyId, mainDocSou
 
   return { migrated, cleared: fieldsToClear }
 }
+
+/**
+ * One-shot cleanup for dynasties whose main-doc `teams` map still carries
+ * the legacy inline copies of fields listed in TEAMS_BYYEAR_FLAT_FIELDS
+ * (schedule, teamRatings, coachingStaff, rankByWeek, etc.) — every one of
+ * which is either already dual-written to a flat *ByTeamYear field, or (for
+ * the handful with no prior flat twin) gets backfilled here for the first
+ * time. Idempotent; safe to call repeatedly — a dynasty with nothing left
+ * to clean up is a fast no-op.
+ *
+ * Same 3-phase paranoid pattern as migrateSeasonalFieldsToSubcollection:
+ * read fresh from server, write+verify any missing (tid, year, field)
+ * cells, THEN — only after read-back confirms the subcollection has every
+ * cell — deleteField() the inline copies from the main doc. A dynasty
+ * where the flat store already has everything (the common case, since
+ * these fields have been dual-written for a while) skips straight to the
+ * clear step with no write at all.
+ *
+ * Unlike the flat ByYear/ByTeamYear migration above, this walks a NESTED
+ * shape (teams[tid].byYear[year].field) rather than a top-level field, so
+ * the clear step uses per-cell dot-notation paths (teams.{tid}.byYear.
+ * {year}.{field}) instead of whole-field deleteField() — clearing exactly
+ * the sub-keys that moved, leaving every other byYear field (and the
+ * team's meta fields — abbr, statRecords, userId, etc.) untouched.
+ */
+export async function migrateTeamsByYearDuplicatesToSubcollection(dynastyId, mainDocSourceArg) {
+  const mainDocRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+
+  // Phase 1: fresh read from server (falls back to the passed-in snapshot
+  // if the read fails — better to migrate from stale-but-real data than
+  // not migrate at all, same rationale as the seasonal migration above).
+  let mainDocSource = mainDocSourceArg
+  try {
+    const snap = await getDocFromServer(mainDocRef)
+    if (snap.exists()) mainDocSource = snap.data() || mainDocSourceArg
+  } catch (err) {
+    console.warn('[teams migration] could not read main doc from server, falling back to in-memory snapshot:', err?.code || err?.message)
+  }
+  const teams = mainDocSource?.teams
+  if (!teams || typeof teams !== 'object') return { migrated: [], cleared: [] }
+
+  // Walk every team/year/field cell, building both the candidate backfill
+  // patch (seasonalCollect, same shape splitSeasonalUpdateByYear expects)
+  // and the full list of cells eligible for clearing regardless of
+  // whether they end up needing a write.
+  const seasonalCollect = {}
+  const allCells = []
+  for (const [tidKey, team] of Object.entries(teams)) {
+    const byYear = team?.byYear
+    if (!byYear || typeof byYear !== 'object') continue
+    for (const [yearKey, yearData] of Object.entries(byYear)) {
+      if (!yearData || typeof yearData !== 'object') continue
+      for (const [subField, seasonalField] of Object.entries(TEAMS_BYYEAR_FLAT_FIELDS_INVERSE)) {
+        if (!(subField in yearData)) continue
+        const value = yearData[subField]
+        if (value === undefined || value === null) continue
+        if (!seasonalCollect[seasonalField]) seasonalCollect[seasonalField] = {}
+        if (!seasonalCollect[seasonalField][tidKey]) seasonalCollect[seasonalField][tidKey] = {}
+        seasonalCollect[seasonalField][tidKey][yearKey] = value
+        allCells.push({ tidKey, yearKey, subField })
+      }
+    }
+  }
+  if (allCells.length === 0) return { migrated: [], cleared: [] }
+
+  const byYear = splitSeasonalUpdateByYear(seasonalCollect)
+
+  // SUBCOLLECTION-WINS GUARD, at (year, seasonField, tidKey) granularity —
+  // drop any cell the subcollection already has a value for, so this can
+  // never regress fresher subcollection data with a stale main-doc
+  // duplicate. What's left after filtering is exactly the backfill this
+  // dynasty still needs. If we can't read existing state, bail the whole
+  // migration (nothing written, nothing cleared) rather than risk it.
+  try {
+    const seasonsRef = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION)
+    const snap = await getDocsFromServer(seasonsRef)
+    const existingByYear = {}
+    for (const d of snap.docs) existingByYear[d.id] = d.data() || {}
+    for (const yearKey of Object.keys(byYear)) {
+      const existing = existingByYear[yearKey] || {}
+      for (const seasonField of Object.keys(byYear[yearKey])) {
+        const teamMap = byYear[yearKey][seasonField]
+        const existingTeamMap = existing[seasonField] || {}
+        for (const tidKey of Object.keys(teamMap)) {
+          const ev = existingTeamMap[tidKey]
+          const hasExisting = ev !== undefined && ev !== null
+            && !(typeof ev === 'object' && !Array.isArray(ev) && Object.keys(ev).length === 0)
+            && !(Array.isArray(ev) && ev.length === 0)
+          if (hasExisting) delete teamMap[tidKey]
+        }
+        if (Object.keys(teamMap).length === 0) delete byYear[yearKey][seasonField]
+      }
+      if (Object.keys(byYear[yearKey]).length === 0) delete byYear[yearKey]
+    }
+  } catch (err) {
+    console.warn('[teams migration] could not read existing seasons subcollection — aborting to prevent data loss:', err?.code || err?.message)
+    return { migrated: [], cleared: [] }
+  }
+
+  // Write + verify the backfill (only the cells the subcollection was
+  // actually missing — usually none, since these fields are dual-written).
+  if (Object.keys(byYear).length > 0) {
+    const migrated = await writeSeasonalUpdate(dynastyId, byYear)
+    try {
+      await waitForPendingWrites(db)
+    } catch (err) {
+      console.warn('[teams migration] waitForPendingWrites failed; aborting clear step:', err?.code || err?.message)
+      return { migrated, cleared: [] }
+    }
+    const verifyOk = await verifySeasonalWrites(dynastyId, byYear, migrated)
+    if (!verifyOk) {
+      console.warn(`[teams migration] read-back verification failed for ${dynastyId}; teams NOT cleared, will retry on next load`)
+      return { migrated, cleared: [] }
+    }
+  }
+
+  // Phase 3: every cell in allCells is now confirmed present in the
+  // subcollection (either it already was, or we just backfilled + verified
+  // it) — safe to clear every one from the main-doc `teams` map via
+  // per-cell dot-notation deleteField(), leaving sibling byYear fields and
+  // team meta untouched. Chunked: Firestore bounds field paths per write,
+  // and a decades-long dynasty × ~136 teams × 16 fields can run into the
+  // thousands of paths.
+  const clearPatch = {}
+  for (const { tidKey, yearKey, subField } of allCells) {
+    clearPatch[`teams.${tidKey}.byYear.${yearKey}.${subField}`] = deleteField()
+  }
+  const patchKeys = Object.keys(clearPatch)
+  const CLEAR_CHUNK_SIZE = 400
+  for (let i = 0; i < patchKeys.length; i += CLEAR_CHUNK_SIZE) {
+    const chunkKeys = patchKeys.slice(i, i + CLEAR_CHUNK_SIZE)
+    const chunk = {}
+    for (const k of chunkKeys) chunk[k] = clearPatch[k]
+    if (i + CLEAR_CHUNK_SIZE >= patchKeys.length) {
+      chunk._teamsByYearDuplicatesMigratedAt = new Date().toISOString()
+    }
+    await updateDoc(mainDocRef, chunk)
+  }
+
+  return { migrated: Object.keys(byYear), cleared: allCells.length }
+}
+
+const TEAMS_BYYEAR_FLAT_FIELDS_INVERSE = Object.fromEntries(
+  Object.entries(TEAMS_BYYEAR_FLAT_FIELDS).map(([seasonalField, subField]) => [subField, seasonalField])
+)
 
 /**
  * Read-back verification: confirm that the last year we wrote

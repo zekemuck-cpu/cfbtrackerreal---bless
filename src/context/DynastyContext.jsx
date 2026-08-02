@@ -52,7 +52,10 @@ import {
   splitSeasonalUpdateByYear,
   writeSeasonalUpdate,
   diffSeasonalDeletions,
-  migrateSeasonalFieldsToSubcollection
+  migrateSeasonalFieldsToSubcollection,
+  migrateTeamsByYearDuplicatesToSubcollection,
+  TEAMS_BYYEAR_FLAT_FIELDS,
+  foldTeamsByYearFieldsFromFlat
 } from '../services/seasonSubcollection'
 
 // Sets the listener uses to rehydrate seasonal fields from per-season
@@ -6796,7 +6799,7 @@ export function DynastyProvider({ children }) {
   // and the user starts seeing resource-exhausted errors in console.
   // Once per session per dynasty is the right cadence — a permanent failure
   // requires a code fix anyway.
-  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set() })
+  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set(), teamsByYearDuplicates: new Set() })
   // Mirror of currentDynasty?.id readable from the dynasties listener
   // closure without forcing the listener to re-subscribe every time the
   // user opens a different dynasty. Keeping this listener stable across
@@ -7004,11 +7007,11 @@ export function DynastyProvider({ children }) {
       const onFreshSeasons = (fresh) => {
         if (skipListenerUpdatesCountRef.current > 0) return
         setDynasties(prev => prev.map(d =>
-          String(d.id) === String(dynastyId) ? { ...d, ...fresh } : d
+          String(d.id) === String(dynastyId) ? foldTeamsByYearFieldsFromFlat({ ...d, ...fresh }) : d
         ))
         setCurrentDynasty(prev => {
           if (!prev || String(prev.id) !== String(dynastyId)) return prev
-          return { ...prev, ...fresh }
+          return foldTeamsByYearFieldsFromFlat({ ...prev, ...fresh })
         })
       }
       const onFreshRecruitingDatabase = (fresh) => {
@@ -7119,6 +7122,31 @@ export function DynastyProvider({ children }) {
           .catch(err => {
             console.warn(`[season migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
           })
+      }
+
+      // Same idea, for the legacy teams[tid].byYear[year] duplicate fields
+      // (schedule, teamRatings, rankByWeek, etc. — see TEAMS_BYYEAR_FLAT_FIELDS).
+      // Cheap in-memory scan first so a dynasty with nothing to clean up
+      // never pays for the migration's server read.
+      if (!migrationsAttemptedRef.current.teamsByYearDuplicates.has(dynastyId)) {
+        const teamsByYearSubFields = Object.values(TEAMS_BYYEAR_FLAT_FIELDS)
+        const hasTeamsByYearDuplicates = Object.values(dynasty.teams || {}).some(team => {
+          const byYear = team?.byYear
+          if (!byYear) return false
+          return Object.values(byYear).some(yearData =>
+            yearData && teamsByYearSubFields.some(f => f in yearData)
+          )
+        })
+        if (hasTeamsByYearDuplicates) {
+          migrationsAttemptedRef.current.teamsByYearDuplicates.add(dynastyId)
+          migrateTeamsByYearDuplicatesToSubcollection(dynastyId, dynasty)
+            .then(({ migrated, cleared }) => {
+              console.log(`[teams migration] ${dynastyId}: wrote ${Array.isArray(migrated) ? migrated.length : 0} season patch(es), cleared ${cleared || 0} cell(s)`)
+            })
+            .catch(err => {
+              console.warn(`[teams migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+            })
+        }
       }
 
       // Recruiting Database: same fall-back-to-legacy + fire-and-forget
@@ -7797,6 +7825,16 @@ export function DynastyProvider({ children }) {
         }
       }
 
+      // Reconstruct dynasty.teams[tid].byYear[year].{rankByWeek,division,
+      // schoolGrades,recruitingClassConferenceRank,recruitingClassStats}
+      // from the flat *ByTeamYear seasons-subcollection fields, so every
+      // existing read site (30+ call sites read rankByWeek alone) keeps
+      // working unchanged even though updateDynasty now strips these
+      // fields off the main-doc `teams` map before it's written. No-op
+      // for a dynasty whose main doc still carries the legacy inline
+      // data and has never gone through the new write path.
+      migrated = foldTeamsByYearFieldsFromFlat(migrated)
+
       return migrated
     })
   }
@@ -7851,6 +7889,7 @@ export function DynastyProvider({ children }) {
     migrationsAttemptedRef.current.recaps.clear()
     migrationsAttemptedRef.current.seasonal.clear()
     migrationsAttemptedRef.current.recruitingDatabase.clear()
+    migrationsAttemptedRef.current.teamsByYearDuplicates.clear()
 
     // If user is not signed in (or running under the dev-auth bypass,
     // which has no real Firestore access), skip cloud sync and load
@@ -8051,11 +8090,11 @@ export function DynastyProvider({ children }) {
             const onFreshSeasons = (fresh) => {
               if (skipListenerUpdatesCountRef.current > 0) return
               setDynasties(prev => prev.map(d =>
-                String(d.id) === String(dynId) ? { ...d, ...fresh } : d
+                String(d.id) === String(dynId) ? foldTeamsByYearFieldsFromFlat({ ...d, ...fresh }) : d
               ))
               setCurrentDynasty(prev => {
                 if (!prev || String(prev.id) !== String(dynId)) return prev
-                return { ...prev, ...fresh }
+                return foldTeamsByYearFieldsFromFlat({ ...prev, ...fresh })
               })
             }
             const onFreshRecruitingDatabase = (fresh) => {
@@ -8188,6 +8227,30 @@ export function DynastyProvider({ children }) {
                 .catch(err => {
                   console.warn(`[season migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
                 })
+            }
+
+            // Same idea, for the legacy teams[tid].byYear[year] duplicate
+            // fields — see the matching comment in loadDynastyData's copy
+            // of this check.
+            if (!migrationsAttemptedRef.current.teamsByYearDuplicates.has(dynasty.id)) {
+              const teamsByYearSubFields = Object.values(TEAMS_BYYEAR_FLAT_FIELDS)
+              const hasTeamsByYearDuplicates = Object.values(dynasty.teams || {}).some(team => {
+                const byYear = team?.byYear
+                if (!byYear) return false
+                return Object.values(byYear).some(yearData =>
+                  yearData && teamsByYearSubFields.some(f => f in yearData)
+                )
+              })
+              if (hasTeamsByYearDuplicates) {
+                migrationsAttemptedRef.current.teamsByYearDuplicates.add(dynasty.id)
+                migrateTeamsByYearDuplicatesToSubcollection(dynasty.id, dynasty)
+                  .then(({ migrated, cleared }) => {
+                    console.log(`[teams migration] ${dynasty.id}: wrote ${Array.isArray(migrated) ? migrated.length : 0} season patch(es), cleared ${cleared || 0} cell(s)`)
+                  })
+                  .catch(err => {
+                    console.warn(`[teams migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+                  })
+              }
             }
 
             // Recruiting Database: same fall-back-to-legacy + fire-and-
@@ -10237,6 +10300,104 @@ export function DynastyProvider({ children }) {
         }
         target[parts[parts.length - 1]] = value
       }
+
+      // Extract every teams[tid].byYear[year].{field} sub-field listed in
+      // TEAMS_BYYEAR_FLAT_FIELDS into the matching flat *ByTeamYear seasons-
+      // subcollection field, so the main-doc `teams` map stops re-
+      // accumulating data that's ALSO stored there (or, for
+      // rankByWeek/division/schoolGrades/recruitingClass*, that has no
+      // other home at all — rankByWeek is the dominant one: every team's
+      // full week-by-week rank history, forever, times ~136 teams — see the
+      // DangerZone size guard's "biggest fields" report for why `teams`
+      // keeps showing up). `conference`/`record`/`teamRecord` are
+      // deliberately NOT in that map — see its definition for why.
+      //
+      // Two write shapes to handle:
+      //   - full-object: mainDocUpdates.teams = { [tid]: { byYear: { [year]: {...} } } }
+      //   - dot-notation: mainDocUpdates['teams.42.byYear.2029.rankByWeek.5'] = 12
+      //     (saveRankings writes this shape so concurrent rank edits merge
+      //     instead of last-write-wins clobbering the whole teams map)
+      //
+      // Every level touched is cloned rather than mutated in place —
+      // mainDocUpdates.teams is the SAME object reference as
+      // updatesWithTimestamp.teams (mainDocUpdates above is only a shallow
+      // copy), and updatesWithTimestamp seeds this session's local React
+      // state. Mutating in place would silently blank rankByWeek etc. out
+      // of the UI until the next reload re-hydrates it from the
+      // subcollection (see foldTeamsByYearFieldsFromFlat).
+      const TEAMS_BYYEAR_TO_SEASONAL_FIELD = Object.fromEntries(
+        Object.entries(TEAMS_BYYEAR_FLAT_FIELDS).map(([seasonalField, subField]) => [subField, seasonalField])
+      )
+      const addTeamsByYearToSeasonalCollect = (seasonalField, tidKey, yearKey, value) => {
+        if (!seasonalCollect[seasonalField]) seasonalCollect[seasonalField] = {}
+        if (!seasonalCollect[seasonalField][tidKey]) seasonalCollect[seasonalField][tidKey] = {}
+        seasonalCollect[seasonalField][tidKey][yearKey] = value
+      }
+      if (mainDocUpdates.teams && typeof mainDocUpdates.teams === 'object') {
+        const nextTeams = { ...mainDocUpdates.teams }
+        let teamsTouched = false
+        for (const [tidKey, team] of Object.entries(nextTeams)) {
+          const byYear = team?.byYear
+          if (!byYear || typeof byYear !== 'object') continue
+          let byYearTouched = false
+          const nextByYear = { ...byYear }
+          for (const [yearKey, yearData] of Object.entries(byYear)) {
+            if (!yearData || typeof yearData !== 'object') continue
+            let yearTouched = false
+            const nextYearData = { ...yearData }
+            for (const [subField, seasonalField] of Object.entries(TEAMS_BYYEAR_TO_SEASONAL_FIELD)) {
+              if (!(subField in nextYearData)) continue
+              addTeamsByYearToSeasonalCollect(seasonalField, tidKey, yearKey, nextYearData[subField])
+              delete nextYearData[subField]
+              yearTouched = true
+            }
+            if (yearTouched) {
+              nextByYear[yearKey] = nextYearData
+              byYearTouched = true
+            }
+          }
+          if (byYearTouched) {
+            nextTeams[tidKey] = { ...team, byYear: nextByYear }
+            teamsTouched = true
+          }
+        }
+        if (teamsTouched) mainDocUpdates.teams = nextTeams
+      }
+      {
+        const dotKeysToDelete = []
+        // Built from TEAMS_BYYEAR_FLAT_FIELDS's subField names so this never
+        // drifts out of sync with which fields actually get routed —
+        // hardcoding the alternation here once already caused a near-miss
+        // when Phase B added 16 more fields to that map.
+        const teamsByYearSubFieldNames = Object.values(TEAMS_BYYEAR_FLAT_FIELDS)
+        const teamsByYearDotRe = new RegExp(
+          `^teams\\.([^.]+)\\.byYear\\.([^.]+)\\.(${teamsByYearSubFieldNames.join('|')})(?:\\.(.+))?$`
+        )
+        for (const key of Object.keys(mainDocUpdates)) {
+          const m = key.match(teamsByYearDotRe)
+          if (!m) continue
+          const [, tidKey, yearKey, subField, restPath] = m
+          const seasonalField = TEAMS_BYYEAR_TO_SEASONAL_FIELD[subField]
+          const value = mainDocUpdates[key]
+          if (restPath) {
+            // Partial update (e.g. saveRankings' `...rankByWeek.5`) — merge
+            // the single leaf into whatever's already queued for this
+            // (tid, year) rather than clobbering the rest of the map. The
+            // season doc's own setDoc({merge:true}) then merges this into
+            // any existing server-side data for OTHER weeks/keys.
+            if (!seasonalCollect[seasonalField]) seasonalCollect[seasonalField] = {}
+            if (!seasonalCollect[seasonalField][tidKey]) seasonalCollect[seasonalField][tidKey] = {}
+            const existing = seasonalCollect[seasonalField][tidKey][yearKey]
+            seasonalCollect[seasonalField][tidKey][yearKey] =
+              (existing && typeof existing === 'object') ? { ...existing, [restPath]: value } : { [restPath]: value }
+          } else {
+            addTeamsByYearToSeasonalCollect(seasonalField, tidKey, yearKey, value)
+          }
+          dotKeysToDelete.push(key)
+        }
+        for (const key of dotKeysToDelete) delete mainDocUpdates[key]
+      }
+
       if (Object.keys(seasonalCollect).length > 0) {
         const byYear = splitSeasonalUpdateByYear(seasonalCollect)
         // For fields the caller is REPLACING (not just adding to), inject
