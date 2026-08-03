@@ -225,6 +225,63 @@ export function foldTeamsByYearFieldsFromFlat(dynasty) {
   return touched ? { ...dynasty, teams } : dynasty
 }
 
+const TEAMS_BYYEAR_SUBFIELD_TO_SEASONAL = Object.fromEntries(
+  Object.entries(TEAMS_BYYEAR_FLAT_FIELDS).map(([seasonalField, subField]) => [subField, seasonalField])
+)
+
+/**
+ * Inverse of foldTeamsByYearFieldsFromFlat: strip every teams[tid].byYear
+ * [year].{subField} listed in TEAMS_BYYEAR_FLAT_FIELDS OUT of a teams
+ * object, returning both the stripped copy and the extracted values in
+ * the {seasonalField: {tid: {year: value}}} shape splitSeasonalUpdateByYear
+ * expects.
+ *
+ * This is what `teams` actually looks like once it's routed to the seasons
+ * subcollection and persisted — as opposed to the full in-memory shape
+ * foldTeamsByYearFieldsFromFlat reconstructs for every existing reader's
+ * convenience. Two callers need exactly this "post-routing" view and must
+ * never diverge on what it means: updateDynasty's write-router (actually
+ * does the routing) and the main-doc byte-size guard (has to know what
+ * will ACTUALLY land on the main doc, not the folded-back reconstruction —
+ * measuring the reconstruction instead double-counts data that's headed to
+ * the subcollection anyway and was exactly the bug that made the size
+ * guard keep rejecting saves the real write would have survived).
+ */
+export function stripTeamsByYearFlatFields(teams) {
+  const extracted = {}
+  if (!teams || typeof teams !== 'object') return { strippedTeams: teams, extracted }
+  let stripped = teams
+  let teamsTouched = false
+  for (const [tidKey, team] of Object.entries(teams)) {
+    const byYear = team?.byYear
+    if (!byYear || typeof byYear !== 'object') continue
+    let byYearTouched = false
+    let nextByYear = byYear
+    for (const [yearKey, yearData] of Object.entries(byYear)) {
+      if (!yearData || typeof yearData !== 'object') continue
+      let yearTouched = false
+      const nextYearData = { ...yearData }
+      for (const [subField, seasonalField] of Object.entries(TEAMS_BYYEAR_SUBFIELD_TO_SEASONAL)) {
+        if (!(subField in nextYearData)) continue
+        if (!extracted[seasonalField]) extracted[seasonalField] = {}
+        if (!extracted[seasonalField][tidKey]) extracted[seasonalField][tidKey] = {}
+        extracted[seasonalField][tidKey][yearKey] = nextYearData[subField]
+        delete nextYearData[subField]
+        yearTouched = true
+      }
+      if (yearTouched) {
+        if (!byYearTouched) { nextByYear = { ...byYear }; byYearTouched = true }
+        nextByYear[yearKey] = nextYearData
+      }
+    }
+    if (byYearTouched) {
+      if (!teamsTouched) { stripped = { ...teams }; teamsTouched = true }
+      stripped[tidKey] = { ...team, byYear: nextByYear }
+    }
+  }
+  return { strippedTeams: stripped, extracted }
+}
+
 /**
  * Read all season docs and rehydrate the legacy main-doc shapes.
  * Returns an object whose keys are the original ByYear / ByTeamYear
@@ -632,7 +689,7 @@ export async function migrateTeamsByYearDuplicatesToSubcollection(dynastyId, mai
     if (!byYear || typeof byYear !== 'object') continue
     for (const [yearKey, yearData] of Object.entries(byYear)) {
       if (!yearData || typeof yearData !== 'object') continue
-      for (const [subField, seasonalField] of Object.entries(TEAMS_BYYEAR_FLAT_FIELDS_INVERSE)) {
+      for (const [subField, seasonalField] of Object.entries(TEAMS_BYYEAR_SUBFIELD_TO_SEASONAL)) {
         if (!(subField in yearData)) continue
         const value = yearData[subField]
         if (value === undefined || value === null) continue
@@ -721,10 +778,6 @@ export async function migrateTeamsByYearDuplicatesToSubcollection(dynastyId, mai
 
   return { migrated: Object.keys(byYear), cleared: allCells.length }
 }
-
-const TEAMS_BYYEAR_FLAT_FIELDS_INVERSE = Object.fromEntries(
-  Object.entries(TEAMS_BYYEAR_FLAT_FIELDS).map(([seasonalField, subField]) => [subField, seasonalField])
-)
 
 /**
  * Read-back verification: confirm that the last year we wrote

@@ -255,7 +255,19 @@ export function mapPortraitUrl(genericHeadAssetName, portraitId) {
       relPath = `/cfb27-portraits/generic/${key}.webp`
     }
   }
-  return relPath ? `${window.location.origin}${relPath}` : ''
+  if (!relPath) return ''
+  // The ~800MB portrait library is NOT committed to this repo (see
+  // .gitignore) — it's served from a CDN so the repo stays clonable and the
+  // bandwidth is free. VITE_CFB27_PORTRAIT_BASE points at that host (e.g. an
+  // R2/CDN origin, no trailing slash). Falls back to this app's own origin,
+  // which is what a local dev copy of public/cfb27-portraits/ uses. This
+  // used to unconditionally use window.location.origin, which is correct
+  // locally (Vite serves the local copy directly) but 404s in production,
+  // where the portrait pack was never deployed — every player photo fell
+  // back to the team-logo/silhouette placeholder. mapCoachPortraitUrl below
+  // already had this fix; this one just never got it applied.
+  const base = import.meta.env?.VITE_CFB27_PORTRAIT_BASE || window.location.origin
+  return `${String(base).replace(/\/$/, '')}${relPath}`
 }
 
 // Coach counterpart to mapPortraitUrl — same two-branch scheme, same bundled

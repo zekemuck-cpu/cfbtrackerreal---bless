@@ -55,7 +55,8 @@ import {
   migrateSeasonalFieldsToSubcollection,
   migrateTeamsByYearDuplicatesToSubcollection,
   TEAMS_BYYEAR_FLAT_FIELDS,
-  foldTeamsByYearFieldsFromFlat
+  foldTeamsByYearFieldsFromFlat,
+  stripTeamsByYearFlatFields
 } from '../services/seasonSubcollection'
 
 // Sets the listener uses to rehydrate seasonal fields from per-season
@@ -10011,6 +10012,19 @@ export function DynastyProvider({ children }) {
           for (const k of Object.keys(projected)) {
             if (isSeasonalField(k)) delete projected[k]
           }
+          // `dynasty.teams` here is the FOLDED-BACK shape (see
+          // foldTeamsByYearFieldsFromFlat) — every reader's convenience
+          // reconstruction of rankByWeek/schedule/teamRatings/etc. from the
+          // seasons subcollection, not what's actually going to be written
+          // to the main doc. Re-strip it the same way the router below
+          // will, or this projection double-counts data that's headed to
+          // the subcollection and rejects saves the real write would
+          // survive (the exact bug that made `teams` keep showing up as
+          // the "biggest field" even after that data stopped actually
+          // living on the main doc).
+          if (projected.teams) {
+            projected.teams = stripTeamsByYearFlatFields(projected.teams).strippedTeams
+          }
           for (const [k, v] of Object.entries(updatesWithTimestamp)) {
             if (k.includes('.')) continue
             if (OFF_MAIN_DOC.includes(k) || isSeasonalField(k)) continue
@@ -10334,34 +10348,19 @@ export function DynastyProvider({ children }) {
         seasonalCollect[seasonalField][tidKey][yearKey] = value
       }
       if (mainDocUpdates.teams && typeof mainDocUpdates.teams === 'object') {
-        const nextTeams = { ...mainDocUpdates.teams }
-        let teamsTouched = false
-        for (const [tidKey, team] of Object.entries(nextTeams)) {
-          const byYear = team?.byYear
-          if (!byYear || typeof byYear !== 'object') continue
-          let byYearTouched = false
-          const nextByYear = { ...byYear }
-          for (const [yearKey, yearData] of Object.entries(byYear)) {
-            if (!yearData || typeof yearData !== 'object') continue
-            let yearTouched = false
-            const nextYearData = { ...yearData }
-            for (const [subField, seasonalField] of Object.entries(TEAMS_BYYEAR_TO_SEASONAL_FIELD)) {
-              if (!(subField in nextYearData)) continue
-              addTeamsByYearToSeasonalCollect(seasonalField, tidKey, yearKey, nextYearData[subField])
-              delete nextYearData[subField]
-              yearTouched = true
+        // Shared with the main-doc size guard above (stripTeamsByYearFlatFields)
+        // so the two can never disagree about what `teams` looks like once
+        // these fields are routed away — that mismatch is exactly what let
+        // the guard reject syncs the real write would have survived.
+        const { strippedTeams, extracted } = stripTeamsByYearFlatFields(mainDocUpdates.teams)
+        mainDocUpdates.teams = strippedTeams
+        for (const [seasonalField, byTid] of Object.entries(extracted)) {
+          for (const [tidKey, byYearMap] of Object.entries(byTid)) {
+            for (const [yearKey, value] of Object.entries(byYearMap)) {
+              addTeamsByYearToSeasonalCollect(seasonalField, tidKey, yearKey, value)
             }
-            if (yearTouched) {
-              nextByYear[yearKey] = nextYearData
-              byYearTouched = true
-            }
-          }
-          if (byYearTouched) {
-            nextTeams[tidKey] = { ...team, byYear: nextByYear }
-            teamsTouched = true
           }
         }
-        if (teamsTouched) mainDocUpdates.teams = nextTeams
       }
       {
         const dotKeysToDelete = []
