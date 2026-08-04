@@ -54,6 +54,33 @@ const SEASONS_SUBCOLLECTION = 'seasons'
 // Batch size limit for Firestore (max 500 per batch)
 const BATCH_SIZE = 450
 
+// Firestore's per-document cap (1 MiB) is NOT the only limit that matters for
+// a batch write — the whole commit also has to fit under Firestore's request
+// message-size ceiling (~11 MiB). A fixed 450-doc BATCH_SIZE assumes docs stay
+// small; once games start carrying embedded box scores (every player's stat
+// line, per game) or players carry enough season history, 450 of them in one
+// commit can blow the request-size ceiling even though no individual doc is
+// anywhere near the 1 MiB cap. Group into commits bounded by BOTH the doc
+// count and the total serialized byte size.
+const MAX_BATCH_BYTES = 8 * 1024 * 1024
+function chunkForFirestoreBatch(items, sizeOf) {
+  const chunks = []
+  let current = []
+  let currentBytes = 0
+  for (const item of items) {
+    const itemBytes = sizeOf(item)
+    if (current.length > 0 && (current.length >= BATCH_SIZE || currentBytes + itemBytes > MAX_BATCH_BYTES)) {
+      chunks.push(current)
+      current = []
+      currentBytes = 0
+    }
+    current.push(item)
+    currentBytes += itemBytes
+  }
+  if (current.length > 0) chunks.push(current)
+  return chunks
+}
+
 /**
  * Recursively sanitize an object for Firestore
  * - Removes empty string keys (Firestore doesn't allow them)
@@ -900,46 +927,53 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
       }
     }
 
-    // Process in batches of BATCH_SIZE
-    const totalBatches = Math.ceil(playersToSave.length / BATCH_SIZE)
-    for (let i = 0; i < playersToSave.length; i += BATCH_SIZE) {
-      const batchNum = Math.floor(i / BATCH_SIZE) + 1
+    // Sanitize once up front so each player's byte size can be measured
+    // before deciding batch membership (see chunkForFirestoreBatch above —
+    // a batch of players carrying heavy per-year history/portraits can
+    // exceed the request-size ceiling well before it hits the 450-doc cap).
+    //
+    // ALWAYS full replace (not merge). Firestore's merge mode recursively
+    // merges nested objects, which means keys the caller INTENTIONALLY
+    // removed (e.g. teamsByYear[2034] deleted from a player's career tab,
+    // or stale keys trimmed by a migration) silently survive the write.
+    // Callers always build a complete player object from the current
+    // in-memory state, so a full replace is both safe and correct.
+    // The `forceOverwrite` option is kept on this function for the
+    // orphan-cleanup behavior above; individual player docs no longer
+    // branch on it. See the matching comment in savePlayerToSubcollection.
+    const preparedPlayers = []
+    for (const player of playersToSave) {
+      if (!player.pid) {
+        console.warn('Skipping player without pid:', player.name)
+        continue
+      }
+      const { _firestoreId, ...rawPlayerData } = player
+      const playerData = sanitizeForFirestore(rawPlayerData)
+      const bytes = new TextEncoder().encode(JSON.stringify(playerData)).length
+      preparedPlayers.push({ pid: String(player.pid), data: playerData, bytes })
+    }
+
+    const playerChunks = chunkForFirestoreBatch(preparedPlayers, p => p.bytes)
+    let playersSaved = 0
+    for (let batchNum = 0; batchNum < playerChunks.length; batchNum++) {
+      const chunk = playerChunks[batchNum]
       const batch = writeBatch(db)
-      const batchPlayers = playersToSave.slice(i, i + BATCH_SIZE)
-
-      for (const player of batchPlayers) {
-        if (!player.pid) {
-          console.warn('Skipping player without pid:', player.name)
-          continue
-        }
-        const playerRef = doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, String(player.pid))
-        // Remove _firestoreId before saving and sanitize to remove empty keys
-        const { _firestoreId, ...rawPlayerData } = player
-        const playerData = sanitizeForFirestore(rawPlayerData)
-
-        // ALWAYS full replace (not merge). Firestore's merge mode recursively
-        // merges nested objects, which means keys the caller INTENTIONALLY
-        // removed (e.g. teamsByYear[2034] deleted from a player's career tab,
-        // or stale keys trimmed by a migration) silently survive the write.
-        // Callers always build a complete player object from the current
-        // in-memory state, so a full replace is both safe and correct.
-        // The `forceOverwrite` option is kept on this function for the
-        // orphan-cleanup behavior above; individual player docs no longer
-        // branch on it. See the matching comment in savePlayerToSubcollection.
-        batch.set(playerRef, playerData)
+      for (const p of chunk) {
+        batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, p.pid), p.data)
       }
 
       await batch.commit()
-      console.log(`[savePlayersToSubcollection] Batch ${batchNum}/${totalBatches} committed locally (${batchPlayers.length} players)`)
+      playersSaved += chunk.length
+      console.log(`[savePlayersToSubcollection] Batch ${batchNum + 1}/${playerChunks.length} committed locally (${chunk.length} players)`)
       // Report progress so the create UI can show a moving bar during a big seed.
       if (onProgress) {
-        try { onProgress({ saved: Math.min(i + batchPlayers.length, playersToSave.length), total: playersToSave.length }) } catch (_) {}
+        try { onProgress({ saved: playersSaved, total: preparedPlayers.length }) } catch (_) {}
       }
 
       // Add delay between batches to prevent "Write stream exhausted" error
       // Scale delay based on number of batches for large datasets
-      if (i + BATCH_SIZE < playersToSave.length) {
-        const delayMs = totalBatches > 3 ? 300 : 200
+      if (batchNum + 1 < playerChunks.length) {
+        const delayMs = playerChunks.length > 3 ? 300 : 200
         await new Promise(resolve => setTimeout(resolve, delayMs))
       }
     }
@@ -1459,23 +1493,28 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
       }
     }
 
-    // Process in batches of BATCH_SIZE
-    for (let i = 0; i < gamesToSave.length; i += BATCH_SIZE) {
-      const batch = writeBatch(db)
-      const batchGames = gamesToSave.slice(i, i + BATCH_SIZE)
-
-      for (const game of batchGames) {
-        if (!game.id) {
-          console.warn('Skipping game without id:', game)
-          continue
-        }
-        const gameRef = doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, String(game.id))
-        // Remove _firestoreId before saving and sanitize to remove empty keys
-        const { _firestoreId, ...rawGameData } = game
-        const gameData = sanitizeForFirestore(rawGameData)
-        batch.set(gameRef, gameData)
+    // Sanitize once up front so each game's byte size can be measured before
+    // deciding batch membership (see chunkForFirestoreBatch above — a batch
+    // of games carrying box scores can exceed the request-size ceiling well
+    // before it hits the 450-doc count cap).
+    const preparedGames = []
+    for (const game of gamesToSave) {
+      if (!game.id) {
+        console.warn('Skipping game without id:', game)
+        continue
       }
+      // Remove _firestoreId before saving and sanitize to remove empty keys
+      const { _firestoreId, ...rawGameData } = game
+      const gameData = sanitizeForFirestore(rawGameData)
+      const bytes = new TextEncoder().encode(JSON.stringify(gameData)).length
+      preparedGames.push({ id: String(game.id), data: gameData, bytes })
+    }
 
+    for (const chunk of chunkForFirestoreBatch(preparedGames, g => g.bytes)) {
+      const batch = writeBatch(db)
+      for (const g of chunk) {
+        batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, g.id), g.data)
+      }
       await batch.commit()
     }
   } catch (error) {

@@ -383,8 +383,8 @@ export default function DangerZone() {
         'fringeCaseClassByTeamYear', 'playersLeavingByTeamYear', 'portalTransferClassByTeamYear',
         'preseasonSetupByTeamYear', 'rankingsByTeamYear', 'recruitingClassRankByTeamYear',
         'recruitingCommitmentsByTeamYear', 'recruitsByTeamYear', 'schedulesByTeamYear',
-        'teamRatingsByTeamYear', 'teamRecordsByTeamYear', 'trainingResultsByTeamYear',
-        'transferDestinationsByTeamYear',
+        'teamRatingsByTeamYear', 'teamRecordsByTeamYear', 'teamCalculatedRecordByTeamYear',
+        'trainingResultsByTeamYear', 'transferDestinationsByTeamYear',
       ]
       for (const key of subFields) {
         const value = currentDynasty[key]

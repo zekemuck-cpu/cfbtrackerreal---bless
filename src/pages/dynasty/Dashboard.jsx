@@ -10265,8 +10265,13 @@ export default function Dashboard() {
             })
           })
 
-          // Merge with existing team records
-          const existingTeamRecords = currentDynasty.teamRecordsByTeamYear || {}
+          // Merge with existing team records. These are CALCULATED records
+          // (from standings), so they go to teamCalculatedRecordByTeamYear —
+          // not teamRecordsByTeamYear, which is the manual per-team override
+          // store written by saveTeamYearInfo. The two used to share
+          // teamRecordsByTeamYear, so whichever saved last could silently
+          // clobber the other's value there.
+          const existingTeamRecords = currentDynasty.teamCalculatedRecordByTeamYear || {}
           const mergedTeamRecords = { ...existingTeamRecords }
           Object.entries(teamRecordUpdates).forEach(([abbr, yearRecords]) => {
             mergedTeamRecords[abbr] = { ...(mergedTeamRecords[abbr] || {}), ...yearRecords }
@@ -10291,7 +10296,7 @@ export default function Dashboard() {
               ...existingByYear,
               [year]: standings
             },
-            teamRecordsByTeamYear: mergedTeamRecords,
+            teamCalculatedRecordByTeamYear: mergedTeamRecords,
             teams: mergedTeams
           })
 

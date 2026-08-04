@@ -108,6 +108,12 @@ export const PER_TEAM_YEAR_FIELDS = [
   'schedulesByTeamYear',
   'teamRatingsByTeamYear',
   'teamRecordsByTeamYear',
+  // Calculated/derived team records (from games, conference standings, etc.)
+  // — kept separate from teamRecordsByTeamYear, which is the MANUAL override
+  // store (the "Update automatically" checkbox's opposite). The two used to
+  // share teamRecordsByTeamYear, so whichever saved last silently clobbered
+  // the other's value there. See TEAMS_BYYEAR_FLAT_FIELDS below.
+  'teamCalculatedRecordByTeamYear',
   'trainingResultsByTeamYear',
   'transferDestinationsByTeamYear',
   // The following five mirror data that previously ONLY lived nested inside
@@ -154,17 +160,18 @@ export function isSeasonalField(fieldName) {
 // the inline copy and the flat twin, so the inline copy is pure redundant
 // weight on the main doc).
 //
-// `conference` and `record`/`teamRecord` are DELIBERATELY excluded even
-// though they're dual-written too — existing comments elsewhere in the
-// codebase (DynastyContext.jsx) document `teams[tid].byYear[year].conference`
-// as the canonical source with the flat `conferenceByTeamYear` as a
-// secondary fallback (the reverse of every other field here), and
-// `record`/`teamRecord` are written by two different functions under two
-// different key names into the same flat store — both signal messier,
-// less-verified history than the rest of this list. Not worth the risk for
-// two fields that are cheap (a conference string, a W-L record) relative to
-// rankByWeek's actual size impact. Revisit only after independently
-// auditing every read site for those two.
+// `conference` and `record`/`teamRecord` (Phase C) were held back from the
+// list above pending an audit: `record` (calculated from games/standings)
+// and `teamRecord` (the manual "Update automatically"-checkbox override)
+// used to BOTH dual-write into the same legacy `teamRecordsByTeamYear`
+// flat store under different keys, so whichever saved last could silently
+// clobber the other's value there. Fixed by giving the calculated variant
+// its own store (`teamCalculatedRecordByTeamYear`) and keeping
+// `teamRecordsByTeamYear` exclusively for the manual override. `conference`
+// had no such collision — it already had its own flat twin
+// (`conferenceByTeamYear`) — so it's a straight addition. These are also
+// the main doc's only remaining unbounded-growth fields: one entry per
+// team per season, forever, same as rankByWeek before it.
 export const TEAMS_BYYEAR_FLAT_FIELDS = {
   rankByWeekByTeamYear: 'rankByWeek',
   divisionByTeamYear: 'division',
@@ -187,6 +194,9 @@ export const TEAMS_BYYEAR_FLAT_FIELDS = {
   bowlEligibilityDataByTeamYear: 'bowlEligibilityData',
   encourageTransfersByTeamYear: 'encourageTransfers',
   recruitsByTeamYear: 'recruits',
+  conferenceByTeamYear: 'conference',
+  teamRecordsByTeamYear: 'teamRecord',
+  teamCalculatedRecordByTeamYear: 'record',
 }
 
 /**
@@ -692,11 +702,17 @@ export async function migrateTeamsByYearDuplicatesToSubcollection(dynastyId, mai
       for (const [subField, seasonalField] of Object.entries(TEAMS_BYYEAR_SUBFIELD_TO_SEASONAL)) {
         if (!(subField in yearData)) continue
         const value = yearData[subField]
-        if (value === undefined || value === null) continue
+        // A cell is eligible for clearing off the main doc regardless of its
+        // value — including `null` (e.g. teamRecord's "override cleared,
+        // defer to calculated" sentinel). Only `undefined` skips clearing
+        // too, since `subField in yearData` already guarantees the key
+        // exists; excluding null here used to leave cleared-override cells
+        // stuck on the main doc forever after this one-time migration ran.
+        allCells.push({ tidKey, yearKey, subField })
+        if (value === undefined) continue
         if (!seasonalCollect[seasonalField]) seasonalCollect[seasonalField] = {}
         if (!seasonalCollect[seasonalField][tidKey]) seasonalCollect[seasonalField][tidKey] = {}
         seasonalCollect[seasonalField][tidKey][yearKey] = value
-        allCells.push({ tidKey, yearKey, subField })
       }
     }
   }

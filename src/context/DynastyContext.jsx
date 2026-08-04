@@ -2652,9 +2652,11 @@ export function getCurrentTeamRanking(dynasty) {
 
 /**
  * Look up a team's stored record from non-games sources:
- * conferenceStandingsByYear (regular season), teamRecordsByTeamYear (legacy),
- * and teams[tid].byYear[year].record (tid-based). Returns the entry covering
- * the most games, or null if nothing is found.
+ * conferenceStandingsByYear (regular season), teamRecordsByTeamYear (the
+ * manual per-team override, abbr-keyed legacy lookup), and
+ * teams[tid].byYear[year].record (tid-based, calculated — folded in from
+ * teamCalculatedRecordByTeamYear). Returns the entry covering the most
+ * games, or null if nothing is found.
  * Used as a fallback for CPU teams whose regular-season games are not in
  * dynasty.games but whose records are available from standings uploads.
  */
@@ -2778,13 +2780,18 @@ export function buildRecordUpdatePayload(dynasty, tid, year) {
 
   // Legacy structure — dual-write tid + abbr keys so the data stays
   // findable even if the team is renamed (lookupByTeamYear scans both).
+  // NOTE: this is the CALCULATED record, so it goes to
+  // teamCalculatedRecordByTeamYear, not teamRecordsByTeamYear — the latter
+  // is the manual "Update automatically"-checkbox override written by
+  // saveTeamYearInfo. The two used to share teamRecordsByTeamYear, so
+  // whichever saved last silently clobbered the other's value there.
   const recordPayload = {
     wins: record.wins,
     losses: record.losses,
     confWins: record.confWins,
     confLosses: record.confLosses
   }
-  Object.assign(updates, buildByTeamYearUpdates('teamRecordsByTeamYear', dynasty, tid, year, recordPayload))
+  Object.assign(updates, buildByTeamYearUpdates('teamCalculatedRecordByTeamYear', dynasty, tid, year, recordPayload))
 
   return updates
 }
@@ -10030,7 +10037,25 @@ export function DynastyProvider({ children }) {
             if (OFF_MAIN_DOC.includes(k) || isSeasonalField(k)) continue
             projected[k] = v
           }
-          const bytes = new TextEncoder().encode(JSON.stringify(projected)).length
+          // Plain JSON.stringify throws on a circular reference or a BigInt —
+          // and this whole estimate used to be swallowed silently on any
+          // throw (see the catch below), which meant a payload big enough to
+          // introduce one of those also skipped the size check entirely and
+          // sailed straight through to Firestore's own reject instead of
+          // this guard's actionable message. Decycle so a cycle degrades to
+          // a marker string instead of aborting the estimate.
+          const safeStringify = (value) => {
+            const seen = new WeakSet()
+            return JSON.stringify(value, (_key, val) => {
+              if (typeof val === 'bigint') return val.toString()
+              if (typeof val === 'object' && val !== null) {
+                if (seen.has(val)) return '[Circular]'
+                seen.add(val)
+              }
+              return val
+            })
+          }
+          const bytes = new TextEncoder().encode(safeStringify(projected)).length
           if (bytes > MAIN_DOC_BYTE_LIMIT) {
             const mb = (bytes / 1e6).toFixed(2)
             // Name the ACTUAL biggest field rather than assuming a cause. This
@@ -10043,7 +10068,7 @@ export function DynastyProvider({ children }) {
             // even have would do nothing. Report the real top offenders and let
             // the message adapt.
             const sizeOf = (v) => {
-              try { return new TextEncoder().encode(JSON.stringify(v ?? null)).length } catch { return 0 }
+              try { return new TextEncoder().encode(safeStringify(v ?? null)).length } catch { return 0 }
             }
             const top = Object.entries(projected)
               .map(([k, v]) => [k, sizeOf(v)])
@@ -10062,7 +10087,11 @@ export function DynastyProvider({ children }) {
           }
         } catch (err) {
           if (err instanceof Error && err.message.includes('per-document')) throw err
-          // JSON.stringify can throw on a circular ref — never block a save on an estimation failure.
+          // Don't block a save on an estimation failure — but this used to be
+          // completely silent, which meant a broken estimate (and therefore a
+          // skipped size check) left no trace when the save then failed for
+          // real at Firestore with a much less actionable error.
+          console.error('[updateDynasty] Main-doc size estimate failed — proceeding without the size guard for this save:', err)
         }
       }
       const subcollectionPromises = []
@@ -10319,12 +10348,11 @@ export function DynastyProvider({ children }) {
       // TEAMS_BYYEAR_FLAT_FIELDS into the matching flat *ByTeamYear seasons-
       // subcollection field, so the main-doc `teams` map stops re-
       // accumulating data that's ALSO stored there (or, for
-      // rankByWeek/division/schoolGrades/recruitingClass*, that has no
-      // other home at all — rankByWeek is the dominant one: every team's
-      // full week-by-week rank history, forever, times ~136 teams — see the
-      // DangerZone size guard's "biggest fields" report for why `teams`
-      // keeps showing up). `conference`/`record`/`teamRecord` are
-      // deliberately NOT in that map — see its definition for why.
+      // rankByWeek/division/schoolGrades/recruitingClass*/conference/record/
+      // teamRecord, that has no other home at all — rankByWeek is the
+      // dominant one: every team's full week-by-week rank history, forever,
+      // times ~136 teams — see the DangerZone size guard's "biggest fields"
+      // report for why `teams` keeps showing up).
       //
       // Two write shapes to handle:
       //   - full-object: mainDocUpdates.teams = { [tid]: { byYear: { [year]: {...} } } }
