@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
-import { isCfb27, editionHasFeature } from '../../editions'
+import { isCfb27, editionHasFeature, isPcAutoDynasty } from '../../editions'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useToast } from '../../components/ui/Toast'
 import { getEffectiveCharacters, isRealAccount, SOCIAL_UNIVERSE_VERSION } from '../../data/socialModel'
@@ -361,6 +361,27 @@ export default function LeaguePreferences() {
     }
   }
 
+  // Hide Weekly Install / Scouting Report — PC-only (Sync from Save) rows on
+  // the Dashboard to-do list. Default ON (rows shown); toggling hides them.
+  // Presentational only, nothing recorded is affected.
+  const weeklyInstallScoutingHidden = !!currentDynasty?.hideWeeklyInstallScouting
+  const [savingWeeklyInstallScouting, setSavingWeeklyInstallScouting] = useState(false)
+  const toggleWeeklyInstallScouting = async () => {
+    if (isViewOnly) { toast.error('Read-only mode.'); return }
+    if (savingWeeklyInstallScouting) return
+    const next = !weeklyInstallScoutingHidden
+    setSavingWeeklyInstallScouting(true)
+    try {
+      await updateDynasty(currentDynasty.id, { hideWeeklyInstallScouting: next })
+      toast.success(next ? 'Weekly Install / Scouting Report rows hidden.' : 'Weekly Install / Scouting Report rows shown.')
+    } catch (err) {
+      console.error('[LeaguePreferences] weekly install/scouting toggle failed:', err)
+      toast.error(`Could not update: ${err?.message || 'Unknown error'}`)
+    } finally {
+      setSavingWeeklyInstallScouting(false)
+    }
+  }
+
   if (!currentDynasty) return null
 
   return (
@@ -478,6 +499,45 @@ export default function LeaguePreferences() {
                 height: 20,
                 background: 'var(--surface-1)',
                 transform: ratingsHidden ? 'translateX(23px)' : 'translateX(3px)',
+              }}
+            />
+          </button>
+        </div>
+      </section>
+      )}
+
+      {/* Hide Weekly Install / Scouting Report — PC (Sync from Save) dynasties
+          only; these rows don't exist for manual-entry dynasties. Default ON. */}
+      {isPcAutoDynasty(currentDynasty) && (
+      <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
+        <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold text-txt-primary">Hide Weekly Install / Scouting Report</div>
+            <p className="text-xs text-txt-tertiary mt-1 leading-relaxed m-0">
+              Removes the Weekly Install and Scouting Report rows from the Dashboard to-do list for each week's game.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!weeklyInstallScoutingHidden}
+            onClick={toggleWeeklyInstallScouting}
+            disabled={isViewOnly || savingWeeklyInstallScouting}
+            className="relative inline-flex items-center rounded-full transition-colors flex-shrink-0 disabled:opacity-50"
+            style={{
+              width: 46,
+              height: 26,
+              backgroundColor: !weeklyInstallScoutingHidden ? 'var(--text-primary)' : 'var(--surface-4)',
+            }}
+            title={weeklyInstallScoutingHidden ? 'Show Weekly Install / Scouting Report' : 'Hide Weekly Install / Scouting Report'}
+          >
+            <span
+              className="inline-block rounded-full transition-transform"
+              style={{
+                width: 20,
+                height: 20,
+                background: 'var(--surface-1)',
+                transform: !weeklyInstallScoutingHidden ? 'translateX(23px)' : 'translateX(3px)',
               }}
             />
           </button>

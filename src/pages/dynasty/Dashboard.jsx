@@ -185,6 +185,11 @@ export default function Dashboard() {
   // for every edition.
   const isCfb27Auto = isPcAutoDynasty(currentDynasty)
 
+  // League Preferences toggle: hides the PC-mode Weekly Install / Scouting
+  // Report to-do rows. Default ON (rows shown) — dynasty.hideWeeklyInstallScouting
+  // must be explicitly set true to hide them.
+  const showWeeklyInstallScouting = currentDynasty?.hideWeeklyInstallScouting !== true
+
   // Some PC-mode rows have no real "is this actually done" signal at all —
   // the underlying data is just always synced-and-present the moment the row
   // is eligible to show (Awards, All-Americans, Injury Report, etc.), so a
@@ -4336,7 +4341,7 @@ export default function Dashboard() {
                 // sidebar nav.) Need an actual opponent for the week (no
                 // report to build on a bye), so this is gated on there
                 // being a real scheduled game.
-                if (!isByeWeek && scheduledGame && gameRecord) {
+                if (!isByeWeek && scheduledGame && gameRecord && showWeeklyInstallScouting) {
                   todos.push(pcViewTodo({
                     key: 'weekly-install-pc',
                     done: true,
@@ -4719,7 +4724,7 @@ export default function Dashboard() {
               // PC mode: Weekly Install, Scouting Report — already synced,
               // pure View links. (Recruiting Board / Injury Report / Heisman
               // Watch dropped as redundant with the sidebar nav.)
-              if (ccGame) {
+              if (ccGame && showWeeklyInstallScouting) {
                 todos.push(pcViewTodo({
                   key: 'cc-weekly-install-pc',
                   done: true,
@@ -5442,26 +5447,28 @@ export default function Dashboard() {
                     }))
                     // Directly under the matchup row, same as the
                     // regular-season/CC placement.
-                    bw1Todos.splice(
-                      1,
-                      0,
-                      pcViewTodo({
-                        key: 'weekly-install-bw1-pc',
-                        done: true,
-                        title: 'Weekly Install',
-                        subtitle: 'Synced from your save',
-                        url: `${pathPrefix}/install/${userBowlGame.id}`,
-                        trackViewed: true,
-                      }),
-                      pcViewTodo({
-                        key: 'weekly-scouting-bw1-pc',
-                        done: true,
-                        title: 'Scouting Report',
-                        subtitle: 'Synced from your save',
-                        url: `${pathPrefix}/scouting/${userBowlGame.id}`,
-                        trackViewed: true,
-                      }),
-                    )
+                    if (showWeeklyInstallScouting) {
+                      bw1Todos.splice(
+                        1,
+                        0,
+                        pcViewTodo({
+                          key: 'weekly-install-bw1-pc',
+                          done: true,
+                          title: 'Weekly Install',
+                          subtitle: 'Synced from your save',
+                          url: `${pathPrefix}/install/${userBowlGame.id}`,
+                          trackViewed: true,
+                        }),
+                        pcViewTodo({
+                          key: 'weekly-scouting-bw1-pc',
+                          done: true,
+                          title: 'Scouting Report',
+                          subtitle: 'Synced from your save',
+                          url: `${pathPrefix}/scouting/${userBowlGame.id}`,
+                          trackViewed: true,
+                        }),
+                      )
+                    }
                   } else {
                     bw1Todos.push({
                       key: 'bowl-status',
@@ -5947,22 +5954,24 @@ export default function Dashboard() {
                     subtitle: bw2Subtitle,
                     url: `${pathPrefix}/game/${userBowlGame.id}`,
                   }))
-                  bw2Todos.push(pcViewTodo({
-                    key: 'weekly-install-bw2-pc',
-                    done: true,
-                    title: 'Weekly Install',
-                    subtitle: 'Synced from your save',
-                    url: `${pathPrefix}/install/${userBowlGame.id}`,
-                    trackViewed: true,
-                  }))
-                  bw2Todos.push(pcViewTodo({
-                    key: 'weekly-scouting-bw2-pc',
-                    done: true,
-                    title: 'Scouting Report',
-                    subtitle: 'Synced from your save',
-                    url: `${pathPrefix}/scouting/${userBowlGame.id}`,
-                    trackViewed: true,
-                  }))
+                  if (showWeeklyInstallScouting) {
+                    bw2Todos.push(pcViewTodo({
+                      key: 'weekly-install-bw2-pc',
+                      done: true,
+                      title: 'Weekly Install',
+                      subtitle: 'Synced from your save',
+                      url: `${pathPrefix}/install/${userBowlGame.id}`,
+                      trackViewed: true,
+                    }))
+                    bw2Todos.push(pcViewTodo({
+                      key: 'weekly-scouting-bw2-pc',
+                      done: true,
+                      title: 'Scouting Report',
+                      subtitle: 'Synced from your save',
+                      url: `${pathPrefix}/scouting/${userBowlGame.id}`,
+                      trackViewed: true,
+                    }))
+                  }
                 } else {
                   bw2Todos.push({
                     key: 'bowl-week2',
@@ -6761,7 +6770,7 @@ export default function Dashboard() {
                   subtitle: sfSubtitle,
                   url: sfGame ? `${pathPrefix}/game/${sfGame.id}` : `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}`,
                 }))
-                if (sfGame) {
+                if (sfGame && showWeeklyInstallScouting) {
                   w34Todos.push(pcViewTodo({
                     key: 'weekly-install-sf-pc',
                     done: true,
@@ -6886,7 +6895,7 @@ export default function Dashboard() {
                   subtitle: champSubtitle,
                   url: champGame ? `${pathPrefix}/game/${champGame.id}` : `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}`,
                 }))
-                if (champGame) {
+                if (champGame && showWeeklyInstallScouting) {
                   w34Todos.push(pcViewTodo({
                     key: 'weekly-install-champ-pc',
                     done: true,
