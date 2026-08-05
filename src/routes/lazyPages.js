@@ -83,6 +83,8 @@ export const TopClasses = lazyWithPreload(() => import('../pages/dynasty/TopClas
 export const PlayersOfWeek = lazyWithPreload(() => import('../pages/dynasty/PlayersOfWeek'))
 export const HeismanWatch = lazyWithPreload(() => import('../pages/dynasty/HeismanWatch'))
 export const InjuryReport = lazyWithPreload(() => import('../pages/dynasty/InjuryReport'))
+export const WeeklyScouting = lazyWithPreload(() => import('../pages/dynasty/WeeklyScouting'))
+export const WeeklyInstall = lazyWithPreload(() => import('../pages/dynasty/WeeklyInstall'))
 export const PlayersLeaving = lazyWithPreload(() => import('../pages/dynasty/PlayersLeaving'))
 export const TrainingResults = lazyWithPreload(() => import('../pages/dynasty/TrainingResults'))
 

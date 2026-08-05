@@ -4008,35 +4008,10 @@ export default function Dashboard() {
                 onAction: () => setPreseasonTop25Year(preseasonYear),
                 actionLabel: t25Done ? 'Edit' : 'Enter',
               })
-            } else {
-              // PC mode: Recruiting Board, Preseason Top 25, and Heisman
-              // Watch are already synced — pure View links, no data entry.
-              todos.push(pcViewTodo({
-                key: 'recruiting-board-pc',
-                done: true,
-                title: 'Recruiting Board',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/recruiting/${preseasonUserTid}/${preseasonYear}?tab=targets`,
-              }))
-
-              const saved = currentDynasty.preseasonRankingsByYear?.[preseasonYear]
-              const t25Done = Array.isArray(saved) && saved.length > 0
-              todos.push(pcViewTodo({
-                key: 'preseason-top25-pc',
-                done: t25Done,
-                title: 'Preseason Top 25',
-                subtitle: t25Done ? `${saved.length} team${saved.length === 1 ? '' : 's'} ranked` : 'Not yet synced',
-                url: t25Done ? `${pathPrefix}/rankings/${preseasonYear}?week=0` : null,
-              }))
-
-              todos.push(pcViewTodo({
-                key: 'heisman-watch-pc',
-                done: true,
-                title: 'Heisman Watch',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/heisman-watch/${preseasonYear}`,
-              }))
             }
+            // PC mode: preseason had no manual-entry rows to replace with
+            // View links (Recruiting Board / Preseason Top 25 / Heisman
+            // Watch were removed as redundant with the sidebar nav).
 
             // Preseason CFB Recap — shared by both modes (AI-generated, not save data).
             {
@@ -4355,29 +4330,30 @@ export default function Dashboard() {
                   extraTools: recruitingExtraTools,
                 })
               } else {
-                // PC mode: Recruiting Board, Injury Report, and Heisman
-                // Watch — already synced, pure View links.
-                todos.push(pcViewTodo({
-                  key: 'recruiting-board-pc',
-                  done: true,
-                  title: 'Recruiting Board',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}?tab=targets`,
-                }))
-                // Green (nothing to review) when the user's team has no
-                // injured players right now; red-until-viewed only when
-                // there's actually something new to look at.
-                const hasInjuries = (currentDynasty.players || []).some(p =>
-                  p.isInjured && isPlayerOnRoster(p, userTidForCommitments, currentDynasty.currentYear, currentDynasty)
-                )
-                todos.push(pcViewTodo({
-                  key: 'injury-report-pc',
-                  done: true,
-                  title: 'Injury Report',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/injury-report`,
-                  trackViewed: hasInjuries,
-                }))
+                // PC mode: Weekly Install and Scouting Report — already
+                // synced, pure View links. (Recruiting Board / Injury
+                // Report / Heisman Watch dropped as redundant with the
+                // sidebar nav.) Need an actual opponent for the week (no
+                // report to build on a bye), so this is gated on there
+                // being a real scheduled game.
+                if (!isByeWeek && scheduledGame && gameRecord) {
+                  todos.push(pcViewTodo({
+                    key: 'weekly-install-pc',
+                    done: true,
+                    title: 'Weekly Install',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/install/${gameRecord.id}`,
+                    trackViewed: true,
+                  }))
+                  todos.push(pcViewTodo({
+                    key: 'weekly-scouting-pc',
+                    done: true,
+                    title: 'Scouting Report',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/scouting/${gameRecord.id}`,
+                    trackViewed: true,
+                  }))
+                }
               }
 
               // Row 2: Last Week's Scores — needs a real previous week to
@@ -4400,15 +4376,9 @@ export default function Dashboard() {
                   && (g.isPlayed || g.team1Score > 0 || g.team2Score > 0)
                 ).length
                 const done = !!weeklyEntered || importedCount > 0
-                if (isCfb27Auto) {
-                  todos.push(pcViewTodo({
-                    key: 'weekly-scores-pc',
-                    done: true,
-                    title: 'Around the Country',
-                    subtitle: `Week ${prevWeek} results, synced from your save`,
-                    url: `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`,
-                  }))
-                } else {
+                // PC mode: Around the Country dropped as redundant with the
+                // sidebar nav — this row is manual-entry only.
+                if (!isCfb27Auto) {
                   todos.push({
                     key: 'weekly-scores',
                     done,
@@ -4423,17 +4393,6 @@ export default function Dashboard() {
                     actionLabel: done ? 'Edit' : 'Enter',
                   })
                 }
-              }
-
-              // PC mode: Heisman Watch (always available, not tied to prevWeek).
-              if (isCfb27Auto) {
-                todos.push(pcViewTodo({
-                  key: 'heisman-watch-pc',
-                  done: true,
-                  title: 'Heisman Watch',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/heisman-watch/${yearNum}`,
-                }))
               }
 
               // Row 3: Week Recap — for the previous week (the one just completed).
@@ -4757,34 +4716,27 @@ export default function Dashboard() {
                 extraTools: recruitingExtraTools,
               })
             } else {
-              // PC mode: Recruiting Board, Injury Report, Heisman Watch —
-              // already synced, pure View links.
-              const userTidForCommits = getUserTeamTid(currentDynasty)
-              todos.push(pcViewTodo({
-                key: 'cc-recruiting-board-pc',
-                done: true,
-                title: 'Recruiting Board',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/recruiting/${userTidForCommits}/${currentDynasty.currentYear}?tab=targets`,
-              }))
-              const ccHasInjuries = (currentDynasty.players || []).some(p =>
-                p.isInjured && isPlayerOnRoster(p, userTidForCommits, currentDynasty.currentYear, currentDynasty)
-              )
-              todos.push(pcViewTodo({
-                key: 'cc-injury-report-pc',
-                done: true,
-                title: 'Injury Report',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/injury-report`,
-                trackViewed: ccHasInjuries,
-              }))
-              todos.push(pcViewTodo({
-                key: 'cc-heisman-watch-pc',
-                done: true,
-                title: 'Heisman Watch',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/heisman-watch/${currentDynasty.currentYear}`,
-              }))
+              // PC mode: Weekly Install, Scouting Report — already synced,
+              // pure View links. (Recruiting Board / Injury Report / Heisman
+              // Watch dropped as redundant with the sidebar nav.)
+              if (ccGame) {
+                todos.push(pcViewTodo({
+                  key: 'cc-weekly-install-pc',
+                  done: true,
+                  title: 'Weekly Install',
+                  subtitle: 'Synced from your save',
+                  url: `${pathPrefix}/install/${ccGame.id}`,
+                  trackViewed: true,
+                }))
+                todos.push(pcViewTodo({
+                  key: 'cc-weekly-scouting-pc',
+                  done: true,
+                  title: 'Scouting Report',
+                  subtitle: 'Synced from your save',
+                  url: `${pathPrefix}/scouting/${ccGame.id}`,
+                  trackViewed: true,
+                }))
+              }
             }
 
             // Task: Enter Week 14 Scores. CCG week always follows Week 14
@@ -4813,15 +4765,9 @@ export default function Dashboard() {
               // game was entered, i.e. before any across-the-country results
               // existed, which is exactly what the comment above rules out.
               const done = !!weeklyEntered || importedCount > 0
-              if (isCfb27Auto) {
-                todos.push(pcViewTodo({
-                  key: 'cc-week15-scores-pc',
-                  done: true,
-                  title: 'Around the Country',
-                  subtitle: `Week ${prevWeek} results, synced from your save`,
-                  url: `${pathPrefix}/weekly-scores/${yearNum}/${prevWeek}`,
-                }))
-              } else {
+              // PC mode: Around the Country dropped as redundant with the
+              // sidebar nav — this row is manual-entry only.
+              if (!isCfb27Auto) {
                 todos.push({
                   key: 'cc-week15-scores',
                   done,
@@ -5356,21 +5302,9 @@ export default function Dashboard() {
                 })
               }
 
-              // CFB27: cfpSeedsByYear now gets written directly from the
-              // save's own locked bracket (cfb27SaveSync.js's deriveCFPSeeds)
-              // once the postseason field is set — hasCFPSeedsData just
-              // means the DATA has synced, not that the user has actually
-              // looked at the bracket, so the dot is tracked by real View
-              // clicks (trackViewed) rather than that sync state.
-              if (isCfb27Auto) {
-                bw1Todos.push(pcViewTodo({
-                  key: 'cfp-bracket-pc',
-                  title: 'CFP Bracket',
-                  subtitle: hasCFPSeedsData ? 'Synced from your save' : 'Not yet synced',
-                  url: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
-                  trackViewed: true,
-                }))
-              } else {
+              // PC mode: CFP Bracket dropped as redundant with the sidebar
+              // nav — this row is manual-entry only.
+              if (!isCfb27Auto) {
                 bw1Todos.push({
                   key: 'cfp-seeds',
                   done: hasCFPSeedsData,
@@ -5506,6 +5440,28 @@ export default function Dashboard() {
                       title: bowlGameTitle,
                       url: `${pathPrefix}/game/${userBowlGame.id}`,
                     }))
+                    // Directly under the matchup row, same as the
+                    // regular-season/CC placement.
+                    bw1Todos.splice(
+                      1,
+                      0,
+                      pcViewTodo({
+                        key: 'weekly-install-bw1-pc',
+                        done: true,
+                        title: 'Weekly Install',
+                        subtitle: 'Synced from your save',
+                        url: `${pathPrefix}/install/${userBowlGame.id}`,
+                        trackViewed: true,
+                      }),
+                      pcViewTodo({
+                        key: 'weekly-scouting-bw1-pc',
+                        done: true,
+                        title: 'Scouting Report',
+                        subtitle: 'Synced from your save',
+                        url: `${pathPrefix}/scouting/${userBowlGame.id}`,
+                        trackViewed: true,
+                      }),
+                    )
                   } else {
                     bw1Todos.push({
                       key: 'bowl-status',
@@ -5777,29 +5733,6 @@ export default function Dashboard() {
                 })
               }
 
-              // Early National Signing Day (CFB27 only) — matches the same
-              // in-game action item at Bowl Week 1. No manual reveal needed
-              // (dev traits + the 10 scoutable attributes for signed
-              // commits already come through automatically via sync — see
-              // cfb27SaveSync.js's recruiting board mapping), so this is
-              // purely a nudge pointing at where that data now shows up.
-              // Starred (time-sensitive) and placed right after Job Offers.
-              if (isCfb27Auto) {
-                // Bare /recruiting (no :tid/:year) let the page fall back to
-                // its own default-year logic, which landed on the WRONG
-                // year (one behind currentYear) until a real navigation
-                // (e.g. the sidebar link) supplied one explicitly — same
-                // tid/year the "Targets & Commitments" viewTo above uses.
-                const bw1SigningDayTid = getUserTeamTid(currentDynasty)
-                bw1Todos.push(pcViewTodo({
-                  key: 'early-signing-day-bw1',
-                  title: 'Early National Signing Day',
-                  url: `${pathPrefix}/recruiting/${bw1SigningDayTid}/${currentDynasty.currentYear}?tab=commitments`,
-                  trackViewed: true,
-                  urgent: true,
-                }))
-              }
-
               // Recruiting commitments + dev trait reveal. CFB27: already synced.
               if (!isCfb27Auto) {
               const bw1CommitmentKey = getCommitmentKey()
@@ -5845,56 +5778,10 @@ export default function Dashboard() {
                   actionLabel: bw1DevTraitPending > 0 ? 'Update' : 'Edit',
                 })
               }
-              } else {
-                // PC mode: Awards, All-Americans, All-Conference, Injury
-                // Report, Around the Country — all already synced, pure
-                // View links. (Recruiting Board is deliberately NOT
-                // repeated here — it overlaps entirely with Early National
-                // Signing Day above for Bowl Week 1 specifically.)
-                const bw1Year = currentDynasty.currentYear
-                bw1Todos.push(pcViewTodo({
-                  key: 'awards-bw1-pc',
-                  title: 'Awards',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/awards/${bw1Year}`,
-                  trackViewed: true,
-                  urgent: true,
-                }))
-                bw1Todos.push(pcViewTodo({
-                  key: 'all-americans-bw1-pc',
-                  title: 'All-Americans',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/all-americans/${bw1Year}`,
-                  trackViewed: true,
-                  urgent: true,
-                }))
-                bw1Todos.push(pcViewTodo({
-                  key: 'all-conference-bw1-pc',
-                  title: 'All-Conference',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/all-conference/${bw1Year}`,
-                  trackViewed: true,
-                  urgent: true,
-                }))
-                const bw1HasInjuries = (currentDynasty.players || []).some(p =>
-                  p.isInjured && isPlayerOnRoster(p, userTeamTid, currentDynasty.currentYear, currentDynasty)
-                )
-                bw1Todos.push(pcViewTodo({
-                  key: 'injury-report-bw1-pc',
-                  done: true,
-                  title: 'Injury Report',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/injury-report`,
-                  trackViewed: bw1HasInjuries,
-                }))
-                bw1Todos.push(pcViewTodo({
-                  key: 'weekly-scores-bw1-pc',
-                  title: 'Around the Country',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/weekly-scores`,
-                  trackViewed: true,
-                }))
               }
+              // PC mode: Awards / All-Americans / All-Conference dropped as
+              // redundant with the sidebar nav. Recruiting Board / Injury
+              // Report / Around the Country already omitted above.
 
               return (
                 <>
@@ -5969,15 +5856,9 @@ export default function Dashboard() {
             if (week === 2) {
               const bw2Todos = []
 
-              if (isCfb27Auto) {
-                bw2Todos.push(pcViewTodo({
-                  key: 'bw1-results-pc',
-                  done: hasBowlWeek1Data,
-                  title: 'Week 1 Bowl Results',
-                  subtitle: hasBowlWeek1Data ? 'Synced from your save' : 'Not yet synced',
-                  url: hasBowlWeek1Data ? `${pathPrefix}/weekly-scores/${year}/17` : null,
-                }))
-              } else {
+              // PC mode: Week 1 Bowl Results dropped as redundant with the
+              // sidebar nav — this row is manual-entry only.
+              if (!isCfb27Auto) {
                 bw2Todos.push({
                   key: 'bw1-results',
                   done: totalEnteredWeek1 >= 29,
@@ -6065,6 +5946,22 @@ export default function Dashboard() {
                     title: `Your ${userBowlGame.bowlName || 'Bowl'} Game`,
                     subtitle: bw2Subtitle,
                     url: `${pathPrefix}/game/${userBowlGame.id}`,
+                  }))
+                  bw2Todos.push(pcViewTodo({
+                    key: 'weekly-install-bw2-pc',
+                    done: true,
+                    title: 'Weekly Install',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/install/${userBowlGame.id}`,
+                    trackViewed: true,
+                  }))
+                  bw2Todos.push(pcViewTodo({
+                    key: 'weekly-scouting-bw2-pc',
+                    done: true,
+                    title: 'Scouting Report',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/scouting/${userBowlGame.id}`,
+                    trackViewed: true,
                   }))
                 } else {
                   bw2Todos.push({
@@ -6300,43 +6197,9 @@ export default function Dashboard() {
                   onClick: () => navigate(`${pathPrefix}/recruiting/${bw2UserTidForCommits}/${currentDynasty.currentYear}`),
                 } : null,
               })
-              } else {
-                // PC mode: Recruiting Board, CFP Bracket, Injury Report,
-                // Around the Country — already synced, pure View links.
-                const bw2UserTidForCommits = getUserTeamTid(currentDynasty)
-                bw2Todos.push(pcViewTodo({
-                  key: 'recruiting-board-bw2-pc',
-                  done: true,
-                  title: 'Recruiting Board',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/recruiting/${bw2UserTidForCommits}/${currentDynasty.currentYear}?tab=targets`,
-                }))
-                bw2Todos.push(pcViewTodo({
-                  key: 'cfp-bracket-bw2-pc',
-                  done: hasCFPSeedsData,
-                  title: 'CFP Bracket',
-                  subtitle: hasCFPSeedsData ? 'Synced from your save' : 'Not yet synced',
-                  url: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
-                }))
-                const bw2HasInjuries = (currentDynasty.players || []).some(p =>
-                  p.isInjured && isPlayerOnRoster(p, bw2UserTidForCommits, currentDynasty.currentYear, currentDynasty)
-                )
-                bw2Todos.push(pcViewTodo({
-                  key: 'injury-report-bw2-pc',
-                  done: true,
-                  title: 'Injury Report',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/injury-report`,
-                  trackViewed: bw2HasInjuries,
-                }))
-                bw2Todos.push(pcViewTodo({
-                  key: 'weekly-scores-bw2-pc',
-                  done: true,
-                  title: 'Around the Country',
-                  subtitle: 'Synced from your save',
-                  url: `${pathPrefix}/weekly-scores`,
-                }))
               }
+              // PC mode: Recruiting Board / CFP Bracket / Injury Report /
+              // Around the Country dropped as redundant with the sidebar nav.
 
               return (
                 <>
@@ -6722,50 +6585,16 @@ export default function Dashboard() {
 
               if (isCfb27Auto) {
                 // PC mode: no GP/Snaps or Detailed Stats entry (no direct
-                // save-synced equivalent) — Conference Standings, Final Top
-                // 25, Team Statistics, Season Awards, All-Americans, and
-                // All-Conference are all already synced, pure View links.
-                w5Todos.push(pcViewTodo({
-                  key: 'conference-standings-pc',
-                  done: standingsEffectivelyDone,
-                  title: 'Conference Standings',
-                  subtitle: standingsEffectivelyDone ? 'Synced from your save' : 'Not yet synced',
-                  url: standingsEffectivelyDone ? `${pathPrefix}/conference-standings/${w5Year}` : null,
-                }))
+                // save-synced equivalent) — Final Top 25 is already synced,
+                // pure View link. (Conference Standings / Team Statistics /
+                // Season Awards / All-Americans / All-Conference dropped as
+                // redundant with the sidebar nav.)
                 w5Todos.push(pcViewTodo({
                   key: 'final-top25-pc',
                   done: !!hasPollsData,
                   title: 'Final Top 25',
                   subtitle: hasPollsData ? 'Synced from your save' : 'Not yet synced',
                   url: hasPollsData ? `${pathPrefix}/rankings/${w5Year}` : null,
-                }))
-                w5Todos.push(pcViewTodo({
-                  key: 'team-stats-pc',
-                  done: teamStatsEffectivelyDone,
-                  title: 'Team Statistics',
-                  subtitle: teamStatsEffectivelyDone ? 'Synced from your save' : 'Not yet synced',
-                  url: teamStatsEffectivelyDone && w5Tid != null ? `${pathPrefix}/team/${w5Tid}/${w5Year}?tab=stats&statsTab=team` : null,
-                }))
-                w5Todos.push(pcViewTodo({
-                  key: 'season-awards-pc',
-                  done: !!hasAwards,
-                  title: 'Season Awards',
-                  subtitle: hasAwards ? 'Synced from your save' : 'Not yet synced',
-                  url: hasAwards ? `${pathPrefix}/awards/${w5Year}` : null,
-                }))
-                w5Todos.push(pcViewTodo({
-                  key: 'all-americans-pc',
-                  done: !!hasAllAmericans,
-                  title: 'All-Americans',
-                  subtitle: hasAllAmericans ? 'Synced from your save' : 'Not yet synced',
-                  url: hasAllAmericans ? `${pathPrefix}/all-americans/${w5Year}` : null,
-                }))
-                w5Todos.push(pcViewTodo({
-                  key: 'all-conference-pc',
-                  done: !!hasAllConference,
-                  title: 'All-Conference',
-                  subtitle: hasAllConference ? 'Synced from your save' : 'Not yet synced',
-                  url: hasAllConference ? `${pathPrefix}/all-conference/${w5Year}` : null,
                 }))
               } else {
               w5Todos.push({
@@ -6882,15 +6711,9 @@ export default function Dashboard() {
             const w34Todos = []
 
             if (week === 3) {
-              if (isCfb27Auto) {
-                w34Todos.push(pcViewTodo({
-                  key: 'bw2-results-pc',
-                  done: hasBowlWeek2Data,
-                  title: 'Week 2 Bowl Results',
-                  subtitle: hasBowlWeek2Data ? 'Synced from your save' : 'Not yet synced',
-                  url: hasBowlWeek2Data ? `${pathPrefix}/weekly-scores/${year}/18` : null,
-                }))
-              } else {
+              // PC mode: Week 2 Bowl Results dropped as redundant with the
+              // sidebar nav — this row is manual-entry only.
+              if (!isCfb27Auto) {
                 w34Todos.push({
                   key: 'bw2-results',
                   done: totalEnteredWeek2 >= 13,
@@ -6930,15 +6753,32 @@ export default function Dashboard() {
                 ? `${userCFPSemifinalGame.perspective?.userWon ? 'Won' : 'Lost'} ${Math.max(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}-${Math.min(userCFPSemifinalGame.perspective?.userScore || 0, userCFPSemifinalGame.perspective?.opponentScore || 0)}`
                 : `${userSFBowlName || 'CFP Semifinal'} vs ${userSFOpponent ? getMascotName(userSFOpponent) || userSFOpponent : 'TBD'}`
               if (isCfb27Auto) {
+                const sfGame = userCFPSemifinalGame || userCFPSemifinalShell
                 w34Todos.push(pcViewTodo({
                   key: 'cfp-sf-game-pc',
                   done: true,
                   title: 'Your CFP Semifinal Game',
                   subtitle: sfSubtitle,
-                  url: (userCFPSemifinalGame || userCFPSemifinalShell)
-                    ? `${pathPrefix}/game/${(userCFPSemifinalGame || userCFPSemifinalShell).id}`
-                    : `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}`,
+                  url: sfGame ? `${pathPrefix}/game/${sfGame.id}` : `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}`,
                 }))
+                if (sfGame) {
+                  w34Todos.push(pcViewTodo({
+                    key: 'weekly-install-sf-pc',
+                    done: true,
+                    title: 'Weekly Install',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/install/${sfGame.id}`,
+                    trackViewed: true,
+                  }))
+                  w34Todos.push(pcViewTodo({
+                    key: 'weekly-scouting-sf-pc',
+                    done: true,
+                    title: 'Scouting Report',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/scouting/${sfGame.id}`,
+                    trackViewed: true,
+                  }))
+                }
               } else {
                 w34Todos.push({
                   key: 'cfp-sf-game',
@@ -6975,15 +6815,9 @@ export default function Dashboard() {
               const sfGamesWithScores = sfData.filter(g => g && g.team1Score !== undefined && g.team1Score !== null && g.team2Score !== undefined && g.team2Score !== null).length
               w4AllSFComplete = sfGamesWithScores >= 2
 
-              if (isCfb27Auto) {
-                w34Todos.push(pcViewTodo({
-                  key: 'cfp-sf-results-pc',
-                  done: w4AllSFComplete,
-                  title: 'CFP Semifinal Results',
-                  subtitle: w4AllSFComplete ? 'Synced from your save' : 'Not yet synced',
-                  url: w4AllSFComplete ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
-                }))
-              } else {
+              // PC mode: CFP Semifinal Results dropped as redundant with the
+              // sidebar nav — this row is manual-entry only.
+              if (!isCfb27Auto) {
                 w34Todos.push({
                   key: 'cfp-sf-results',
                   done: w4AllSFComplete,
@@ -7044,15 +6878,32 @@ export default function Dashboard() {
                   ? `National Championship vs ${userChampOpponent ? getMascotName(userChampOpponent) || userChampOpponent : 'TBD'}`
                   : 'Enter SF results first to determine opponent'
               if (isCfb27Auto) {
+                const champGame = userCFPChampionshipGame || userCFPChampionshipShell
                 w34Todos.push(pcViewTodo({
                   key: 'cfp-champ-game-pc',
                   done: true,
                   title: 'Your National Championship Game',
                   subtitle: champSubtitle,
-                  url: (userCFPChampionshipGame || userCFPChampionshipShell)
-                    ? `${pathPrefix}/game/${(userCFPChampionshipGame || userCFPChampionshipShell).id}`
-                    : `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}`,
+                  url: champGame ? `${pathPrefix}/game/${champGame.id}` : `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}`,
                 }))
+                if (champGame) {
+                  w34Todos.push(pcViewTodo({
+                    key: 'weekly-install-champ-pc',
+                    done: true,
+                    title: 'Weekly Install',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/install/${champGame.id}`,
+                    trackViewed: true,
+                  }))
+                  w34Todos.push(pcViewTodo({
+                    key: 'weekly-scouting-champ-pc',
+                    done: true,
+                    title: 'Scouting Report',
+                    subtitle: 'Synced from your save',
+                    url: `${pathPrefix}/scouting/${champGame.id}`,
+                    trackViewed: true,
+                  }))
+                }
               } else {
                 w34Todos.push({
                   key: 'cfp-champ-game',
@@ -7248,43 +7099,9 @@ export default function Dashboard() {
                 onClick: () => navigate(`${pathPrefix}/recruiting/${w34UserTidForCommits}/${currentDynasty.currentYear}`),
               } : null,
             })
-            } else {
-              // PC mode: Recruiting Board, CFP Bracket, Injury Report,
-              // Around the Country — already synced, pure View links.
-              const w34UserTidForCommits = getUserTeamTid(currentDynasty)
-              w34Todos.push(pcViewTodo({
-                key: 'recruiting-board-w34-pc',
-                done: true,
-                title: 'Recruiting Board',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/recruiting/${w34UserTidForCommits}/${currentDynasty.currentYear}?tab=targets`,
-              }))
-              w34Todos.push(pcViewTodo({
-                key: 'cfp-bracket-w34-pc',
-                done: hasCFPSeedsData,
-                title: 'CFP Bracket',
-                subtitle: hasCFPSeedsData ? 'Synced from your save' : 'Not yet synced',
-                url: hasCFPSeedsData ? `${pathPrefix}/cfp-bracket/${currentDynasty.currentYear}` : null,
-              }))
-              const w34HasInjuries = (currentDynasty.players || []).some(p =>
-                p.isInjured && isPlayerOnRoster(p, w34UserTidForCommits, currentDynasty.currentYear, currentDynasty)
-              )
-              w34Todos.push(pcViewTodo({
-                key: 'injury-report-w34-pc',
-                done: true,
-                title: 'Injury Report',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/injury-report`,
-                trackViewed: w34HasInjuries,
-              }))
-              w34Todos.push(pcViewTodo({
-                key: 'weekly-scores-w34-pc',
-                done: true,
-                title: 'Around the Country',
-                subtitle: 'Synced from your save',
-                url: `${pathPrefix}/weekly-scores`,
-              }))
             }
+            // PC mode: Recruiting Board / CFP Bracket / Injury Report /
+            // Around the Country dropped as redundant with the sidebar nav.
 
             return (
               <>

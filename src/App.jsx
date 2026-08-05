@@ -31,7 +31,7 @@ import {
   ConferenceChampionshipHistory, ConferenceStandings, CFPBracket, WeeklyScores, Game,
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, DynastyBlueprint, CoachProfile, CoachEdit, DevTools,
   SocialCharacter, LeaguePreferences, ImageGallery, ManageRivalries, SchemeBuilder,
-  TopClasses, PlayersOfWeek, HeismanWatch, InjuryReport,
+  TopClasses, PlayersOfWeek, HeismanWatch, InjuryReport, WeeklyScouting, WeeklyInstall,
   PlayersLeaving, TrainingResults,
 } from './routes/lazyPages'
 
@@ -127,6 +127,8 @@ function AppRoutes() {
             <Route path="cards" element={<CardCollection />} />
             <Route path="rivalries" element={<ManageRivalries />} />
             <Route path="game/:gameId" element={<Game />} />
+            <Route path="scouting/:gameId" element={<WeeklyScouting />} />
+            <Route path="install/:gameId" element={<WeeklyInstall />} />
             <Route path="social/:charId" element={<SocialCharacter />} />
             <Route path="scheme-builder/:tid/:year" element={<SchemeBuilder />} />
           </Route>
@@ -244,6 +246,8 @@ function AppRoutes() {
                   <Route path="game/new" element={<GameEdit />} />
                   <Route path="game/:gameId" element={<Game />} />
                   <Route path="game/:gameId/edit" element={<GameEdit />} />
+                  <Route path="scouting/:gameId" element={<WeeklyScouting />} />
+                  <Route path="install/:gameId" element={<WeeklyInstall />} />
                   <Route path="social/:charId" element={<SocialCharacter />} />
                   <Route path="scheme-builder/:tid/:year" element={<SchemeBuilder />} />
                   <Route path="preferences" element={<LeaguePreferences />} />

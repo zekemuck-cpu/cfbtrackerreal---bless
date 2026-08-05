@@ -1293,3 +1293,38 @@ table.data-table th[data-numeric] {
   .heisman-card { animation: none; box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.7), 0 0 16px rgba(212, 175, 55, 0.35); }
   .heisman-card::after { animation: none; display: none; }
 }
+
+/* Weekly Install call sheet — print stylesheet. The call sheet overlay is
+   portaled straight onto document.body (see WeeklyInstall.jsx), so it's a
+   SIBLING of #root, not a descendant — meaning the entire rest of the app
+   can just be removed from layout outright (display:none on #root) rather
+   than the usual "visibility:hidden everything, then visibility:visible
+   the one bit we want" trick. That distinction matters a lot here: with
+   the old visibility-based approach, the rest of the app stayed invisible
+   but still fully laid out (still occupying real vertical space in normal
+   document flow), so the print engine paginated against that full,
+   invisible page height — that's what produced 9 pages of the call sheet
+   repeating itself (position:fixed content reprints on every page).
+   Removing #root from layout entirely eliminates that phantom height, so
+   there's only ever one page's worth of flow content to paginate.
+   `.print-call-sheet` itself stays `position: fixed; inset: 0`, which
+   anchors it directly to the page box (filling exactly one physical page,
+   the same way it fills exactly one screen on screen) and — being
+   positioned — naturally stacks above the overlay's own non-positioned
+   toolbar bar, so that doesn't need separate hiding either. */
+@media print {
+  #root {
+    display: none !important;
+  }
+  .print-call-sheet {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: #fff !important;
+  }
+  @page {
+    size: landscape;
+    margin: 0.2in;
+  }
+}
