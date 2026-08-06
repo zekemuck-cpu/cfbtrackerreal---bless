@@ -23,6 +23,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { indexedDBStorage } from './storage'
+import { firestoreDocSize } from '../utils/firestoreSize'
 import {
   getSeasonsSubcollection,
   rehydrateSeasonalShapes,
@@ -50,6 +51,15 @@ const RECRUITING_DATABASE_SUBCOLLECTION = 'recruitingDatabase'
 // teardown path (deleteDynastyWithSubcollections) can wipe the
 // seasons docs without crossing module boundaries.
 const SEASONS_SUBCOLLECTION = 'seasons'
+// SchemeBuilder's per-team depth-chart plan (dynasty.teamFuture[tid]) — one
+// doc per tid, same reasoning as PLAYERS/GAMES. Doesn't fit the seasons
+// subcollection's PER_YEAR_FIELDS/PER_TEAM_YEAR_FIELDS shape (it's the
+// single CURRENT plan, not year-scoped history), so it gets its own small
+// subcollection instead. Flagged by the main-doc size guard: a whole-league
+// CFB27 sync writes every team's plan at once (~143 tids), which had grown
+// into a meaningful fraction of the 1 MiB cap despite being assumed "small"
+// when first written.
+const TEAM_FUTURE_SUBCOLLECTION = 'teamFuture'
 
 // Batch size limit for Firestore (max 500 per batch)
 const BATCH_SIZE = 450
@@ -62,7 +72,23 @@ const BATCH_SIZE = 450
 // commit can blow the request-size ceiling even though no individual doc is
 // anywhere near the 1 MiB cap. Group into commits bounded by BOTH the doc
 // count and the total serialized byte size.
-const MAX_BATCH_BYTES = 8 * 1024 * 1024
+//
+// Budget set well below the ~11 MiB wire limit, NOT just under it. A batch
+// estimated at 8 MiB via plain JSON.stringify().length still hit the real
+// server-side cap in production (confirmed: the exact same "exceeds the
+// limit: 11534336 bytes" error, on data that should have chunked safely
+// under an 8 MiB budget) — JSON.stringify().length isn't what Firestore
+// actually charges (an integer costs a fixed 8 bytes there regardless of
+// its text length, etc.), so an "8 MiB" estimate could be a real document
+// well past that. Callers now pass firestoreDocSize (src/utils/
+// firestoreSize.js) — Firestore's own documented per-document size
+// formula — instead of a raw stringify length, which closes most of that
+// gap. 3 MiB is kept anyway as a real margin on top of that accurate
+// number, not a guess compensating for an inaccurate one: this only has to
+// absorb genuine wire-protocol overhead the storage-size formula doesn't
+// cover (each write's document path/resource name, request envelope), which
+// is on the order of tens of bytes per document, not megabytes.
+const MAX_BATCH_BYTES = 3 * 1024 * 1024
 function chunkForFirestoreBatch(items, sizeOf) {
   const chunks = []
   let current = []
@@ -78,6 +104,7 @@ function chunkForFirestoreBatch(items, sizeOf) {
     currentBytes += itemBytes
   }
   if (current.length > 0) chunks.push(current)
+  console.log(`[chunkForFirestoreBatch] ${items.length} item(s) -> ${chunks.length} batch(es), largest ~${(Math.max(...chunks.map(c => c.reduce((s, it) => s + sizeOf(it), 0)), 0) / 1e6).toFixed(2)} MB`)
   return chunks
 }
 
@@ -949,7 +976,7 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
       }
       const { _firestoreId, ...rawPlayerData } = player
       const playerData = sanitizeForFirestore(rawPlayerData)
-      const bytes = new TextEncoder().encode(JSON.stringify(playerData)).length
+      const bytes = firestoreDocSize(playerData)
       preparedPlayers.push({ pid: String(player.pid), data: playerData, bytes })
     }
 
@@ -1506,16 +1533,29 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
       // Remove _firestoreId before saving and sanitize to remove empty keys
       const { _firestoreId, ...rawGameData } = game
       const gameData = sanitizeForFirestore(rawGameData)
-      const bytes = new TextEncoder().encode(JSON.stringify(gameData)).length
+      const bytes = firestoreDocSize(gameData)
       preparedGames.push({ id: String(game.id), data: gameData, bytes })
     }
 
-    for (const chunk of chunkForFirestoreBatch(preparedGames, g => g.bytes)) {
+    const gameChunks = chunkForFirestoreBatch(preparedGames, g => g.bytes)
+    for (let batchNum = 0; batchNum < gameChunks.length; batchNum++) {
+      const chunk = gameChunks[batchNum]
       const batch = writeBatch(db)
       for (const g of chunk) {
         batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, g.id), g.data)
       }
       await batch.commit()
+
+      // Add delay between batches to prevent "Write stream exhausted" error
+      // — same protection savePlayersToSubcollection already has, and the
+      // same reason it's needed here: box scores make games batches large
+      // and numerous enough on a fully-synced dynasty (confirmed in
+      // production: a 933-game sync across 5 batches hit exactly this
+      // error with no pacing between commits).
+      if (batchNum + 1 < gameChunks.length) {
+        const delayMs = gameChunks.length > 3 ? 300 : 200
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      }
     }
   } catch (error) {
     console.error('Error saving games to subcollection:', error)
@@ -1545,6 +1585,100 @@ export async function deleteGameFromSubcollection(dynastyId, gameId) {
     console.error('Error deleting game from subcollection:', error)
     throw error
   }
+}
+
+// ─── Team Future (Scheme Builder depth-chart plans) subcollection ──────
+// One doc per tid, keyed by tid, mirroring PLAYERS/GAMES. Not seasons-
+// subcollection material — see TEAM_FUTURE_SUBCOLLECTION's comment.
+
+/**
+ * Get every team's Scheme Builder depth-chart plan. Returns the same
+ * `{ [tid]: data }` shape the main doc's `teamFuture` field always had, so
+ * existing readers (SchemeBuilder.jsx, TeamOutlook.jsx) need no changes —
+ * only the load path that hydrates `dynasty.teamFuture` needs to call this.
+ */
+export async function getTeamFutureSubcollection(dynastyId, options = {}) {
+  const { onFresh = null } = options
+  const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, TEAM_FUTURE_SUBCOLLECTION)
+  try {
+    const cached = await getDocsFromCache(ref)
+    if (!cached.empty) {
+      const out = {}
+      for (const d of cached.docs) out[d.id] = d.data()
+      // Background refresh so a plan edited on another device shows up
+      // without waiting for this cache entry to get evicted.
+      if (onFresh) {
+        getDocsFromServer(ref).then(snap => {
+          const fresh = {}
+          for (const d of snap.docs) fresh[d.id] = d.data()
+          try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
+        }).catch(() => {})
+      }
+      return out
+    }
+  } catch (_) {
+    // Cache unavailable — fall through to the network.
+  }
+  try {
+    const snap = await getDocs(ref)
+    const out = {}
+    for (const d of snap.docs) out[d.id] = d.data()
+    return out
+  } catch (error) {
+    console.error('Error fetching teamFuture subcollection:', error)
+    return {}
+  }
+}
+
+/**
+ * Save the whole teamFuture object to its subcollection — one doc per tid,
+ * full replace (not merge), matching savePlayersToSubcollection's own
+ * reasoning: callers always pass the complete current state (SchemeBuilder's
+ * per-team save spreads the existing object plus one tid's change; the
+ * CFB27 sync passes every tid at once), so a full replace per doc is both
+ * safe and correct — it can't leave a stale sub-key behind.
+ */
+export async function saveTeamFutureSubcollection(dynastyId, teamFuture) {
+  const entries = Object.entries(teamFuture || {}).filter(([tid]) => tid)
+  if (entries.length === 0) return
+  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db)
+    for (const [tid, data] of entries.slice(i, i + BATCH_SIZE)) {
+      batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, TEAM_FUTURE_SUBCOLLECTION, String(tid)), sanitizeForFirestore(data))
+    }
+    bumpDynastyLastModifiedInBatch(batch, dynastyId)
+    await batch.commit()
+  }
+}
+
+/**
+ * One-time move of a dynasty's legacy main-doc teamFuture object into its
+ * own subcollection — same shape of migration as
+ * migrateRecruitingDatabaseToSubcollection, same safety rule: if the
+ * subcollection already has data, trust it and just clear the legacy field
+ * rather than risk overwriting newer data with stale legacy data.
+ * Idempotent — safe to call repeatedly/concurrently across devices.
+ */
+export async function migrateTeamFutureToSubcollection(dynastyId, legacyTeamFuture) {
+  if (!legacyTeamFuture || Object.keys(legacyTeamFuture).length === 0) return
+  const docRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+  try {
+    const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, TEAM_FUTURE_SUBCOLLECTION)
+    const existingSnapshot = await getDocsFromServer(ref)
+    if (!existingSnapshot.empty) {
+      // Subcollection is already the authoritative copy — just drop the
+      // stale legacy field, don't touch the subcollection's own data.
+      await updateDoc(docRef, { teamFuture: deleteField() })
+      return
+    }
+  } catch (err) {
+    console.warn(`[migrateTeamFutureToSubcollection] could not read existing subcollection — aborting to prevent data loss:`, err?.code || err?.message)
+    return
+  }
+  await saveTeamFutureSubcollection(dynastyId, legacyTeamFuture)
+  // Atomic field deletion shrinks the main doc immediately, same rationale
+  // as the recruiting-database migration's own deleteField step.
+  await updateDoc(docRef, { teamFuture: deleteField() })
 }
 
 // ─── Week Recaps subcollection ──────────────────────────────────────

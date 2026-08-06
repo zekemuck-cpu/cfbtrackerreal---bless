@@ -36,6 +36,11 @@ import {
   getRecruitingDatabaseSubcollection,
   saveRecruitingDatabaseSubcollection,
   migrateRecruitingDatabaseToSubcollection,
+  // Scheme Builder depth-chart plans (dynasty.teamFuture) — same rationale,
+  // one doc per tid instead of a single ever-growing main-doc field.
+  getTeamFutureSubcollection,
+  saveTeamFutureSubcollection,
+  migrateTeamFutureToSubcollection,
   // Social Media feature subcollections.
   saveSocialFeedToSubcollection,
   getSocialFeedSubcollection,
@@ -108,6 +113,7 @@ import { buildDefaultRosterPlayers, buildAllDefaultRosterPlayers } from '../data
 import { bulkSeedPlayers } from '../utils/cfb27BulkSeed'
 import { syncPlayersToSubcollection } from '../utils/cfb27SyncPlayers'
 import { chunkUpdateObject } from '../utils/updateChunker'
+import { firestoreDocSize, firestoreValueSize } from '../utils/firestoreSize'
 import { buildSyncPlan } from '../data/cfb27SaveSync'
 import { CFB27_TEAM_RATINGS } from '../data/cfb27TeamRatings'
 import { CFB27_TEAM_ABBRS } from '../data/cfb27TeamAbbrs'
@@ -6808,7 +6814,7 @@ export function DynastyProvider({ children }) {
   // and the user starts seeing resource-exhausted errors in console.
   // Once per session per dynasty is the right cadence — a permanent failure
   // requires a code fix anyway.
-  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set(), teamsByYearDuplicates: new Set() })
+  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set(), teamsByYearDuplicates: new Set(), teamFuture: new Set() })
   // Mirror of currentDynasty?.id readable from the dynasties listener
   // closure without forcing the listener to re-subscribe every time the
   // user opens a different dynasty. Keeping this listener stable across
@@ -7033,6 +7039,16 @@ export function DynastyProvider({ children }) {
           return { ...prev, recruitingDatabasePlayers: fresh }
         })
       }
+      const onFreshTeamFuture = (fresh) => {
+        if (skipListenerUpdatesCountRef.current > 0) return
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? { ...d, teamFuture: fresh } : d
+        ))
+        setCurrentDynasty(prev => {
+          if (!prev || String(prev.id) !== String(dynastyId)) return prev
+          return { ...prev, teamFuture: fresh }
+        })
+      }
 
       // Firestore-read cost gate: skip each collection's billed background
       // server re-read when the main doc's rev matches the stamp from our
@@ -7040,7 +7056,7 @@ export function DynastyProvider({ children }) {
       // had NO gate at all, so every page refresh / dynasty open re-read
       // all five subcollections (~800-1500 billed reads) unconditionally.
       const loadRev = dynastyDocRev(dynasty)
-      const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase] = await Promise.all([
+      const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture] = await Promise.all([
         getPlayersSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'players', loadRev, onFreshPlayers)),
         getGamesSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'games', loadRev, onFreshGames)),
         getWeekRecapsSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'weekRecaps', loadRev, onFreshRecaps)),
@@ -7056,6 +7072,13 @@ export function DynastyProvider({ children }) {
         getRecruitingDatabaseSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'recruitingDatabase', loadRev, onFreshRecruitingDatabase)).catch(err => {
           console.warn(`[recruiting database] fetch failed for ${dynastyId}, treating as empty:`, err?.code || err?.message || err)
           return []
+        }),
+        // Same isolation as recruitingDatabase above — newest subcollection,
+        // must not take down players/games hydration if its rules haven't
+        // propagated yet.
+        getTeamFutureSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'teamFuture', loadRev, onFreshTeamFuture)).catch(err => {
+          console.warn(`[teamFuture] fetch failed for ${dynastyId}, treating as empty:`, err?.code || err?.message || err)
+          return {}
         }),
       ])
 
@@ -7170,8 +7193,20 @@ export function DynastyProvider({ children }) {
         })
       }
 
+      // Scheme Builder depth-chart plans: same fall-back-to-legacy +
+      // fire-and-forget migration pattern as recruitingDatabase above.
+      const teamFuture = Object.keys(subcollectionTeamFuture || {}).length > 0
+        ? subcollectionTeamFuture
+        : (dynasty.teamFuture || {})
+      if (Object.keys(dynasty.teamFuture || {}).length > 0 && !migrationsAttemptedRef.current.teamFuture.has(dynastyId)) {
+        migrationsAttemptedRef.current.teamFuture.add(dynastyId)
+        migrateTeamFutureToSubcollection(dynastyId, dynasty.teamFuture).catch(err => {
+          console.warn(`[teamFuture migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+        })
+      }
+
       // Apply migrations to the loaded data
-      const dynastyWithData = { ...dynasty, players, games, weekRecapsByYear, recruitingDatabasePlayers, ...mergedSeasonal }
+      const dynastyWithData = { ...dynasty, players, games, weekRecapsByYear, recruitingDatabasePlayers, teamFuture, ...mergedSeasonal }
       const [migratedDynasty] = applyMigrations([dynastyWithData])
 
       // Write the loaded data back into whichever list owns it.
@@ -8116,6 +8151,16 @@ export function DynastyProvider({ children }) {
                 return { ...prev, recruitingDatabasePlayers: fresh }
               })
             }
+            const onFreshTeamFuture = (fresh) => {
+              if (skipListenerUpdatesCountRef.current > 0) return
+              setDynasties(prev => prev.map(d =>
+                String(d.id) === String(dynId) ? { ...d, teamFuture: fresh } : d
+              ))
+              setCurrentDynasty(prev => {
+                if (!prev || String(prev.id) !== String(dynId)) return prev
+                return { ...prev, teamFuture: fresh }
+              })
+            }
 
             // Firestore-read cost gate: even when the in-memory rev gate
             // above misses (page refresh wiped it, or this is the active
@@ -8123,7 +8168,7 @@ export function DynastyProvider({ children }) {
             // persisted per-collection stamps let each getter skip its
             // billed server re-read when nothing actually changed since
             // the last completed sync — see gatedFreshOptions.
-            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase] = await Promise.all([
+            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture] = await Promise.all([
               getPlayersSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'players', rev, onFreshPlayers)),
               getGamesSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'games', rev, onFreshGames)),
               getWeekRecapsSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'weekRecaps', rev, onFreshRecaps)),
@@ -8134,6 +8179,10 @@ export function DynastyProvider({ children }) {
               getRecruitingDatabaseSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'recruitingDatabase', rev, onFreshRecruitingDatabase)).catch(err => {
                 console.warn(`[recruiting database] fetch failed for ${dynasty.id}, treating as empty:`, err?.code || err?.message || err)
                 return []
+              }),
+              getTeamFutureSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'teamFuture', rev, onFreshTeamFuture)).catch(err => {
+                console.warn(`[teamFuture] fetch failed for ${dynasty.id}, treating as empty:`, err?.code || err?.message || err)
+                return {}
               }),
             ])
 
@@ -8274,6 +8323,18 @@ export function DynastyProvider({ children }) {
               })
             }
 
+            // Scheme Builder depth-chart plans: same fall-back-to-legacy +
+            // fire-and-forget migration pattern as recruitingDatabase above.
+            const teamFuture = Object.keys(subcollectionTeamFuture || {}).length > 0
+              ? subcollectionTeamFuture
+              : (dynasty.teamFuture || {})
+            if (Object.keys(dynasty.teamFuture || {}).length > 0 && !migrationsAttemptedRef.current.teamFuture.has(dynasty.id)) {
+              migrationsAttemptedRef.current.teamFuture.add(dynasty.id)
+              migrateTeamFutureToSubcollection(dynasty.id, dynasty.teamFuture).catch(err => {
+                console.warn(`[teamFuture migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+              })
+            }
+
             // Mark as loaded
             loadedDynastyIdsRef.current.add(dynasty.id)
             // Record the main-doc rev we just fully loaded at, so the next fire
@@ -8287,6 +8348,7 @@ export function DynastyProvider({ children }) {
               games,
               weekRecapsByYear,
               recruitingDatabasePlayers,
+              teamFuture,
               ...mergedSeasonal,
             }
           } catch (err) {
@@ -9902,6 +9964,15 @@ export function DynastyProvider({ children }) {
           await report(`Saving ${chunkLabel(chunks[i])}…`, 90 + Math.round(((i + 1) / chunks.length) * 10))
           await updateDynasty(dynastyId, chunks[i], { skipPlayersSubcollection: true })
           completedLabels.push(chunkLabel(chunks[i]))
+          // Each chunk's updateDynasty call can itself dispatch a burst of
+          // parallel subcollection writes (games, teamFuture, seasonal) —
+          // pace the chunks themselves too, same "Write stream exhausted"
+          // protection as chunkForFirestoreBatch's own inter-batch delay,
+          // so back-to-back chunks can't stack two such bursts on top of
+          // each other.
+          if (i + 1 < chunks.length) {
+            await new Promise(resolve => setTimeout(resolve, 300))
+          }
         }
       } catch (err) {
         const failedParts = chunks.slice(completedLabels.length).map(chunkLabel)
@@ -10122,7 +10193,7 @@ export function DynastyProvider({ children }) {
       // field, and run before dispatch so a rejected save writes nothing.
       if (dynasty) {
         try {
-          const OFF_MAIN_DOC = ['players', 'games', 'recruitingDatabasePlayers', 'weekRecapsByYear', 'socialFeedByYear', 'socialCharacters']
+          const OFF_MAIN_DOC = ['players', 'games', 'recruitingDatabasePlayers', 'weekRecapsByYear', 'socialFeedByYear', 'socialCharacters', 'teamFuture']
           const projected = { ...dynasty }
           for (const k of OFF_MAIN_DOC) delete projected[k]
           for (const k of Object.keys(projected)) {
@@ -10146,25 +10217,22 @@ export function DynastyProvider({ children }) {
             if (OFF_MAIN_DOC.includes(k) || isSeasonalField(k)) continue
             projected[k] = v
           }
-          // Plain JSON.stringify throws on a circular reference or a BigInt —
-          // and this whole estimate used to be swallowed silently on any
-          // throw (see the catch below), which meant a payload big enough to
-          // introduce one of those also skipped the size check entirely and
-          // sailed straight through to Firestore's own reject instead of
-          // this guard's actionable message. Decycle so a cycle degrades to
-          // a marker string instead of aborting the estimate.
-          const safeStringify = (value) => {
-            const seen = new WeakSet()
-            return JSON.stringify(value, (_key, val) => {
-              if (typeof val === 'bigint') return val.toString()
-              if (typeof val === 'object' && val !== null) {
-                if (seen.has(val)) return '[Circular]'
-                seen.add(val)
-              }
-              return val
-            })
-          }
-          const bytes = new TextEncoder().encode(safeStringify(projected)).length
+          // firestoreDocSize (src/utils/firestoreSize.js) computes Firestore's
+          // own documented per-document size formula instead of a plain
+          // JSON.stringify().length — a naive stringify estimate under-counts
+          // real Firestore-charged size for data with lots of small fields
+          // (confirmed in production: an "8 MiB" stringify-based batch
+          // estimate still failed against the real ~11 MiB request cap), so
+          // this guard's 1 MB threshold is only meaningful if the number
+          // being compared against it is accurate. It also tolerates circular
+          // references (degrades to not re-counting the repeat, rather than
+          // throwing) — a plain JSON.stringify used to throw on one, and this
+          // whole estimate used to be swallowed silently on any throw (see
+          // the catch below), which meant a payload big enough to introduce
+          // one also skipped the size check entirely and sailed straight
+          // through to Firestore's own reject instead of this guard's
+          // actionable message.
+          const bytes = firestoreDocSize(projected)
           if (bytes > MAIN_DOC_BYTE_LIMIT) {
             const mb = (bytes / 1e6).toFixed(2)
             // Name the ACTUAL biggest field rather than assuming a cause. This
@@ -10177,7 +10245,7 @@ export function DynastyProvider({ children }) {
             // even have would do nothing. Report the real top offenders and let
             // the message adapt.
             const sizeOf = (v) => {
-              try { return new TextEncoder().encode(safeStringify(v ?? null)).length } catch { return 0 }
+              try { return firestoreValueSize(v ?? null) } catch { return 0 }
             }
             const top = Object.entries(projected)
               .map(([k, v]) => [k, sizeOf(v)])
@@ -10407,6 +10475,19 @@ export function DynastyProvider({ children }) {
         // Games already saved individually - just remove from main doc updates
         console.log('[updateDynasty] Skipping games subcollection (already saved individually)')
         delete mainDocUpdates.games
+      }
+
+      // Route teamFuture (Scheme Builder depth-chart plans) to its own
+      // subcollection — one doc per tid. Not seasons-subcollection material
+      // (it's the single CURRENT plan, not year-scoped history), so it gets
+      // its own small subcollection instead, same as players/games. Full
+      // replace every time — both writers (saveTeamFuture, the CFB27 sync)
+      // already pass the complete object.
+      if (mainDocUpdates.teamFuture && typeof mainDocUpdates.teamFuture === 'object') {
+        subcollectionPromises.push(
+          saveTeamFutureSubcollection(dynastyId, mainDocUpdates.teamFuture)
+        )
+        delete mainDocUpdates.teamFuture
       }
 
       // Route season-scoped fields (allAmericansByYear, schedulesByTeamYear,

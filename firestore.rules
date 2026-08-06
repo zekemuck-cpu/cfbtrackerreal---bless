@@ -427,6 +427,30 @@ service cloud.firestore {
                      && request.auth.uid in parentDynasty().get('editors', []);
       }
 
+      // ─── Team Future (Scheme Builder depth-chart plans) ─────────
+      // One doc per tid: dynasties/{id}/teamFuture/{tid}. Previously a
+      // single object field on the main doc (teamFuture), moved out for
+      // the same 1 MB-cap reason as players/games/recruitingDatabase
+      // above — a whole-league CFB27 sync writes every team's plan at
+      // once. Same access model as recruitingDatabase.
+      match /teamFuture/{tid} {
+        allow read: if isSignedIn()
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && request.auth.uid in parentDynasty().get('editors', []);
+        allow read: if parentDynasty().isPublic == true;
+
+        allow write: if isPremium()
+                     && parentDynasty().userId == request.auth.uid;
+        // Owner can always DELETE their own dynasty's docs (teardown),
+        // even if premium has lapsed.
+        allow delete: if isSignedIn()
+                      && parentDynasty().userId == request.auth.uid;
+        allow write: if isSignedIn()
+                     && parentDynasty().userId != request.auth.uid
+                     && request.auth.uid in parentDynasty().get('editors', []);
+      }
+
       // ─── Social Media feature subcollections ────────────────────
       // socialFeed/{year-week} (posts) and socialCharacters/shard-N +
       // _overrides (the per-dynasty character overlay). Same access

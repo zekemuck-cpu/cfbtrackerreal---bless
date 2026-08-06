@@ -54,6 +54,11 @@ export const PER_YEAR_FIELDS = [
   // Was previously unrouted, so a CFB27-synced dynasty's national coach
   // leaderboard accumulated on the MAIN doc every sync (1 MiB cap risk).
   'allCoachesByYear',
+  // Weekly awards, one entry per season, forever — same unbounded shape as
+  // allCoachesByYear above. Flagged by the accurate main-doc size guard as a
+  // real (if smaller) contributor on a fully-synced CFB27 dynasty.
+  'playersOfWeekByYear',
+  'heismanWatchByYear',
   'allAmericansByYear',
   'awardsByYear',
   'bowlEligibilityDataByYear',
