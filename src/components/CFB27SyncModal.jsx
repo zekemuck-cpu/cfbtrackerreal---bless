@@ -17,7 +17,9 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
 
   const [status, setStatus] = useState(null) // null | 'uploading' | 'parsing' | 'syncing' | 'done' | 'error'
   const [error, setError] = useState('')
+  const [errorParts, setErrorParts] = useState(null) // { completed: string[], failed: string[] } | null
   const [result, setResult] = useState(null)
+  const [progress, setProgress] = useState(null) // { message, pct, etaSeconds } | null
 
   const isCfb27Dynasty = currentDynasty?.gameEdition === 'cfb27'
 
@@ -25,19 +27,29 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
     const file = e.target.files?.[0]
     if (!file) return
     setError('')
+    setErrorParts(null)
     setResult(null)
+    setProgress(null)
     setStatus('uploading')
     try {
       const parsed = await uploadAndParseCfb27Save(file, {
         onProgress: (stage) => setStatus(stage),
       })
       setStatus('syncing')
-      const syncResult = await syncDynastyFromCFB27Save(currentDynasty.id, parsed)
+      const syncResult = await syncDynastyFromCFB27Save(currentDynasty.id, parsed, {
+        // Upload+parse already covered roughly 0-10%; rescale the sync's own
+        // 0-100 into the remaining 10-100 so the whole click-to-done flow
+        // reads as one continuous bar instead of resetting partway through.
+        onProgress: (p) => setProgress({ ...p, pct: 10 + Math.round((p.pct / 100) * 90) }),
+      })
       setResult(syncResult)
       setStatus('done')
     } catch (err) {
       console.error('CFB27 sync failed:', err)
       setError(err.message || 'Sync failed')
+      if (err.completedParts || err.failedParts) {
+        setErrorParts({ completed: err.completedParts || [], failed: err.failedParts || [] })
+      }
       setStatus('error')
     } finally {
       e.target.value = ''
@@ -47,7 +59,9 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
   const handleClose = () => {
     setStatus(null)
     setError('')
+    setErrorParts(null)
     setResult(null)
+    setProgress(null)
     onClose()
   }
 
@@ -92,15 +106,39 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
         </>
       )}
 
-      {busy && (
+      {(status === 'uploading' || status === 'parsing') && (
         <div className="py-6 text-center text-txt-secondary">
           {statusLabel}
+        </div>
+      )}
+
+      {status === 'syncing' && (
+        <div className="py-2 space-y-2" aria-live="polite">
+          <div className="flex items-center justify-between text-sm text-txt-secondary">
+            <span>{progress?.message || 'Syncing…'}</span>
+            <span className="tabular">{progress?.pct != null ? `${Math.min(100, Math.round(progress.pct))}%` : ''}</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-surface-3 overflow-hidden">
+            <div
+              className="h-full bg-txt-primary transition-all duration-300 ease-out"
+              style={{ width: `${Math.max(2, Math.min(100, progress?.pct ?? 2))}%` }}
+            />
+          </div>
+          {progress?.etaSeconds != null && progress.etaSeconds > 1 && (
+            <p className="text-xs text-txt-secondary">~{progress.etaSeconds}s remaining</p>
+          )}
         </div>
       )}
 
       {status === 'error' && (
         <div>
           <p className="text-sm text-danger mb-4">{error}</p>
+          {errorParts && (
+            <div className="text-xs text-txt-secondary mb-4 space-y-1">
+              {errorParts.completed.length > 0 && <p>Synced: {errorParts.completed.join(', ')}.</p>}
+              {errorParts.failed.length > 0 && <p>Not synced (safe to re-run the sync): {errorParts.failed.join(', ')}.</p>}
+            </div>
+          )}
           <Button variant="outline" className="w-full" onClick={() => setStatus(null)}>
             Try Again
           </Button>

@@ -107,6 +107,7 @@ import { syncDerivedFieldsFromV2, legacyMovementToCanonical } from '../data/rost
 import { buildDefaultRosterPlayers, buildAllDefaultRosterPlayers } from '../data/defaultRosterLoader'
 import { bulkSeedPlayers } from '../utils/cfb27BulkSeed'
 import { syncPlayersToSubcollection } from '../utils/cfb27SyncPlayers'
+import { chunkUpdateObject } from '../utils/updateChunker'
 import { buildSyncPlan } from '../data/cfb27SaveSync'
 import { CFB27_TEAM_RATINGS } from '../data/cfb27TeamRatings'
 import { CFB27_TEAM_ABBRS } from '../data/cfb27TeamAbbrs'
@@ -9383,14 +9384,30 @@ export function DynastyProvider({ children }) {
     return { week, phase, reachedTarget, stoppedAtOffseason }
   }
 
-  const syncDynastyFromCFB27Save = async (dynastyId, parsed) => {
+  const syncDynastyFromCFB27Save = async (dynastyId, parsed, { onProgress } = {}) => {
     if (blockIfReadOnly(dynastyId, 'sync CFB27 save')) return
+
+    // A full whole-league sync runs several heavy, fully-synchronous phases
+    // (buildSyncPlan, the box-score/conference-game merges, stats recalc)
+    // with no internal await, so the UI would otherwise never repaint an
+    // intermediate percentage — report() yields a tick after every call so
+    // React can actually paint before the next blocking phase runs. Same
+    // pattern as createDynasty's own report() helper.
+    const startedAt = Date.now()
+    const report = async (message, pct) => {
+      if (!onProgress) return
+      const elapsedMs = Date.now() - startedAt
+      const etaSeconds = pct > 0 && pct < 100 ? Math.round((elapsedMs / pct) * (100 - pct) / 1000) : null
+      try { onProgress({ message, pct, etaSeconds }) } catch (_) {}
+      await new Promise((r) => setTimeout(r))
+    }
 
     const dynasty = await findDynastyById(dynastyId)
     if (!dynasty) {
       console.error('Dynasty not found:', dynastyId)
       return
     }
+    await report('Loading dynasty…', 5)
 
     // CRITICAL: dynasty.players/.games (from findDynastyById, a plain state
     // lookup) are NOT guaranteed to hold the full, current subcollection
@@ -9402,8 +9419,11 @@ export function DynastyProvider({ children }) {
     const freshPlayers = await getDynastyPlayers(dynasty)
     const freshGames = await getDynastyGames(dynasty)
     const dynastyForPlan = { ...dynasty, players: freshPlayers, games: freshGames }
+    await report('Loading current roster & games…', 12)
 
+    await report('Comparing against your save…', 15)
     const plan = buildSyncPlan(dynastyForPlan, parsed)
+    await report('Merging schedule & scores…', 45)
 
     // An empty scheduleForUserTeam means the save just doesn't have this
     // year's schedule generated yet (e.g. synced at Preseason Wk 0, before
@@ -9506,6 +9526,7 @@ export function DynastyProvider({ children }) {
       if (Boolean(g.isConferenceGame) === isConferenceGame) return g
       return { ...g, isConferenceGame }
     })
+    await report('Applying game results…', 55)
 
     // Auto-advance currentWeek/currentPhase to match the save's own season
     // state — computed here (pure function, not by invoking advanceWeek)
@@ -9742,6 +9763,44 @@ export function DynastyProvider({ children }) {
     const useLocalStorage = dynasty.storageType !== 'cloud'
     const statsYear = Number(dynasty.currentYear)
 
+    // User-facing labels for the leftover main-doc fields, keyed by their
+    // ACTUAL top-level field name (not the local `...xyzUpdate` variable
+    // name) — used for both progress messages and partial-failure errors so
+    // neither ever exposes an internal field name like `allCoachesUpdate`.
+    // Falls back to a generic label for anything not listed here, so adding
+    // a new sync field later can never crash the labeler.
+    const SYNC_FIELD_LABELS = {
+      teams: 'team data',
+      games: 'games',
+      currentWeek: 'calendar advance',
+      currentPhase: 'calendar advance',
+      currentYear: 'calendar advance',
+      teamFuture: 'future schedule',
+      playersOfWeekByYear: 'weekly awards',
+      heismanWatchByYear: 'weekly awards',
+      rivalries: 'rivalry records',
+      draftResultsByTeamYear: 'draft & playoff results',
+      cfpSeedsByYear: 'draft & playoff results',
+      cfpSeedsByYearTid: 'draft & playoff results',
+      cfpBowlConfigByYear: 'draft & playoff results',
+      allAmericansByYear: 'season honors & records',
+      awardsByYear: 'season honors & records',
+      leagueStatRecords: 'season honors & records',
+      newJobData: 'coach profile',
+      userCoachPortrait: 'coach profile',
+      userCoachCareerStats: 'coach profile',
+      allCoachesByYear: 'national coach rankings',
+      coachOffers: 'coaching carousel',
+    }
+    const chunkLabel = (chunk) => {
+      const labels = [...new Set(
+        Object.keys(chunk)
+          .filter((k) => k !== 'platform')
+          .map((k) => SYNC_FIELD_LABELS[k] || 'additional sync data')
+      )]
+      return labels.length ? labels.join(', ') : 'sync data'
+    }
+
     if (useLocalStorage) {
       const existingByPid = new Map(freshPlayers.map((p) => [p.pid, p]))
       for (const { pid, patch } of [...plan.toUpdatePatches, ...plan.departurePatches]) {
@@ -9756,8 +9815,14 @@ export function DynastyProvider({ children }) {
       // manual "Fix Player Stats" admin action uses), or the box scores sit
       // on the games unread and every stats page stays empty.
       const mergedPlayers = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
+      await report('Recalculating stats…', 65)
 
+      // No Firestore size ceiling applies to a local (IndexedDB) dynasty, so
+      // this stays a single write — only cloud dynasties need the chunked
+      // sequence below.
+      await report('Saving…', 95)
       await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...allCoachesUpdate, ...coachOffersUpdate, platform: 'pc' })
+      await report('Done', 100)
     } else {
       // Same recompute as the local branch, but diffed against freshPlayers
       // (not written wholesale — a cloud dynasty can have thousands of
@@ -9778,6 +9843,7 @@ export function DynastyProvider({ children }) {
       }
       const recalculated = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
       const recalculatedByPid = new Map(recalculated.map((p) => [p.pid, p]))
+      await report('Recalculating stats…', 65)
 
       const createPidSet = new Set(plan.toCreatePlayers.map((p) => p.pid))
       const statsPatches = []
@@ -9799,9 +9865,52 @@ export function DynastyProvider({ children }) {
       })
 
       if (createsWithStats.length || plan.toUpdatePatches.length || plan.departurePatches.length || statsPatches.length) {
-        await syncPlayersToSubcollection(dynastyId, createsWithStats, [...plan.toUpdatePatches, ...plan.departurePatches, ...statsPatches])
+        const totalPlayerWrites = createsWithStats.length + plan.toUpdatePatches.length + plan.departurePatches.length + statsPatches.length
+        await syncPlayersToSubcollection(dynastyId, createsWithStats, [...plan.toUpdatePatches, ...plan.departurePatches, ...statsPatches], {
+          onProgress: (sent, total) => { report('Saving roster…', 70 + Math.round((sent / Math.max(total || totalPlayerWrites, 1)) * 20)) },
+        })
       }
-      await updateDynasty(dynastyId, { teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...allCoachesUpdate, ...coachOffersUpdate, platform: 'pc' }, { skipPlayersSubcollection: true })
+      await report('Saving roster…', 90)
+
+      // Everything left over after players/games/seasonal routing still
+      // lands in ONE main-document Firestore write — on a full whole-league
+      // sync (~143 teams, national coach rankings, honors, etc.) that single
+      // write can exceed Firestore's request-size cap even though no
+      // individual field is oversized on its own. Byte-chunk it into several
+      // smaller sequential writes instead. Calendar-advance fields are
+      // forced into their own chunk placed LAST so every other chunk is
+      // durably written before the season clock advances on the server —
+      // preserving updateDynasty's own single-call "isCalendarWrite"
+      // ordering guarantee across this multi-call sequence.
+      const fullUpdate = {
+        teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate,
+        ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate,
+        ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate,
+        ...allCoachesUpdate, ...coachOffersUpdate, platform: 'pc',
+      }
+      const chunks = chunkUpdateObject(fullUpdate, { lastKeys: ['currentYear', 'currentPhase', 'currentWeek'] })
+
+      // This chunked sequence fires far more updateDynasty calls than a
+      // normal save — bump the realtime-listener skip window to its cap for
+      // the duration so a slow chunk's echo can't slip past a later chunk
+      // resetting the counter mid-sync (see bumpSkipCount's own comment).
+      bumpSkipCount(SKIP_COUNT_MAX)
+
+      const completedLabels = []
+      try {
+        for (let i = 0; i < chunks.length; i++) {
+          await report(`Saving ${chunkLabel(chunks[i])}…`, 90 + Math.round(((i + 1) / chunks.length) * 10))
+          await updateDynasty(dynastyId, chunks[i], { skipPlayersSubcollection: true })
+          completedLabels.push(chunkLabel(chunks[i]))
+        }
+      } catch (err) {
+        const failedParts = chunks.slice(completedLabels.length).map(chunkLabel)
+        err.completedParts = completedLabels
+        err.failedParts = failedParts
+        err.message = `${err.message} — synced: ${completedLabels.join(', ') || 'nothing yet'}. ` +
+          `Not synced (safe to re-run the sync): ${failedParts.join(', ')}.`
+        throw err
+      }
     }
 
     return {
