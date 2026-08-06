@@ -1075,7 +1075,7 @@ export async function getRecruitingDatabaseSubcollection(dynastyId, options = {}
 
 // Stable, key-order-independent serialization so an unchanged recruit compares
 // equal to its stored copy regardless of the key order Firestore hands back.
-function stableStringify(v) {
+export function stableStringify(v) {
   if (v === null || typeof v !== 'object') return JSON.stringify(v)
   if (Array.isArray(v)) return '[' + v.map(stableStringify).join(',') + ']'
   return '{' + Object.keys(v).sort().map(k => JSON.stringify(k) + ':' + stableStringify(v[k])).join(',') + '}'

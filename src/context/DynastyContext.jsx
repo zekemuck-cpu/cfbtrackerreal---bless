@@ -41,6 +41,10 @@ import {
   getTeamFutureSubcollection,
   saveTeamFutureSubcollection,
   migrateTeamFutureToSubcollection,
+  // Key-order-independent equality check — see its own comment. Used for
+  // diff-based saves so an object that's semantically unchanged but came
+  // back from Firestore with different key order doesn't get rewritten.
+  stableStringify,
   // Social Media feature subcollections.
   saveSocialFeedToSubcollection,
   getSocialFeedSubcollection,
@@ -9912,8 +9916,10 @@ export function DynastyProvider({ children }) {
       for (const player of recalculated) {
         if (createPidSet.has(player.pid)) continue // folded into the create doc below instead
         const freshPlayer = freshPlayers.find((p) => p.pid === player.pid)
-        const before = JSON.stringify(freshPlayer?.statsByYear?.[statsYear] || null)
-        const after = JSON.stringify(player.statsByYear?.[statsYear] || null)
+        // stableStringify — same key-order-independence reasoning as the
+        // games/players diffs in updateDynasty.
+        const before = stableStringify(freshPlayer?.statsByYear?.[statsYear] || null)
+        const after = stableStringify(player.statsByYear?.[statsYear] || null)
         if (before !== after) {
           statsPatches.push({
             pid: player.pid,
@@ -10363,10 +10369,20 @@ export function DynastyProvider({ children }) {
                 const key = String(p.pid)
                 newPids.add(key)
                 const before = priorByPid.get(key)
-                // Stringify compare is conservative: any structural difference
-                // (even key order) writes the doc; a skip requires an exact
-                // match, so it can never suppress a real change.
-                if (!before || JSON.stringify(before) !== JSON.stringify(p)) {
+                // stableStringify (key-order-independent) instead of plain
+                // JSON.stringify: a player rebuilt via object spreads (every
+                // sync/save path does this) serializes with different key
+                // order than what Firestore hands back, even when nothing
+                // actually changed — plain JSON.stringify treated that as a
+                // real change and rewrote the doc anyway. Confirmed in
+                // production on games (see the matching fix in the games
+                // diff below): a 933-of-944 "changed" count on a repeat sync
+                // of unchanged data was this exact bug, and volume that size
+                // is what tips Firestore into "Write stream exhausted."
+                // stableStringify still catches every REAL change — it's a
+                // full deep comparison, just order-independent — so this
+                // loses no safety, only the false positives.
+                if (!before || stableStringify(before) !== stableStringify(p)) {
                   changedPlayers.push(p)
                 }
               }
@@ -10444,7 +10460,15 @@ export function DynastyProvider({ children }) {
               const key = String(g.id)
               newIds.add(key)
               const before = priorById.get(key)
-              if (!before || JSON.stringify(before) !== JSON.stringify(g)) {
+              // stableStringify, not plain JSON.stringify — see the matching
+              // comment in the players diff above. Games rebuilt by the
+              // CFB27 sync (spread + box-score merge) serialize with
+              // different key order than Firestore's stored copy even when
+              // content is identical, so a plain-stringify compare flagged
+              // nearly every game as "changed" on every sync (933 of 944 on
+              // a REPEAT sync in production) — that write volume is what
+              // was tipping Firestore into "Write stream exhausted."
+              if (!before || stableStringify(before) !== stableStringify(g)) {
                 changedGames.push(g)
               }
             }

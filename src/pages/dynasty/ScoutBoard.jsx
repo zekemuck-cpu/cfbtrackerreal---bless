@@ -248,7 +248,6 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
               <span className="font-bold text-txt-secondary">{intRank != null ? `#${intRank}` : '-'}</span>
               <span className="text-txt-tertiary uppercase">Int</span>
             </span>
-            {p.devTrait && <DevTraitPill devTrait={p.devTrait} />}
           </div>
         </div>
 
