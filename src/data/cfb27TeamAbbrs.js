@@ -118,8 +118,8 @@ export const CFB27_TEAM_ABBRS = {
   107: 'UGA', // Georgia Bulldogs
   108: 'HOU', // Houston Cougars (was UH)
   109: 'UK', // Kentucky Wildcats
-  110: 'ULL', // Lafayette Ragin' Cajuns (was UL)
-  111: 'ULM', // Monroe Warhawks
+  110: 'ULL', // Louisiana Ragin' Cajuns (was UL)
+  111: 'ULM', // UL Monroe Warhawks
   112: 'TERPS', // Maryland Terrapins (was UMD)
   113: 'UNC', // North Carolina Tar Heels
   114: 'UNLV', // UNLV Rebels

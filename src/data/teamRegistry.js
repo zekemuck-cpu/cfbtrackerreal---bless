@@ -954,22 +954,26 @@ export const TEAMS = {
   110: {
     tid: 110,
     abbr: "UL",
-    name: "Lafayette Ragin' Cajuns",
+    name: "Louisiana Ragin' Cajuns",
     primaryColor: "#ce181e",
     secondaryColor: "#FFFFFF",
     logo: "https://i.imgur.com/UDJsamv.png",
-    // EA CFB shows the Ragin' Cajuns as "Louisiana"; the app label is Lafayette.
-    aliases: ["Louisiana", "UL Lafayette", "Louisiana Lafayette", "Ragin' Cajuns", "ULL"]
+    // Matches EA CFB's own in-game name. aliases[0] squashes equal to the
+    // label so getTeamInGameNames skips this team (no AI-prompt bridging
+    // needed) — "Lafayette" is kept as a searchable alternate form only.
+    aliases: ["Louisiana Ragin' Cajuns", "Lafayette", "UL Lafayette", "Louisiana Lafayette", "Ragin' Cajuns", "ULL"]
   },
   111: {
     tid: 111,
     abbr: "ULM",
-    name: "Monroe Warhawks",
+    name: "UL Monroe Warhawks",
     primaryColor: "#800029",
     secondaryColor: "#bd955a",
     logo: "https://i.imgur.com/O0Knoh1.png",
-    // EA CFB shows the Warhawks as "UL Monroe"; the app label is Monroe.
-    aliases: ["UL Monroe", "Louisiana Monroe", "UL-Monroe", "ULM Warhawks"]
+    // Matches EA CFB's own in-game name ("UL Monroe"). aliases[0] squashes
+    // equal to the label so getTeamInGameNames skips this team — "Monroe" is
+    // kept as a searchable alternate form only.
+    aliases: ["UL Monroe Warhawks", "Monroe", "Louisiana Monroe", "UL-Monroe", "ULM Warhawks"]
   },
   112: {
     tid: 112,

@@ -114,8 +114,8 @@ export const CFB27_NIL_BUDGETS = {
   107: 12200, // Georgia Bulldogs
   108: 3575, // Houston Cougars
   109: 4260, // Kentucky Wildcats
-  110: 1100, // Lafayette Ragin' Cajuns
-  111: 505, // Monroe Warhawks
+  110: 1100, // Louisiana Ragin' Cajuns
+  111: 505, // UL Monroe Warhawks
   112: 3650, // Maryland Terrapins
   113: 3735, // North Carolina Tar Heels
   114: 1370, // UNLV Rebels

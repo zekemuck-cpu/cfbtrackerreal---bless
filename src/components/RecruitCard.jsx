@@ -64,6 +64,19 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, team
 
   const [showAttrs, setShowAttrs] = useState(false)
   const [showStaff, setShowStaff] = useState(false)
+  // A truthy pictureUrl only means a URL was recorded, not that it still
+  // loads — CFB27 portrait packs are served externally (~800MB, not bundled),
+  // so entries 404. Without this, a failed load left a bare broken-image
+  // icon instead of dropping through to the team-logo fallback below, same
+  // as every other player photo in the app (see PlayerAvatar.jsx).
+  // `player` is a strict name/year match against currentDynasty.players —
+  // it only resolves for teams whose roster is fully synced (i.e. the
+  // user's own team). CPU-team recruits carry their portrait on the
+  // commitment record itself (recruit.pictureUrl, from the synced
+  // recruitingClassRoster), so that's the fallback source here.
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState(null)
+  const photoUrl = player?.pictureUrl || recruit?.pictureUrl
+  const showPhoto = !!photoUrl && failedPhotoUrl !== photoUrl
   const attrEntries = ATTRIBUTE_COLUMNS
     .filter((name) => recruit.attributes?.[name] != null && recruit.attributes[name] !== '')
     .map((name) => ({ name, abbr: ATTRIBUTE_ABBR[name] || name, value: Number(recruit.attributes[name]) }))
@@ -152,12 +165,13 @@ export default function RecruitCard({ recruit, player, bg, text, teamsData, team
       <div className="p-2 sm:p-3 flex flex-col h-full gap-1.5 sm:gap-2.5">
         {/* === IDENTITY BAND === photo + name + pos·class + stars */}
         <div className="flex flex-col items-center gap-1 sm:gap-1.5 text-center">
-          {player?.pictureUrl ? (
+          {showPhoto ? (
             <img
-              src={proxyImageUrl(player.pictureUrl, 300)}
+              src={proxyImageUrl(photoUrl, 300)}
               alt={recruit.name}
               className="w-11 h-11 sm:w-14 sm:h-14 object-cover rounded-md flex-shrink-0"
               style={{ border: `2px solid ${teamBgText}66` }}
+              onError={() => setFailedPhotoUrl(photoUrl)}
             />
           ) : teamLogo ? (
             <div

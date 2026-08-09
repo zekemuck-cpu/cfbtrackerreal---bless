@@ -1385,9 +1385,27 @@ async function buildRecruitTeamNilOffers(save, teamRecords) {
 }
 
 /**
- * @returns {Map<number, {stars:number, nationalRank:number|null, nilCompensation:number}[]>} rawTeamId -> recruit list
+ * @returns {Map<number, {stars:number, nationalRank:number|null, nilCompensation:number,
+ *   first_name:?string, last_name:?string, position:?string, state_rank:?number,
+ *   position_rank:?number, hometown:?string, home_state:?string, recruit_class:?string,
+ *   recruit_stage:?string, generic_head_asset_name:?string, portrait_id:?number,
+ *   height:?number, weight:?number, archetype_name:?string, dev_trait:?string}[]>} rawTeamId -> recruit list
+ *
+ * Named per-recruit detail (not just the stats this was originally built
+ * for) — every field here was already being read off the SAME resolved
+ * playerRec/recruitRec this function walks for every committed recruit
+ * league-wide, just discarded after computing stars/nationalRank. Keeping
+ * them costs nothing extra (no new resolveRef calls) and is what makes a
+ * named Commitments list possible for a team you're not coaching, not just
+ * the aggregate class-rank numbers.
+ *
+ * dev_trait is included RAW (not stage-gated here) — same as
+ * buildLeagueRecruitDirectory's own dev_trait field. Gating when it's
+ * actually shown (only once recruit_stage is 'Signed', or the recruit was
+ * separately scouted on the user's own board) is a caller/UI concern, not
+ * this extractor's — it just reports what the save contains.
  */
-async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers) {
+async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers, presentRatings) {
   const byTeam = new Map();
   if (!recruitRecords || !recruitRecords.length) return byTeam;
 
@@ -1441,8 +1459,33 @@ async function buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPic
       ? (recruitNilOffers?.get(`${rawTid}::${nationalRank}`) ?? 0)
       : 0;
 
+    const hasPlayer = playerRec && !playerRec.isEmpty;
+    // Same core-fields helper buildRecruitingBoard uses for the user's own
+    // board rows — derives archetype + dev trait from the rating columns
+    // (falls back to schema.bestArchetype when the save has no stored
+    // archetype for this recruit yet, same as every other consumer here).
+    const core = hasPlayer ? (buildPlayerCoreFields(playerRec, F, presentRatings) || {}) : {};
     if (!byTeam.has(rawTid)) byTeam.set(rawTid, []);
-    byTeam.get(rawTid).push({ stars, nationalRank, nilCompensation });
+    byTeam.get(rawTid).push({
+      stars,
+      nationalRank,
+      nilCompensation,
+      first_name: hasPlayer && F.first ? readCell(playerRec, F.first) : null,
+      last_name: hasPlayer && F.last ? readCell(playerRec, F.last) : null,
+      position: hasPlayer && F.position ? String(readCell(playerRec, F.position)) : null,
+      state_rank: Number(readCell(recruitRec, 'StateRank')) || null,
+      position_rank: Number(readCell(recruitRec, 'PositionRank')) || null,
+      hometown: hasPlayer && F.home ? readCell(playerRec, F.home) : null,
+      home_state: hasPlayer && F.homeState ? readCell(playerRec, F.homeState) : null,
+      recruit_class: readCell(recruitRec, 'Class'),
+      recruit_stage: stage,
+      generic_head_asset_name: hasPlayer && F.genericHeadAssetName ? readCell(playerRec, F.genericHeadAssetName) : null,
+      portrait_id: hasPlayer && F.portraitId ? Number(readCell(playerRec, F.portraitId)) : null,
+      height: hasPlayer && F.height ? Number(readCell(playerRec, F.height)) : null,
+      weight: hasPlayer && F.weight ? Number(readCell(playerRec, F.weight)) : null,
+      archetype_name: core.archetype_name || null,
+      dev_trait: core.dev_trait || null,
+    });
   }
 
   return byTeam;
@@ -2292,7 +2335,7 @@ async function extractFullSave(filePath, opts = {}) {
   } catch (err) {
     console.error('buildRecruitTeamNilOffers failed, continuing without NIL data:', err.message);
   }
-  const leagueRecruitingClasses = await buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers);
+  const leagueRecruitingClasses = await buildLeagueRecruitingClasses(save, recruitRecords, playerFieldPicker, recruitNilOffers, presentRatings);
   const leagueRecruitDirectory = await buildLeagueRecruitDirectory(save, recruitRecords, playerFieldPicker);
 
   const leagueRivalries = await buildLeagueRivalries(save, teamRecords);

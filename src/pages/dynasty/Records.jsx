@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getTeamLogo } from '../../data/teams'
+import { getTeamLogo, getTeamLogoByTid, stripMascotFromName } from '../../data/teams'
 import { PageHero, Card, EmptyState, Select, DataTable } from '../../components/ui'
 
 const TIMEFRAMES = [
@@ -85,6 +85,28 @@ export default function Records() {
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [teamsSource])
 
+  // Synced record entries store the raw short school name (e.g. "Houston"),
+  // not the app's full "Houston Cougars" display name, so logo lookup has to
+  // go through tid: match either form against each dynasty team, then use
+  // the tid-based logo helper per the app's tid-based team convention.
+  const teamNameToTid = useMemo(() => {
+    const map = new Map()
+    for (const [tid, team] of Object.entries(teamsSource)) {
+      if (!team?.name) continue
+      map.set(team.name.toLowerCase(), Number(tid))
+      const school = stripMascotFromName(team.name)
+      if (school) map.set(school.toLowerCase(), Number(tid))
+    }
+    return map
+  }, [teamsSource])
+
+  const getRecordTeamLogo = (teamName) => {
+    if (!teamName) return null
+    const tid = teamNameToTid.get(teamName.trim().toLowerCase())
+    if (tid != null) return getTeamLogoByTid(tid, teamsSource)
+    return getTeamLogo(teamName, teamsSource)
+  }
+
   const entriesByType = useMemo(() => {
     let list = []
     if (scope === 'national') {
@@ -123,16 +145,24 @@ export default function Records() {
       align: 'left',
       render: (r) => {
         if (!r.entry) return '-'
-        const logo = r.entry.team_name ? getTeamLogo(r.entry.team_name, teamsSource) : null
+        return <span className="font-medium text-txt-primary">{r.entry.first_name} {r.entry.last_name}</span>
+      },
+    },
+    {
+      key: 'team',
+      header: 'Team',
+      align: 'left',
+      render: (r) => {
+        if (!r.entry?.team_name) return '-'
+        const logo = getRecordTeamLogo(r.entry.team_name)
         return (
           <div className="flex items-center gap-2">
             {logo && <img src={logo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />}
-            <span className="font-medium text-txt-primary">{r.entry.first_name} {r.entry.last_name}</span>
+            <span>{r.entry.team_name}</span>
           </div>
         )
       },
     },
-    { key: 'team', header: 'Team', align: 'left', render: (r) => r.entry?.team_name || '-' },
     { key: 'pos', header: 'Pos', align: 'center', render: (r) => r.entry?.position || '-' },
     { key: 'year', header: 'Year', align: 'center', render: (r) => r.entry?.year ?? '-' },
     {

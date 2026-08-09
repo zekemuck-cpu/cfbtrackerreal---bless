@@ -33,7 +33,7 @@ const mascotMap = {
   'ILL': 'Illinois Fighting Illini', 'IU': 'Indiana Hoosiers', 'IOWA': 'Iowa Hawkeyes',
   'ISU': 'Iowa State Cyclones', 'JKST': 'Jacksonville State Gamecocks', 'JMU': 'James Madison Dukes',
   'KU': 'Kansas Jayhawks', 'KSU': 'Kansas State Wildcats', 'KENT': 'Kent State Golden Flashes',
-  'UK': 'Kentucky Wildcats', 'LIB': 'Liberty Flames', 'ULL': 'Lafayette Ragin\' Cajuns',
+  'UK': 'Kentucky Wildcats', 'LIB': 'Liberty Flames', 'ULL': 'Louisiana Ragin\' Cajuns',
   'LT': 'Louisiana Tech Bulldogs', 'LOU': 'Louisville Cardinals', 'LSU': 'LSU Tigers',
   'UM': 'Miami Hurricanes', 'M-OH': 'Miami Redhawks', 'UMD': 'Maryland Terrapins',
   'MASS': 'Massachusetts Minutemen', 'MEM': 'Memphis Tigers', 'MICH': 'Michigan Wolverines',
@@ -61,11 +61,11 @@ const mascotMap = {
   'WASH': 'Washington Huskies', 'WSU': 'Washington State Cougars', 'WVU': 'West Virginia Mountaineers',
   'WMU': 'Western Michigan Broncos', 'WKU': 'Western Kentucky Hilltoppers', 'WIS': 'Wisconsin Badgers',
   'WYO': 'Wyoming Cowboys', 'DEL': 'Delaware Fightin\' Blue Hens', 'FLA': 'Florida Gators',
-  'KENN': 'Kennesaw State Owls', 'ULM': 'Monroe Warhawks', 'UC': 'Cincinnati Bearcats',
+  'KENN': 'Kennesaw State Owls', 'ULM': 'UL Monroe Warhawks', 'UC': 'Cincinnati Bearcats',
   'MIA': 'Miami Hurricanes', 'MIZ': 'Missouri Tigers', 'OU': 'Oklahoma Sooners', 'GSU': 'Georgia State Panthers',
   'USM': 'Southern Mississippi Golden Eagles', 'RUTG': 'Rutgers Scarlet Knights', 'SHSU': 'Sam Houston State Bearkats',
   'TTU': 'Texas Tech Red Raiders', 'TULN': 'Tulane Green Wave', 'UH': 'Houston Cougars',
-  'UL': 'Lafayette Ragin\' Cajuns', 'UT': 'Tennessee Volunteers',
+  'UL': 'Louisiana Ragin\' Cajuns', 'UT': 'Tennessee Volunteers',
   // FCS teams
   'FCSE': 'FCS East Sentinels', 'FCSM': 'FCS Midwest Thunderbirds',
   'FCSN': 'FCS Northwest Kodiaks', 'FCSW': 'FCS West Rivertoads'

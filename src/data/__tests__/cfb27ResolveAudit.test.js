@@ -20,10 +20,10 @@ const tidOf = (name) => getTidFromTeamText(name, T)
 describe('CFB 27 team resolution audit — Louisville / Lafayette / Monroe', () => {
   it('registry identities are what we expect', () => {
     expect(TEAMS[50].name).toBe('Louisville Cardinals')
-    expect(TEAMS[110].name).toBe('Lafayette Ragin\' Cajuns')
+    expect(TEAMS[110].name).toBe('Louisiana Ragin\' Cajuns')
     expect(TEAMS[112]?.name || TEAMS[111]?.name).toBeDefined()
     expect(CFB27_TEAM_ABBRS[50]).toBe('UL')   // Louisville
-    expect(CFB27_TEAM_ABBRS[110]).toBe('ULL') // Lafayette
+    expect(CFB27_TEAM_ABBRS[110]).toBe('ULL') // Louisiana (Lafayette)
   })
 
   it('full NAMES resolve to the correct, distinct tids', () => {

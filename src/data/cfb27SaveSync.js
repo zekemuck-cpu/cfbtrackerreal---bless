@@ -1632,6 +1632,11 @@ export function buildSyncPlan(dynasty, parsed) {
       patchedYear.recruitingClassRank = recruitingClass.recruitingClassRank
       patchedYear.recruitingClassConferenceRank = recruitingClass.recruitingClassConferenceRank
       patchedYear.recruitingClassStats = recruitingClass.recruitingClassStats
+      // The named roster behind the stats above — every committed recruit
+      // league-wide, not just the user's own board (see mapTeamRecruitingClass).
+      // This is what lets another team's Commitments tab show real names
+      // instead of just the aggregate star-tier counts.
+      patchedYear.recruitingClassRoster = recruitingClass.recruitingClassRoster
       recruitingClassesUpdated += 1
     }
     if (schoolGrades) {

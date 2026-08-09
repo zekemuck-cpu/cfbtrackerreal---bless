@@ -41,6 +41,13 @@ import {
   getTeamFutureSubcollection,
   saveTeamFutureSubcollection,
   migrateTeamFutureToSubcollection,
+  // Whole-league named recruiting-class rosters (dynasty.teams[tid].byYear
+  // [year].recruitingClassRoster) — one doc per (tid, year), same
+  // unbounded-per-season growth as PLAYERS/GAMES, so it gets that same
+  // granularity rather than the shared per-YEAR seasons doc (too much data
+  // for ~130 teams to share one document).
+  getRecruitingClassesSubcollection,
+  saveRecruitingClassesSubcollection,
   // Key-order-independent equality check — see its own comment. Used for
   // diff-based saves so an object that's semantically unchanged but came
   // back from Firestore with different key order doesn't get rewritten.
@@ -181,6 +188,68 @@ const DynastyContext = createContext()
 // here converts the silent over-size "save then vanish + wedge every later
 // write" failure into a loud, actionable error. See the guard in updateDynasty.
 const MAIN_DOC_BYTE_LIMIT = 1_000_000
+
+/**
+ * Strip teams[tid].byYear[year].recruitingClassRoster OUT of a teams object,
+ * returning both the stripped copy and the extracted values as
+ * { [tidKey]: { [yearKey]: roster } } — the shape
+ * saveRecruitingClassesSubcollection expects. Same job as
+ * stripTeamsByYearFlatFields (seasonSubcollection.js) but for this one field,
+ * which deliberately ISN'T in that shared registry — see
+ * getRecruitingClassesSubcollection's own header comment for why this field
+ * needs its own (tid, year)-granular subcollection instead of the shared
+ * per-YEAR seasons doc every other teams[].byYear[] field routes through.
+ */
+function stripRecruitingClassRosterFromTeams(teams) {
+  const extracted = {}
+  if (!teams || typeof teams !== 'object') return { strippedTeams: teams, extracted }
+  let stripped = teams
+  let teamsTouched = false
+  for (const [tidKey, team] of Object.entries(teams)) {
+    const byYear = team?.byYear
+    if (!byYear || typeof byYear !== 'object') continue
+    let byYearTouched = false
+    let nextByYear = byYear
+    for (const [yearKey, yearData] of Object.entries(byYear)) {
+      if (!yearData || typeof yearData !== 'object' || !('recruitingClassRoster' in yearData)) continue
+      if (!extracted[tidKey]) extracted[tidKey] = {}
+      extracted[tidKey][yearKey] = yearData.recruitingClassRoster
+      if (!byYearTouched) { nextByYear = { ...byYear }; byYearTouched = true }
+      const { recruitingClassRoster, ...restYearData } = nextByYear[yearKey]
+      nextByYear[yearKey] = restYearData
+    }
+    if (byYearTouched) {
+      if (!teamsTouched) { stripped = { ...teams }; teamsTouched = true }
+      stripped[tidKey] = { ...team, byYear: nextByYear }
+    }
+  }
+  return { strippedTeams: stripped, extracted }
+}
+
+/**
+ * Inverse of stripRecruitingClassRosterFromTeams: fold the recruitingClasses
+ * subcollection's `{ [tidKey]: { [yearKey]: roster } }` shape (see
+ * getRecruitingClassesSubcollection) back onto teams[tid].byYear[year].
+ * recruitingClassRoster, so every existing reader (Recruiting.jsx,
+ * TeamYear.jsx) keeps working unchanged — they only ever read that inline
+ * path, never call this subcollection directly.
+ */
+function foldRecruitingClassesIntoTeams(teams, recruitingClasses) {
+  if (!teams || typeof teams !== 'object' || !recruitingClasses) return teams
+  let next = teams
+  let touched = false
+  for (const [tidKey, byYearMap] of Object.entries(recruitingClasses)) {
+    if (!byYearMap || typeof byYearMap !== 'object' || !next[tidKey]) continue
+    for (const [yearKey, roster] of Object.entries(byYearMap)) {
+      if (!touched) { next = { ...teams }; touched = true }
+      const team = next[tidKey]
+      const byYear = team.byYear || {}
+      const yearData = byYear[yearKey] || {}
+      next[tidKey] = { ...team, byYear: { ...byYear, [yearKey]: { ...yearData, recruitingClassRoster: roster } } }
+    }
+  }
+  return next
+}
 
 // ============================================================================
 // GAME TYPE CONSTANTS - Unified game classification system
@@ -5158,6 +5227,15 @@ function computeConferenceBackfill(dynasty) {
   return out
 }
 
+// tid -> the exact prior registry `name` for a team that's since been
+// renamed (see the "Heal renamed registry defaults" migration below). Add an
+// entry here whenever a base TEAMS[tid].name changes, so dynasties created
+// under the old name self-heal on load instead of staying stuck on it.
+const RENAMED_REGISTRY_DEFAULTS = {
+  110: "Lafayette Ragin' Cajuns", // now "Louisiana Ragin' Cajuns"
+  111: 'Monroe Warhawks', // now "UL Monroe Warhawks"
+}
+
 /**
  * One-time (idempotent) migration: materialize the COMPLETE per-tid conference
  * history in memory so teams[tid].byYear[year].conference is the single source of
@@ -7053,6 +7131,16 @@ export function DynastyProvider({ children }) {
           return { ...prev, teamFuture: fresh }
         })
       }
+      const onFreshRecruitingClasses = (fresh) => {
+        if (skipListenerUpdatesCountRef.current > 0) return
+        setDynasties(prev => prev.map(d =>
+          String(d.id) === String(dynastyId) ? { ...d, teams: foldRecruitingClassesIntoTeams(d.teams, fresh) } : d
+        ))
+        setCurrentDynasty(prev => {
+          if (!prev || String(prev.id) !== String(dynastyId)) return prev
+          return { ...prev, teams: foldRecruitingClassesIntoTeams(prev.teams, fresh) }
+        })
+      }
 
       // Firestore-read cost gate: skip each collection's billed background
       // server re-read when the main doc's rev matches the stamp from our
@@ -7060,7 +7148,7 @@ export function DynastyProvider({ children }) {
       // had NO gate at all, so every page refresh / dynasty open re-read
       // all five subcollections (~800-1500 billed reads) unconditionally.
       const loadRev = dynastyDocRev(dynasty)
-      const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture] = await Promise.all([
+      const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture, subcollectionRecruitingClasses] = await Promise.all([
         getPlayersSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'players', loadRev, onFreshPlayers)),
         getGamesSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'games', loadRev, onFreshGames)),
         getWeekRecapsSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'weekRecaps', loadRev, onFreshRecaps)),
@@ -7082,6 +7170,13 @@ export function DynastyProvider({ children }) {
         // propagated yet.
         getTeamFutureSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'teamFuture', loadRev, onFreshTeamFuture)).catch(err => {
           console.warn(`[teamFuture] fetch failed for ${dynastyId}, treating as empty:`, err?.code || err?.message || err)
+          return {}
+        }),
+        // Same isolation as teamFuture/recruitingDatabase above — newest
+        // subcollection, must not take down players/games hydration if its
+        // rules haven't propagated yet.
+        getRecruitingClassesSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'recruitingClasses', loadRev, onFreshRecruitingClasses)).catch(err => {
+          console.warn(`[recruitingClasses] fetch failed for ${dynastyId}, treating as empty:`, err?.code || err?.message || err)
           return {}
         }),
       ])
@@ -7209,8 +7304,15 @@ export function DynastyProvider({ children }) {
         })
       }
 
+      // Fold the recruitingClasses subcollection back onto teams[tid].byYear
+      // [year].recruitingClassRoster — no legacy-migration counterpart is
+      // needed here (unlike teamFuture/recruitingDatabase above): this field
+      // never successfully persisted to any main doc before it got its own
+      // subcollection, so there's no legacy data anywhere to migrate.
+      const teamsWithRecruitingClasses = foldRecruitingClassesIntoTeams(dynasty.teams, subcollectionRecruitingClasses)
+
       // Apply migrations to the loaded data
-      const dynastyWithData = { ...dynasty, players, games, weekRecapsByYear, recruitingDatabasePlayers, teamFuture, ...mergedSeasonal }
+      const dynastyWithData = { ...dynasty, players, games, weekRecapsByYear, recruitingDatabasePlayers, teamFuture, teams: teamsWithRecruitingClasses, ...mergedSeasonal }
       const [migratedDynasty] = applyMigrations([dynastyWithData])
 
       // Write the loaded data back into whichever list owns it.
@@ -7303,6 +7405,32 @@ export function DynastyProvider({ children }) {
           }
         }
         if (teamsChanged) migrated = { ...migrated, teams: nextTeams }
+      }
+
+      // ─── Heal renamed registry defaults ──────────────────────────────────
+      // A team's display name is copied from the registry once, at dynasty
+      // creation — a dynasty created before a registry rename keeps showing
+      // the old name forever otherwise (e.g. Louisiana Ragin' Cajuns/UL
+      // Monroe Warhawks were relabeled from Lafayette/Monroe to match EA's
+      // own in-game names). Re-sync a non-custom slot's name to the CURRENT
+      // registry name whenever it still matches a KNOWN prior default — never
+      // touches a team whose name doesn't match a tracked old default, so a
+      // teambuilder rename or any other intentional edit is untouched even
+      // without isCustom being set correctly.
+      if (migrated.teams) {
+        let namesChanged = false
+        const healedTeams = { ...migrated.teams }
+        for (const [tidStr, oldName] of Object.entries(RENAMED_REGISTRY_DEFAULTS)) {
+          const tid = Number(tidStr)
+          const t = healedTeams[tid]
+          const registryName = TEAMS[tid]?.name
+          if (!t || t.isCustom || !registryName) continue
+          if (t.name === oldName && t.name !== registryName) {
+            healedTeams[tid] = { ...t, name: registryName }
+            namesChanged = true
+          }
+        }
+        if (namesChanged) migrated = { ...migrated, teams: healedTeams }
       }
 
       // ─── Fold legacy bulk conference stores into the per-team field ──────
@@ -8165,6 +8293,16 @@ export function DynastyProvider({ children }) {
                 return { ...prev, teamFuture: fresh }
               })
             }
+            const onFreshRecruitingClasses = (fresh) => {
+              if (skipListenerUpdatesCountRef.current > 0) return
+              setDynasties(prev => prev.map(d =>
+                String(d.id) === String(dynId) ? { ...d, teams: foldRecruitingClassesIntoTeams(d.teams, fresh) } : d
+              ))
+              setCurrentDynasty(prev => {
+                if (!prev || String(prev.id) !== String(dynId)) return prev
+                return { ...prev, teams: foldRecruitingClassesIntoTeams(prev.teams, fresh) }
+              })
+            }
 
             // Firestore-read cost gate: even when the in-memory rev gate
             // above misses (page refresh wiped it, or this is the active
@@ -8172,7 +8310,7 @@ export function DynastyProvider({ children }) {
             // persisted per-collection stamps let each getter skip its
             // billed server re-read when nothing actually changed since
             // the last completed sync — see gatedFreshOptions.
-            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture] = await Promise.all([
+            const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture, subcollectionRecruitingClasses] = await Promise.all([
               getPlayersSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'players', rev, onFreshPlayers)),
               getGamesSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'games', rev, onFreshGames)),
               getWeekRecapsSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'weekRecaps', rev, onFreshRecaps)),
@@ -8186,6 +8324,10 @@ export function DynastyProvider({ children }) {
               }),
               getTeamFutureSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'teamFuture', rev, onFreshTeamFuture)).catch(err => {
                 console.warn(`[teamFuture] fetch failed for ${dynasty.id}, treating as empty:`, err?.code || err?.message || err)
+                return {}
+              }),
+              getRecruitingClassesSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'recruitingClasses', rev, onFreshRecruitingClasses)).catch(err => {
+                console.warn(`[recruitingClasses] fetch failed for ${dynasty.id}, treating as empty:`, err?.code || err?.message || err)
                 return {}
               }),
             ])
@@ -8353,6 +8495,11 @@ export function DynastyProvider({ children }) {
               weekRecapsByYear,
               recruitingDatabasePlayers,
               teamFuture,
+              // No legacy-migration counterpart needed here (unlike teamFuture/
+              // recruitingDatabase above) — recruitingClassRoster never
+              // successfully persisted to any main doc before it got its own
+              // subcollection, so there's no legacy data anywhere to migrate.
+              teams: foldRecruitingClassesIntoTeams(dynasty.teams, subcollectionRecruitingClasses),
               ...mergedSeasonal,
             }
           } catch (err) {
@@ -10217,10 +10364,27 @@ export function DynastyProvider({ children }) {
           // living on the main doc).
           if (projected.teams) {
             projected.teams = stripTeamsByYearFlatFields(projected.teams).strippedTeams
+            projected.teams = stripRecruitingClassRosterFromTeams(projected.teams).strippedTeams
           }
           for (const [k, v] of Object.entries(updatesWithTimestamp)) {
             if (k.includes('.')) continue
             if (OFF_MAIN_DOC.includes(k) || isSeasonalField(k)) continue
+            // The incoming update's OWN `teams` needs the same re-strip as the
+            // existing dynasty's above, or this loop just overwrites the
+            // already-stripped copy with the raw incoming one — a CFB27
+            // whole-league sync always writes every team's teams object at
+            // once, so this wasn't a narrow edge case: it silently undid the
+            // strip above on literally every sync, this guard just hadn't
+            // been pushed hard enough for the gap to matter until a field
+            // large enough (recruitingClassRoster, ~130 teams' named rosters
+            // at once) exposed it — the real write-routing below already
+            // strips the incoming teams object correctly, so a save this
+            // rejects can still be one the real write would have survived.
+            if (k === 'teams' && v && typeof v === 'object') {
+              const strippedOnce = stripTeamsByYearFlatFields(v).strippedTeams
+              projected.teams = stripRecruitingClassRosterFromTeams(strippedOnce).strippedTeams
+              continue
+            }
             projected[k] = v
           }
           // firestoreDocSize (src/utils/firestoreSize.js) computes Firestore's
@@ -10588,6 +10752,27 @@ export function DynastyProvider({ children }) {
         if (!seasonalCollect[seasonalField]) seasonalCollect[seasonalField] = {}
         if (!seasonalCollect[seasonalField][tidKey]) seasonalCollect[seasonalField][tidKey] = {}
         seasonalCollect[seasonalField][tidKey][yearKey] = value
+      }
+      // recruitingClassRoster is NOT part of TEAMS_BYYEAR_FLAT_FIELDS (see
+      // stripRecruitingClassRosterFromTeams's own header comment for why it
+      // needs its own (tid, year)-granular subcollection instead of the
+      // shared seasons doc) — extracted separately, before the seasonal
+      // extraction below, using the same size-guard-shared helper.
+      let recruitingClassRosterCollect = {}
+      if (mainDocUpdates.teams && typeof mainDocUpdates.teams === 'object') {
+        const { strippedTeams, extracted } = stripRecruitingClassRosterFromTeams(mainDocUpdates.teams)
+        mainDocUpdates.teams = strippedTeams
+        recruitingClassRosterCollect = extracted
+      }
+      // Route recruitingClassRoster (just extracted above) to its own
+      // (tid, year)-granular subcollection — see
+      // saveRecruitingClassesSubcollection's own header comment for why this
+      // needs finer granularity than teamFuture's one-doc-per-tid or the
+      // shared seasons doc.
+      if (Object.keys(recruitingClassRosterCollect).length > 0) {
+        subcollectionPromises.push(
+          saveRecruitingClassesSubcollection(dynastyId, recruitingClassRosterCollect)
+        )
       }
       if (mainDocUpdates.teams && typeof mainDocUpdates.teams === 'object') {
         // Shared with the main-doc size guard above (stripTeamsByYearFlatFields)

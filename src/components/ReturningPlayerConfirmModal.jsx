@@ -50,7 +50,7 @@ const getMascotName = (abbr, teamsData = null) => {
     'TLSA': 'Tulsa Golden Hurricane', 'TOL': 'Toledo Rockets', 'TROY': 'Troy Trojans',
     'TTU': 'Texas Tech Red Raiders', 'TXST': 'Texas State Bobcats', 'UAB': 'UAB Blazers',
     'UCF': 'UCF Knights', 'UCLA': 'UCLA Bruins', 'UGA': 'Georgia Bulldogs',
-    'UK': 'Kentucky Wildcats', 'ULL': 'Lafayette Ragin\' Cajuns', 'ULM': 'Monroe Warhawks',
+    'UK': 'Kentucky Wildcats', 'ULL': 'Louisiana Ragin\' Cajuns', 'ULM': 'UL Monroe Warhawks',
     'UNC': 'North Carolina Tar Heels', 'UNLV': 'UNLV Rebels', 'UNM': 'New Mexico Lobos',
     'UNT': 'North Texas Mean Green', 'USA': 'South Alabama Jaguars', 'USC': 'USC Trojans',
     'USF': 'South Florida Bulls', 'USM': 'Southern Mississippi Golden Eagles',

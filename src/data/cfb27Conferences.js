@@ -114,8 +114,8 @@ export const CFB27_CONFERENCES = {
   107: 'SEC', // Georgia Bulldogs
   108: 'Big 12', // Houston Cougars
   109: 'SEC', // Kentucky Wildcats
-  110: 'Sun Belt', // Lafayette Ragin' Cajuns
-  111: 'Sun Belt', // Monroe Warhawks
+  110: 'Sun Belt', // Louisiana Ragin' Cajuns
+  111: 'Sun Belt', // UL Monroe Warhawks
   112: 'Big Ten', // Maryland Terrapins
   113: 'ACC', // North Carolina Tar Heels
   114: 'Mountain West', // UNLV Rebels

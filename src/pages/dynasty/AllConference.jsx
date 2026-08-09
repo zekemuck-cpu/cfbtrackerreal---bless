@@ -7,6 +7,7 @@ import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromNa
 import { getTeamColors } from '../../data/teamColors'
 import { TEAMS, resolveTid, getCurrentTeamAbbr, getGameTeamInfo } from '../../data/teamRegistry'
 import { conferenceTeams, getAllConferences } from '../../data/conferenceTeams'
+import { getConferenceLogo } from '../../data/conferenceLogos'
 import AllConferenceModal from '../../components/AllConferenceModal'
 import { HonorPlayerTile, SchoolLeaderboard } from '../../components/HonorsUI'
 import { normalizePlayerName } from '../../utils/playerMatching'
@@ -65,8 +66,8 @@ const getMascotName = (abbr, teamsData = null) => {
     'TTU': 'Texas Tech Red Raiders', 'TULN': 'Tulane Green Wave', 'TXAM': 'Texas A&M Aggies',
     'TXST': 'Texas State Bobcats', 'UAB': 'UAB Blazers', 'UC': 'Cincinnati Bearcats',
     'UCF': 'UCF Knights', 'UCLA': 'UCLA Bruins', 'UGA': 'Georgia Bulldogs', 'UH': 'Houston Cougars',
-    'UK': 'Kentucky Wildcats', 'UL': 'Lafayette Ragin\' Cajuns', 'ULL': 'Lafayette Ragin\' Cajuns',
-    'ULM': 'Monroe Warhawks', 'UMD': 'Maryland Terrapins', 'UNC': 'North Carolina Tar Heels',
+    'UK': 'Kentucky Wildcats', 'UL': 'Louisiana Ragin\' Cajuns', 'ULL': 'Louisiana Ragin\' Cajuns',
+    'ULM': 'UL Monroe Warhawks', 'UMD': 'Maryland Terrapins', 'UNC': 'North Carolina Tar Heels',
     'UNLV': 'UNLV Rebels', 'UNM': 'New Mexico Lobos', 'UNT': 'North Texas Mean Green',
     'USA': 'South Alabama Jaguars', 'USC': 'USC Trojans', 'USF': 'South Florida Bulls',
     'USM': 'Southern Mississippi Golden Eagles', 'USU': 'Utah State Aggies', 'UT': 'Tennessee Volunteers',
@@ -218,6 +219,7 @@ export default function AllConference() {
   }
 
   const displayConference = decodeConference(urlConference) || userConference
+  const displayConferenceLogo = getConferenceLogo(displayConference)
 
   const filterByConference = (raw) => {
     if (!raw || raw.length === 0) return []
@@ -581,7 +583,7 @@ export default function AllConference() {
       <PageHero
         title={
           <span className="inline-flex items-center gap-2" style={{ fontSize: 'var(--text-display-lg)' }}>
-            <img src="/badges/all-american.png" alt="" className="w-auto shrink-0" style={{ height: '1em' }} />
+            {displayConferenceLogo && <img src={displayConferenceLogo} alt="" className="w-auto shrink-0" style={{ height: '1em' }} />}
             {titleNode}
           </span>
         }

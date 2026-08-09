@@ -145,18 +145,25 @@ export default function Recruiting() {
   // same player pool, so scope this to the viewer's own team.
   const hasTargetsThisYear = isCurrentRecruitingYear && isOwnTeam
     && (currentDynasty?.players || []).some((p) => p?.isTarget && isMyTarget(p, currentTeamTid) && Number(p.targetYear) === viewingYear)
-  const defaultTab = scoutStaffEnabled ? 'targets' : hasTargetsThisYear ? 'targets' : 'commitments'
+  const defaultTab = !isOwnTeam ? 'commitments' : scoutStaffEnabled ? 'targets' : hasTargetsThisYear ? 'targets' : 'commitments'
   const tabParam = searchParams.get('tab')
   // 'database'/'outlook'/'thresholds'/'counts' are Scout Staff's own Recruiting
   // Database / Program Outlook / Threshold Lookup / Player Count sections,
   // promoted to top-level tabs here instead of nav tiles nested inside the
-  // Scout Staff tab — see ScoutStaff.jsx's SECTION_TO_VIEW mapping.
-  const KNOWN_TABS = ['targets', 'commitments', 'database', 'outlook', 'thresholds', 'counts']
+  // Scout Staff tab — see ScoutStaff.jsx's SECTION_TO_VIEW mapping. All of
+  // them (Targets included) are the VIEWER's own scouting tools — looking at
+  // another team's page only ever exposes Commitments (what actually
+  // happened), never how that team's staff scouted its way there.
+  const KNOWN_TABS = isOwnTeam
+    ? ['targets', 'commitments', 'database', 'outlook', 'thresholds', 'counts']
+    : ['commitments']
   const activeTab = KNOWN_TABS.includes(tabParam) ? tabParam : defaultTab
   const setActiveTab = (t) => setParam('tab', t === defaultTab ? null : t, null)
   // When Scout Staff is off the tab is hidden entirely, so the Recruiting page
   // is byte-identical to before the feature (Commitments / Targets only).
-  const tabOrder = scoutStaffEnabled
+  const tabOrder = !isOwnTeam
+    ? [{ k: 'commitments', l: 'Commitments' }]
+    : scoutStaffEnabled
     ? [
         { k: 'targets', l: 'Targets' },
         { k: 'commitments', l: 'Commitments' },
@@ -339,52 +346,29 @@ export default function Recruiting() {
     return years.sort((a, b) => b - a)
   }, [currentDynasty?.recruitingCommitmentsByTeamYear, currentDynasty?.teams, selectedTid, teamAbbr, currentDynasty?.currentYear])
 
-  const teamsWithRecruitingClasses = useMemo(() => {
-    const teamsMap = new Map()
-    if (currentDynasty?.teams) {
-      Object.entries(currentDynasty.teams).forEach(([tidKey, teamData]) => {
-        const tid = Number(tidKey)
-        if (isNaN(tid) || !teamData?.byYear) return
-        const hasRecruits = Object.values(teamData.byYear).some(yearData => {
-          if (!yearData?.recruitingCommitments) return false
-          return Object.values(yearData.recruitingCommitments).some(weekCommitments => {
-            return Array.isArray(weekCommitments) && weekCommitments.length > 0
-          })
-        })
-        if (hasRecruits) {
-          const sourceTeam = teamsSource[tid]
-          teamsMap.set(tid, {
-            abbr: sourceTeam?.abbr || teamData?.abbr || `T${tid}`,
-            tid,
-            name: sourceTeam?.name || teamData?.name || `Team ${tid}`
-          })
+  // Full FBS team picker — every team in the dynasty (not just ones with
+  // locally-tracked commitments), matching the same static+dynasty merge
+  // and FCS-hiding rule as the team-view page's team dropdown, so any
+  // team's recruiting class can be browsed from here.
+  const allTeamsForPicker = useMemo(() => {
+    const merged = {}
+    if (currentDynasty?.teams && Object.keys(currentDynasty.teams).length > 0) {
+      Object.entries(currentDynasty.teams).forEach(([key, dynastyTeamData]) => {
+        const staticTeam = TEAMS[key]
+        merged[key] = {
+          ...(staticTeam || {}),
+          ...dynastyTeamData,
+          tid: dynastyTeamData?.tid ?? staticTeam?.tid,
         }
       })
+    } else {
+      Object.assign(merged, TEAMS)
     }
-    const abbrData = currentDynasty?.recruitingCommitmentsByTeamYear || {}
-    Object.entries(abbrData).forEach(([key, yearData]) => {
-      const hasRecruits = Object.values(yearData).some(yearCommitments => {
-        return Object.values(yearCommitments).some(weekCommitments => {
-          return Array.isArray(weekCommitments) && weekCommitments.length > 0
-        })
-      })
-      if (hasRecruits) {
-        // The map is dual-keyed: numeric tid keys (rename-safe) and legacy
-        // abbr keys. Prefer the tid key directly; only resolve abbr→tid for
-        // legacy entries — otherwise a renamed team's class drops out here.
-        const tid = /^\d+$/.test(key) ? Number(key) : getTidFromAbbr(key, currentDynasty)
-        if (tid && !teamsMap.has(tid)) {
-          const teamData = teamsSource[tid]
-          teamsMap.set(tid, {
-            abbr: teamData?.abbr || key,
-            tid,
-            name: teamData?.name || key
-          })
-        }
-      }
-    })
-    return Array.from(teamsMap.values()).sort((a, b) => a.name.localeCompare(b.name))
-  }, [currentDynasty?.recruitingCommitmentsByTeamYear, currentDynasty?.teams, teamsSource])
+    return Object.values(merged)
+      .filter(t => t && t.tid !== undefined && t.name && (!t.isFCS || Number(t.tid) === Number(selectedTid)))
+      .map(t => ({ tid: t.tid, name: t.name }))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  }, [currentDynasty?.teams, selectedTid])
 
   const handleTeamChange = (newTid) => {
     navigate(`${pathPrefix}/recruiting/${newTid}/${selectedYear}`)
@@ -1044,6 +1028,80 @@ export default function Recruiting() {
       })
     }
 
+    // recruitingCommitmentsByTeamYear (this store's source above) is only
+    // ever written for the user's OWN team's board entries, so it's empty
+    // for every other team even for a fully signed class. teams[tid].byYear
+    // [year].recruitingClassRoster (synced by mapTeamRecruitingClass, from
+    // extractPlayers.cjs's buildLeagueRecruitingClasses) is the real fix —
+    // the save's committed-recruit pool is whole-league, not just the
+    // user's own board, so every team's actual named class is available
+    // there. These entries have no pid (never went through player-record
+    // creation) — findPlayerByName resolves one once the recruit is
+    // actually rostered, same as every other commit here.
+    if (!isOwnTeam && selectedTid != null) {
+      // Keyed by NAME, not pid — the roster list (below) never has a pid at
+      // all (it's raw recruit data, not a player record), so a pid-first key
+      // let the exact same recruit slip past this dedup once from each
+      // source when they also happen to be a tracked player (e.g. a "Lost
+      // to [team]" case from the user's own board): the roster loop keyed
+      // him by name, the safety-net loop keyed the same person by his real
+      // pid instead, so neither ever matched the other's key.
+      const known = new Set(commitments.map(c => c.name?.toLowerCase().trim()).filter(Boolean))
+      const yearsInScope = isAllSeasons
+        ? Object.keys(currentDynasty?.teams?.[selectedTid]?.byYear || {}).map(Number)
+        : [Number(selectedYear)]
+      yearsInScope.forEach((y) => {
+        const roster = currentDynasty?.teams?.[selectedTid]?.byYear?.[y]?.recruitingClassRoster || []
+        roster.forEach((r) => {
+          const key = r.name?.toLowerCase().trim()
+          if (!key || known.has(key)) return
+          known.add(key)
+          const currentPlayer = playersByName._findPlayer(r.name, y)
+          commitments.push(ensurePortalStatus({
+            name: r.name, position: r.position, stars: r.stars,
+            nationalRank: r.nationalRank, stateRank: r.stateRank, positionRank: r.positionRank,
+            hometown: r.hometown, state: r.state, class: r.class, pictureUrl: r.pictureUrl,
+            height: r.height, weight: r.weight, archetype: r.archetype, devTrait: r.devTrait,
+            commitmentWeek: null, recruitYear: y,
+            ...(currentPlayer && {
+              firstName: currentPlayer.firstName, lastName: currentPlayer.lastName,
+              devTrait: currentPlayer.devTrait, archetype: currentPlayer.archetype,
+              height: currentPlayer.height, weight: currentPlayer.weight,
+              pictureUrl: currentPlayer.pictureUrl || r.pictureUrl,
+              gemBust: currentPlayer.gemBust,
+              previousTeam: currentPlayer.previousTeam,
+              previousTeamTid: currentPlayer.movementByYear?.[y]?.fromTid ?? currentPlayer.movementByYear?.[String(y)]?.fromTid ?? null,
+              isPortal: currentPlayer.isPortal, pid: currentPlayer.pid,
+            }),
+          }))
+        })
+      })
+      // Safety net for a dynasty that hasn't re-synced since this feature
+      // shipped (recruitingClassRoster not populated yet): commitmentTid on
+      // the player record still catches any recruit that happened to cross
+      // the user's OWN board (e.g. "Lost to [team]" — see ScoutBoard.jsx),
+      // even without the full roster above.
+      ;(currentDynasty?.players || []).forEach(p => {
+        if (Number(p?.commitmentTid) !== Number(selectedTid)) return
+        const ry = Number(p?.recruitYear)
+        if (!isAllSeasons && Number.isFinite(ry) && ry !== Number(selectedYear)) return
+        const key = p.name?.toLowerCase().trim()
+        if (!key || known.has(key)) return
+        known.add(key)
+        commitments.push(ensurePortalStatus({
+          name: p.name, firstName: p.firstName, lastName: p.lastName,
+          position: p.position, devTrait: p.devTrait, archetype: p.archetype,
+          height: p.height, weight: p.weight, hometown: p.hometown, state: p.state,
+          pictureUrl: p.pictureUrl, stars: p.stars, nationalRank: p.nationalRank,
+          stateRank: p.stateRank, positionRank: p.positionRank, gemBust: p.gemBust,
+          previousTeam: p.previousTeam,
+          previousTeamTid: p.movementByYear?.[ry]?.fromTid ?? p.movementByYear?.[String(ry)]?.fromTid ?? null,
+          isPortal: p.isPortal, pid: p.pid,
+          commitmentWeek: null, recruitYear: Number.isFinite(ry) ? ry : Number(selectedYear),
+        }))
+      })
+    }
+
     const seenPids = new Set()
     const seenNames = new Set()
     const dedupedCommitments = commitments.filter(c => {
@@ -1072,7 +1130,7 @@ export default function Recruiting() {
       }
       return 0
     })
-  }, [currentDynasty?.recruitingCommitmentsByTeamYear, currentDynasty?.teams, selectedTid, teamAbbr, selectedYear, isAllSeasons, playersByName])
+  }, [currentDynasty, selectedTid, teamAbbr, selectedYear, isAllSeasons, playersByName, isOwnTeam])
 
   const allCommitments = useMemo(() => {
     let filtered
@@ -1263,7 +1321,7 @@ export default function Recruiting() {
             {/* Inline team selector — only a dropdown when there's more than one team */}
             <span className="relative inline-flex items-baseline">
               <span>{teamFullName}</span>
-              {teamsWithRecruitingClasses.length > 1 && (
+              {allTeamsForPicker.length > 1 && (
                 <>
                   <svg
                     className="ml-1 self-center w-[0.5em] h-[0.5em] opacity-60"
@@ -1279,7 +1337,7 @@ export default function Recruiting() {
                     aria-label="Select team"
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer appearance-none"
                   >
-                    {teamsWithRecruitingClasses.map(t => (
+                    {allTeamsForPicker.map(t => (
                       <option key={t.tid} value={t.tid}>{t.name}</option>
                     ))}
                   </select>
@@ -1734,23 +1792,6 @@ export default function Recruiting() {
               />
             )
 
-            // Remove overlay — sibling of the Link (not inside it) so its own
-            // click never triggers navigation. Only on your own team's board
-            // when editable. Opens a confirm dialog before deleting.
-            const canRemove = isOwnTeam && !isViewOnly
-            const removeBtn = canRemove ? (
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRemoveTarget({ recruit, pid: linkPid }) }}
-                title="Remove from your commitments"
-                aria-label={`Remove ${recruit.name} from your commitments`}
-                className="absolute top-1 right-1 z-20 px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide leading-none transition-transform active:scale-95"
-                style={{ backgroundColor: 'rgba(0,0,0,0.45)', color: '#fff' }}
-              >
-                Remove
-              </button>
-            ) : null
-
             return (
               <div key={`${recruit.name}-${index}`} className="relative">
                 {linkPid ? (
@@ -1758,7 +1799,6 @@ export default function Recruiting() {
                     {cardContent}
                   </Link>
                 ) : cardContent}
-                {removeBtn}
               </div>
             )
           })}

@@ -120,8 +120,8 @@ export const CFB27_TEAM_RATINGS = {
   107: { ovr: 94, off: 94, def: 94 }, // Georgia Bulldogs
   108: { ovr: 77, off: 79, def: 76 }, // Houston Cougars
   109: { ovr: 81, off: 81, def: 81 }, // Kentucky Wildcats
-  110: { ovr: 67, off: 69, def: 66 }, // Lafayette Ragin' Cajuns
-  111: { ovr: 64, off: 64, def: 64 }, // Monroe Warhawks
+  110: { ovr: 67, off: 69, def: 66 }, // Louisiana Ragin' Cajuns
+  111: { ovr: 64, off: 64, def: 64 }, // UL Monroe Warhawks
   112: { ovr: 80, off: 81, def: 79 }, // Maryland Terrapins
   113: { ovr: 79, off: 79, def: 79 }, // North Carolina Tar Heels
   114: { ovr: 74, off: 74, def: 74 }, // UNLV Rebels

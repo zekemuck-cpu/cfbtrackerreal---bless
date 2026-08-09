@@ -451,6 +451,34 @@ service cloud.firestore {
                      && request.auth.uid in parentDynasty().get('editors', []);
       }
 
+      // ─── Recruiting Classes (whole-league named rosters) ────────
+      // One doc per (tid, year): dynasties/{id}/recruitingClasses/{tid}_
+      // {year} — dynasty.teams[tid].byYear[year].recruitingClassRoster.
+      // Same 1 MB-cap reason as teamFuture above, but per-team-PER-YEAR
+      // granularity instead of teamFuture's per-team-only: this data is
+      // year-scoped and unboundedly accumulates every season like players/
+      // games, so a whole-league sync's named rosters need that same finer
+      // granularity — one shared per-year doc (unlike teamFuture, which has
+      // no year dimension) was still too much for ~130 teams to share.
+      // Same access model as teamFuture.
+      match /recruitingClasses/{docId} {
+        allow read: if isSignedIn()
+                    && parentDynasty().userId == request.auth.uid;
+        allow read: if isSignedIn()
+                    && request.auth.uid in parentDynasty().get('editors', []);
+        allow read: if parentDynasty().isPublic == true;
+
+        allow write: if isPremium()
+                     && parentDynasty().userId == request.auth.uid;
+        // Owner can always DELETE their own dynasty's docs (teardown),
+        // even if premium has lapsed.
+        allow delete: if isSignedIn()
+                      && parentDynasty().userId == request.auth.uid;
+        allow write: if isSignedIn()
+                     && parentDynasty().userId != request.auth.uid
+                     && request.auth.uid in parentDynasty().get('editors', []);
+      }
+
       // ─── Social Media feature subcollections ────────────────────
       // socialFeed/{year-week} (posts) and socialCharacters/shard-N +
       // _overrides (the per-dynasty character overlay). Same access

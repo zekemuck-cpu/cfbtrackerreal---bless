@@ -1,6 +1,8 @@
 // Team to Conference mapping for FBS
 // Conference assignments as of 2024-2025 season
 
+import { TEAMS } from './teamRegistry'
+
 export const conferenceTeams = {
   "ACC": [
     "BC", "CAL", "CLEM", "DUKE", "FSU", "GT", "LOU", "MIA", "NCST", "UNC", "PITT", "SMU", "SYR", "STAN", "UVA", "VT", "WAKE"
@@ -53,22 +55,47 @@ export const conferenceTeams = {
 // No `customTeams` parameter — that legacy map is gone. Pass
 // `dynasty.teams` (tid-keyed) for tid resolution.
 export function getTeamConference(abbrOrTid, customConferences = null, dynastyTeams = null) {
-  // Normalize tid → abbr via dynasty.teams[tid].
+  // Normalize tid → this dynasty's CURRENT abbr (used for the customConferences
+  // check below, which is keyed by current abbrs). Also resolve the tid itself
+  // when we were only handed an abbr, by reverse-scanning dynastyTeams for the
+  // slot that owns it — needed for the base-abbr lookup further down.
   let abbr = abbrOrTid
-  if (dynastyTeams && (typeof abbrOrTid === 'number' || (typeof abbrOrTid === 'string' && /^\d+$/.test(abbrOrTid)))) {
-    const slot = dynastyTeams[String(abbrOrTid)] || dynastyTeams[Number(abbrOrTid)]
-    if (slot?.abbr) abbr = slot.abbr
+  let tid = null
+  if (typeof abbrOrTid === 'number' || (typeof abbrOrTid === 'string' && /^\d+$/.test(abbrOrTid))) {
+    tid = Number(abbrOrTid)
+    if (dynastyTeams) {
+      const slot = dynastyTeams[String(tid)] || dynastyTeams[tid]
+      if (slot?.abbr) abbr = slot.abbr
+    }
+  } else if (dynastyTeams && typeof abbr === 'string') {
+    for (const [t, team] of Object.entries(dynastyTeams)) {
+      if (team?.abbr === abbr) { tid = Number(t); break }
+    }
   }
 
-  // Custom conferences win — they already contain TB's current abbr.
+  // Custom conferences win — they're built from teams[tid].byYear[year].conference
+  // keyed by each team's CURRENT abbr, so matching the current abbr here is
+  // always correct (a teambuilder/CFB27 rename included).
   if (customConferences) {
     for (const [conference, teams] of Object.entries(customConferences)) {
       if (teams?.includes(abbr)) return conference
     }
   }
-  // Static default conferences (keyed by FBS abbrs).
+
+  // Static default conferences are keyed by the BASE registry's original
+  // abbreviations. A dynasty-specific rename (teambuilder, or a game
+  // edition's own abbr set diverging from the base registry — e.g. CFB27's
+  // MIZZ/OKLA/TENN/VAND vs the registry's MIZ/OU/UT/VAN) can leave the
+  // current abbr not matching anything here, OR WORSE, coincidentally
+  // collide with a DIFFERENT team's base abbr (CFB27 renames Louisville to
+  // "UL", which is this table's entry for Louisiana-Lafayette) and silently
+  // resolve to the wrong conference. So whenever a tid is known, always look
+  // up by that team's OWN base abbr — never trust the current abbr against
+  // this specific table. Only fall back to the raw current abbr when no tid
+  // could be resolved at all.
+  const staticAbbr = tid != null ? (TEAMS[tid]?.abbr || abbr) : abbr
   for (const [conference, teams] of Object.entries(conferenceTeams)) {
-    if (teams.includes(abbr)) return conference
+    if (teams.includes(staticAbbr)) return conference
   }
   return null
 }

@@ -1681,6 +1681,103 @@ export async function migrateTeamFutureToSubcollection(dynastyId, legacyTeamFutu
   await updateDoc(docRef, { teamFuture: deleteField() })
 }
 
+// ─── Recruiting Classes (whole-league named rosters) subcollection ─────
+// One doc per (tid, year) — dynasty.teams[tid].byYear[year].recruitingClassRoster.
+// NOT teamFuture-shaped (one doc per tid): this data is year-scoped and
+// unboundedly accumulates every season like PLAYERS/GAMES, so it needs
+// that same per-team-PER-YEAR granularity, not "one doc per team forever".
+// It's also NOT seasons-subcollection material (unlike its sibling
+// recruitingClassStatsByTeamYear) — the seasons doc is ONE document per
+// YEAR holding EVERY team combined, fine for that small aggregate, but a
+// whole-league sync's full named rosters (name/position/stars/ranks/
+// hometown/height/weight/archetype/dev trait, ~130 teams at once) is
+// large enough on its own to push that single shared doc over the 1 MiB
+// cap — confirmed in production the first time this was routed there.
+const RECRUITING_CLASSES_SUBCOLLECTION = 'recruitingClasses'
+const recruitingClassDocId = (tid, year) => `${tid}_${year}`
+
+/**
+ * Get every team's named recruiting-class roster, every season synced so
+ * far. Returns `{ [tid]: { [year]: recruit[] } }` — the same shape
+ * dynasty.teams[tid].byYear[year].recruitingClassRoster always had, so
+ * existing readers (Recruiting.jsx, TeamYear.jsx) need no changes — only
+ * the load path that hydrates it needs to call this.
+ */
+export async function getRecruitingClassesSubcollection(dynastyId, options = {}) {
+  const { onFresh = null } = options
+  const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_CLASSES_SUBCOLLECTION)
+  const shapeDocs = (docs) => {
+    const out = {}
+    for (const d of docs) {
+      const sep = d.id.lastIndexOf('_')
+      if (sep === -1) continue
+      const tidKey = d.id.slice(0, sep)
+      const yearKey = d.id.slice(sep + 1)
+      if (!out[tidKey]) out[tidKey] = {}
+      out[tidKey][yearKey] = d.data()?.roster || []
+    }
+    return out
+  }
+  try {
+    const cached = await getDocsFromCache(ref)
+    if (!cached.empty) {
+      if (onFresh) {
+        getDocsFromServer(ref).then(snap => {
+          try { onFresh(shapeDocs(snap.docs)) } catch (e) { console.error('onFresh callback threw:', e) }
+        }).catch(() => {})
+      }
+      return shapeDocs(cached.docs)
+    }
+  } catch (_) {
+    // Cache unavailable — fall through to the network.
+  }
+  try {
+    const snap = await getDocs(ref)
+    return shapeDocs(snap.docs)
+  } catch (error) {
+    console.error('Error fetching recruitingClasses subcollection:', error)
+    return {}
+  }
+}
+
+/**
+ * Save recruiting-class rosters — `{ [tid]: { [year]: recruit[] } }` — one
+ * doc per (tid, year), full replace per doc (a sync always passes that
+ * team-year's COMPLETE current roster, never a partial patch, same
+ * reasoning as savePlayersToSubcollection). Chunked by both doc count AND
+ * real Firestore-charged byte size (firestoreDocSize, not a raw stringify
+ * length — see MAX_BATCH_BYTES' own header comment for why that
+ * distinction matters), with the same inter-batch pacing delay games/
+ * players carry — a whole-league sync can produce ~130 docs in one call,
+ * enough to trip "Write stream exhausted" with zero pacing between batches.
+ */
+export async function saveRecruitingClassesSubcollection(dynastyId, recruitingClassRosterByTeamYear) {
+  const prepared = []
+  for (const [tidKey, yearMap] of Object.entries(recruitingClassRosterByTeamYear || {})) {
+    if (!tidKey || !yearMap || typeof yearMap !== 'object') continue
+    for (const [yearKey, roster] of Object.entries(yearMap)) {
+      if (!yearKey) continue
+      const data = sanitizeForFirestore({ roster: Array.isArray(roster) ? roster : [] })
+      prepared.push({ id: recruitingClassDocId(tidKey, yearKey), data, bytes: firestoreDocSize(data) })
+    }
+  }
+  if (prepared.length === 0) return
+
+  const chunks = chunkForFirestoreBatch(prepared, p => p.bytes)
+  for (let batchNum = 0; batchNum < chunks.length; batchNum++) {
+    const batch = writeBatch(db)
+    for (const p of chunks[batchNum]) {
+      batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_CLASSES_SUBCOLLECTION, p.id), p.data)
+    }
+    bumpDynastyLastModifiedInBatch(batch, dynastyId)
+    await batch.commit()
+    if (batchNum + 1 < chunks.length) {
+      const delayMs = chunks.length > 3 ? 300 : 200
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+    }
+  }
+}
+
 // ─── Week Recaps subcollection ──────────────────────────────────────
 // Recaps are AI-generated narrative text, often several KB each. Long-
 // running dynasties were pushing the parent dynasty document past the

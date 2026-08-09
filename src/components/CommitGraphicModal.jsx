@@ -15,10 +15,17 @@ const OpenAILogo = ({ className }) => (
   </svg>
 )
 
-function buildGraphicPrompt({ name, position, stars, school }) {
+function buildGraphicPrompt({ name, position, stars, school, hasPhoto }) {
   const s = Number(stars) || 0
   const starText = s > 0 ? `${s}-star ` : ''
   const pos = position || 'ATH'
+  // A synced player photo is already attached in the SAME chat when hasPhoto
+  // is true (see the "Copy Photo" button) — tell the AI to actually build
+  // the graphic around that reference image instead of leaving dead space
+  // for the user to manually drop a photo in afterward.
+  const photoLine = hasPhoto
+    ? `Use the attached reference photo of the player — feature them prominently, cut out / blended naturally into the design.`
+    : `Leave a clean space to drop in the player's photo.`
   return `Create a college football recruiting commitment announcement graphic for ${name}, a ${starText}${pos} who has committed to ${school}.
 
 Make it look like the polished commitment graphics Hayes Fawcett posts on X/Twitter: bold, clean, modern sports-media style. Prominently feature:
@@ -27,7 +34,7 @@ Make it look like the polished commitment graphics Hayes Fawcett posts on X/Twit
 - their position: ${pos}
 - the school they committed to: ${school}
 
-Use ${school}'s team colors, leave a clean space to drop in the player's photo, and make it high-resolution and shareable.`
+Use ${school}'s team colors. ${photoLine} Make it high-resolution and shareable.`
 }
 
 export default function CommitGraphicModal({
@@ -42,14 +49,20 @@ export default function CommitGraphicModal({
   accent = '#1f2937',
 }) {
   const [copied, setCopied] = useState(false)
+  const [photoCopied, setPhotoCopied] = useState(false)
   if (!isOpen || !recruit) return null
 
   const accentText = getContrastTextColor(accent)
+  // A synced player photo means there's nothing to manually source — the
+  // prompt below tells the AI to build the graphic around it directly
+  // instead of leaving space for the user to drop one in afterward.
+  const hasPhoto = !!headshot
   const prompt = buildGraphicPrompt({
     name: recruit.name || 'the player',
     position: recruit.position,
     stars: recruit.stars,
     school: schoolName || 'the school',
+    hasPhoto,
   })
 
   const copyPrompt = async () => {
@@ -65,6 +78,38 @@ export default function CommitGraphicModal({
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  // Puts the player's already-synced photo straight on the clipboard so it
+  // can be pasted into the same ChatGPT prompt as a reference image — no
+  // need to go find/attach a photo of your own. Normalizes through a canvas
+  // to PNG since clipboard image writes are most reliably supported for
+  // that type (portraits can come back as JPEG). Falls back to opening the
+  // photo in a new tab (drag/save from there) when the Clipboard API isn't
+  // available (older browsers, non-HTTPS).
+  const copyPhoto = async () => {
+    if (!headshot) return
+    try {
+      const res = await fetch(proxyImageUrl(headshot, 800))
+      const srcBlob = await res.blob()
+      const pngBlob = await new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          canvas.getContext('2d').drawImage(img, 0, 0)
+          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png')
+        }
+        img.onerror = reject
+        img.src = URL.createObjectURL(srcBlob)
+      })
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
+      setPhotoCopied(true)
+      setTimeout(() => setPhotoCopied(false), 2000)
+    } catch {
+      window.open(proxyImageUrl(headshot, 1200), '_blank', 'noopener')
+    }
   }
 
   return createPortal(
@@ -127,6 +172,15 @@ export default function CommitGraphicModal({
                 >
                   {copied ? 'Copied!' : 'Copy Prompt'}
                 </button>
+                {hasPhoto && (
+                  <button
+                    type="button"
+                    onClick={copyPhoto}
+                    className="h-9 px-3 rounded-md text-sm font-semibold transition-colors border border-surface-5 text-txt-primary hover:bg-surface-3"
+                  >
+                    {photoCopied ? 'Copied!' : 'Copy Photo'}
+                  </button>
+                )}
                 <a
                   href={CHATGPT_URL}
                   target="_blank"
@@ -138,6 +192,11 @@ export default function CommitGraphicModal({
                   <OpenAILogo className="w-5 h-5" />
                 </a>
               </div>
+              {hasPhoto && (
+                <p className="text-[11px] text-txt-tertiary mt-2">
+                  Copy the prompt, copy the photo, then paste both into ChatGPT together — the player's synced photo is already handled, no need to find one yourself.
+                </p>
+              )}
             </div>
           )}
 

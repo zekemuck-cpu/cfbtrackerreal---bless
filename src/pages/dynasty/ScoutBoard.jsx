@@ -68,7 +68,7 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
   // Which school actually landed this recruit — resolved from the same
   // commitmentTid the "Lost" status itself is computed from, so the logo
   // always matches (never guessed from name text). Reused for `committed`
-  // too (commitmentTid === userTid there), so it's always our own team's logo.
+  // too (commitmentTid is our own tid there), so it's always our own team's logo.
   const landedTeamName = (lost || committed) && p.commitmentTid != null ? getMascotName(p.commitmentTid, dynastyTeams) : null
   const landedTeamLogo = (lost || committed) && p.commitmentTid != null ? getTeamLogoByTid(p.commitmentTid, dynastyTeams) : null
 
@@ -150,6 +150,8 @@ function Row({ r, rank, pathPrefix, scoutResult, scoring, localScore, useLocalSc
           <div className="w-9 h-9 rounded-full flex items-center justify-center overflow-hidden border" style={{ backgroundColor: 'var(--surface-3)', borderColor: 'var(--surface-4)' }}>
             {p.pictureUrl && !imgError
               ? <img src={proxyImageUrl(p.pictureUrl, 200)} alt="" className="w-full h-full object-cover" onError={() => setImgError(true)} />
+              : landedTeamLogo
+              ? <img src={landedTeamLogo} alt="" className="w-full h-full object-contain p-1" />
               : <span className={`font-black uppercase text-txt-secondary ${(p.rawPosition || p.position || 'ATH').length > 3 ? 'text-[8px]' : 'text-[10px]'}`} style={{ letterSpacing: '0.04em' }}>{p.rawPosition || p.position || 'ATH'}</span>}
           </div>
           {p.scoutedFully && (

@@ -140,6 +140,16 @@ export const PER_TEAM_YEAR_FIELDS = [
   'schoolGradesByTeamYear',
   'recruitingClassConferenceRankByTeamYear',
   'recruitingClassStatsByTeamYear',
+  // recruitingClassRoster (the named roster behind the stats above) does
+  // NOT belong in this list — it has its OWN dedicated subcollection
+  // instead (recruitingClassesByTeamYear in dynastyService.js), one doc per
+  // (tid, year). This shared seasons doc is ONE document per YEAR holding
+  // EVERY team's data combined — fine for the small per-team payloads
+  // above, but a whole-league sync's full named rosters (with height/
+  // weight/archetype/dev trait) pushed the single seasons/{year} doc itself
+  // over the 1 MiB cap the FIRST time this was tried here. Player-count-
+  // scale data needs player-count-scale granularity, same reasoning as the
+  // players/games subcollections.
 ]
 
 // Map of legacy-main-doc-field-name → season-doc-field-name. The

@@ -16,7 +16,7 @@ export default function ComboboxCell({
   ariaLabel,
   placeholder,
   aliases,       // optional { [option]: string[] } — extra searchable names so
-                 // e.g. typing "Louisiana" surfaces "Lafayette Ragin' Cajuns"
+                 // e.g. typing "Lafayette" surfaces "Louisiana Ragin' Cajuns"
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState(null) // null => showing `value`; string => actively typing

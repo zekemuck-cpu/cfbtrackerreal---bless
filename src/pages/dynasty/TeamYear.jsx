@@ -248,9 +248,9 @@ const getMascotName = (abbr, teamsData = null) => {
     'UGA': 'Georgia Bulldogs',
     'UH': 'Houston Cougars',
     'UK': 'Kentucky Wildcats',
-    'UL': 'Lafayette Ragin\' Cajuns',
-    'ULL': 'Lafayette Ragin\' Cajuns',
-    'ULM': 'Monroe Warhawks',
+    'UL': 'Louisiana Ragin\' Cajuns',
+    'ULL': 'Louisiana Ragin\' Cajuns',
+    'ULM': 'UL Monroe Warhawks',
     'UMD': 'Maryland Terrapins',
     'UNC': 'North Carolina Tar Heels',
     'UNLV': 'UNLV Rebels',
@@ -350,6 +350,38 @@ function getDisplayLastName(fullName) {
   const last = parts[parts.length - 1]
   if (NAME_SUFFIXES.has(last.toLowerCase())) return parts.slice(-2).join(' ')
   return last
+}
+
+// Team-colored-panel avatar for the Home tab's Stat Leaders / Top Rated
+// hero cards — same photo → team logo → initial fallback chain as the
+// shared PlayerAvatar component, themed to the panel's border/background
+// instead of PlayerAvatar's fixed surface colors (so it can't just reuse
+// that component outright). Crucially also mirrors PlayerAvatar's onError
+// handling: a truthy photoUrl only means a URL was recorded, not that it
+// still loads (CFB27 portrait packs are ~800MB and served externally, so
+// entries do 404) — without this, a failed load left a bare broken-image
+// icon instead of dropping through to the team logo like every other
+// player photo in the app does.
+function HeroAvatar({ photoUrl, teamLogo, fallback, borderColor, size = 36, padding = '0.25rem' }) {
+  const [failedUrl, setFailedUrl] = useState(null)
+  const showPhoto = photoUrl && failedUrl !== photoUrl
+  return (
+    <div
+      className="rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+      style={{ width: size, height: size, border: `2px solid ${borderColor}`, backgroundColor: 'rgba(255,255,255,0.10)' }}
+    >
+      {showPhoto ? (
+        <img
+          src={proxyImageUrl(photoUrl, 300)}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setFailedUrl(photoUrl)}
+        />
+      ) : teamLogo ? (
+        <img src={teamLogo} alt="" className="w-full h-full object-contain" style={{ padding }} />
+      ) : fallback}
+    </div>
+  )
 }
 
 // Roster-tab position filter pill. Atomic groups (QB/WR/TE) render
@@ -2782,9 +2814,9 @@ export default function TeamYear() {
         }}
       >
         <div className="relative overflow-hidden p-4 sm:p-5 pb-2 sm:pb-2 flex flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 cfb-watermark">
-          {/* Edit button — mobile only, pinned to the bottom-right of the hero
-              CONTENT row so it stays above the docked tab nav and never overlaps
-              the tabs. Desktop has its own in the RIGHT group. */}
+          {/* Edit button — mobile only (no desktop equivalent), pinned to the
+              bottom-right of the hero CONTENT row so it stays above the docked
+              tab nav and never overlaps the tabs. */}
           {!isViewOnly && (
             <button
               onClick={() => setShowTeamEditModal(true)}
@@ -3268,19 +3300,6 @@ export default function TeamYear() {
                 <img src={conferenceLogo} alt={conference || 'conference'} className="w-11 h-11 object-contain" />
               </Link>
             )}
-            {/* Edit Team Info Button (desktop — mobile has its own corner button) */}
-            {!isViewOnly && (
-              <button
-                onClick={() => setShowTeamEditModal(true)}
-                className="hidden sm:flex p-2 rounded-lg transition-colors flex-shrink-0 hover:bg-black/20"
-                style={{ color: teamBgText }}
-                title="Edit Team Info"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-            )}
           </div>
         </div>
 
@@ -3597,7 +3616,12 @@ export default function TeamYear() {
                     const linkTo = `${pathPrefix}/${h.honorType === 'All-American' ? 'all-americans' : 'all-conference'}/${selectedYear}`
                     return (
                       <div key={`${h.honorType}-${idx}`} className="flex items-center gap-1.5 text-sm">
-                        <img src="/badges/all-american.png" alt="" className="w-auto shrink-0" style={{ height: '1em' }} />
+                        <img
+                          src={h.honorType === 'All-Conference' && conferenceLogo ? conferenceLogo : '/badges/all-american.png'}
+                          alt=""
+                          className="w-auto shrink-0"
+                          style={{ height: '1em' }}
+                        />
                         <Link to={linkTo} className="hover:underline" style={{ color: accentColorMuted }}>
                           {h.honorType} ({desTier(h.designation)}):
                         </Link>
@@ -3683,15 +3707,13 @@ export default function TeamYear() {
                         style={idx > 0 ? { borderLeft: `1px solid ${teamBgText}33` } : undefined}
                       >
                         <div className="flex items-center gap-2 mb-1.5">
-                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamBgText}99`, backgroundColor: 'rgba(255,255,255,0.10)' }}>
-                            {realPhoto(l.data.player?.pictureUrl) ? (
-                              <img src={proxyImageUrl(realPhoto(l.data.player.pictureUrl), 300)} alt="" className="w-full h-full object-cover" />
-                            ) : teamLogo ? (
-                              <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
-                            ) : (
-                              <span className="text-base font-bold" style={{ color: teamBgText }}>{l.data.name?.charAt(0) || l.fallback}</span>
-                            )}
-                          </div>
+                          <HeroAvatar
+                            photoUrl={realPhoto(l.data.player?.pictureUrl)}
+                            teamLogo={teamLogo}
+                            borderColor={`${teamBgText}99`}
+                            size={36}
+                            fallback={<span className="text-base font-bold" style={{ color: teamBgText }}>{l.data.name?.charAt(0) || l.fallback}</span>}
+                          />
                           <div className="text-[9px] font-black uppercase tracking-[0.14em]" style={{ color: teamBgText, opacity: 0.7 }}>{l.label}</div>
                         </div>
                         <FittedPlayerName name={l.data.name} className="text-xs font-semibold group-hover:opacity-80 transition-opacity" style={{ color: teamBgText }} />
@@ -3718,18 +3740,14 @@ export default function TeamYear() {
                       className="group flex items-center gap-3 py-3 px-4 transition-colors hover:bg-white/[0.06]"
                       style={idx > 0 ? { borderLeft: `1px solid ${teamBgText}26` } : undefined}
                     >
-                      <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamBgText}99`, backgroundColor: 'rgba(255,255,255,0.10)' }}>
-                        {/* Real player photo first (placeholder team-logo copies
-                            ignored); else the team logo (rendered raw — the proxy
-                            can choke on user-uploaded logo URLs); else initial. */}
-                        {realPhoto(l.data.player?.pictureUrl) ? (
-                          <img src={proxyImageUrl(realPhoto(l.data.player.pictureUrl), 300)} alt="" className="w-full h-full object-cover" />
-                        ) : teamLogo ? (
-                          <img src={teamLogo} alt="" className="w-full h-full object-contain p-1.5" />
-                        ) : (
-                          <span className="text-lg font-bold" style={{ color: teamBgText }}>{l.data.name?.charAt(0) || l.fallback}</span>
-                        )}
-                      </div>
+                      <HeroAvatar
+                        photoUrl={realPhoto(l.data.player?.pictureUrl)}
+                        teamLogo={teamLogo}
+                        borderColor={`${teamBgText}99`}
+                        size={48}
+                        padding="0.375rem"
+                        fallback={<span className="text-lg font-bold" style={{ color: teamBgText }}>{l.data.name?.charAt(0) || l.fallback}</span>}
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: teamBgText, opacity: 0.7 }}>{l.label}</div>
                         <FittedPlayerName name={l.data.name} className="text-[13px] font-semibold group-hover:opacity-80 transition-opacity" style={{ color: teamBgText }} />
@@ -3781,16 +3799,13 @@ export default function TeamYear() {
                           to={`${pathPrefix}/player/${p.pid}`}
                           className="group flex items-center gap-3 py-2.5 px-3 transition-colors hover:bg-white/[0.06]"
                         >
-                          <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center" style={{ border: `2px solid ${teamBgText}99`, backgroundColor: 'rgba(255,255,255,0.10)' }}>
-                            {/* Real photo first (placeholder logo copies ignored); else team logo (raw); else initial. */}
-                            {realPhoto(p.pictureUrl) ? (
-                              <img src={proxyImageUrl(realPhoto(p.pictureUrl), 300)} alt="" className="w-full h-full object-cover" />
-                            ) : teamLogo ? (
-                              <img src={teamLogo} alt="" className="w-full h-full object-contain p-1" />
-                            ) : (
-                              <span className="text-sm font-bold" style={{ color: teamBgText }}>{p.name?.charAt(0) || '?'}</span>
-                            )}
-                          </div>
+                          <HeroAvatar
+                            photoUrl={realPhoto(p.pictureUrl)}
+                            teamLogo={teamLogo}
+                            borderColor={`${teamBgText}99`}
+                            size={36}
+                            fallback={<span className="text-sm font-bold" style={{ color: teamBgText }}>{p.name?.charAt(0) || '?'}</span>}
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="text-[13px] font-semibold truncate group-hover:opacity-80 transition-opacity" style={{ color: teamBgText }}>
                               {p.name}
@@ -6051,6 +6066,52 @@ export default function TeamYear() {
       {/* Recruiting Tab */}
       {activeTab === 'recruiting' && (() => {
         const commits = flattenClassCommitments(getRecruitingCommitments(currentDynasty, tid, selectedYear))
+        // recruitingCommitmentsByTeamYear (this store's source above) is only
+        // ever written for the user's OWN team's board entries, so it's empty
+        // for every other team even for a fully signed class.
+        // teams[tid].byYear[year].recruitingClassRoster (synced by
+        // mapTeamRecruitingClass, from extractPlayers.cjs's
+        // buildLeagueRecruitingClasses) is the real fix — the save's
+        // committed-recruit pool is whole-league, not just the user's own
+        // board, so every team's actual named class is available there.
+        if (!isUserTeam) {
+          // Keyed by NAME, not pid — the roster list (below) never has a pid
+          // at all (it's raw recruit data, not a player record), so a pid-
+          // first key lets the exact same recruit slip past this dedup once
+          // from each source (confirmed: a tracked recruit who ALSO crossed
+          // the user's own board, like a "Lost to [team]" case, showed up
+          // twice — the roster loop keyed him by name, the safety-net loop
+          // below keyed the same person by his real pid instead, so neither
+          // ever matched the other's key).
+          const known = new Set(commits.map(c => c.name?.toLowerCase().trim()).filter(Boolean))
+          const roster = currentDynasty?.teams?.[tid]?.byYear?.[selectedYear]?.recruitingClassRoster || []
+          roster.forEach((r) => {
+            const key = r.name?.toLowerCase().trim()
+            if (!key || known.has(key)) return
+            known.add(key)
+            commits.push({
+              name: r.name, position: r.position, stars: r.stars,
+              hometown: r.hometown, state: r.state, pictureUrl: r.pictureUrl,
+            })
+          })
+          // Safety net for a dynasty that hasn't re-synced since this
+          // feature shipped: commitmentTid on the player record still
+          // catches any recruit that happened to cross the user's OWN
+          // board (e.g. "Lost to [team]" — see ScoutBoard.jsx).
+          ;(currentDynasty?.players || []).forEach(p => {
+            if (Number(p?.commitmentTid) !== Number(tid)) return
+            const ry = Number(p?.recruitYear)
+            if (Number.isFinite(ry) && ry !== Number(selectedYear)) return
+            const key = p.name?.toLowerCase().trim()
+            if (!key || known.has(key)) return
+            known.add(key)
+            commits.push({
+              name: p.name, position: p.position, stars: p.stars,
+              hometown: p.hometown, state: p.state, previousTeam: p.previousTeam,
+              pid: p.pid,
+            })
+          })
+        }
         const sorted = [...commits].sort((a, b) => {
           const starDiff = (Number(b.stars) || 0) - (Number(a.stars) || 0)
           if (starDiff !== 0) return starDiff

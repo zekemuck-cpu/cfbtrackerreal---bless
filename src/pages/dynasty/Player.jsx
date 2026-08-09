@@ -24,6 +24,7 @@ import { sideOfPosition } from '../../utils/outlookBoard'
 import { displayGroups, displayLabel } from '../../utils/recruitAttributes'
 import { getTeamColors } from '../../data/teamColors'
 import { getAwardImage } from '../../data/awardImages'
+import { getConferenceLogo } from '../../data/conferenceLogos'
 import OverallProgressionModal from '../../components/OverallProgressionModal'
 import ScoringHighlightsModal from '../../components/ScoringHighlightsModal'
 import InlineScoringHighlights from '../../components/InlineScoringHighlights'
@@ -96,7 +97,7 @@ const getMascotName = (abbr, teamsData = null) => {
     'TLSA': 'Tulsa Golden Hurricane', 'TOL': 'Toledo Rockets', 'TROY': 'Troy Trojans',
     'TTU': 'Texas Tech Red Raiders', 'TXST': 'Texas State Bobcats', 'UAB': 'UAB Blazers',
     'UC': 'Cincinnati Bearcats', 'UCF': 'UCF Knights', 'UCLA': 'UCLA Bruins', 'UGA': 'Georgia Bulldogs',
-    'UK': 'Kentucky Wildcats', 'ULL': 'Lafayette Ragin\' Cajuns', 'ULM': 'Monroe Warhawks',
+    'UK': 'Kentucky Wildcats', 'ULL': 'Louisiana Ragin\' Cajuns', 'ULM': 'UL Monroe Warhawks',
     'UNC': 'North Carolina Tar Heels', 'UNLV': 'UNLV Rebels', 'UNM': 'New Mexico Lobos',
     'UNT': 'North Texas Mean Green', 'USA': 'South Alabama Jaguars', 'USC': 'USC Trojans',
     'USF': 'South Florida Bulls', 'USM': 'Southern Mississippi Golden Eagles',
@@ -108,7 +109,7 @@ const getMascotName = (abbr, teamsData = null) => {
     'DEL': 'Delaware Fightin\' Blue Hens', 'GAST': 'Georgia State Panthers', 'MZST': 'Missouri State Bears',
     'OKLA': 'Oklahoma Sooners', 'RUT': 'Rutgers Scarlet Knights', 'TUL': 'Tulane Green Wave',
     'TULN': 'Tulane Green Wave', 'TXAM': 'Texas A&M Aggies', 'TXTECH': 'Texas Tech Red Raiders',
-    'UF': 'Florida Gators', 'UH': 'Houston Cougars', 'UL': 'Lafayette Ragin\' Cajuns',
+    'UF': 'Florida Gators', 'UH': 'Houston Cougars', 'UL': 'Louisiana Ragin\' Cajuns',
     'UM': 'Miami Hurricanes', 'UMD': 'Maryland Terrapins', 'UT': 'Tennessee Volunteers',
     'VAN': 'Vanderbilt Commodores',
     // FCS teams
@@ -140,11 +141,26 @@ const CLASS_ORDER = ['Fr', 'RS Fr', 'So', 'RS So', 'Jr', 'RS Jr', 'Sr', 'RS Sr']
 // always reads as "Freshman" everywhere, never diverging.
 const honorDesTier = (d) => d === 'first' ? '1st Team' : d === 'second' ? '2nd Team' : d === 'freshman' ? 'Freshman' : d
 
-// Same badge used on the All-Americans/All-Conference pages themselves — one
-// asset, reused everywhere a designation needs a visual marker.
-const HonorBadge = ({ className = '', style }) => (
-  <img src="/badges/all-american.png" alt="" className={`w-auto shrink-0 ${className}`} style={{ height: '1em', ...style }} />
-)
+// Same marker used on the All-Americans/All-Conference pages themselves: the
+// national All-American badge for All-American honors, or that season's
+// conference logo for All-Conference honors (falls back to the badge if the
+// conference has no known logo).
+const HonorBadge = ({ className = '', style, conference = null }) => {
+  const src = (conference && getConferenceLogo(conference)) || '/badges/all-american.png'
+  return <img src={src} alt="" className={`w-auto shrink-0 ${className}`} style={{ height: '1em', ...style }} />
+}
+
+// Resolve which conference an All-Conference honor entry belongs to, from its
+// tid/school and the honor's own year — same resolution AllConference.jsx and
+// the Awards tab's acConfByYear use, factored out so every honor list on this
+// page (Overview, Timeline, Awards) agrees on the same logo for the same entry.
+const resolveHonorConference = (entry, dynasty) => {
+  if (!entry) return null
+  let tid = entry.schoolTid != null ? Number(entry.schoolTid) : null
+  if (tid == null && entry.school) tid = resolveTid(entry.school, dynasty?.teams || TEAMS) || null
+  const abbr = tid != null ? (getGameTeamInfo(dynasty?.teams || TEAMS, tid)?.abbr || null) : (entry.school || null)
+  return abbr ? getTeamConferenceForDynasty(dynasty, abbr, Number(entry.year)) : null
+}
 
 // Determine primary stat category for a position (where G/Snaps should appear)
 const getPrimaryStatCategory = (position) => {
@@ -2534,7 +2550,7 @@ function PlayerInner() {
             {(playerHonors.allAmericans.length > 0 || playerHonors.allConference.length > 0) && (() => {
               const honorRows = [
                 ...playerHonors.allAmericans.map(h => ({ ...h, type: 'All-American', linkBase: 'all-americans' })),
-                ...playerHonors.allConference.map(h => ({ ...h, type: 'All-Conference', linkBase: 'all-conference' })),
+                ...playerHonors.allConference.map(h => ({ ...h, type: 'All-Conference', linkBase: 'all-conference', conference: resolveHonorConference(h, currentDynasty) })),
               ].sort((a, b) => b.year - a.year)
               return (
                 <div className="card p-4 flex flex-wrap gap-x-6 gap-y-2 cfb-texture">
@@ -2544,7 +2560,7 @@ function PlayerInner() {
                       to={`${pathPrefix}/${h.linkBase}/${h.year}`}
                       className="flex items-center gap-1.5 text-sm hover:underline"
                     >
-                      <HonorBadge />
+                      <HonorBadge conference={h.conference} />
                       <span className="font-semibold" style={{ color: primaryText }}>{h.type} ({honorDesTier(h.designation)})</span>
                       <span className="text-xs" style={{ color: secondaryText }}>&rsquo;{String(h.year).slice(-2)}</span>
                     </Link>
@@ -3919,7 +3935,7 @@ function PlayerInner() {
                 // as the Awards tab and TeamYear.jsx's per-season honors card.
                 const yearHonorChips = [
                   ...playerHonors.allAmericans.filter(h => Number(h.year) === Number(yd.year)).map(h => ({ type: 'All-American', designation: h.designation, linkBase: 'all-americans' })),
-                  ...playerHonors.allConference.filter(h => Number(h.year) === Number(yd.year)).map(h => ({ type: 'All-Conference', designation: h.designation, linkBase: 'all-conference' })),
+                  ...playerHonors.allConference.filter(h => Number(h.year) === Number(yd.year)).map(h => ({ type: 'All-Conference', designation: h.designation, linkBase: 'all-conference', conference: resolveHonorConference(h, currentDynasty) })),
                 ]
                 const honorChipsNode = yearHonorChips.length > 0 ? (
                   <span className="flex items-center gap-2 flex-wrap">
@@ -3931,7 +3947,7 @@ function PlayerInner() {
                         style={{ letterSpacing: '1px' }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <HonorBadge style={{ height: '0.9em' }} />
+                        <HonorBadge style={{ height: '0.9em' }} conference={h.conference} />
                         {h.type} ({honorDesTier(h.designation)})
                       </Link>
                     ))}
@@ -5254,7 +5270,7 @@ function PlayerInner() {
                 <div className="rounded-xl bg-surface-2 border border-surface-4 divide-y divide-surface-4 overflow-hidden">
                   {honorRows.map((h, idx) => (
                     <div key={idx} className="flex items-center gap-2.5 px-3 py-2.5">
-                      {h.badge && <HonorBadge style={{ height: '1.1em' }} />}
+                      {h.badge && <HonorBadge style={{ height: '1.1em' }} conference={h.confByYear?.[h.years[0]]} />}
                       {h.years.length > 0 ? (
                         <Link to={honorLink(h.linkBase, h.years[0], h.confByYear)} className="font-semibold text-sm text-white hover:underline">{h.label}</Link>
                       ) : (
