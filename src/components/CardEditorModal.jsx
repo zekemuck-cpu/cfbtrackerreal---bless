@@ -22,6 +22,7 @@ import {
 } from '../utils/cardPromptVariables'
 import { listPlayerGames } from '../utils/playerCards'
 import { proxyImageUrl } from '../utils/imageProxy'
+import { isPcAutoDynasty } from '../editions'
 
 const PHASES = [
   { id: 'style',    label: 'Style' },
@@ -196,6 +197,8 @@ export default function CardEditorModal({
               working={working}
               onChange={update}
               teamColors={teamColors}
+              portraitUrl={isPcAutoDynasty(dynasty) ? (player?.pictureUrl || null) : null}
+              playerName={player?.name}
             />
           )}
         </div>
@@ -442,7 +445,7 @@ function PhaseContext({
    Step 3 — Generate
    ═══════════════════════════════════════════════════════════════════ */
 
-function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, onChange, teamColors }) {
+function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, onChange, teamColors, portraitUrl, playerName }) {
   if (!style) {
     return (
       <div className="text-center py-16 text-sm text-txt-secondary">
@@ -455,6 +458,7 @@ function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, on
       <p className="text-sm text-txt-tertiary max-w-2xl">
         Copy each prompt into your AI image generator, then drop the resulting images into the slots below. The back is optional.
       </p>
+      {portraitUrl && <CopyPortraitRow portraitUrl={portraitUrl} playerName={playerName} />}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SidePanel
           side="front"
@@ -473,6 +477,62 @@ function PhaseGenerate({ style, filledFrontPrompt, filledBackPrompt, working, on
           aspectRatio={style.aspectRatio}
         />
       </div>
+    </div>
+  )
+}
+
+/**
+ * CopyPortraitRow — puts the player's synced CFB27 portrait straight on the
+ * clipboard so it can be pasted into an AI image generator as a reference
+ * image alongside the front/back prompts, the same "Copy Photo" pattern
+ * CommitGraphicModal uses for recruit commitment graphics. PC-sync only —
+ * the portrait only exists (player.pictureUrl) once Sync from Save has
+ * populated it. Normalizes through a canvas to PNG since clipboard image
+ * writes are most reliably supported for that type (portraits can come
+ * back as JPEG). Falls back to opening the photo in a new tab (drag/save
+ * from there) when the Clipboard API isn't available.
+ */
+function CopyPortraitRow({ portraitUrl, playerName }) {
+  const [copied, setCopied] = useState(false)
+
+  const copyPortrait = async () => {
+    try {
+      const res = await fetch(proxyImageUrl(portraitUrl, 800))
+      const srcBlob = await res.blob()
+      const pngBlob = await new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth
+          canvas.height = img.naturalHeight
+          canvas.getContext('2d').drawImage(img, 0, 0)
+          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png')
+        }
+        img.onerror = reject
+        img.src = URL.createObjectURL(srcBlob)
+      })
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })])
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      window.open(proxyImageUrl(portraitUrl, 1200), '_blank', 'noopener')
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-surface-4 bg-surface-2 px-4 py-3">
+      <img
+        src={proxyImageUrl(portraitUrl, 120)}
+        alt={playerName || 'Player portrait'}
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-surface-5"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold text-txt-primary truncate">Synced portrait</div>
+        <div className="text-xs text-txt-tertiary truncate">Copy it, then paste alongside a prompt in your AI image generator.</div>
+      </div>
+      <Button variant="secondary" size="sm" onClick={copyPortrait}>
+        {copied ? 'Copied' : 'Copy Portrait'}
+      </Button>
     </div>
   )
 }

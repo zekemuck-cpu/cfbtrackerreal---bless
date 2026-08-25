@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear, getTeamRankForWeek } from '../../context/DynastyContext'
+import { isPcAutoDynasty } from '../../editions'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { TEAMS, getCurrentTeamTid, getCurrentTeamAbbr, isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { getMascotName as getMascotNameFromTeams, stripMascotFromName, getTeamLogoByTid } from '../../data/teams'
@@ -402,6 +403,15 @@ export default function WeeklyScores() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { currentDynasty, isViewOnly, saveCPUBowlGames, saveCFPGames, saveRankings, saveCPUConferenceChampionships, updateDynasty, loadSocial, replaceSocialWeek } = useDynasty()
   const pathPrefix = usePathPrefix()
+  // Every score on this page is auto-imported by Sync from Save for a PC
+  // dynasty — there's nothing to manually correct and no way to submit a
+  // manual entry that Sync from Save wouldn't just overwrite on the next
+  // sync anyway. Hiding these also closes off the write path
+  // (saveCPUConferenceChampionships et al.) that stamps a non-numeric
+  // `week` ('CCG', etc.) onto a game record, which used to break any
+  // exact-week box-score lookup for that postseason week (see
+  // PlayersOfWeek.jsx's findBoxScoreGameSummary).
+  const isPcAuto = isPcAutoDynasty(currentDynasty)
   const [editing, setEditing] = useState(false)
   const [ccModalOpen, setCcModalOpen] = useState(false)
   const [bowlWeek1Open, setBowlWeek1Open] = useState(false)
@@ -919,22 +929,22 @@ export default function WeeklyScores() {
               </select>
               {!isViewOnly && (
                 <>
-                  {displayWeek <= 15 && (
+                  {!isPcAuto && displayWeek <= 15 && (
                     <button type="button" onClick={() => setEditing(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title={`Edit ${weekLabelFor(displayWeek)} scores`}>
                       Edit Scores
                     </button>
                   )}
-                  {displayWeek === 16 && (
+                  {!isPcAuto && displayWeek === 16 && (
                     <button type="button" onClick={() => setCcModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Enter Conference Championship scores">
                       Enter Scores
                     </button>
                   )}
-                  {displayWeek === 17 && (
+                  {!isPcAuto && displayWeek === 17 && (
                     <button type="button" onClick={() => setBowlWeek1Open(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Enter Bowl Week 1 scores">
                       Enter Scores
                     </button>
                   )}
-                  {displayWeek === 18 && (
+                  {!isPcAuto && displayWeek === 18 && (
                     <button type="button" onClick={() => setBowlWeek2Open(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Enter Bowl Week 2 scores">
                       Enter Scores
                     </button>
@@ -1093,11 +1103,13 @@ export default function WeeklyScores() {
             <EmptyState
               title={`No scores entered for ${weekLabelFor(displayWeek)}`}
               message={
-                isViewOnly
-                  ? `The dynasty owner hasn't entered ${weekLabelFor(displayWeek)} scores for ${displayYear} yet.`
-                  : displayWeek <= 15
-                    ? `Click "Edit Scores" to enter results from across the country.`
-                    : `Click "Enter Scores" to add ${weekLabelFor(displayWeek)} results.`
+                isPcAuto
+                  ? `${weekLabelFor(displayWeek)} results for ${displayYear} haven't synced from the save yet.`
+                  : isViewOnly
+                    ? `The dynasty owner hasn't entered ${weekLabelFor(displayWeek)} scores for ${displayYear} yet.`
+                    : displayWeek <= 15
+                      ? `Click "Edit Scores" to enter results from across the country.`
+                      : `Click "Enter Scores" to add ${weekLabelFor(displayWeek)} results.`
               }
             />
           </Card>

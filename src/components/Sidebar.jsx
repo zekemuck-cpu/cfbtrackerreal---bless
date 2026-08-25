@@ -192,11 +192,6 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   // never see the link either.
   const showBlueprint = isDynastyBlueprintEnabled(currentDynasty) && !isViewOnly
 
-  // Scheme Builder's formation/play/scheme data is sourced from CFB 27's rule
-  // set itself — hidden for other editions, but shown on Console CFB27 too
-  // (it's ruleset content, not synced data).
-  const showSchemeBuilder = getEditionKey(currentDynasty) === 'cfb27'
-
   // Injury Report / Players of the Week / Heisman Watch / Records are only
   // ever populated by CFB27 Sync from Save — no manual-entry path exists for
   // any of them, so (unlike Scheme Builder above) they must gate on PC, not
@@ -209,6 +204,12 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
   // deliberately NOT gated here — those derive from games/boxScore, which a
   // manually-tracked dynasty fills in itself.
   const isPcAuto = isPcAutoDynasty(currentDynasty)
+
+  // Scheme Builder's formation/play/scheme data is sourced from CFB 27's rule
+  // set itself — shown on Console CFB27, but retired on PC (per the user's
+  // ask — no longer needed there now that the rest of Sync from Save covers
+  // that ground).
+  const showSchemeBuilder = getEditionKey(currentDynasty) === 'cfb27' && !isPcAuto
 
   const navItems = [
     { name: 'Dashboard', path: pathPrefix },

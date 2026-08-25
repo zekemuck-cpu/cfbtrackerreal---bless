@@ -15,7 +15,7 @@ import {
 import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useDynasty } from '../../context/DynastyContext'
-import { getEditionKey } from '../../editions'
+import { getEditionKey, isPcAutoDynasty } from '../../editions'
 import { TEAMS, getColorsFromTid } from '../../data/teamRegistry'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { PageHero, Card, Badge, Button, EmptyState } from '../../components/ui'
@@ -192,7 +192,7 @@ export default function SchemeBuilder() {
   const [playbookSearch, setPlaybookSearch] = useState('')
   const [setPlaysCache, setSetPlaysCache] = useState({})
 
-  const isCfb27 = getEditionKey(currentDynasty) === 'cfb27'
+  const isCfb27 = getEditionKey(currentDynasty) === 'cfb27' && !isPcAutoDynasty(currentDynasty)
 
   const team = TEAMS[tid]
   const teamColors = getColorsFromTid(currentDynasty?.teams, tid) || { primary: '#1f2937', secondary: '#f3f4f6' }
@@ -700,11 +700,14 @@ export default function SchemeBuilder() {
   if (!currentDynasty) return null
 
   if (!isCfb27) {
+    const isPc = isPcAutoDynasty(currentDynasty)
     return (
       <div className="max-w-3xl mx-auto px-4 py-10">
         <EmptyState
-          title="Scheme Builder is CFB 27 only"
-          message="This dynasty is on an earlier game edition. Scheme Builder's formation and play data is sourced from CFB 27 and isn't available for other editions."
+          title={isPc ? 'Scheme Builder has been retired' : 'Scheme Builder is CFB 27 only'}
+          message={isPc
+            ? 'Scheme Builder is no longer available for PC dynasties.'
+            : "This dynasty is on an earlier game edition. Scheme Builder's formation and play data is sourced from CFB 27 and isn't available for other editions."}
         />
       </div>
     )

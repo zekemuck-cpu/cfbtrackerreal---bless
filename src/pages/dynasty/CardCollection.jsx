@@ -139,9 +139,18 @@ function PlayerPickerModal({ dynasty, onPick, onClose }) {
     const q = query.trim().toLowerCase()
     const teams = dynasty?.teams || {}
     const currentYear = Number(dynasty?.currentYear)
+    const userTid = dynasty?.currentTid
 
     // Score: name match > jersey match > school match. Active players
     // (on a current-year roster) get a small boost so they sort first.
+    //
+    // A player on the USER'S OWN team gets a large boost on top of that —
+    // CFB27 reuses first names heavily across its whole-league generated
+    // rosters (e.g. dozens of unrelated "Jaheim ___"s scattered across other
+    // schools), and without this a name search could get crowded out by CPU
+    // players who happen to share it, burying (or truncating past the
+    // results cap below) the one player from the user's own team they were
+    // actually looking for.
     const scored = []
     for (const p of all) {
       if (!p?.name) continue
@@ -154,6 +163,7 @@ function PlayerPickerModal({ dynasty, onPick, onClose }) {
       })?.teamTid
       const teamName = teamTid != null ? (teams[teamTid]?.name || '') : ''
       const isActive = teamTid != null
+      const isUserTeam = userTid != null && teamTid === userTid
 
       let score = 0
       if (!q) {
@@ -166,7 +176,7 @@ function PlayerPickerModal({ dynasty, onPick, onClose }) {
         if (teamName.toLowerCase().includes(q)) score += 10
       }
       if (score > 0 || !q) {
-        scored.push({ player: p, score: score + (isActive ? 0.5 : 0), teamName })
+        scored.push({ player: p, score: score + (isActive ? 0.5 : 0) + (isUserTeam ? 1000 : 0), teamName })
       }
     }
     scored.sort((a, b) => {

@@ -20,9 +20,21 @@ import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../compone
 function findBoxScoreGameSummary(dynasty, honoree, week, year) {
   if (!honoree?.tid) return { noGame: true }
   const teamsSource = dynasty.teams || {}
-  const game = (dynasty.games || []).find((g) =>
-    Number(g.year) === Number(year) && Number(g.week) === Number(week)
-    && (Number(g.team1Tid) === honoree.tid || Number(g.team2Tid) === honoree.tid))
+  const yearNum = Number(year)
+  const forHonoreeTeam = (g) => Number(g.team1Tid) === honoree.tid || Number(g.team2Tid) === honoree.tid
+  let game = (dynasty.games || []).find((g) =>
+    Number(g.year) === yearNum && Number(g.week) === Number(week) && forHonoreeTeam(g))
+  // Conference championship games are sometimes stored with a non-numeric
+  // `week` (the manual "Enter Scores" CC flow writes the literal string
+  // 'CCG' instead of the save's real week number — see weekLabel.js's
+  // isNumericWeek), so the exact-week match above can come up empty even
+  // though this honoree's own week key IS the CCG week. Fall back to the
+  // flag — a team plays at most one conference championship game a year,
+  // so this can't accidentally grab the wrong game.
+  if (!game) {
+    game = (dynasty.games || []).find((g) =>
+      Number(g.year) === yearNum && g.isConferenceChampionship && forHonoreeTeam(g))
+  }
   if (!game) return { noGame: true }
 
   const isTeam1 = Number(game.team1Tid) === honoree.tid
