@@ -96,6 +96,8 @@ async function getAllTableRecords(save, name) {
   }
   const records = [];
   let schema = null;
+  let readErrors = 0;
+  let lastError = null;
   for (const t of candidates) {
     try {
       await t.readRecords();
@@ -104,10 +106,26 @@ async function getAllTableRecords(save, name) {
         if (r && !r.isEmpty) records.push(r);
       }
     } catch (err) {
-      /* skip unreadable instance */
+      // Previously silent — a table whose EVERY instance throws here (a real
+      // decode failure, not "this instance is just an empty scratch copy")
+      // came back as an empty array indistinguishable from "the save
+      // genuinely has none of these," with zero trace anywhere. Caught the
+      // "All Coaches leaderboard empty" report: the in-game Coach Stats
+      // screen showed the data was there, but getAllTableRecords(save,
+      // 'Coach') returned []. Logging + reporting it here (not just
+      // buildAllHeadCoaches counting zero rows afterward) is what actually
+      // distinguishes "no data" from "couldn't read it."
+      readErrors++;
+      lastError = err;
+      console.warn(`[getAllTableRecords] "${name}" instance failed to read: ${err?.message || err}`);
     }
   }
   records.schema = schema;
+  records.diagnostics = {
+    candidateCount: candidates.length,
+    readErrors,
+    lastErrorMessage: lastError ? String(lastError?.message || lastError) : null,
+  };
   return records;
 }
 
@@ -550,12 +568,31 @@ async function buildUserCoachInfo(save, coachRecords) {
  */
 async function buildAllHeadCoaches(save, coachRecords) {
   const coaches = [];
-  if (!coachRecords) return coaches;
+  // Raw samples of whatever's actually in the first few non-empty rows,
+  // captured regardless of which filter (if any) a row fails — so if this
+  // comes back empty AGAIN, the actual field values are already in hand
+  // instead of needing yet another round-trip to find out why 'Position'
+  // isn't reading as the expected 'HeadCoach' string, or TeamIndex/name
+  // aren't resolving. Capped at 5 so this never meaningfully affects payload
+  // size.
+  const rowSamples = [];
+  if (!coachRecords) {
+    return { coaches, diagnostics: { tableRows: 0, nonEmptyRows: 0, headCoachRows: 0, schemaFields: [], rowSamples } }
+  }
+  const schemaFields = (coachRecords.schema?.attributes || []).map((f) => f.name)
   let nonEmptyRows = 0;
   let headCoachRows = 0;
   for (const rec of coachRecords) {
     if (!rec || rec.isEmpty) continue;
     nonEmptyRows++;
+    if (rowSamples.length < 5) {
+      rowSamples.push({
+        position: readCell(rec, 'Position'),
+        teamIndex: readCell(rec, 'TeamIndex'),
+        firstName: readCell(rec, 'FirstName'),
+        lastName: readCell(rec, 'LastName'),
+      })
+    }
     if (readCell(rec, 'Position') !== 'HeadCoach') continue;
     headCoachRows++;
     const rawTid = Number(readCell(rec, 'TeamIndex'));
@@ -601,18 +638,29 @@ async function buildAllHeadCoaches(save, coachRecords) {
   }
   // Diagnostic for the "All Coaches leaderboard came back empty" report —
   // same "announce it instead of failing silently" spirit as getBestTable's
-  // own discarded-record warning above. Pins down whether the problem is
-  // HERE (the Coach table read / HeadCoach filter) or downstream (cfb27Sync.js's
-  // rawTeamIdMap resolution) by comparing what THIS function actually found
-  // against what it returned.
+  // own discarded-record warning above. Logged here (server-side, Vercel
+  // function logs) AND returned as `diagnostics` so the caller can also
+  // surface it in the SYNC RESPONSE — the client has no access to these
+  // server logs, so without threading it through, "all coaches came back
+  // empty" is a dead end for anyone who can't check Vercel directly.
+  const tableDiag = coachRecords.diagnostics || null
   if (nonEmptyRows === 0) {
-    console.warn('[buildAllHeadCoaches] Coach table returned zero non-empty rows.');
+    // Distinguish "the table really has nothing" from "every instance threw
+    // during readRecords()" — getAllTableRecords now reports the latter
+    // (readErrors > 0) instead of silently returning an empty array either
+    // way, which used to make these two very different situations
+    // indistinguishable from here.
+    if (tableDiag && tableDiag.readErrors > 0 && tableDiag.readErrors === tableDiag.candidateCount) {
+      console.warn(`[buildAllHeadCoaches] Coach table read failed on all ${tableDiag.candidateCount} instance(s): ${tableDiag.lastErrorMessage}`);
+    } else {
+      console.warn('[buildAllHeadCoaches] Coach table returned zero non-empty rows.');
+    }
   } else if (headCoachRows === 0) {
-    console.warn(`[buildAllHeadCoaches] ${nonEmptyRows} Coach row(s) read but none had Position === 'HeadCoach'.`);
+    console.warn(`[buildAllHeadCoaches] ${nonEmptyRows} Coach row(s) read but none had Position === 'HeadCoach'. Sample rows: ${JSON.stringify(rowSamples)}`);
   } else if (coaches.length < headCoachRows) {
-    console.warn(`[buildAllHeadCoaches] ${headCoachRows} HeadCoach row(s) found but only ${coaches.length} had a resolvable TeamIndex + name.`);
+    console.warn(`[buildAllHeadCoaches] ${headCoachRows} HeadCoach row(s) found but only ${coaches.length} had a resolvable TeamIndex + name. Sample rows: ${JSON.stringify(rowSamples)}`);
   }
-  return coaches;
+  return { coaches, diagnostics: { tableRows: coachRecords.length, nonEmptyRows, headCoachRows, schemaFields, rowSamples, table: tableDiag } };
 }
 
 /**
@@ -2388,7 +2436,7 @@ async function extractFullSave(filePath, opts = {}) {
   const coachRecords = await getAllTableRecords(save, 'Coach');
   const coachingStaff = buildCoachingStaff(coachRecords);
   const userCoachInfo = await buildUserCoachInfo(save, coachRecords);
-  const allHeadCoaches = await buildAllHeadCoaches(save, coachRecords);
+  const { coaches: allHeadCoaches, diagnostics: allHeadCoachesDiagnostics } = await buildAllHeadCoaches(save, coachRecords);
 
   const jobOpeningTable = await getBestTable(save, 'JobOpening');
   const coachOffers = await buildCoachOffers(save, jobOpeningTable, userCoachInfo?.coachRec);
@@ -2456,6 +2504,11 @@ async function extractFullSave(filePath, opts = {}) {
     heismanWatch,
     userCoachInfo: userCoachInfoResult,
     allHeadCoaches,
+    // Client has no access to this function's own server-side console.warn
+    // (Vercel function logs) — surfaced here so cfb27SaveSync.js's "all
+    // coaches came back empty" warning can name the exact cause instead of
+    // dead-ending at "check server logs" for anyone who can't.
+    allHeadCoachesDiagnostics,
     coachOffers,
     gameStats,
     depthCharts,

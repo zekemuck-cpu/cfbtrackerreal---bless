@@ -2118,7 +2118,33 @@ export function buildSyncPlan(dynasty, parsed) {
   // worth comparing against a working field like teamRatings for the same
   // sync).
   if (rawAllHeadCoaches.length === 0) {
-    console.warn('[cfb27Sync] allHeadCoaches: save parse returned zero coaches — extraction-side issue, not a tid-mapping one.')
+    // buildAllHeadCoaches' own diagnostics (extractPlayers.cjs) — threaded
+    // through the API response since its console.warn only reaches Vercel's
+    // server logs, which most users can't check. Names the exact cause:
+    // the Coach table read nothing at all, it read rows but none were
+    // Position === 'HeadCoach', or HeadCoach rows existed but none had a
+    // resolvable TeamIndex + name.
+    const diag = parsed.allHeadCoachesDiagnostics
+    const tableDiag = diag?.table
+    const diagMsg = diag
+      ? (diag.nonEmptyRows === 0
+          ? (tableDiag && tableDiag.readErrors > 0 && tableDiag.readErrors === tableDiag.candidateCount
+              ? `Coach table FAILED TO READ on all ${tableDiag.candidateCount} instance(s) — parse error: ${tableDiag.lastErrorMessage}`
+              : 'Coach table returned zero non-empty rows (read succeeded, table genuinely empty in this save).')
+          : diag.headCoachRows === 0
+            ? `${diag.nonEmptyRows} Coach row(s) read but none had Position === 'HeadCoach'.`
+            : `${diag.headCoachRows} HeadCoach row(s) found but none had a resolvable TeamIndex + name.`)
+      : '(no diagnostics returned by the API — extraction may be running an older deploy)'
+    console.warn(`[cfb27Sync] allHeadCoaches: save parse returned zero coaches — extraction-side issue, not a tid-mapping one. ${diagMsg}`)
+    // Raw field values from the first few Coach rows the extractor actually
+    // read, regardless of which case above fired — logged unconditionally
+    // so a single sync attempt carries everything needed to fix whichever
+    // cause it turns out to be, instead of requiring another round-trip
+    // just to go look at the data.
+    if (diag) {
+      console.warn(`[cfb27Sync] allHeadCoaches diagnostics — schema fields: ${JSON.stringify(diag.schemaFields)}`)
+      console.warn(`[cfb27Sync] allHeadCoaches diagnostics — sample rows: ${JSON.stringify(diag.rowSamples)}`)
+    }
   } else if (allCoachesUpdate.length === 0) {
     console.warn(`[cfb27Sync] allHeadCoaches: extracted ${rawAllHeadCoaches.length} coach(es) but rawTeamIdMap resolved none of their teams — tid-mapping issue.`)
   } else if (allCoachesUpdate.length < rawAllHeadCoaches.length * 0.5) {
