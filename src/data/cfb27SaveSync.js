@@ -1274,7 +1274,7 @@ function buildPlayoffSlotTeams(parsed, rawTeamIdMap) {
  * @param {number} year
  * @returns {object[]} games to upsert into dynasty.games
  */
-export function buildPostseasonGames(parsed, rawTeamIdMap, existingGames, year) {
+export function buildPostseasonGames(parsed, rawTeamIdMap, dynastyTeams, existingGames, year) {
   const toWrite = []
   const existingByKey = new Map()
   for (const g of existingGames || []) {
@@ -1315,6 +1315,36 @@ export function buildPostseasonGames(parsed, rawTeamIdMap, existingGames, year) 
     const existing = existingByKey.get(key)
     const team1Score = isPlayed ? (existing && existing.team1Tid === team2Tid ? g.awayScore : g.homeScore) : null
     const team2Score = isPlayed ? (existing && existing.team1Tid === team2Tid ? g.homeScore : g.awayScore) : null
+
+    // Box score (team stats + every category's player stat lines), same
+    // shape/derivation buildWholeLeagueGames uses for regular-season games —
+    // previously missing entirely for bowl/CFP games (both the user's own
+    // and CPU), which only ever got the final score here. Requires the
+    // extractor's own playedWeeks to include postseason weeks too (see
+    // extractPlayers.cjs) — without that, gameStats.teamStatsByWeek/
+    // playerStatsByWeek simply have no entry for a bowl/CFP week to read.
+    let box = null
+    if (isPlayed && parsed.gameStats) {
+      const teamStatsRaw = parsed.gameStats.teamStatsByWeek?.[g.week] || {}
+      const playerStatsRaw = parsed.gameStats.playerStatsByWeek?.[g.week] || []
+      const byTid = {}
+      const teamStatsByTid = {}
+      for (const [rawTid, appTid] of [[g.homeTeamId, team1Tid], [g.awayTeamId, team2Tid]]) {
+        const abbr = dynastyTeams?.[appTid]?.abbr
+        const rawTeamStats = teamStatsRaw[rawTid]
+        if (rawTeamStats) teamStatsByTid[appTid] = mapTeamGameStats(rawTeamStats, abbr)
+        const categories = EMPTY_CATEGORIES()
+        for (const entry of playerStatsRaw) {
+          if (entry.team_id !== rawTid) continue
+          for (const { category, stat } of mapPlayerGameStatEntries(entry)) {
+            categories[category]?.push(stat)
+          }
+        }
+        byTid[appTid] = sortBoxScoreCategories(categories)
+      }
+      box = { byTid, teamStatsByTid }
+    }
+
     const record = {
       id: cfpSlot ? getCFPGameId(cfpSlot, year) : (existing?.id || `cfb27-bowl-${year}-${g.bowlName.replace(/\s+/g, '-').toLowerCase()}-${lo}-${hi}`),
       year,
@@ -1334,6 +1364,7 @@ export function buildPostseasonGames(parsed, rawTeamIdMap, existingGames, year) 
       homeTeamTid: null,
       isPlayed,
       winnerTid: isPlayed ? (team1Score > team2Score ? team1Tid : team2Tid) : null,
+      ...(box ? { boxScore: box } : {}),
       ...gameDateTimeFields(g),
     }
 
@@ -1343,6 +1374,7 @@ export function buildPostseasonGames(parsed, rawTeamIdMap, existingGames, year) 
         && Boolean(existing.isPlayed) === isPlayed
         && existing.dateLabel === record.dateLabel
         && existing.kickoffTimeLabel === record.kickoffTimeLabel
+        && JSON.stringify(existing.boxScore || null) === JSON.stringify(record.boxScore || null)
       if (unchanged) continue
       toWrite.push({ ...existing, ...record })
     } else {
@@ -1922,7 +1954,7 @@ export function buildSyncPlan(dynasty, parsed) {
   // cfpSlot identification now comes directly from the save's own fixed
   // bracket structure (see buildPostseasonGames/PLAYOFF_SLOT_TO_CFP_SLOT) —
   // no ranking-based guessing involved.
-  const postseasonGames = buildPostseasonGames(parsed, rawTeamIdMap, dynasty.games || [], year)
+  const postseasonGames = buildPostseasonGames(parsed, rawTeamIdMap, dynastyTeams, dynasty.games || [], year)
 
   // Real CFP seed list + bowl-host config, mirroring CFPSeedsModal's exact
   // save shape — null until the bracket is actually locked (see
@@ -2058,7 +2090,8 @@ export function buildSyncPlan(dynasty, parsed) {
   // current truth, no merge needed). Coaches whose team doesn't resolve to
   // an app tid (FCS filler slots, unrecognized rows) are dropped rather
   // than stored with a null team.
-  const allCoachesUpdate = (parsed.allHeadCoaches || [])
+  const rawAllHeadCoaches = parsed.allHeadCoaches || []
+  const allCoachesUpdate = rawAllHeadCoaches
     .map((c) => {
       const tid = rawTeamIdMap.get(c.rawTid)
       if (tid == null) return null
@@ -2075,6 +2108,22 @@ export function buildSyncPlan(dynasty, parsed) {
       }
     })
     .filter(Boolean)
+  // Diagnostic for the "All Coaches leaderboard is empty" report — same
+  // "announce it instead of failing silently" spirit as getBestTable's own
+  // discarded-record warning in extractPlayers.cjs. Distinguishes the two
+  // possible causes at the exact point they'd occur: the extractor itself
+  // returned nothing (check api server logs for buildAllHeadCoaches /
+  // Coach table read issues), vs. every returned coach's team failed to
+  // resolve through rawTeamIdMap (a raw team_id / name-resolution mismatch
+  // worth comparing against a working field like teamRatings for the same
+  // sync).
+  if (rawAllHeadCoaches.length === 0) {
+    console.warn('[cfb27Sync] allHeadCoaches: save parse returned zero coaches — extraction-side issue, not a tid-mapping one.')
+  } else if (allCoachesUpdate.length === 0) {
+    console.warn(`[cfb27Sync] allHeadCoaches: extracted ${rawAllHeadCoaches.length} coach(es) but rawTeamIdMap resolved none of their teams — tid-mapping issue.`)
+  } else if (allCoachesUpdate.length < rawAllHeadCoaches.length * 0.5) {
+    console.warn(`[cfb27Sync] allHeadCoaches: only ${allCoachesUpdate.length} of ${rawAllHeadCoaches.length} coaches resolved a tid — check rawTeamIdMap coverage.`)
+  }
 
   // Coach Carousel — pending job offers from OTHER schools for the user's
   // OWN coach (extractPlayers.cjs's buildCoachOffers). Always a full

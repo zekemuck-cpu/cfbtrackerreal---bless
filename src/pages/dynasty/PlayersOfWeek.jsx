@@ -8,6 +8,11 @@ import { HonorPlayerTile } from '../../components/HonorsUI'
 import { currentPollRank } from '../../utils/teamRanking'
 import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../components/ui'
 
+// Real (auto-synced) CFP games never carry a numeric `week` — buildPostseasonGames
+// (cfb27SaveSync.js) stamps them 'Bowl'/'Bowl N' — only these 4 gameType values,
+// in bracket-progression order. See findBoxScoreGameSummary's CFP branch below.
+const CFP_ROUND_ORDER = ['cfp_first_round', 'cfp_quarterfinal', 'cfp_semifinal', 'cfp_championship']
+
 // Finds this honoree's game result + box-score line for the given week —
 // PlayerAward's own AwardScore field is always 0 in the save (see
 // extractPlayers.cjs's buildPlayerAwards), so the real stat line has to come
@@ -17,23 +22,62 @@ import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../compone
 // match. Mirrors Heisman Watch's own findLastGameSummary (HeismanWatch.jsx)
 // field-for-field/shape-for-shape so the two pages render the identical
 // "Last Game vs X (W/L score-score): stats" line for the same game.
-function findBoxScoreGameSummary(dynasty, honoree, week, year) {
+//
+// `allWeeksForYear` is every week key playersOfWeekByYear[year] has an
+// honoree for (any team) — needed only for the CFP disambiguation branch.
+function findBoxScoreGameSummary(dynasty, honoree, week, year, allWeeksForYear) {
   if (!honoree?.tid) return { noGame: true }
   const teamsSource = dynasty.teams || {}
+  const games = dynasty.games || []
   const yearNum = Number(year)
+  const weekNum = Number(week)
   const forHonoreeTeam = (g) => Number(g.team1Tid) === honoree.tid || Number(g.team2Tid) === honoree.tid
-  let game = (dynasty.games || []).find((g) =>
-    Number(g.year) === yearNum && Number(g.week) === Number(week) && forHonoreeTeam(g))
-  // Conference championship games are sometimes stored with a non-numeric
-  // `week` (the manual "Enter Scores" CC flow writes the literal string
-  // 'CCG' instead of the save's real week number — see weekLabel.js's
-  // isNumericWeek), so the exact-week match above can come up empty even
-  // though this honoree's own week key IS the CCG week. Fall back to the
-  // flag — a team plays at most one conference championship game a year,
-  // so this can't accidentally grab the wrong game.
+  let game = games.find((g) => Number(g.year) === yearNum && Number(g.week) === weekNum && forHonoreeTeam(g))
+
+  // Postseason games are frequently stored with a non-numeric `week`
+  // ('CCG', 'Bowl', 'Bowl N') instead of the save's real week number this
+  // honoree is keyed by (see weekLabel.js's isNumericWeek and
+  // buildPostseasonGames in cfb27SaveSync.js) — the exact-week match above
+  // then comes up empty even though this genuinely IS the right week. Fall
+  // back to flags instead, cheapest/least-ambiguous case first.
   if (!game) {
-    game = (dynasty.games || []).find((g) =>
-      Number(g.year) === yearNum && g.isConferenceChampionship && forHonoreeTeam(g))
+    // Conference championship — a team plays at most one a year, so the
+    // flag alone can't grab the wrong game.
+    game = games.find((g) => Number(g.year) === yearNum && g.isConferenceChampionship && forHonoreeTeam(g))
+  }
+  if (!game) {
+    // Regular (non-playoff) bowl — same one-game-per-team-per-year
+    // guarantee. Every regular bowl shares the literal week label 'Bowl'
+    // with zero per-week distinction, so it doesn't matter which raw week
+    // number this honoree's team was actually rewarded for — there's only
+    // ever one candidate bowl game to find either way.
+    game = games.find((g) => Number(g.year) === yearNum && g.isBowlGame && forHonoreeTeam(g))
+  }
+  if (!game) {
+    // CFP — a team CAN play up to 4 rounds, so the gameType flag alone is
+    // ambiguous when more than one of this team's CFP games exists. Resolve
+    // which round THIS week is: a bowl round and its parallel CFP round
+    // always land on the same real calendar week (confirmed by
+    // WeeklyScores.jsx's own week-bucket mapping — Bowl Week 1 IS CFP First
+    // Round's week, Bowl Week 2 IS Quarterfinal's, etc.), so every distinct
+    // week number across the WHOLE year's honoree data that ISN'T a plain
+    // numeric-matched game sorts into exactly the bracket's real
+    // chronological round order, first round first — regardless of which
+    // specific teams are in it. This honoree already failed the bowl-flag
+    // check above, so if it resolves here at all, it's a CFP team, and its
+    // position in that sorted list IS its round.
+    const cfpGamesForTeam = games.filter((g) =>
+      Number(g.year) === yearNum && CFP_ROUND_ORDER.includes(g.gameType) && forHonoreeTeam(g))
+    if (cfpGamesForTeam.length === 1) {
+      game = cfpGamesForTeam[0]
+    } else if (cfpGamesForTeam.length > 1) {
+      const postseasonWeeks = [...new Set(allWeeksForYear || [])]
+        .filter((w) => !games.some((g) => Number(g.year) === yearNum && Number(g.week) === Number(w)))
+        .sort((a, b) => Number(a) - Number(b))
+      const roundIdx = postseasonWeeks.indexOf(weekNum)
+      const targetRound = roundIdx >= 0 ? CFP_ROUND_ORDER[Math.min(roundIdx, CFP_ROUND_ORDER.length - 1)] : null
+      game = (targetRound && cfpGamesForTeam.find((g) => g.gameType === targetRound)) || cfpGamesForTeam[0]
+    }
   }
   if (!game) return { noGame: true }
 
@@ -127,7 +171,7 @@ export default function PlayersOfWeek() {
     const schoolName = stripMascotFromName(mascotName) || mascotName
     const colors = mascotName ? getTeamColors(mascotName, teamsSource) : null
     const logo = honoree.tid != null ? getTeamLogoByTid(honoree.tid, teamsSource) : null
-    const game = findBoxScoreGameSummary(currentDynasty, honoree, activeWeek, displayYear)
+    const game = findBoxScoreGameSummary(currentDynasty, honoree, activeWeek, displayYear, availableWeeks)
     const teamRank = honoree.tid != null ? currentPollRank(currentDynasty, honoree.tid, displayYear) : null
     return (
       <div className="space-y-2">

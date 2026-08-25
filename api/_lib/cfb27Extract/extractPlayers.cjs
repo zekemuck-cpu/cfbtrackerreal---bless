@@ -551,9 +551,13 @@ async function buildUserCoachInfo(save, coachRecords) {
 async function buildAllHeadCoaches(save, coachRecords) {
   const coaches = [];
   if (!coachRecords) return coaches;
+  let nonEmptyRows = 0;
+  let headCoachRows = 0;
   for (const rec of coachRecords) {
     if (!rec || rec.isEmpty) continue;
+    nonEmptyRows++;
     if (readCell(rec, 'Position') !== 'HeadCoach') continue;
+    headCoachRows++;
     const rawTid = Number(readCell(rec, 'TeamIndex'));
     if (!Number.isFinite(rawTid)) continue;
     const first = readCell(rec, 'FirstName') || '';
@@ -594,6 +598,19 @@ async function buildAllHeadCoaches(save, coachRecords) {
       prestigeScore: Number.isFinite(prestigeScore) ? prestigeScore : null,
       careerStats,
     });
+  }
+  // Diagnostic for the "All Coaches leaderboard came back empty" report —
+  // same "announce it instead of failing silently" spirit as getBestTable's
+  // own discarded-record warning above. Pins down whether the problem is
+  // HERE (the Coach table read / HeadCoach filter) or downstream (cfb27Sync.js's
+  // rawTeamIdMap resolution) by comparing what THIS function actually found
+  // against what it returned.
+  if (nonEmptyRows === 0) {
+    console.warn('[buildAllHeadCoaches] Coach table returned zero non-empty rows.');
+  } else if (headCoachRows === 0) {
+    console.warn(`[buildAllHeadCoaches] ${nonEmptyRows} Coach row(s) read but none had Position === 'HeadCoach'.`);
+  } else if (coaches.length < headCoachRows) {
+    console.warn(`[buildAllHeadCoaches] ${headCoachRows} HeadCoach row(s) found but only ${coaches.length} had a resolvable TeamIndex + name.`);
   }
   return coaches;
 }
@@ -2393,8 +2410,18 @@ async function extractFullSave(filePath, opts = {}) {
   // Only bother resolving weekly stat slots (whole-league, 2 tables' worth
   // of reference-chasing) for weeks that actually have a played game —
   // an early-season sync has 1-2 played weeks, not the full 15+.
+  //
+  // NOT restricted to weekType === 'RegularSeason': that used to silently
+  // exclude every bowl/CFP week's raw week number from this list, which
+  // meant buildGameStats below never even resolved the GameStats{week}/
+  // TeamStats{week} slots for a bowl or playoff game — so bowl/CFP box
+  // scores (player stat lines, team stats) never made it into gameStats at
+  // all, for either the user's own postseason game or any CPU one, even
+  // though the final score always synced fine (that comes straight off the
+  // SeasonGame row, not gameStats). Conference championship games were
+  // never affected — they carry weekType 'RegularSeason' themselves.
   const playedWeeks = [...new Set(
-    games.filter((g) => g.weekType === 'RegularSeason' && g.status !== 'Unplayed').map((g) => g.week)
+    games.filter((g) => g.status !== 'Unplayed').map((g) => g.week)
   )];
   const gameStats = await buildGameStats(save, playerTable, teamRecords, playerFieldPicker, playedWeeks);
   const depthCharts = await buildDepthCharts(save, teamRecords, playerFieldPicker);
