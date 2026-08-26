@@ -7,7 +7,7 @@ import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams,
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import { TEAMS, getGameTeamInfo, resolveTid, getAbbrFromTid } from '../../data/teamRegistry'
 import { getContrastTextColor } from '../../utils/colorUtils'
-import { getTeamConference } from '../../data/conferenceTeams'
+import { getTeamConference, canonicalizeConferenceName } from '../../data/conferenceTeams'
 import { isPcAutoDynasty } from '../../editions'
 import { PageHero, Card, EmptyState, Input } from '../../components/ui'
 import ConferenceChampionshipsHistorySheetModal from '../../components/ConferenceChampionshipsHistorySheetModal'
@@ -205,7 +205,7 @@ export default function ConferenceChampionshipHistory() {
           ...atMaxWeek[0].g,
           gameType: GAME_TYPES.CONFERENCE_CHAMPIONSHIP,
           isConferenceChampionship: true,
-          conference: conf,
+          conference: canonicalizeConferenceName(conf),
         })
       }
     }
@@ -265,8 +265,96 @@ export default function ConferenceChampionshipHistory() {
       const thisIsNumericWeek = Number.isFinite(Number(g.week))
       if (thisIsNumericWeek && !existingIsNumericWeek) byKey.set(key, g)
     }
-    return [...byKey.values()]
-  }, [currentDynasty?.games, currentDynasty?.teams, structurallyDetectedCCGames])
+    const pairDeduped = [...byKey.values()]
+
+    // The save carries no field that marks a game as THE conference
+    // championship — buildWholeLeagueGames only knows because it falls on
+    // the league's shared conferenceChampionshipWeek. When some OTHER
+    // same-conference pairing also happens to be scheduled that same week
+    // (a fixed annual rivalry like Army-Navy, both realigned into the same
+    // conference here), it gets tagged a "championship" right alongside the
+    // real one, so one (year, conference) ends up with two records instead
+    // of one. Resolve the ambiguity the same way the sim itself would: the
+    // real title game is the pairing that includes the team with the better
+    // regular-season conference record — the actual standings leader. Ties
+    // (extremely unlikely — it takes two co-leading records landing on the
+    // same shared week) fall back to keeping the first-seen record rather
+    // than guessing further.
+    const confOfGame = (g, customConferences) => {
+      const t1 = resolveGameTid(g, true)
+      const t2 = resolveGameTid(g, false)
+      const abbrOf = (tid) => (tid != null ? getAbbrFromTid(teams, tid) : null)
+      const confOf = (tid) => {
+        const abbr = abbrOf(tid)
+        return abbr ? canonicalizeConferenceName(getTeamConference(abbr, customConferences, teams)) : null
+      }
+      return canonicalizeConferenceName(g.conference) || confOf(t1) || confOf(t2)
+    }
+    const allRegularGames = currentDynasty.games || []
+    const conferenceWins = (tid, year, conference, customConferences) => {
+      let wins = 0
+      for (const og of allRegularGames) {
+        if (Number(og.year) !== year) continue
+        if (detectGameType(og) === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) continue
+        const ot1 = resolveGameTid(og, true)
+        const ot2 = resolveGameTid(og, false)
+        if (ot1 !== tid && ot2 !== tid) continue
+        const oppTid = ot1 === tid ? ot2 : ot1
+        if (oppTid == null) continue
+        const oppAbbr = getAbbrFromTid(teams, oppTid)
+        const oppConf = oppAbbr ? canonicalizeConferenceName(getTeamConference(oppAbbr, customConferences, teams)) : null
+        if (oppConf !== conference) continue
+        let winnerTid = null
+        if (og.winnerTid != null) winnerTid = Number(og.winnerTid)
+        else if (og.team1Score != null && og.team2Score != null) {
+          const s1 = Number(og.team1Score)
+          const s2 = Number(og.team2Score)
+          if (Number.isFinite(s1) && Number.isFinite(s2) && s1 !== s2) winnerTid = s1 > s2 ? ot1 : ot2
+        }
+        if (winnerTid === tid) wins++
+      }
+      return wins
+    }
+
+    const byConfYear = new Map()
+    const noConference = []
+    for (const g of pairDeduped) {
+      const customConferences = getCustomConferencesForYear(currentDynasty, g.year)
+      const conference = confOfGame(g, customConferences)
+      if (!conference) { noConference.push(g); continue }
+      const key = `${g.year}:${conference}`
+      if (!byConfYear.has(key)) byConfYear.set(key, [])
+      byConfYear.get(key).push(g)
+    }
+
+    // Every surviving game is stamped with its resolved, CANONICAL
+    // conference name here — the one place this whole memo settles the
+    // question — so every downstream consumer (getConferenceResults, the
+    // distinct-conference stat) can just trust g.conference instead of
+    // re-deriving and re-canonicalizing it themselves.
+    const resolved = noConference.map(g => ({ ...g, conference: confOfGame(g, getCustomConferencesForYear(currentDynasty, g.year)) }))
+    for (const [key, candidates] of byConfYear.entries()) {
+      const colonIdx = key.indexOf(':')
+      const year = Number(key.slice(0, colonIdx))
+      const conference = key.slice(colonIdx + 1)
+      if (candidates.length === 1) { resolved.push({ ...candidates[0], conference }); continue }
+      const customConferences = getCustomConferencesForYear(currentDynasty, year)
+      let best = candidates[0]
+      let bestScore = -1
+      for (const g of candidates) {
+        const t1 = resolveGameTid(g, true)
+        const t2 = resolveGameTid(g, false)
+        const score = Math.max(
+          conferenceWins(t1, year, conference, customConferences),
+          conferenceWins(t2, year, conference, customConferences),
+        )
+        if (score > bestScore) { bestScore = score; best = g }
+      }
+      resolved.push({ ...best, conference })
+    }
+
+    return resolved
+  }, [currentDynasty, structurallyDetectedCCGames])
 
   const getConferenceResults = (conferenceName) => {
     const games = dedupedCCGames
@@ -290,7 +378,7 @@ export default function ConferenceChampionshipHistory() {
       if (gameType !== GAME_TYPES.CONFERENCE_CHAMPIONSHIP || !team1 || !team2) return false
 
       if (g.conference) {
-        return g.conference === conferenceName
+        return canonicalizeConferenceName(g.conference) === conferenceName
       }
 
       // `dynasty.conferencesByYear` was never a real field (nothing ever
@@ -304,8 +392,8 @@ export default function ConferenceChampionshipHistory() {
       // resolves against the alignment that was live THAT season rather
       // than whatever it is now.
       const customConferences = getCustomConferencesForYear(currentDynasty, g.year)
-      const team1Conf = getTeamConference(team1, customConferences, currentDynasty?.teams)
-      const team2Conf = getTeamConference(team2, customConferences, currentDynasty?.teams)
+      const team1Conf = canonicalizeConferenceName(getTeamConference(team1, customConferences, currentDynasty?.teams))
+      const team2Conf = canonicalizeConferenceName(getTeamConference(team2, customConferences, currentDynasty?.teams))
       return team1Conf === conferenceName || team2Conf === conferenceName
     })
 

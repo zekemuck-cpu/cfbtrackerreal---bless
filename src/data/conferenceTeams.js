@@ -39,6 +39,54 @@ export const conferenceTeams = {
   ]
 }
 
+// The save's own Conference table names conferences however the game
+// stores them internally (e.g. 'MWC', 'CUSA') — that raw name flows
+// straight into teams[tid].byYear[year].conference on every sync (see
+// cfb27SaveSync.js's conference self-heal), with no normalization against
+// this app's canonical display names. A page that then compares a team's
+// resolved conference against a hardcoded canonical name ('Mountain West',
+// 'Conference USA') never matches, even though the underlying alignment
+// data is perfectly correct — confirmed against a real dynasty where CC
+// History showed 0 games forever for exactly the two conferences whose
+// in-save short name differs from the canonical one. Kept separate from
+// getTeamConference itself (rather than canonicalizing its return value
+// there) because several pages build their filter/dropdown option lists
+// directly from getCustomConferencesForYear's own raw keys and then compare
+// getTeamConference's result against THOSE raw values — canonicalizing
+// inside getTeamConference would break that comparison. Callers that need
+// canonical names (anything checked against a fixed list like this file's
+// own `conferenceTeams` keys) should call canonicalizeConferenceName
+// themselves.
+export const CONFERENCE_ALIASES = {
+  'Mountain West': ['Mountain West', 'MWC'],
+  'ACC': ['ACC'],
+  'American': ['American', 'AAC'],
+  'Big 12': ['Big 12', 'Big XII'],
+  'Big Ten': ['Big Ten', 'B1G'],
+  'Conference USA': ['Conference USA', 'CUSA', 'C-USA'],
+  'Independent': ['Independent', 'Ind', 'IND'],
+  'MAC': ['MAC'],
+  'Pac-12': ['Pac-12', 'Pac 12'],
+  'SEC': ['SEC'],
+  'Sun Belt': ['Sun Belt'],
+}
+
+const ALIAS_TO_CANONICAL = (() => {
+  const map = {}
+  for (const [canonical, aliases] of Object.entries(CONFERENCE_ALIASES)) {
+    for (const alias of aliases) map[alias] = canonical
+  }
+  return map
+})()
+
+// Maps a known save-side alias to this app's canonical display name.
+// Unrecognized names (a fully custom/teambuilder conference) pass through
+// unchanged rather than being coerced to something wrong.
+export function canonicalizeConferenceName(name) {
+  if (!name) return name
+  return ALIAS_TO_CANONICAL[name] || name
+}
+
 // Get conference for a team abbreviation OR tid.
 //
 // `abbrOrTid` may be an abbr string OR a numeric tid (preferred). Tid
