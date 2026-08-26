@@ -4258,7 +4258,17 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year, options
   const { protectPlayed = false } = options
   // Matches what playedAffected already counts as worth warning about — a
   // box score is real entered data even if isPlayed was never flipped.
-  const hasPlayedData = (g) => isGamePlayed(g) || !!(g?.boxScore && Object.keys(g.boxScore).length > 0)
+  // Also covers a game that isn't played YET but already carries manual
+  // scouting notes (WeeklyScouting.jsx's game.scoutingReport) — those are
+  // written for an UPCOMING opponent specifically, so isPlayed/boxScore
+  // alone would miss exactly the case they exist to protect: reassigning
+  // or removing a not-yet-played game's opponent takes the notes with it
+  // (or worse, silently leaves them attached to the wrong team).
+  const hasScoutingNotes = (g) => {
+    const r = g?.scoutingReport
+    return !!(r && (String(r.offensivePlaybook || '').trim() || String(r.defensivePlaybook || '').trim()))
+  }
+  const hasPlayedData = (g) => isGamePlayed(g) || !!(g?.boxScore && Object.keys(g.boxScore).length > 0) || hasScoutingNotes(g)
 
   const existingGames = dynasty.games || []
 

@@ -104,4 +104,30 @@ describe('computeScheduleDiff protectPlayed', () => {
     expect(diff.playedAffected).toHaveLength(1)
     expect(diff.playedAffected[0].isPlayed).toBe(true)
   })
+
+  // WeeklyScouting.jsx writes manual prep notes onto game.scoutingReport for
+  // an UPCOMING (not yet played) opponent — isPlayed/boxScore alone miss
+  // exactly this case, since by definition the game hasn't happened yet.
+  // Reassigning or removing that game on a later sync would take the notes
+  // with it (or leave them attached to the wrong opponent), same class of
+  // loss as an aiRecap/scoreGraphic on a played game.
+  it('protects an UNPLAYED game carrying scouting notes under protectPlayed', () => {
+    const d = dynastyWith([game({ scoutingReport: { offensivePlaybook: 'Spread, tempo', defensivePlaybook: '' } })])
+    const diff = computeScheduleDiff(d, [], USER_TID, 2026, { protectPlayed: true })
+    expect(diff.toRemove).toHaveLength(0)
+
+    const dReassign = dynastyWith([game({ scoutingReport: { offensivePlaybook: '', defensivePlaybook: 'Zone-heavy' } })])
+    const diffReassign = computeScheduleDiff(dReassign, week5Against('BBB'), USER_TID, 2026, { protectPlayed: true })
+    expect(diffReassign.toUpdate).toHaveLength(0)
+    expect(diffReassign.toKeep.some(k => k.week === 5)).toBe(true)
+  })
+
+  it('does NOT protect an unplayed game with an empty/default scoutingReport', () => {
+    // {offensivePlaybook:'', defensivePlaybook:''} is WeeklyScouting.jsx's
+    // own EMPTY_REPORT default — no real notes were ever entered, so this
+    // must behave exactly like a game with no scoutingReport at all.
+    const d = dynastyWith([game({ scoutingReport: { offensivePlaybook: '', defensivePlaybook: '' } })])
+    const diff = computeScheduleDiff(d, [], USER_TID, 2026, { protectPlayed: true })
+    expect(diff.toRemove).toHaveLength(1)
+  })
 })
