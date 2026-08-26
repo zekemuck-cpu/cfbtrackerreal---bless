@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
 import { getConferenceLogo } from '../../data/conferenceLogos'
-import { TEAMS, getGameTeamInfo, resolveTid } from '../../data/teamRegistry'
+import { TEAMS, getGameTeamInfo, resolveTid, getAbbrFromTid } from '../../data/teamRegistry'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamConference } from '../../data/conferenceTeams'
 import { isPcAutoDynasty } from '../../editions'
@@ -139,6 +139,79 @@ export default function ConferenceChampionshipHistory() {
     return conf.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
+  // Structural fallback for a conference championship the sync never
+  // flagged as one. buildWholeLeagueGames identifies a CCG purely by week
+  // NUMBER — matching the save's own conferenceChampionshipWeek at the
+  // MOMENT that specific sync ran. Sync only ever re-touches the CURRENT
+  // year, so if that value was ever wrong/stale for a PAST season's own
+  // sync (its schedule not yet finalized, a mid-season realignment
+  // shifting the season length that year, etc.), that season's real CCG
+  // stays permanently misfiled as a plain 'regular' game — no later sync
+  // ever revisits an old year to correct it. Detected here instead from
+  // the game data's own shape, which needs no remembered week number:
+  // for a conference in a given year, its championship is the ONE game
+  // played, between two of its own teams, at a week LATER than every
+  // OTHER regular-season game between any two of that conference's teams
+  // that year. A normal late-season rivalry week doesn't qualify — several
+  // same-conference pairs share a conference's true final round-robin
+  // week at once, so only a genuinely isolated finale (the two participants
+  // playing on when everyone else in that conference is already done)
+  // matches. Purely a render-time reinterpretation of existing games, nothing
+  // written back — recomputes correctly again if the underlying data changes.
+  const structurallyDetectedCCGames = useMemo(() => {
+    const games = currentDynasty.games || []
+    const teams = currentDynasty?.teams || TEAMS
+    const resolveGameTid = (g, isTeam1) => {
+      const tidField = isTeam1 ? 'team1Tid' : 'team2Tid'
+      if (g[tidField] != null) return Number(g[tidField])
+      const legacyField = isTeam1 ? 'team1' : 'team2'
+      const resolved = resolveTid(g[legacyField], teams)
+      return resolved != null ? Number(resolved) : null
+    }
+
+    const byYear = new Map()
+    for (const g of games) {
+      if (detectGameType(g) !== GAME_TYPES.REGULAR) continue
+      const yr = Number(g.year)
+      const wk = Number(g.week)
+      const t1 = resolveGameTid(g, true)
+      const t2 = resolveGameTid(g, false)
+      if (!Number.isFinite(yr) || !Number.isFinite(wk) || t1 == null || t2 == null || t1 === t2) continue
+      if (!byYear.has(yr)) byYear.set(yr, [])
+      byYear.get(yr).push({ g, t1, t2, wk })
+    }
+
+    const detected = []
+    for (const [yr, entries] of byYear.entries()) {
+      const customConferences = getCustomConferencesForYear(currentDynasty, yr)
+      const confOf = (tid) => {
+        const abbr = getAbbrFromTid(teams, tid)
+        return abbr ? getTeamConference(abbr, customConferences, teams) : null
+      }
+      const byConf = new Map()
+      for (const entry of entries) {
+        const c1 = confOf(entry.t1)
+        const c2 = confOf(entry.t2)
+        if (!c1 || c1 !== c2) continue
+        if (!byConf.has(c1)) byConf.set(c1, [])
+        byConf.get(c1).push(entry)
+      }
+      for (const [conf, confEntries] of byConf.entries()) {
+        const maxWeek = Math.max(...confEntries.map(e => e.wk))
+        if (maxWeek < 13) continue // a real CCG never happens this early — sanity floor against noisy/legacy data
+        const atMaxWeek = confEntries.filter(e => e.wk === maxWeek)
+        if (atMaxWeek.length !== 1) continue // several games at the shared max week = a normal rivalry week, not an isolated championship
+        detected.push({
+          ...atMaxWeek[0].g,
+          gameType: GAME_TYPES.CONFERENCE_CHAMPIONSHIP,
+          isConferenceChampionship: true,
+          conference: conf,
+        })
+      }
+    }
+    return detected
+  }, [currentDynasty?.games, currentDynasty?.teams])
+
   // Two independent write paths have historically been able to create a
   // record for the SAME real conference championship game without either
   // recognizing the other's as a duplicate: the PC auto-sync pipeline
@@ -152,8 +225,12 @@ export default function ConferenceChampionshipHistory() {
   // whatever already-duplicated records exist, collapse them here at
   // render time — same "identity is year + team pair, not the record's own
   // id" reasoning WeeklyScores.jsx already uses for CPU/user game overlaps.
+  // The structurally-detected list above is folded in the same way — a
+  // properly gameType-flagged record for the same (year, team pair) always
+  // wins over a detected one, so this never overrides a correctly-synced
+  // game, only fills in ones the sync missed.
   const dedupedCCGames = useMemo(() => {
-    const games = currentDynasty.games || []
+    const games = [...(currentDynasty.games || []), ...structurallyDetectedCCGames]
     const teams = currentDynasty?.teams || TEAMS
     const resolveGameTid = (g, isTeam1) => {
       const tidField = isTeam1 ? 'team1Tid' : 'team2Tid'
@@ -177,13 +254,19 @@ export default function ConferenceChampionshipHistory() {
       }
       // Prefer whichever record carries the save's real numeric week (the
       // auto-synced one) over the manual-entry sentinel ('CCG') — it's the
-      // one that stays current on every future sync.
+      // one that stays current on every future sync. Games are concatenated
+      // real-first, structurally-detected-second above, and a detected
+      // entry's week is always numeric (it's a copy of a real regular-season
+      // game) same as a real synced CCG's — so this condition only ever
+      // fires for the genuine "numeric week beats the 'CCG' sentinel" case
+      // it was written for; a real flagged CCG encountered first is never
+      // displaced by a same-pair detected duplicate appended after it.
       const existingIsNumericWeek = Number.isFinite(Number(existing.week))
       const thisIsNumericWeek = Number.isFinite(Number(g.week))
       if (thisIsNumericWeek && !existingIsNumericWeek) byKey.set(key, g)
     }
     return [...byKey.values()]
-  }, [currentDynasty?.games, currentDynasty?.teams])
+  }, [currentDynasty?.games, currentDynasty?.teams, structurallyDetectedCCGames])
 
   const getConferenceResults = (conferenceName) => {
     const games = dedupedCCGames
