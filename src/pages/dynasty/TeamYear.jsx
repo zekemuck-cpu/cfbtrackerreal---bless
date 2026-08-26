@@ -6730,16 +6730,14 @@ export default function TeamYear() {
             }
           }
 
-          // Get final ranking
-          let finalRank = null
-          const rankings = currentDynasty.rankingsByYear?.[year]
-          if (rankings?.final) {
-            const teamRank = rankings.final.find(r => {
-              const rankTid = r.tid || resolveTid(r.team || r.abbr, teamsSource)
-              return rankTid === tid
-            })
-            if (teamRank) finalRank = teamRank.rank
-          }
+          // Get final ranking. currentDynasty.rankingsByYear is never
+          // written anywhere in the app — this always read as null, so
+          // finalRank silently stayed null for every dynasty. The real
+          // data lives in teams[tid].byYear[year].rankByWeek (plus a
+          // saved Final Poll override), which getTeamRanking already
+          // resolves correctly — same helper this file already uses for
+          // the current-team ranking display above.
+          const finalRank = getTeamRanking(currentDynasty, tid, year)?.rank ?? null
 
           // Build postseason description
           let postseasonText = 'N/A'
