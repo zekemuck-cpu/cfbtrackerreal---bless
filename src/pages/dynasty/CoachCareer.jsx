@@ -457,11 +457,7 @@ export default function CoachCareer() {
         overallRecord: `${wins}-${losses}`,
         favoriteRecord: `${favoriteWins}-${favoriteLosses}`,
         underdogRecord: `${underdogWins}-${underdogLosses}`,
-        bowlWins,
-        bowlLosses,
         bowlRecord: `${bowlWins}-${bowlLosses}`,
-        cfpWins,
-        cfpLosses,
         cfpRecord: `${cfpWins}-${cfpLosses}`,
         favoriteGames,
         underdogGames,
@@ -546,11 +542,7 @@ export default function CoachCareer() {
         overallRecord: '0-0',
         favoriteRecord: '0-0',
         underdogRecord: '0-0',
-        bowlWins: 0,
-        bowlLosses: 0,
         bowlRecord: '0-0',
-        cfpWins: 0,
-        cfpLosses: 0,
         cfpRecord: '0-0',
         favoriteGames: [],
         underdogGames: [],
@@ -634,16 +626,10 @@ export default function CoachCareer() {
     return {
       wins: totals.wins + stint.wins,
       losses: totals.losses + stint.losses,
-      bowlWins: totals.bowlWins + (stint.bowlWins || 0),
-      bowlLosses: totals.bowlLosses + (stint.bowlLosses || 0),
-      cfpWins: totals.cfpWins + (stint.cfpWins || 0),
-      cfpLosses: totals.cfpLosses + (stint.cfpLosses || 0),
-      nationalChampionships: totals.nationalChampionships + (stint.nationalChampionships || 0),
-      confChampionships: totals.confChampionships + (stint.confChampionships || 0),
       teams: totals.teams + 1,
       coachOfYearAwards: totals.coachOfYearAwards + (stint.coachAwards?.filter(a => a.shortName === 'Bear Bryant').length || 0)
     }
-  }, { wins: 0, losses: 0, bowlWins: 0, bowlLosses: 0, cfpWins: 0, cfpLosses: 0, nationalChampionships: 0, confChampionships: 0, teams: 0, coachOfYearAwards: 0 })
+  }, { wins: 0, losses: 0, teams: 0, coachOfYearAwards: 0 })
 
   const getGamesForModal = () => {
     if (gamesModalType === 'careerAll') {
@@ -727,41 +713,9 @@ export default function CoachCareer() {
   const useSavedRecord = !!savedCoachStats && savedTotalGames >= computedTotalGames
   const displayWins = useSavedRecord ? savedCoachStats.wins : careerTotals.wins
   const displayLosses = useSavedRecord ? savedCoachStats.losses : careerTotals.losses
-  const savedTotalBowlGames = (savedCoachStats?.bowlWins ?? 0) + (savedCoachStats?.bowlLosses ?? 0)
-  const computedTotalBowlGames = careerTotals.bowlWins + careerTotals.bowlLosses
-  const useSavedBowlRecord = !!savedCoachStats && savedTotalBowlGames >= computedTotalBowlGames
-  const displayBowlWins = useSavedBowlRecord ? (savedCoachStats.bowlWins || 0) : careerTotals.bowlWins
-  const displayBowlLosses = useSavedBowlRecord ? (savedCoachStats.bowlLosses || 0) : careerTotals.bowlLosses
-  // Same self-healing check for "record with current school" — the current
-  // stint's own wins/losses (already game-derived, same as careerTotals
-  // above) is the always-current equivalent of winsAtCurrentSchool/
-  // lossesAtCurrentSchool.
-  const currentStint = coachingHistory.find(s => s.isCurrent)
-  const savedTotalCurrentSchoolGames = (savedCoachStats?.winsAtCurrentSchool ?? 0) + (savedCoachStats?.lossesAtCurrentSchool ?? 0)
-  const computedTotalCurrentSchoolGames = (currentStint?.wins ?? 0) + (currentStint?.losses ?? 0)
-  const useSavedCurrentSchoolRecord = !!savedCoachStats && savedTotalCurrentSchoolGames >= computedTotalCurrentSchoolGames
-  const displayCurrentSchoolWins = useSavedCurrentSchoolRecord ? (savedCoachStats.winsAtCurrentSchool || 0) : (currentStint?.wins ?? 0)
-  const displayCurrentSchoolLosses = useSavedCurrentSchoolRecord ? (savedCoachStats.lossesAtCurrentSchool || 0) : (currentStint?.losses ?? 0)
   const careerWinPct = (displayWins + displayLosses) > 0
     ? ((displayWins / (displayWins + displayLosses)) * 100).toFixed(1)
     : '0.0'
-  // Same self-healing pattern for Playoff Record and NC/Conf titles — all
-  // three already have a reliable game-derived equivalent in careerTotals
-  // (unlike Job Security/Prestige/Rivals/Top-25/Draft-picks, which have NO
-  // alternative source and were removed instead of chased further here).
-  const savedTotalPlayoffGames = (savedCoachStats?.playoffWins ?? 0) + (savedCoachStats?.playoffLosses ?? 0)
-  const computedTotalPlayoffGames = careerTotals.cfpWins + careerTotals.cfpLosses
-  const useSavedPlayoffRecord = !!savedCoachStats && savedTotalPlayoffGames >= computedTotalPlayoffGames
-  const displayPlayoffWins = useSavedPlayoffRecord ? (savedCoachStats.playoffWins || 0) : careerTotals.cfpWins
-  const displayPlayoffLosses = useSavedPlayoffRecord ? (savedCoachStats.playoffLosses || 0) : careerTotals.cfpLosses
-  const displayPlayoffWinPct = (displayPlayoffWins + displayPlayoffLosses) > 0
-    ? (displayPlayoffWins / (displayPlayoffWins + displayPlayoffLosses)).toFixed(3)
-    : '0.000'
-  // Titles can only ever go UP — a saved count lower than what this dynasty's
-  // own games already prove is definitive proof of staleness, so just take
-  // whichever is higher rather than needing a "total games" proxy.
-  const displayNatlTitles = Math.max(savedCoachStats?.ncWins || 0, careerTotals.nationalChampionships)
-  const displayConfTitles = Math.max(savedCoachStats?.confChampWins || 0, careerTotals.confChampionships)
 
   // Coach photo for the career being viewed — now stored ON the coach
   // entity (coach.photo). You can edit a coach you control; commish/
@@ -1089,57 +1043,6 @@ export default function CoachCareer() {
           })()}
         </div>
       </section>
-
-      {/* Coach Profile — career win/loss-shaped stats. Game-derived (via the
-          self-healing displayXxx variables above), so these stay accurate
-          every sync regardless of the in-game Coach record's own health.
-          Job Security, Prestige, Winning Seasons, Times Fired, Record vs
-          Rivals, and Record vs Top 25 used to live here too, sourced only
-          from that Coach record with no alternative — removed entirely
-          rather than risk showing frozen/wrong values with no way to tell. */}
-      {savedCoachStats && (
-        <section className="media-card overflow-hidden reveal">
-          <div className="px-5 sm:px-6 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: 'var(--surface-4)' }}>
-            <div>
-              <div className="label-sm text-txt-tertiary mb-1">In-Game Career Profile</div>
-              <h2 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(20px,3.5vw,28px)' }}>
-                Coach Profile
-              </h2>
-            </div>
-          </div>
-          <div className="px-5 sm:px-6 py-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-5">
-            <Stat label="CAREER RECORD" value={`${displayWins}-${displayLosses}`} />
-            {(displayCurrentSchoolWins > 0 || displayCurrentSchoolLosses > 0) && (
-              <Stat
-                label={currentDynasty.teamName ? `RECORD WITH ${currentDynasty.teamName.toUpperCase()}` : 'RECORD WITH SCHOOL'}
-                value={`${displayCurrentSchoolWins}-${displayCurrentSchoolLosses}`}
-              />
-            )}
-            <Stat label="BOWL RECORD" value={`${displayBowlWins}-${displayBowlLosses}`} />
-          </div>
-        </section>
-      )}
-
-      {/* Playoff Record — game-derived (CFP results), same self-healing
-          reasoning as Coach Profile above. Draft picks / 1st Rd picks / Top
-          5 classes used to live here too, sourced only from the Coach
-          record with no alternative — removed for the same reason. */}
-      {savedCoachStats && (
-        <section className="media-card overflow-hidden reveal">
-          <div className="px-5 sm:px-6 py-4 border-b" style={{ borderColor: 'var(--surface-4)' }}>
-            <div className="label-sm text-txt-tertiary mb-1">Career</div>
-            <h2 className="font-display font-black uppercase leading-none text-txt-primary" style={{ fontSize: 'clamp(20px,3.5vw,28px)' }}>
-              Playoff Record
-            </h2>
-          </div>
-          <div className="px-5 sm:px-6 py-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-5">
-            <Stat label="PLAYOFF RECORD" value={`${displayPlayoffWins}-${displayPlayoffLosses}`} />
-            <Stat label="PLAYOFF WIN %" value={displayPlayoffWinPct} />
-            <Stat label="NATL TITLES" value={displayNatlTitles} />
-            <Stat label="CONF TITLES" value={displayConfTitles} />
-          </div>
-        </section>
-      )}
 
       <CoachTrophyRoom dynasty={currentDynasty} stints={coachingHistory} />
 

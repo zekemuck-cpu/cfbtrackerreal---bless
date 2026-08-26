@@ -1458,8 +1458,60 @@ export default function RivalriesTab({ dynasty, tid, selectedYear, dynastyId, sa
   const [editingBrewingTid, setEditingBrewingTid] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
 
-  const rivalries    = dynasty.rivalries || []
+  const rawRivalries = dynasty.rivalries || []
+  // ManageRivalries.jsx used to store custom rivalries as its own
+  // dynasty-wide shape ({ id, name, teamTids: [tid, ...], imageUrl }, no
+  // concept of "my team" since that page wasn't team-scoped) — a different
+  // shape than this component's own per-team-pair one ({ rivalTid,
+  // formedYear, trophyImageUrl, ... }, always relative to myTid). Now that
+  // ManageRivalries renders this same component instead of its old CRUD,
+  // filter down to entries this shape actually understands (a resolvable
+  // rivalTid) so a leftover legacy entry can't render as "Team NaN" —
+  // legacy 2-team entries involving THIS team are converted just below
+  // instead of only being hidden, so nothing a user already set up (a
+  // custom trophy name/image) silently vanishes.
+  const rivalries = useMemo(
+    () => rawRivalries.filter(r => Number.isFinite(Number(r.rivalTid))),
+    [rawRivalries]
+  )
   const formedTids   = useMemo(() => new Set(rivalries.map(r => Number(r.rivalTid))), [rivalries])
+
+  // ── One-time migration off ManageRivalries.jsx's old dynasty-wide shape ────
+  // A legacy entry has `teamTids` but no `rivalTid`. Only the simple, common
+  // case — exactly 2 teams, one of them this team — converts cleanly to a
+  // single rivalTid-based entry; anything else (3+ team groups, or a pairing
+  // that doesn't involve this team at all) is left exactly as it was, since
+  // this component has no "not my team" concept to place it under. Removes
+  // the migrated legacy entry so this doesn't re-run every load.
+  useEffect(() => {
+    if (!dynasty.id || !Number.isFinite(myTid)) return
+    const currentRivalries = dynasty.rivalries || []
+    const legacy = currentRivalries.filter(r => Array.isArray(r.teamTids) && r.rivalTid == null)
+    if (legacy.length === 0) return
+
+    const migratable = legacy.filter(r => r.teamTids.length === 2 && r.teamTids.map(Number).includes(myTid))
+    if (migratable.length === 0) return
+
+    const migratedIds = new Set(migratable.map(r => r.id))
+    const converted = migratable.map(r => ({
+      id: r.id || genId(),
+      rivalTid: Number(r.teamTids.find(t => Number(t) !== myTid)),
+      formedYear: null,
+      active: true,
+      name: r.name || null,
+      trophyName: null,
+      trophyImageUrl: r.imageUrl || null,
+      manuallyAdded: true,
+      dismissed: false,
+    }))
+
+    saveRivalries(dynastyId, [
+      ...currentRivalries.filter(r => !migratedIds.has(r.id)),
+      ...converted,
+    ])
+  // Only run when the dynasty loads or the team changes — not on every rivalries change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dynasty.id, dynastyId, myTid])
 
   // ── Auto-seed known real-world rivalries on first load ─────────────────────
   useEffect(() => {

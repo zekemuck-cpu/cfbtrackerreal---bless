@@ -147,14 +147,12 @@ export function editionHasFeature(dynastyOrKey, feature) {
 // support staff, facilities, or coach salaries — flip the preference back and
 // everything returns exactly as it was.
 //
-// PC (Sync from Save) dynasties can't turn this off at all — the League
-// Preferences toggle is hidden for them (LeaguePreferences.jsx), and this
-// gate ignores a stale `hideDynastyBlueprint: true` left over from before
-// that removal, so Blueprint comes back immediately with no data migration
-// needed.
+// PC (Sync from Save) dynasties never see Blueprint at all — removed per the
+// user's request (unneeded there). Console CFB27 dynasties are unaffected
+// and keep the normal hideDynastyBlueprint-preference behavior.
 export function isDynastyBlueprintEnabled(dynasty) {
   if (!editionHasFeature(dynasty, 'dynastyPoints')) return false
-  if (isPcAutoDynasty(dynasty)) return true
+  if (isPcAutoDynasty(dynasty)) return false
   return dynasty?.hideDynastyBlueprint !== true
 }
 

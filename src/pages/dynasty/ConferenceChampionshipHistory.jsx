@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
 import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
@@ -8,6 +8,7 @@ import { getConferenceLogo } from '../../data/conferenceLogos'
 import { TEAMS, getGameTeamInfo, resolveTid } from '../../data/teamRegistry'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { getTeamConference } from '../../data/conferenceTeams'
+import { isPcAutoDynasty } from '../../editions'
 import { PageHero, Card, EmptyState, Input } from '../../components/ui'
 import ConferenceChampionshipsHistorySheetModal from '../../components/ConferenceChampionshipsHistorySheetModal'
 
@@ -138,8 +139,54 @@ export default function ConferenceChampionshipHistory() {
     return conf.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const getConferenceResults = (conferenceName) => {
+  // Two independent write paths have historically been able to create a
+  // record for the SAME real conference championship game without either
+  // recognizing the other's as a duplicate: the PC auto-sync pipeline
+  // (buildWholeLeagueGames in cfb27SaveSync.js, keyed off the save's real
+  // numeric week) and the manual "Edit" sheet-import flow on this page
+  // (ConferenceChampionshipsHistorySheetModal, which stamps the literal
+  // string 'CCG' as the week). Since the two use different `week` values,
+  // buildWholeLeagueGames' own existing-game lookup (keyed by week) never
+  // matches a manually-entered record, so it adds a second one instead of
+  // updating the first. Rather than requiring a data migration to clean up
+  // whatever already-duplicated records exist, collapse them here at
+  // render time — same "identity is year + team pair, not the record's own
+  // id" reasoning WeeklyScores.jsx already uses for CPU/user game overlaps.
+  const dedupedCCGames = useMemo(() => {
     const games = currentDynasty.games || []
+    const teams = currentDynasty?.teams || TEAMS
+    const resolveGameTid = (g, isTeam1) => {
+      const tidField = isTeam1 ? 'team1Tid' : 'team2Tid'
+      if (g[tidField] != null) return Number(g[tidField])
+      const legacyField = isTeam1 ? 'team1' : 'team2'
+      const resolved = resolveTid(g[legacyField], teams)
+      return resolved != null ? Number(resolved) : null
+    }
+    const byKey = new Map()
+    for (const g of games) {
+      if (detectGameType(g) !== GAME_TYPES.CONFERENCE_CHAMPIONSHIP) continue
+      const t1 = resolveGameTid(g, true)
+      const t2 = resolveGameTid(g, false)
+      if (t1 == null || t2 == null) continue
+      const [lo, hi] = t1 < t2 ? [t1, t2] : [t2, t1]
+      const key = `${g.year}:${lo}-${hi}`
+      const existing = byKey.get(key)
+      if (!existing) {
+        byKey.set(key, g)
+        continue
+      }
+      // Prefer whichever record carries the save's real numeric week (the
+      // auto-synced one) over the manual-entry sentinel ('CCG') — it's the
+      // one that stays current on every future sync.
+      const existingIsNumericWeek = Number.isFinite(Number(existing.week))
+      const thisIsNumericWeek = Number.isFinite(Number(g.week))
+      if (thisIsNumericWeek && !existingIsNumericWeek) byKey.set(key, g)
+    }
+    return [...byKey.values()]
+  }, [currentDynasty?.games, currentDynasty?.teams])
+
+  const getConferenceResults = (conferenceName) => {
+    const games = dedupedCCGames
     const teams = currentDynasty?.teams || TEAMS
 
     const getTeamAbbr = (g, isTeam1) => {
@@ -206,23 +253,16 @@ export default function ConferenceChampionshipHistory() {
   }
 
   const getTotalCCGames = () => {
-    const games = currentDynasty.games || []
-    return games.filter(g => {
-      const gameType = detectGameType(g)
+    return dedupedCCGames.filter(g => {
       const hasTeam1 = g.team1Tid || g.team1 || g.userTeam
       const hasTeam2 = g.team2Tid || g.team2 || g.opponent
-      return gameType === GAME_TYPES.CONFERENCE_CHAMPIONSHIP && hasTeam1 && hasTeam2
+      return hasTeam1 && hasTeam2
     }).length
   }
 
   const getSeasonCount = () => {
-    const games = currentDynasty.games || []
     const years = new Set()
-    games.forEach(g => {
-      if (detectGameType(g) === GAME_TYPES.CONFERENCE_CHAMPIONSHIP) {
-        years.add(g.year)
-      }
-    })
+    dedupedCCGames.forEach(g => years.add(g.year))
     return years.size
   }
 
@@ -241,17 +281,19 @@ export default function ConferenceChampionshipHistory() {
   // Distinct conferences that have crowned a champion at least once —
   // useful third stat for power-five vs. group-of-five history.
   const distinctConferences = (() => {
-    const games = currentDynasty.games || []
     const set = new Set()
-    games.forEach(g => {
-      if (detectGameType(g) === GAME_TYPES.CONFERENCE_CHAMPIONSHIP && g.conference) {
-        set.add(g.conference)
-      }
-    })
+    dedupedCCGames.forEach(g => { if (g.conference) set.add(g.conference) })
     return set.size
   })()
 
-  const canEdit = !isViewOnly && !!user
+  // The manual "Edit" sheet-import flow is what created the duplicate CC
+  // game records in the first place (see dedupedCCGames above) — it can
+  // create a record buildWholeLeagueGames' own week-based matching never
+  // recognizes as "the same game" on a later sync. PC (Sync from Save)
+  // dynasties get everything from the save automatically and have no need
+  // for it; removing it here stops the duplication from recurring. Console
+  // dynasties are unaffected and keep manual entry as their only path in.
+  const canEdit = !isViewOnly && !!user && !isPcAutoDynasty(currentDynasty)
 
   return (
     <div className="space-y-4 page-enter max-w-4xl mx-auto">

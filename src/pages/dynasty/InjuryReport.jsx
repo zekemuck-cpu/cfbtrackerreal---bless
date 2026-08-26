@@ -75,7 +75,7 @@ export default function InjuryReport() {
       />
 
       <Card padding="none" className="overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3" style={{ backgroundColor: primary, color: txt }}>
+        <div className="flex items-center gap-3 px-4 py-3 cfb-texture" style={{ backgroundColor: primary, color: txt }}>
           {logo && (
             <span className="w-8 h-8 rounded-full bg-white p-0.5 flex-shrink-0 flex items-center justify-center">
               <img src={logo} alt="" className="w-full h-full object-contain" />

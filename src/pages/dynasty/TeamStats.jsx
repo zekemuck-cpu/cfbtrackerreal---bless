@@ -5,6 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { PageHero, Card, EmptyState, Select } from '../../components/ui'
 import SortableStatsTable from '../../components/SortableStatsTable'
 import { computeLeagueTeamStats } from '../../utils/leagueTeamStats'
+import { currentPollRank } from '../../utils/teamRanking'
 
 const SIDES = [
   { key: 'offense', label: 'Offense', defaultSort: 'ppg', defaultDir: 'desc' },
@@ -135,6 +136,7 @@ export default function TeamStats() {
         name: meta.name,
         abbr: meta.abbr,
         logo: meta.logo,
+        rank: currentPollRank(currentDynasty, tid, effectiveYear),
         gp,
         ppg: gp > 0 ? t.pointsFor / gp : 0,
         ydsPerG: gp > 0 ? t.totalOffense / gp : 0,
@@ -186,6 +188,9 @@ export default function TeamStats() {
           style={{ color: ACCENT }}
         >
           {r.logo && <img src={r.logo} alt="" className="w-5 h-5 object-contain flex-shrink-0" />}
+          {r.rank != null && (
+            <span className="text-xs tabular flex-shrink-0" style={{ color: ACCENT_MUTED }}>#{r.rank}</span>
+          )}
           <span>{r.name}</span>
         </Link>
       ),

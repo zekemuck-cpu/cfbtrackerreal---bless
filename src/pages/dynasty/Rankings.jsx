@@ -8,6 +8,8 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { TEAMS, resolveTid } from '../../data/teamRegistry'
 import { PageHero, Card, EmptyState, TitleWithYear, Button } from '../../components/ui'
 import Top25SheetModal from '../../components/Top25SheetModal'
+import Top25MovementChart from '../../components/Top25MovementChart'
+import { isPcAutoDynasty } from '../../editions'
 
 const getSchoolName = stripMascotFromName
 
@@ -131,12 +133,16 @@ export default function Rankings() {
       for (const k of weekKeys) {
         const wk = Number(k)
         if (!Number.isFinite(wk)) continue
-        // Canonical poll slots only: Preseason(0), Weeks 1–15, Conf Champ(16),
-        // Bowl Weeks(17–20), CFP rounds + Final(101–105). Skip legacy/orphan
-        // slots like the old shared "100" (deprecated CCG/bowl key) so they
-        // don't surface as a bogus "Week 100" in the picker.
-        const isCanonical = (wk >= 0 && wk <= 20) || (wk >= 101 && wk <= 105)
-        if (!isCanonical) continue
+        // Sync writes rankByWeek/cfpRankByWeek keyed by the save's raw
+        // CurrentWeek counter, which runs continuously through the whole
+        // postseason (CCG, every bowl round, every CFP round) rather than
+        // landing neatly in the app's old 17–20/101–105 slot scheme — a
+        // save with a deep CFP run legitimately produces raw weeks beyond
+        // 20, and a narrow whitelist here silently dropped those synced
+        // weeks from the picker entirely. Only skip the one known-bogus
+        // legacy sentinel ("100", a deprecated shared CCG/bowl key) —
+        // every other non-negative week is a real synced snapshot.
+        if (wk < 0 || wk === 100) continue
         let v = wk >= 10 ? cfp[k] : media[k]
         if (typeof v !== 'number' || v < 1 || v > 25) v = wk >= 10 ? media[k] : cfp[k]
         if (typeof v !== 'number' || v < 1 || v > 25) continue
@@ -520,7 +526,7 @@ export default function Rankings() {
             label="Top 25"
           />
         }
-        actions={!isViewOnly ? (
+        actions={!isViewOnly && !isPcAutoDynasty(currentDynasty) ? (
           <Button variant="outline" size="sm" onClick={() => setShowEditSheet(true)}>
             Edit Rankings
           </Button>
@@ -531,7 +537,27 @@ export default function Rankings() {
         <PollColumn data={top25} pollType="media" />
       </div>
 
-      <Top25SheetModal isOpen={showEditSheet} onClose={() => setShowEditSheet(false)} />
+      {/* Season-long rank movement. Needs at least two polls to plot a line —
+          a single snapshot is what the table above already is. */}
+      {availableWeeks.length >= 2 && (
+        <div className="max-w-6xl mx-auto">
+          <Card>
+            <h2 className="text-sm font-black uppercase tracking-[0.12em] text-txt-secondary mb-3">
+              Rank Movement
+            </h2>
+            <Top25MovementChart
+              dynasty={currentDynasty}
+              year={displayYear}
+              weeks={availableWeeks}
+              weekLabel={weekLabel}
+            />
+          </Card>
+        </div>
+      )}
+
+      {!isPcAutoDynasty(currentDynasty) && (
+        <Top25SheetModal isOpen={showEditSheet} onClose={() => setShowEditSheet(false)} />
+      )}
 
       <style>{`
         .ranking-row:hover {

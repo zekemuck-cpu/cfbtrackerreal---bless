@@ -28,11 +28,11 @@ export function currentPollRank(dynasty, tid, year) {
   for (const k of weekKeys) {
     const wk = Number(k)
     if (!Number.isFinite(wk)) continue
-    // Canonical poll slots only (same set Rankings.jsx recognizes):
-    // Preseason(0), Weeks 1-15, Conf Champ(16), Bowl Weeks(17-20), CFP
-    // rounds + Final(101-105) — skips legacy/orphan slots like "100".
-    const isCanonical = (wk >= 0 && wk <= 20) || (wk >= 101 && wk <= 105)
-    if (!isCanonical) continue
+    // Sync keys these by the save's raw continuous CurrentWeek counter,
+    // which runs past 20 for a deep CFP run rather than landing in a
+    // fixed 17-20/101-105 slot scheme (see Rankings.jsx's matching fix) —
+    // skip only the one known-bogus legacy sentinel ("100").
+    if (wk < 0 || wk === 100) continue
     const primary = wk >= 10 ? cfp : media
     const fallback = wk >= 10 ? media : cfp
     let v = primary[k]

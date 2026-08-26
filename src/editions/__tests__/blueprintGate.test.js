@@ -30,4 +30,9 @@ describe('isDynastyBlueprintEnabled — the single Blueprint gate', () => {
     expect(editionHasFeature({ gameEdition: 'cfb27', hideDynastyBlueprint: true }, 'dynastyPoints')).toBe(true)
     expect(editionHasFeature({ gameEdition: 'cfb26' }, 'dynastyPoints')).toBe(false)
   })
+
+  it('is OFF for PC (Sync from Save) dynasties, removed entirely regardless of the preference', () => {
+    expect(isDynastyBlueprintEnabled({ gameEdition: 'cfb27', platform: 'pc' })).toBe(false)
+    expect(isDynastyBlueprintEnabled({ gameEdition: 'cfb27', platform: 'pc', hideDynastyBlueprint: false })).toBe(false)
+  })
 })
