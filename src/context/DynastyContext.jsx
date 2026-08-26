@@ -10009,8 +10009,17 @@ export function DynastyProvider({ children }) {
     // (0-0)). Recomputed for every regular-season game this year on every
     // sync (not just newly-touched ones) so this also self-heals games
     // synced before this fix landed, not just future ones.
-    const customConferencesForSync = getCustomConferencesForYear(dynastyForPlan, dynasty.currentYear)
+    // MUST be built from plan.mergedTeams (buildSyncPlan's OUTPUT), not
+    // dynastyForPlan (its INPUT) — buildSyncPlan is what actually refreshes
+    // teams[tid].byYear[year].conference from the save's real Conference
+    // table every sync (see its own header comment). Reading the pre-sync
+    // snapshot here meant this flag kept using whatever conference data
+    // existed BEFORE that refresh ran, silently discarding it for exactly
+    // the teams that refresh was correcting — the direct cause of "many
+    // teams still show 0-0 conference record" surviving multiple
+    // deploys/syncs of that other fix.
     const teamsForConf = plan.mergedTeams || dynasty.teams
+    const customConferencesForSync = getCustomConferencesForYear({ ...dynastyForPlan, teams: teamsForConf }, dynasty.currentYear)
     mergedGames = mergedGames.map((g) => {
       if (Number(g.year) !== Number(dynasty.currentYear) || (g.gameType || 'regular') !== 'regular') return g
       if (g.team1Tid == null || g.team2Tid == null) return g
