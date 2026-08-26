@@ -1,44 +1,188 @@
 {
   "indexes": [
     {
-      "comment": "subscribeToMyInvitations — invitee polls pending invites by email",
+      "comment": "subscribeToMyInvitations \u2014 invitee polls pending invites by email",
       "collectionGroup": "invitations",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "inviteeEmail", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "inviteeEmail",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
-      "comment": "subscribeToDynastyInvitations — commish lists all invites for their dynasty",
+      "comment": "subscribeToDynastyInvitations \u2014 commish lists all invites for their dynasty",
       "collectionGroup": "invitations",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "dynastyOwnerUid", "order": "ASCENDING" },
-        { "fieldPath": "dynastyId", "order": "ASCENDING" }
+        {
+          "fieldPath": "dynastyOwnerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dynastyId",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
-      "comment": "fetchAcceptedInvitationsForDynasty — commish reconciles accepted invites",
+      "comment": "fetchAcceptedInvitationsForDynasty \u2014 commish reconciles accepted invites",
       "collectionGroup": "invitations",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "dynastyOwnerUid", "order": "ASCENDING" },
-        { "fieldPath": "dynastyId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "dynastyOwnerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dynastyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
-      "comment": "createInvitation duplicate check — pending invite already exists?",
+      "comment": "createInvitation duplicate check \u2014 pending invite already exists?",
       "collectionGroup": "invitations",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "dynastyOwnerUid", "order": "ASCENDING" },
-        { "fieldPath": "dynastyId", "order": "ASCENDING" },
-        { "fieldPath": "inviteeEmail", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "dynastyOwnerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dynastyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "inviteeEmail",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "teams",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "games",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "players",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "schedule",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "coaches",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "coachingStaff",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "preseasonSetup",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "customConferences",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "teamFuture",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "dynastyPoints",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "leagueStatRecords",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "recruitingDatabasePlayers",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "socialCharacters",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "socialFeedByYear",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "memberTeams",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "teamRatings",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "recruitingCommitments",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "statRecords",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "weeklyScoresEntered",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "coachTeamByYear",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "rivalries",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "dynasties",
+      "fieldPath": "schemeBuilder",
+      "indexes": []
+    }
+  ]
 }

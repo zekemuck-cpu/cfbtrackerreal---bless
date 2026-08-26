@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
-import { proxyImageUrl } from '../../utils/imageProxy'
+import { proxyImageUrl, resolvePortraitUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useDynasty, getEncourageTransfers, getRecruitingCommitments, getPlayerClassForYear, getTeamConferenceForDynasty } from '../../context/DynastyContext'
@@ -37,7 +37,7 @@ import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../uti
 import { computeSeasonAV } from '../../utils/approximateValue'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
 import { predictRecruitOverall } from '../../utils/scoutScore'
-import { getEditionConfig, isCfb27, isPcAutoDynasty, areRatingsHiddenForDisplay } from '../../editions'
+import { getEditionConfig, isPcAutoDynasty, areRatingsHiddenForDisplay } from '../../editions'
 import { getPlayerNil } from '../../data/playerNilModel'
 import nilIcon from '../../assets/blueprint/points.png'
 
@@ -634,7 +634,7 @@ function PlayerInner() {
   // the Edit button is hidden entirely rather than offering an action that
   // doesn't actually stick. Manual/CFB26 dynasties are unaffected.
   const isCfb27Auto = isPcAutoDynasty(dynasty)
-  const scoutStaffEnabled = !!dynasty?.scoutStaffEnabled && isCfb27(dynasty) // CFB 27 only
+  const scoutStaffEnabled = !!dynasty?.scoutStaffEnabled && isPcAutoDynasty(dynasty) // PC save-sync only
   const hasScoutAttributes = !!(player?.attributes && Object.keys(player.attributes).length > 0)
   const enrolledOnRoster = Object.keys(player?.teamsByYear || {})
     .map(Number)
@@ -702,6 +702,12 @@ function PlayerInner() {
       || getTeamLogo(committedElsewhereName, dynasty?.teams || dynasty?.customTeams))
     : (playerTeam?.logo || playerTeam?.logoUrl
       || getTeamLogo(playerTeamName, dynasty?.teams || dynasty?.customTeams))
+
+  // Re-point a stored CFB27 portrait path at the CURRENTLY-configured host —
+  // the URL on the player froze whatever origin was active when the save was
+  // imported, so rosters synced before the CDN was set up point at this app's
+  // own origin, where the pack isn't deployed. See resolvePortraitUrl.
+  const heroPictureUrl = resolvePortraitUrl(player?.pictureUrl)
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -1972,11 +1978,11 @@ function PlayerInner() {
                 Without it, the name starts at the edge and the Edit button moves
                 inline to the right of the name (below) instead of pushing
                 everything over from the left. */}
-            {(player.pictureUrl || heroLogo) && (
+            {(heroPictureUrl || heroLogo) && (
               <div className="flex flex-col items-center gap-2 flex-shrink-0">
-                {player.pictureUrl ? (
+                {heroPictureUrl ? (
                   <img
-                    src={proxyImageUrl(player.pictureUrl, 300)}
+                    src={proxyImageUrl(heroPictureUrl, 300)}
                     alt={player.name}
                     className="relative z-[1] w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl cursor-pointer hover:brightness-110 transition-[filter]"
                     style={{ border: `2px solid ${teamBgText}66`, boxShadow: '0 2px 10px rgba(0,0,0,0.35)' }}
@@ -1987,7 +1993,7 @@ function PlayerInner() {
                       // fall back to the original URL, which often still loads.
                       // Only hide if the original fails too. Same resilience
                       // pattern used by the photo thumbnails + Game pages.
-                      if (e.currentTarget.src !== player.pictureUrl) e.currentTarget.src = player.pictureUrl
+                      if (e.currentTarget.src !== heroPictureUrl) e.currentTarget.src = heroPictureUrl
                       else e.currentTarget.style.display = 'none'
                     }}
                   />
@@ -2036,7 +2042,7 @@ function PlayerInner() {
                 {!isViewOnly && !isCfb27Auto && (
                   <button
                     onClick={() => navigate(`${pathPrefix}/player/${pid}/edit`)}
-                    className={`${player.pictureUrl ? 'hidden sm:inline-flex' : 'inline-flex'} items-center justify-center p-1.5 rounded-lg hover:bg-black/20 transition-colors flex-shrink-0 self-center`}
+                    className={`${heroPictureUrl ? 'hidden sm:inline-flex' : 'inline-flex'} items-center justify-center p-1.5 rounded-lg hover:bg-black/20 transition-colors flex-shrink-0 self-center`}
                     style={{ color: teamBgText, border: `1px solid ${teamBgText}40` }}
                     title="Edit Player"
                     aria-label="Edit Player"
@@ -6419,7 +6425,7 @@ function PlayerInner() {
 
       {/* Photo lightbox — click the portrait to enlarge, click the backdrop
           or the X to close. */}
-      {showPhotoLightbox && player.pictureUrl && (
+      {showPhotoLightbox && heroPictureUrl && (
         <div
           className="fixed inset-0 top-0 left-0 right-0 bottom-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
           style={{ margin: 0 }}
@@ -6437,7 +6443,7 @@ function PlayerInner() {
               </svg>
             </button>
             <img
-              src={proxyImageUrl(player.pictureUrl, 800)}
+              src={proxyImageUrl(heroPictureUrl, 800)}
               alt={player.name}
               className="max-w-full max-h-[85vh] rounded-xl object-contain"
               style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.6)' }}

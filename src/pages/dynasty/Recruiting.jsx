@@ -27,7 +27,7 @@ import TargetResolutionModal from '../../components/TargetResolutionModal'
 import RecruitCard from '../../components/RecruitCard'
 import { buildRevealedPool } from '../../utils/devTraitLearning'
 import { buildAttributeQualityMap } from '../../utils/devPrediction'
-import { isCfb27, isPcAutoDynasty } from '../../editions'
+import { isPcAutoDynasty } from '../../editions'
 import CommitGraphicModal from '../../components/CommitGraphicModal'
 import CommitGraphicViewer from '../../components/CommitGraphicViewer'
 import { TopClassesBody } from './TopClasses'
@@ -138,7 +138,12 @@ export default function Recruiting() {
   // being viewed: the CURRENT recruiting year opens on Targets (you're
   // actively scouting); past/future years open on Commitments (reviewing a
   // finished class).
-  const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled && isCfb27(currentDynasty) // CFB 27 only
+  // PC (save-sync) dynasties only. Scout Staff's recruiting database is fed by
+  // Sync from Save; on a console dynasty it's manual data entry into a store
+  // that nothing else populates, which is where the "won't save / freezes /
+  // says it saved but nothing's there" reports come from. Gate on the platform,
+  // not just the edition — a Console CFB 27 dynasty must not see it.
+  const scoutStaffEnabled = !!currentDynasty?.scoutStaffEnabled && isPcAutoDynasty(currentDynasty)
   const viewingYear = urlYear === 'all' ? 'all' : (urlYear ? Number(urlYear) : Number(currentDynasty?.currentYear))
   const isCurrentRecruitingYear = viewingYear !== 'all' && viewingYear === Number(currentDynasty?.currentYear)
   // isMyTarget: in a shared league every member's open targets live in the

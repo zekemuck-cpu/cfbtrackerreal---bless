@@ -174,6 +174,39 @@ export function setPlayerDevTrait(player, year, trait) {
   }
 }
 
+// Reconcile an edit made through the TOP-LEVEL devTrait mirror with the
+// canonical devTraitByYear map, using the player's prior state as the tie-
+// breaker. syncDerivedFieldsFromV2 derives devTrait FROM the map when the map
+// has a value for currentYear — correct for reads, but it silently REVERTS a
+// save whose surface only set the mirror (the recruiting modal, the player
+// modal's main dropdown, the scout table's dev pill all do). The revert is
+// invisible: the save "succeeds", local state is seeded from the normalized
+// (reverted) copy, and the user reports "dev traits won't stick".
+//
+// Detection is a three-way compare: the mirror CHANGED vs prior, the map
+// entry did NOT change, and the two now disagree — that combination can only
+// mean the user edited the mirror on a stale map. We write the mirror into
+// the map so the derivation keeps it. A cleared mirror ('') is written too:
+// the normalizer drops empty map entries, so the stale value is removed and
+// the trait genuinely clears. Any save that edited the map itself is left
+// alone — the map is canonical and wins, as designed.
+export function reconcileDevTraitMirror(next, prior, currentYear) {
+  if (!next || !prior) return next
+  const cy = toNum(currentYear)
+  if (cy == null) return next
+  const nextTrait = next.devTrait ?? ''
+  const priorTrait = prior.devTrait ?? ''
+  if (nextTrait === priorTrait) return next
+  const nextMap = next.devTraitByYear?.[cy] ?? next.devTraitByYear?.[String(cy)] ?? ''
+  const priorMap = prior.devTraitByYear?.[cy] ?? prior.devTraitByYear?.[String(cy)] ?? ''
+  if (nextMap !== priorMap) return next
+  if (nextMap === nextTrait) return next
+  return {
+    ...next,
+    devTraitByYear: { ...(next.devTraitByYear || {}), [cy]: nextTrait },
+  }
+}
+
 export function setMovement(player, year, entry) {
   const n = toNum(year)
   if (n == null) return player

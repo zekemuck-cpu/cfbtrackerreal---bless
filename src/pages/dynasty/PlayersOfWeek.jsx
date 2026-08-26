@@ -40,12 +40,20 @@ function findBoxScoreGameSummary(dynasty, honoree, week, year, allWeeksForYear) 
   // buildPostseasonGames in cfb27SaveSync.js) — the exact-week match above
   // then comes up empty even though this genuinely IS the right week. Fall
   // back to flags instead, cheapest/least-ambiguous case first.
-  if (!game) {
+  // Every fallback below is bounded to late-season weeks. The weeks here are
+  // the save's RAW numbers, where the postseason never starts before 15
+  // (regular season runs 0-14/15, CCG lands on 15 or 16, bowls 17+). Without
+  // the bound, an early-season honoree whose team simply has no game record
+  // for that week — a sync gap, not a postseason week — falls straight
+  // through and gets shown their conference championship or bowl box score
+  // as if it were September.
+  const canBePostseason = Number.isFinite(weekNum) && weekNum >= 15
+  if (!game && canBePostseason) {
     // Conference championship — a team plays at most one a year, so the
     // flag alone can't grab the wrong game.
     game = games.find((g) => Number(g.year) === yearNum && g.isConferenceChampionship && forHonoreeTeam(g))
   }
-  if (!game) {
+  if (!game && canBePostseason) {
     // Regular (non-playoff) bowl — same one-game-per-team-per-year
     // guarantee. Every regular bowl shares the literal week label 'Bowl'
     // with zero per-week distinction, so it doesn't matter which raw week
@@ -53,7 +61,7 @@ function findBoxScoreGameSummary(dynasty, honoree, week, year, allWeeksForYear) 
     // ever one candidate bowl game to find either way.
     game = games.find((g) => Number(g.year) === yearNum && g.isBowlGame && forHonoreeTeam(g))
   }
-  if (!game) {
+  if (!game && canBePostseason) {
     // CFP — a team CAN play up to 4 rounds, so the gameType flag alone is
     // ambiguous when more than one of this team's CFP games exists. Resolve
     // which round THIS week is: a bowl round and its parallel CFP round

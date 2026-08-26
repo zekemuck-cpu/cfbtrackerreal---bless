@@ -48,6 +48,7 @@ import {
   mapHeismanEntry,
   mapPreseasonTop25,
   mapScheduleForTeam,
+  APP_CCG_WEEK,
   mapSeasonInfo,
   mapPosition,
   mapClass,
@@ -1029,8 +1030,15 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     if (homeAppTid == null || awayAppTid == null) continue
     if (homeAppTid === userTid || awayAppTid === userTid) continue // handled by the user-team pipeline instead
 
-    const week = g.week
-    const isCCG = ccgWeek != null && week === ccgWeek
+    const isCCG = ccgWeek != null && g.week === ccgWeek
+    // File the CCG under the app's canonical Conference Championship week
+    // rather than whatever number this save used. The save's CCG week is not
+    // fixed (15 and 16 both observed), so carrying it through raw put
+    // conference championships on a regular-season week in some saves —
+    // and, worse, made them invisible to the prune's week-keyed matching
+    // below, which then deleted them as phantom byes on the next sync
+    // ("redid it and now none of the conference games are there").
+    const week = isCCG ? APP_CCG_WEEK : g.week
     const matchKey = `${week}:${cpuGameId(year, week, homeAppTid, awayAppTid)}`
     const existing = existingByMatchup.get(matchKey)
     const played = g.status !== 'Unplayed'
@@ -1157,12 +1165,18 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
   const knownWeeks = new Set() // every week that's a real (non-bye-only) week this season
   for (const g of parsed.games || []) {
     if (g.weekType !== 'RegularSeason') continue
-    knownWeeks.add(g.week)
+    // MUST use the same raw->app week mapping the write path above uses, or
+    // conference championships get indexed under the save's raw week while
+    // the stored records live at APP_CCG_WEEK. That mismatch made every CCG
+    // look like "no game for either team that week" — i.e. a phantom bye —
+    // so the prune deleted them all on the next sync.
+    const gWeek = ccgWeek != null && g.week === ccgWeek ? APP_CCG_WEEK : g.week
+    knownWeeks.add(gWeek)
     const homeAppTid = g.homeTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.homeTeam] ?? null : rawTeamIdMap.get(g.homeTeamId)
     const awayAppTid = g.awayTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.awayTeam] ?? null : rawTeamIdMap.get(g.awayTeamId)
     if (homeAppTid == null || awayAppTid == null) continue
-    currentOpponentByTidWeek.set(`${homeAppTid}:${g.week}`, awayAppTid)
-    currentOpponentByTidWeek.set(`${awayAppTid}:${g.week}`, homeAppTid)
+    currentOpponentByTidWeek.set(`${homeAppTid}:${gWeek}`, awayAppTid)
+    currentOpponentByTidWeek.set(`${awayAppTid}:${gWeek}`, homeAppTid)
   }
 
   const toDelete = []
@@ -1170,8 +1184,16 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     if ((g.gameType !== 'regular' && g.gameType !== 'conference_championship') || Number(g.year) !== year) continue
     if (g.team1Tid == null || g.team2Tid == null) continue
     if (g.team1Tid === userTid || g.team2Tid === userTid) continue // user games handled by the other pipeline
-    const expected1 = currentOpponentByTidWeek.get(`${g.team1Tid}:${g.week}`)
-    const expected2 = currentOpponentByTidWeek.get(`${g.team2Tid}:${g.week}`)
+    // Resolve the STORED game to the same canonical week the index above is
+    // keyed by. A conference championship can be stored as week 16, as the
+    // save's raw CCG week, or with a non-numeric week ('CCG') if it was
+    // entered by hand — all three mean the same slot, and comparing the raw
+    // value made a CCG match nothing and read as a phantom bye.
+    const storedWeek = (g.gameType === 'conference_championship' || g.isConferenceChampionship)
+      ? APP_CCG_WEEK
+      : g.week
+    const expected1 = currentOpponentByTidWeek.get(`${g.team1Tid}:${storedWeek}`)
+    const expected2 = currentOpponentByTidWeek.get(`${g.team2Tid}:${storedWeek}`)
     const wrongOpponent =
       (expected1 != null && expected1 !== g.team2Tid) ||
       (expected2 != null && expected2 !== g.team1Tid)
@@ -1860,7 +1882,9 @@ export function buildSyncPlan(dynasty, parsed) {
 
   // Schedule/scores for the user's own team — raw material for the caller's
   // computeScheduleDiff/applyScheduleDiff + isGamePlayed pass.
-  const scheduleForUserTeam = mapScheduleForTeam(parsed.games, rawTeamIdMap, userTid, dynastyTeams)
+  const userCcgWeek = parsed.season?.conferenceChampionshipWeek ?? null
+  const ccgUserWeek = (w) => (userCcgWeek != null && w === userCcgWeek ? APP_CCG_WEEK : w)
+  const scheduleForUserTeam = mapScheduleForTeam(parsed.games, rawTeamIdMap, userTid, dynastyTeams, userCcgWeek)
   const gameScoresForUserTeam = (parsed.games || [])
     .filter((g) => g.weekType === 'RegularSeason' && g.status !== 'Unplayed')
     .map((g) => {
@@ -1874,7 +1898,11 @@ export function buildSyncPlan(dynasty, parsed) {
       const awayTid = g.awayTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.awayTeam] ?? null : rawTeamIdMap.get(g.awayTeamId)
       if (homeTid !== userTid && awayTid !== userTid) return null
       return {
-        week: g.week, homeTid, awayTid, homeScore: g.homeScore, awayScore: g.awayScore,
+        // Same raw->app week mapping the schedule above uses. These scores are
+        // matched to schedule entries BY WEEK, so a CCG normalized on one side
+        // and left raw on the other would leave the conference championship
+        // permanently scoreless ("Upcoming") even once it had been played.
+        week: ccgUserWeek(g.week), homeTid, awayTid, homeScore: g.homeScore, awayScore: g.awayScore,
         homeQuarters: [g.home_score_q1, g.home_score_q2, g.home_score_q3, g.home_score_q4],
         awayQuarters: [g.away_score_q1, g.away_score_q2, g.away_score_q3, g.away_score_q4],
         homeOT: g.home_score_ot, awayOT: g.away_score_ot,
@@ -2478,6 +2506,11 @@ export function buildBoxScoresForUserGames(parsed, rawTeamIdMap, dynastyTeams, u
   const boxScoresByWeek = {}
   const gameStats = parsed.gameStats
   if (!gameStats) return boxScoresByWeek
+  // The save's stat tables are keyed by its OWN raw week, but the returned map
+  // is consumed by week against games the app files at APP_CCG_WEEK for a
+  // conference championship — so the lookup stays raw while the output key is
+  // normalized. Getting this backwards silently drops the CCG box score.
+  const ccgWeek = parsed.season?.conferenceChampionshipWeek ?? null
 
   for (const g of parsed.games || []) {
     if (g.weekType !== 'RegularSeason' || g.status === 'Unplayed') continue
@@ -2512,7 +2545,7 @@ export function buildBoxScoresForUserGames(parsed, rawTeamIdMap, dynastyTeams, u
       byTid[appTid] = sortBoxScoreCategories(categories)
     }
 
-    boxScoresByWeek[week] = { byTid, teamStatsByTid }
+    boxScoresByWeek[ccgWeek != null && week === ccgWeek ? APP_CCG_WEEK : week] = { byTid, teamStatsByTid }
   }
 
   return boxScoresByWeek

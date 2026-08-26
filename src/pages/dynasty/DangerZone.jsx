@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useDynasty, propagateCFPWinner, GAME_TYPES, isPlayerOnRoster, rebuildRankByWeekFromCurrentState, syncGameRanksFromRankByWeek, getCustomConferencesForYear, getPlayerClassForYear, getRecruitingCommitments, computeScheduleDiff, applyScheduleDiff, getScheduleForTeam } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
@@ -174,6 +174,18 @@ export default function DangerZone() {
   // Duplicate player merge state
   const [duplicateMergeStatus, setDuplicateMergeStatus] = useState(null)
   const [duplicateGroups, setDuplicateGroups] = useState(null) // Groups pending confirmation
+  // The confirmation panel renders at the BOTTOM of the page while the
+  // "Merge Players" button sits mid-page in the tools grid. Without this
+  // scroll, a successful detection looked like the button did NOTHING: the
+  // status line is cleared (no green text) and the panel appears off-screen.
+  // A user reported exactly that — "when I do the merge players I'm not
+  // getting anything, so I don't know if it's not going through or what."
+  const duplicatePanelRef = useRef(null)
+  useEffect(() => {
+    if (duplicateGroups && duplicateGroups.length > 0) {
+      duplicatePanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [duplicateGroups])
   const [selectedMergeGroups, setSelectedMergeGroups] = useState(new Set()) // Which groups to merge
 
   // Preseason recap location fix state
@@ -1674,7 +1686,17 @@ export default function DangerZone() {
     setGameDeletionStatus('running')
     try {
       const games = currentDynasty.games || []
-      const cleanedGames = games.filter(g => g.id !== gameId)
+      // String-coerce BOTH sides. gameId arrives from a <select>, whose value
+      // is always a string, while a legacy game.id may be a number — a raw
+      // !== between the two is always true, so the filter removed nothing and
+      // the success message below fired anyway. Silent no-op, which reads to
+      // the user as "the delete button does nothing." Matches the context's
+      // deleteGame, which already compares this way.
+      const cleanedGames = games.filter(g => String(g.id) !== String(gameId))
+      if (cleanedGames.length === games.length) {
+        setGameDeletionStatus({ success: false, message: 'That game was not found — nothing was deleted.' })
+        return
+      }
       await updateDynasty(currentDynasty.id, { games: cleanedGames })
       setGameDeletionStatus({ success: true, message: 'Game deleted successfully' })
       setSelectedGameToDelete(null)
@@ -2299,7 +2321,10 @@ export default function DangerZone() {
       // Show confirmation UI with all groups selected by default
       setDuplicateGroups(groups)
       setSelectedMergeGroups(new Set(groups.map((_, idx) => idx)))
-      setDuplicateMergeStatus(null)
+      // Keep a visible status by the button too — the review panel is at the
+      // bottom of the page, and clearing the status here made a successful
+      // detection indistinguishable from a silent failure.
+      setDuplicateMergeStatus({ success: true, message: `Found ${groups.length} possible duplicate group${groups.length === 1 ? '' : 's'} — review below to merge.` })
     } catch (error) {
       console.error('[Duplicate Detect] Error:', error)
       setDuplicateMergeStatus({ success: false, message: 'Detection failed: ' + error.message })
@@ -2967,6 +2992,7 @@ export default function DangerZone() {
 
       {/* Duplicate Players Confirmation UI */}
       {duplicateGroups && duplicateGroups.length > 0 && (
+        <div ref={duplicatePanelRef} style={{ scrollMarginTop: '5rem' }}>
         <Card>
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h3 className="label-sm text-txt-primary m-0">
@@ -3057,6 +3083,7 @@ export default function DangerZone() {
             </span>
           </div>
         </Card>
+        </div>
       )}
 
       {/* Advance Classes Modal */}
@@ -3458,6 +3485,33 @@ export default function DangerZone() {
               </Button>
             )}
           </div>
+
+          {/* The Migrate button must NOT require running Analyze first. The
+              over-limit error banner (and the doc-too-large sync banner) both
+              tell the user to "open Admin Tools and run Migrate to
+              Subcollections" — a real user followed that, found only an
+              Analyze button here, and reported the migrate button missing.
+              For an un-migrated dynasty the migration is the remedy, not a
+              detail of the size readout, so it renders unconditionally. */}
+          {!sizeAnalysis && !currentDynasty._subcollectionsMigrated && (
+            <div className="space-y-3">
+              <p className="text-xs text-txt-tertiary leading-relaxed">
+                This dynasty stores everything in a single cloud document, which
+                has a hard 1MB limit. Migrating moves players, games, and other
+                bulky data into their own storage with no practical limit. Safe
+                to run at any time — nothing is deleted.
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSubcollectionMigration}
+                disabled={subcollectionMigrationStatus === 'running'}
+              >
+                {subcollectionMigrationStatus === 'running' ? 'Migrating...' : 'Migrate to Subcollections'}
+              </Button>
+              <StatusLine status={subcollectionMigrationStatus} />
+            </div>
+          )}
 
           {sizeAnalysis && (
             <div className="space-y-4">

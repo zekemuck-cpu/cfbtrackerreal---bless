@@ -28,9 +28,49 @@
 // hotlink-resilience case it exists for.
 const LOCAL_DEV_HOSTNAME = /^(localhost|127\.0\.0\.1|\[::1\]|(10|127)\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$/i
 
+// The configured CFB27 portrait host, or this app's own origin when unset (a
+// local dev copy of public/cfb27-portraits/). Single source of truth for both
+// the import-time URL builders (cfb27SaveImport's mapPortraitUrl /
+// mapCoachPortraitUrl) and the render-time rebase below.
+export function portraitBase() {
+  const base = import.meta.env?.VITE_CFB27_PORTRAIT_BASE
+    || (typeof window === 'undefined' ? '' : window.location.origin)
+  return String(base).replace(/\/$/, '')
+}
+
+/**
+ * Re-point a STORED portrait URL at the CURRENTLY-configured portrait host.
+ *
+ * mapPortraitUrl bakes an ABSOLUTE url into every synced player's pictureUrl
+ * at import time, which freezes the host at whatever VITE_CFB27_PORTRAIT_BASE
+ * was when that save was imported. Rosters synced before the CDN was
+ * configured therefore carry `https://dynastytracker.app/cfb27-portraits/...`
+ * permanently — a guaranteed 404, since the ~800 MB pack is deliberately not
+ * deployed with the app. Setting the env var afterwards fixes only NEW
+ * imports, so every already-synced dynasty would keep showing team-logo
+ * fallbacks with no route back short of a full re-sync.
+ *
+ * Rebasing at RENDER time makes the stored host irrelevant: only the
+ * `/cfb27-portraits/...` path carries meaning, and the host is re-resolved on
+ * every paint. Moving the CDN later becomes a config change instead of a data
+ * migration. Anything that isn't a portrait path (user uploads, ImgBB links)
+ * is returned untouched.
+ */
+export function resolvePortraitUrl(url) {
+  if (!url || typeof url !== 'string') return url
+  const idx = url.indexOf('/cfb27-portraits/')
+  if (idx === -1) return url
+  const base = portraitBase()
+  if (!base) return url
+  return `${base}${url.slice(idx)}`
+}
+
 export function proxyImageUrl(url, width, { animated = false, q = 90 } = {}) {
   if (!url || typeof url !== 'string') return url
-  const s = url.trim()
+  // Rebase first so a portrait stored against a stale host is proxied from
+  // the host that actually serves it. Idempotent, so call sites that already
+  // resolved (PlayerAvatar, Player.jsx) are unaffected.
+  const s = resolvePortraitUrl(url).trim()
   // Leave data/blob URIs and already-proxied URLs untouched.
   if (!s || s.startsWith('data:') || s.startsWith('blob:') || s.includes('wsrv.nl') || s.includes('weserv.nl')) {
     return url

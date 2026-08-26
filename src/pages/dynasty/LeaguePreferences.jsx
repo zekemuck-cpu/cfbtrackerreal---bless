@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDynasty } from '../../context/DynastyContext'
-import { isCfb27, editionHasFeature, isPcAutoDynasty } from '../../editions'
+import { isPcAutoDynasty, editionHasFeature } from '../../editions'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useToast } from '../../components/ui/Toast'
 import { getEffectiveCharacters, isRealAccount, SOCIAL_UNIVERSE_VERSION } from '../../data/socialModel'
@@ -390,10 +390,12 @@ export default function LeaguePreferences() {
         <h1 className="text-display-md text-txt-primary m-0">League Preferences</h1>
       </div>
 
-      {/* Scout Staff — opt-in alternative to MaxPlaysCFB ScoutScore. CFB 27
-          ONLY (it doesn't work correctly against CFB 26 data), so the toggle is
-          hidden entirely on CFB 26 / untagged dynasties. Default OFF. */}
-      {isCfb27(currentDynasty) && (
+      {/* Scout Staff — opt-in alternative to MaxPlaysCFB ScoutScore. PC
+          (save-sync) dynasties ONLY: its recruiting database is populated by
+          Sync from Save, so on a console dynasty it's manual entry into a
+          store nothing else fills. The toggle is hidden entirely on console
+          and on CFB 26 / untagged dynasties. Default OFF. */}
+      {isPcAutoDynasty(currentDynasty) && (
       <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
         <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">

@@ -85,6 +85,20 @@ export const db = initializeFirestore(app, {
     cacheSizeBytes: CACHE_SIZE_UNLIMITED,
   }),
   experimentalForceLongPolling: true,
+  // ignoreUndefinedProperties: skip undefined fields instead of REJECTING the
+  // whole write. Without this, one undefined value anywhere in a payload —
+  // an optional field a mapper didn't set, a stat a save row didn't carry —
+  // fails the entire document write with an opaque `invalid-argument`, naming
+  // nothing. That is not hypothetical: it silently broke CFB27 Sync from Save
+  // for days. The main-doc write was rejected while the separate subcollection
+  // writes succeeded, so rosters and games saved while week/phase/Heisman/
+  // Players-of-the-Week reverted ~30s later when the local cache rolled back.
+  //
+  // Skipping is the correct semantic: `undefined` means "no value", and
+  // omitting the key is exactly that. Nothing here relies on undefined to
+  // CLEAR a stored field — deletions go through deleteField(), which is a
+  // real sentinel and unaffected.
+  ignoreUndefinedProperties: true,
 });
 
 // Local Firebase emulator opt-in — lets the REAL Admin SDK code (e.g.

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { resolvePortraitUrl } from '../../utils/imageProxy'
 import { createPortal } from 'react-dom'
 import { useDynasty, getPlayerClassForYear } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
@@ -652,7 +653,7 @@ export default function ComparePlayers() {
                   }}
                 >
                   {c.player.pictureUrl ? (
-                    <img src={c.player.pictureUrl} alt={c.player.name} className="w-full h-full object-cover" />
+                    <img src={resolvePortraitUrl(c.player.pictureUrl)} alt={c.player.name} className="w-full h-full object-cover" />
                   ) : c.logo ? (
                     <img src={c.logo} alt="" className="w-9 h-9 object-contain" />
                   ) : (

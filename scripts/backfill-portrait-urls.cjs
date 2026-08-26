@@ -1,6 +1,35 @@
 #!/usr/bin/env node
 'use strict';
 /**
+ * NOT NEEDED ON THIS BRANCH — DO NOT RUN WITHOUT READING THIS FIRST.
+ *
+ * This script was written against the fork, where pictureUrl really is a
+ * dead stored string. On main it is redundant: resolvePortraitUrl
+ * (src/utils/imageProxy.js) re-points any stored `/cfb27-portraits/...` URL
+ * at the CURRENTLY-configured host on every render, so setting
+ * VITE_CFB27_PORTRAIT_BASE and redeploying already fixes every
+ * previously-synced player with no data migration at all. Every portrait
+ * render path goes through it (proxyImageUrl applies it centrally;
+ * PlayerAvatar, Player.jsx, PlayerEdit, PlayerEditModal and ComparePlayers
+ * call it directly), and resolvePortraitUrl.test.js covers the exact
+ * pre-migration URL shape this script targets.
+ *
+ * Running it anyway would mean handing a production service-account
+ * credential to a script that rewrites a field on EVERY player in EVERY
+ * dynasty in the project — a large, irreversible write against live user
+ * data — to reach a state the app already reaches on its own at render
+ * time. The cost/risk is real and the benefit is zero, so the default
+ * answer is: don't.
+ *
+ * Kept in the repo because the logic is sound and it's the right tool IF the
+ * render-time rebase is ever removed, or if some future need requires the
+ * stored value itself to be correct (e.g. exporting player data to somewhere
+ * that can't run the rebase). If that day comes, dry-run it first.
+ *
+ * Original header follows.
+ *
+ */
+/**
  * One-time fix for existing dynasties: player.pictureUrl is computed ONCE
  * at CFB27 save-sync time (see mapPortraitUrl in src/data/cfb27SaveImport.js)
  * and stored as a plain string on the player record — it is NOT recomputed

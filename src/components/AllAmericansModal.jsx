@@ -31,7 +31,7 @@ const isMobileDevice = () => {
   return window.innerWidth < 768 || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
 }
 
-export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear, teamColors }) {
+export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear, teamColors, variant = 'final' }) {
   const { currentDynasty, updateDynasty } = useDynasty()
   const { user, signOut } = useAuth()
   const { toast } = useToast()
@@ -78,11 +78,17 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
   // order via a per-position used-index, exactly like the Google pre-fill.
   const initialAllAmericansText = useMemo(() => {
     const yearData = currentDynasty?.allAmericansByYear?.[currentYear] || {}
+    // PRESEASON and FINAL are two separate stores on the same year
+    // (allAmericansPreseason vs allAmericans). This modal used to read and
+    // write only the FINAL one, so entering preseason picks silently
+    // overwrote the postseason list — "it makes them all Americans for the
+    // postseason, it doesn't differentiate."
+    const existingList = variant === 'preseason' ? yearData.allAmericansPreseason : yearData.allAmericans
     const aaFirst = {}
     const aaSecond = {}
     const aaFreshman = {}
-    if (yearData.allAmericans) {
-      yearData.allAmericans.forEach(entry => {
+    if (existingList) {
+      existingList.forEach(entry => {
         const pos = entry.position
         if (entry.designation === 'first') (aaFirst[pos] = aaFirst[pos] || []).push(entry)
         else if (entry.designation === 'second') (aaSecond[pos] = aaSecond[pos] || []).push(entry)
@@ -109,7 +115,7 @@ export default function AllAmericansModal({ isOpen, onClose, onSave, currentYear
       ].join('\t')
     }).join('\n')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDynasty?.allAmericansByYear, currentYear])
+  }, [currentDynasty?.allAmericansByYear, currentYear, variant])
 
   const aiPrompt = useMemo(() => buildAIPrompt({
     title: `${currentYear} All-Americans`,

@@ -1,4 +1,4 @@
-// Calls api/cfb27-bulk-seed-players.js to bulk-write a CFB 27 save import's
+// Calls api/_handlers/cfb27/bulk-seed-players.js to bulk-write a CFB 27 save import's
 // full player roster into a dynasty's Firestore players subcollection via
 // the Admin SDK's BulkWriter — see that file's header comment for why this
 // exists instead of the normal client-side savePlayersToSubcollection path
@@ -36,7 +36,7 @@ export async function bulkSeedPlayers(dynastyId, players, { onProgress } = {}) {
 
   for (let i = 0; i < batches.length; i++) {
     const batch = batches[i]
-    const res = await fetch(`${API_BASE}/api/cfb27-bulk-seed-players`, {
+    const res = await fetch(`${API_BASE}/api/cfb27/bulk-seed-players`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ dynastyId, players: batch }),

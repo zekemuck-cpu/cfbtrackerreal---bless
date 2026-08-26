@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 /**
  * Modal for switching a dynasty between local and cloud storage
@@ -13,6 +13,22 @@ export default function StorageSwitchModal({
   onUpgrade
 }) {
   const [migrating, setMigrating] = useState(false)
+  // Elapsed-time ticker for the migrating state. The cloud migration awaits
+  // REAL server acks on every write (it must — the local copy is deleted on
+  // success, so proceeding on unconfirmed writes could orphan the only good
+  // copy). The cost of that correctness is that a wedged connection spins
+  // here forever with no feedback — a user reported "it's just spinning
+  // saying migrating, what is the deal with that". We can't safely shortcut
+  // the waits, but we CAN tell the user what's normal, and when and how to
+  // bail out — refreshing is always safe because the local copy is never
+  // removed until every part has confirmed.
+  const [migratingSince, setMigratingSince] = useState(null)
+  const [elapsedS, setElapsedS] = useState(0)
+  useEffect(() => {
+    if (!migratingSince) return undefined
+    const t = setInterval(() => setElapsedS(Math.floor((Date.now() - migratingSince) / 1000)), 1000)
+    return () => clearInterval(t)
+  }, [migratingSince])
   const [error, setError] = useState(null)
 
   if (!isOpen || !dynasty) return null
@@ -30,6 +46,8 @@ export default function StorageSwitchModal({
     }
 
     setMigrating(true)
+    setMigratingSince(Date.now())
+    setElapsedS(0)
     setError(null)
 
     try {
@@ -43,6 +61,7 @@ export default function StorageSwitchModal({
       setError(err.message || 'Migration failed')
     } finally {
       setMigrating(false)
+      setMigratingSince(null)
     }
   }
 
@@ -195,6 +214,13 @@ export default function StorageSwitchModal({
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
                   Migrating...
+                  {migrating && elapsedS >= 30 && (
+                    <span className="block text-xs font-normal mt-1 text-txt-tertiary">
+                      {elapsedS < 180
+                        ? 'Large dynasties can take a few minutes — every piece is confirmed by the server before your local copy is touched.'
+                        : 'This is taking unusually long — the connection to the save server may be stuck. It is SAFE to refresh and try again: your local copy is never removed until every part has uploaded.'}
+                    </span>
+                  )}
                 </span>
               ) : isUpgradeRequired ? (
                 'Upgrade to Premium'

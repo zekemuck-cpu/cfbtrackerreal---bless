@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { resolvePortraitUrl } from '../../utils/imageProxy'
 import { useDynasty, getPlayerBoxScoreTotals } from '../../context/DynastyContext'
 import { getEditionConfig } from '../../editions'
 import { resolveTargetCommitment, isTargetPlayer } from '../../utils/recruitingTargets'
@@ -1148,7 +1149,7 @@ export default function PlayerEdit() {
               >
                 {formData.pictureUrl ? (
                   <img
-                    src={formData.pictureUrl}
+                    src={resolvePortraitUrl(formData.pictureUrl)}
                     alt={player.name}
                     className="w-full h-full object-cover group-hover:opacity-70 transition-opacity"
                   />

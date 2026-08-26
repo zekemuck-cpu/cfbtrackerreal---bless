@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { proxyImageUrl } from '../utils/imageProxy'
+import { proxyImageUrl, resolvePortraitUrl } from '../utils/imageProxy'
 
 /**
  * PlayerAvatar — a player headshot with a graceful fallback chain:
@@ -26,7 +26,12 @@ import { proxyImageUrl } from '../utils/imageProxy'
  *   size      — pixel diameter of the circle (default 40).
  *   className — extra classes on the outer circle (e.g. sizing overrides).
  */
-export default function PlayerAvatar({ photoUrl, teamLogo, name = '', size = 40, className = '' }) {
+export default function PlayerAvatar({ photoUrl: rawPhotoUrl, teamLogo, name = '', size = 40, className = '' }) {
+  // Re-point a stored CFB27 portrait path at the CURRENTLY-configured host.
+  // The URL saved on the player froze whatever origin was active at import
+  // time, so rosters synced before the CDN was configured point at this app's
+  // own origin — where the pack doesn't exist. See resolvePortraitUrl.
+  const photoUrl = resolvePortraitUrl(rawPhotoUrl)
   const box = { width: size, height: size }
   const base = `rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 border border-surface-5 ${className}`
   // Keyed by URL so a re-render with a DIFFERENT photo retries rather than

@@ -23,7 +23,7 @@ const BROWSER = [
   'HTMLElement','Node','Element','SVGElement','DOMParser','XMLHttpRequest','WebSocket','Worker',
   'structuredClone','atob','btoa','createImageBitmap','queueMicrotask','reportError',
   'OffscreenCanvas','ImageData','getComputedStyle','matchMedia','scrollTo','CSS','Intl',
-  'BroadcastChannel','indexedDB','caches','FontFace',
+  'BroadcastChannel','indexedDB','caches','FontFace','ClipboardItem',
 ]
 const NODE = ['process','Buffer','global','__dirname','__filename','module','require','exports','globalThis']
 // Injected by vite.config.js at build time (see the version stamp).

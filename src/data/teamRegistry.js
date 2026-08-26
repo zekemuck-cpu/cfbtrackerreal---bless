@@ -91,7 +91,10 @@ export const TEAMS = {
     name: "Appalachian State Mountaineers",
     primaryColor: "#222222",
     secondaryColor: "#ffcc00",
-    logo: "https://i.imgur.com/CLOVDAA.png"
+    logo: "https://i.imgur.com/CLOVDAA.png",
+    // "App State" is how this school is written far more often than its
+    // full name — including in score imports people paste in.
+    aliases: ["App State", "App St", "App"]
   },
   4: {
     tid: 4,
@@ -588,7 +591,13 @@ export const TEAMS = {
     name: "Middle Tennessee State Blue Raiders",
     primaryColor: "#0066CC",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/zp6fnpe.png"
+    logo: "https://i.imgur.com/zp6fnpe.png",
+    // The athletics brand is "Middle Tennessee" — the "State" in the
+    // registry name is the university's, and EA uses the short form. A
+    // score import saying "Middle Tennessee" resolved to nothing without
+    // this, since dropping "State" generically is unsafe (Washington vs
+    // Washington State are different teams).
+    aliases: ["Middle Tennessee", "Middle Tenn", "MTSU"]
   },
   65: {
     tid: 65,
@@ -781,7 +790,10 @@ export const TEAMS = {
     name: "Sam Houston State Bearkats",
     primaryColor: "#FE5100",
     secondaryColor: "#FFFFFF",
-    logo: "https://i.imgur.com/f4L04yr.png"
+    logo: "https://i.imgur.com/f4L04yr.png",
+    // Dropped "State" from its athletics branding in 2023; EA uses the
+    // short form. Same reasoning as Middle Tennessee above.
+    aliases: ["Sam Houston", "SHSU"]
   },
   89: {
     tid: 89,
@@ -917,7 +929,9 @@ export const TEAMS = {
     name: "UCF Knights",
     primaryColor: "#000000",
     secondaryColor: "#BA9B37",
-    logo: "https://i.imgur.com/LfBAhJl.png"
+    logo: "https://i.imgur.com/LfBAhJl.png",
+    // Former name, still common in pasted data.
+    aliases: ["Central Florida"]
   },
   106: {
     tid: 106,

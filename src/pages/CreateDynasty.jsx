@@ -391,7 +391,10 @@ export default function CreateDynasty() {
           if (staff) dynastyData.cfb27CoachingStaff = staff
         }
         if (userTid != null) {
-          const scheduleEntries = mapScheduleForTeam(cfb27Parsed.games, rawTeamIdMap, userTid, editionTeams)
+          const scheduleEntries = mapScheduleForTeam(
+            cfb27Parsed.games, rawTeamIdMap, userTid, editionTeams,
+            cfb27Parsed.season?.conferenceChampionshipWeek ?? null
+          )
           if (scheduleEntries.length) dynastyData.cfb27Schedule = scheduleEntries
         }
 

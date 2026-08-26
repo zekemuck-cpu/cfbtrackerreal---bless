@@ -23,6 +23,31 @@
 // deliberately adds no auth of its own, so there's exactly one place per
 // endpoint where access is decided and no chance of a dispatcher-level
 // shortcut silently weakening it.
+// MEMORY NOTE (see vercel.json "memory"): parsing a real 16,257-player save
+// peaked at ~2,040 MB before the readRecords() field-allowlist patch and
+// ~1,390 MB after it. Both are over Vercel's 1,024 MB default, which is why
+// save-parse died with FUNCTION_INVOCATION_FAILED (an OOM kill, not an
+// exception — no stack reaches the client). The allowlist patch alone is NOT
+// sufficient; the function also needs memory above ~1,390 MB. 2048 MB gives
+// ~47% headroom. 4 GB would work too but is the Performance tier, which
+// requires a paid Vercel plan.
+//
+// BUNDLING NOTE (see vercel.json "functions"): save-parse pulls in
+// madden-franchise, which resolves its data at RUNTIME —
+// fs.readFileSync(path.join(__dirname, `../data/interned-strings/${dir}/${name}`))
+// and friends. @vercel/nft traces module specifiers, including dynamic
+// import(), but it cannot follow an fs read built from interpolated strings,
+// so none of those JSON files get bundled. The build and the deploy both
+// succeed; it fails only when someone actually parses a save, as
+// "ENOENT ... slotsLookup.json". vercel.json force-includes
+// node_modules/madden-franchise/data/** to cover all four directories it
+// reads (lookup-files, schemas, interned-strings, zstd-dicts).
+//
+// The functions key there MUST be a glob that matches this file. "[action]"
+// is a glob character class (one of a/c/t/i/o/n), so the literal
+// "api/cfb27/[action].js" matches nothing and the config silently no-ops —
+// hence "api/cfb27/*.js".
+//
 // Handlers are imported LAZILY, per request. Static top-level imports would
 // pull save-parse's dependency chain — madden-franchise (~25 MB) plus a
 // CommonJS extractor and its schema JSON — into EVERY request to this route,

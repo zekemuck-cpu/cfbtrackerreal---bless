@@ -19,13 +19,11 @@
 
 import { useMemo, useState } from 'react'
 import { useDynasty } from '../../context/DynastyContext'
-import { TROPHIES } from '../../data/trophies'
+import { getBuiltInRivalries } from '../../utils/trophyEngine'
 import { isFCSPlaceholderAbbr } from '../../data/teamRegistry'
 import { PageHero, Card, EmptyState } from '../../components/ui'
 import RivalriesTab from '../../components/RivalriesTab'
 import { isPcAutoDynasty } from '../../editions'
-
-const BUILTIN_RIVALRIES = TROPHIES.filter(t => t.category === 'rivalry' && Array.isArray(t.teams))
 
 function makeId() {
   // App runtime (browser) — crypto.randomUUID when available, else a short
@@ -80,6 +78,20 @@ function ManualManageRivalries({ currentDynasty, updateDynasty, isViewOnly }) {
 
   const customRivalries = currentDynasty?.rivalries || []
 
+  // Built-ins resolved to tids with this dynasty's overrides already applied
+  // (see getBuiltInRivalries). The SAME resolution the matcher uses, so what's
+  // shown here and what badges a game can't drift apart.
+  const builtIns = useMemo(() => getBuiltInRivalries(currentDynasty), [currentDynasty])
+  const [editingBuiltIn, setEditingBuiltIn] = useState(null)
+
+  const persistOverride = async (trophyId, patch) => {
+    if (!currentDynasty) return
+    const all = { ...(currentDynasty.rivalryOverrides || {}) }
+    if (patch === null) delete all[trophyId]        // reset to stock
+    else all[trophyId] = { ...(all[trophyId] || {}), ...patch }
+    await updateDynasty(currentDynasty.id, { rivalryOverrides: all })
+  }
+
   const persist = async (nextList) => {
     if (!currentDynasty) return
     await updateDynasty(currentDynasty.id, { rivalries: nextList })
@@ -99,7 +111,7 @@ function ManualManageRivalries({ currentDynasty, updateDynasty, isViewOnly }) {
     <div className="space-y-6 max-w-4xl mx-auto">
       <PageHero
         title="Manage Rivalries"
-        subtitle="Add your own rivalries so games between these teams are flagged as rivalry games (in the rivalries filter, schedule, and game pages). Built-in rivalries are listed for reference."
+        subtitle="Rivalry games are flagged in the rivalries filter, on the schedule, and on game pages. Add your own, or edit any built-in rivalry to change its name, teams, or trophy image."
       />
 
       {/* Add a rivalry */}
@@ -142,20 +154,85 @@ function ManualManageRivalries({ currentDynasty, updateDynasty, isViewOnly }) {
 
       {/* Built-in rivalries (reference) */}
       <div className="space-y-2">
-        <h3 className="label-sm text-txt-tertiary">Built-in rivalries ({BUILTIN_RIVALRIES.length})</h3>
+        <h3 className="label-sm text-txt-tertiary">Built-in rivalries ({builtIns.length})</h3>
         <Card>
           <div className="divide-y divide-surface-3">
-            {BUILTIN_RIVALRIES.map(t => (
-              <div key={t.id} className="flex items-center gap-3 py-2">
-                {t.image
-                  ? <img src={t.image} alt="" className="w-8 h-8 object-contain flex-shrink-0" />
-                  : <span className="w-8 h-8 flex-shrink-0" />}
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold text-txt-primary truncate">{t.gameName || t.name}</div>
-                  <div className="text-xs text-txt-tertiary truncate">{t.teams.join(' · ')}</div>
+            {builtIns.map(t => {
+              const isEditing = editingBuiltIn === t.id
+              return (
+                <div key={t.id} className="py-2">
+                  <div className="flex items-center gap-3">
+                    {t.image
+                      ? <img src={t.image} alt="" className={`w-8 h-8 object-contain flex-shrink-0 ${t.hidden ? 'opacity-40' : ''}`} />
+                      : <span className="w-8 h-8 flex-shrink-0" />}
+                    <div className="min-w-0 flex-1">
+                      <div className={`text-sm font-semibold truncate ${t.hidden ? 'text-txt-tertiary line-through' : 'text-txt-primary'}`}>
+                        {t.name}
+                        {t.isOverridden && !t.hidden && (
+                          <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-txt-tertiary">Edited</span>
+                        )}
+                        {t.hidden && (
+                          <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-txt-tertiary">Hidden</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-txt-tertiary truncate">
+                        {t.teamTids.length ? t.teamTids.map(teamName).join(' · ') : 'No teams in this dynasty'}
+                      </div>
+                    </div>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => setEditingBuiltIn(isEditing ? null : t.id)}
+                        className="flex-shrink-0 px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border border-surface-4 text-txt-secondary hover:bg-surface-3 transition"
+                      >
+                        {isEditing ? 'Close' : 'Edit'}
+                      </button>
+                    )}
+                  </div>
+
+                  {isEditing && canEdit && (
+                    <div className="mt-3 pl-11">
+                      <RivalryEditor
+                        teamOptions={teamOptions}
+                        initial={{ name: t.name, teamTids: t.teamTids, imageUrl: t.image || '' }}
+                        onSubmit={async (data) => {
+                          // Persist only what DIFFERS from stock, so a field the
+                          // user left alone keeps tracking the shipped catalog
+                          // instead of freezing today's value forever.
+                          const patch = {}
+                          if (data.name !== t.defaults.name) patch.name = data.name
+                          if ((data.imageUrl || null) !== t.defaults.image) patch.imageUrl = data.imageUrl || ''
+                          const sameTeams = data.teamTids.length === t.defaults.teamTids.length
+                            && data.teamTids.every(x => t.defaults.teamTids.includes(Number(x)))
+                          if (!sameTeams) patch.teamTids = data.teamTids.map(Number)
+                          await persistOverride(t.id, Object.keys(patch).length ? patch : null)
+                          setEditingBuiltIn(null)
+                        }}
+                        submitLabel="Save"
+                      />
+                      <div className="flex flex-wrap items-center gap-2 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => persistOverride(t.id, { hidden: !t.hidden })}
+                          className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border border-surface-4 text-txt-secondary hover:bg-surface-3 transition"
+                        >
+                          {t.hidden ? 'Show this rivalry' : 'Hide this rivalry'}
+                        </button>
+                        {t.isOverridden && (
+                          <button
+                            type="button"
+                            onClick={async () => { await persistOverride(t.id, null); setEditingBuiltIn(null) }}
+                            className="px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider border border-surface-4 text-txt-secondary hover:bg-surface-3 transition"
+                          >
+                            Reset to default
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </Card>
       </div>

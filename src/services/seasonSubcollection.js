@@ -490,6 +490,43 @@ export function diffSeasonalDeletions(field, prevValue, nextValue) {
  * Returns the list of season doc ids that were touched (mostly useful
  * for logging).
  */
+/**
+ * REPLACE one season's conferenceDivisions map wholesale.
+ *
+ * The generic writeSeasonalUpdate path can't express "remove a split":
+ * setDoc(..., {merge:true}) merges maps RECURSIVELY, so a year value with a
+ * conference's split removed — or an empty {} meaning "no splits at all" —
+ * contributes nothing, and the previously-stored split keys survive on the
+ * season doc untouched. Splitting a conference worked (adds keys); removing
+ * one was a silent no-op that reverted on the next load — reported as
+ * "removing divisions isn't working, splitting is fine."
+ *
+ * updateDoc has the opposite (and here, correct) semantics: a top-level
+ * field path REPLACES the named map exactly, empty map included — and a
+ * stored-but-empty map is meaningful, because getConferenceDivisionsForYear
+ * treats a year that EXISTS as authoritative (no carry-back), which is what
+ * makes "all splits removed this season" stick even when an earlier season
+ * still has splits. The set({year},{merge:true}) first guarantees the doc
+ * exists so the update can't fail on a season never written before; both
+ * apply in one atomic batch alongside the lastModified bump that makes other
+ * devices' listeners pick the change up.
+ */
+export async function replaceSeasonConferenceDivisions(dynastyId, year, divisions) {
+  const yearNum = Number(year)
+  if (!Number.isFinite(yearNum)) return
+  const clean = {}
+  for (const [conf, names] of Object.entries(divisions || {})) {
+    if (Array.isArray(names) && names.length === 2 && names[0] && names[1]) clean[conf] = [names[0], names[1]]
+  }
+  const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, String(yearNum))
+  const mainDocRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+  const batch = writeBatch(db)
+  batch.set(ref, { year: yearNum }, { merge: true })
+  batch.update(ref, { conferenceDivisions: clean })
+  batch.update(mainDocRef, { lastModified: Date.now() })
+  await batch.commit()
+}
+
 export async function writeSeasonalUpdate(dynastyId, byYear) {
   const years = Object.keys(byYear)
   if (years.length === 0) return []

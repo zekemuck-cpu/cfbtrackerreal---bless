@@ -101,17 +101,71 @@ function resolveTeamNameToTid(name, schoolIdx, dynasty) {
   return null
 }
 
-function resolveRivalryTidSets(dynasty) {
+// Per-dynasty edits to the BUILT-IN rivalry catalog, keyed by trophy id:
+//   dynasty.rivalryOverrides = { [trophyId]: { name?, teamTids?, imageUrl?, hidden? } }
+//
+// Stored as overrides rather than by copying the catalog into the dynasty so
+// that (a) the shipped catalog stays the single source of truth and keeps
+// improving for everyone, (b) a user can revert one field or the whole entry
+// back to stock, and (c) a dynasty that never touches rivalries stores nothing
+// at all. Only the keys the user actually changed are present; everything else
+// falls through to the static entry.
+export function getRivalryOverride(dynasty, trophyId) {
+  const all = dynasty?.rivalryOverrides
+  if (!all || typeof all !== 'object') return null
+  const o = all[trophyId]
+  return (o && typeof o === 'object') ? o : null
+}
+
+/**
+ * The built-in rivalry catalog with this dynasty's overrides applied and every
+ * team resolved to a tid. One place that knows how a built-in rivalry becomes
+ * a concrete, editable, tid-based thing — used by both the Manage Rivalries UI
+ * and the matching engine below, so what the user sees and what the schedule
+ * badges match on can never drift apart.
+ *
+ * `hidden` entries are still RETURNED (the UI needs to show them as hidden and
+ * offer to restore) — it's the matcher's job to skip them.
+ */
+export function getBuiltInRivalries(dynasty) {
   const schoolIdx = buildSchoolIndex(dynasty)
+  return TROPHIES
+    .filter(t => t.category === 'rivalry' && Array.isArray(t.teams))
+    .map(t => {
+      const ov = getRivalryOverride(dynasty, t.id)
+      // Default teams come from the catalog's NAME list resolved against this
+      // dynasty's teams (so a renamed/teambuilder school still matches). An
+      // override supplies tids directly and wins outright.
+      const defaultTids = []
+      for (const nm of t.teams) {
+        const tid = resolveTeamNameToTid(nm, schoolIdx, dynasty)
+        if (tid != null && !defaultTids.includes(tid)) defaultTids.push(tid)
+      }
+      const teamTids = Array.isArray(ov?.teamTids)
+        ? ov.teamTids.map(Number).filter(Number.isFinite)
+        : defaultTids
+      return {
+        id: t.id,
+        name: ov?.name || t.gameName || t.name,
+        image: ov?.imageUrl !== undefined ? (ov.imageUrl || null) : (t.image || null),
+        teamTids,
+        hidden: ov?.hidden === true,
+        // What stock looks like, so the UI can offer "reset to default" and
+        // show the user what they'd be reverting to.
+        defaults: { name: t.gameName || t.name, image: t.image || null, teamTids: defaultTids },
+        isOverridden: !!ov,
+      }
+    })
+}
+
+function resolveRivalryTidSets(dynasty) {
   const out = []
-  for (const t of TROPHIES) {
-    if (t.category !== 'rivalry' || !Array.isArray(t.teams)) continue
-    const tids = new Set()
-    for (const nm of t.teams) {
-      const tid = resolveTeamNameToTid(nm, schoolIdx, dynasty)
-      if (tid != null) tids.add(tid)
-    }
-    if (tids.size >= 2) out.push({ id: t.id, tids })
+  for (const r of getBuiltInRivalries(dynasty)) {
+    // A hidden built-in must stop matching games entirely — that's the whole
+    // point of hiding it (e.g. a dynasty where those schools aren't rivals).
+    if (r.hidden) continue
+    const tids = new Set(r.teamTids)
+    if (tids.size >= 2) out.push({ id: r.id, tids, name: r.name, imageUrl: r.image })
   }
 
   // User-defined rivalries from the Manage Rivalries page:
@@ -254,7 +308,20 @@ export function getRivalryTrophyForTeams(dynasty, tidA, tidB) {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return null
   for (const r of resolveRivalryTidSets(dynasty)) {
     if (!r.tids.has(a) || !r.tids.has(b)) continue
-    if (!r.custom && r.id && TROPHY_BY_ID[r.id]) return TROPHY_BY_ID[r.id]
+    if (!r.custom && r.id && TROPHY_BY_ID[r.id]) {
+      // Return the OVERRIDDEN name/image when the user edited this built-in,
+      // so the schedule badge and game title show their version rather than
+      // the stock catalog entry. Falls through to the catalog object untouched
+      // when nothing was overridden.
+      const stock = TROPHY_BY_ID[r.id]
+      if (r.name && r.name !== (stock.gameName || stock.name)) {
+        return { ...stock, name: r.name, gameName: r.name, image: r.imageUrl ?? stock.image }
+      }
+      if (r.imageUrl !== undefined && r.imageUrl !== stock.image) {
+        return { ...stock, image: r.imageUrl }
+      }
+      return stock
+    }
     if (r.custom) {
       // A user-defined rivalry carries its own name and (optional) trophy image
       // URL. Return a synthetic trophy so the rivalries filter, game title, and

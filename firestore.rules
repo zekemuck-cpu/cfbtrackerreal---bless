@@ -400,33 +400,6 @@ service cloud.firestore {
                      && request.auth.uid in parentDynasty().get('editors', []);
       }
 
-      // ─── Recruiting Database (subcollection) ────────────────────
-      // One doc per recruit: dynasties/{id}/recruitingDatabase/{pid}
-      // Holds the recruits imported/scouted into a dynasty's Recruiting
-      // Database — previously a plain array field on the main doc
-      // (recruitingDatabasePlayers), moved out for the same 1 MB-cap
-      // reason as players/games/weekRecaps/seasons above. Same access
-      // model as those: owner needs premium, invited editors can write
-      // without their own subscription.
-      match /recruitingDatabase/{recruitId} {
-        allow read: if isSignedIn()
-                    && parentDynasty().userId == request.auth.uid;
-        allow read: if isSignedIn()
-                    && request.auth.uid in parentDynasty().get('editors', []);
-        allow read: if parentDynasty().isPublic == true;
-
-        allow write: if isPremium()
-                     && parentDynasty().userId == request.auth.uid;
-        // Owner can always DELETE their own dynasty's docs (teardown),
-        // even if premium has lapsed. You can always remove your own
-        // data; premium only gates create/update (storage cost) above.
-        allow delete: if isSignedIn()
-                      && parentDynasty().userId == request.auth.uid;
-        allow write: if isSignedIn()
-                     && parentDynasty().userId != request.auth.uid
-                     && request.auth.uid in parentDynasty().get('editors', []);
-      }
-
       // ─── Team Future (Scheme Builder depth-chart plans) ─────────
       // One doc per tid: dynasties/{id}/teamFuture/{tid}. Previously a
       // single object field on the main doc (teamFuture), moved out for

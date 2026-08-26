@@ -1,3 +1,5 @@
+import { isDocTooLargeError } from './firestoreErrors'
+
 // cloudSyncStatus — a tiny observable store of Firestore write-sync health.
 //
 // The app writes through settleOrProceed (see firestoreWriteGuard.js), which
@@ -64,9 +66,19 @@ export function getSyncStatus() {
   return snapshot()
 }
 
+// BOTH code and message. This used to be `err.code || err.message`, which
+// returned 'invalid-argument' and discarded the message — but the message is
+// the only part that says WHICH limit was hit ('too many index entries for
+// entity', 'exceeds the maximum allowed size', 'entity is too big'), and it's
+// also where updateDynasty's payload audit appends the offending field paths.
+// A user screenshotted this banner reading a bare 'invalid-argument' while the
+// message underneath held the actual answer.
 function errText(err) {
   if (!err) return 'unknown error'
-  return err.code || err.message || String(err)
+  const code = err.code ? String(err.code) : ''
+  const msg = err.message ? String(err.message) : ''
+  if (code && msg) return msg.includes(code) ? msg : `${code}: ${msg}`
+  return code || msg || String(err)
 }
 
 // ── Called by settleOrProceed ────────────────────────────────────────────────
@@ -90,14 +102,31 @@ export function trackWriteResolved(id) {
   if (!e) return
   if (e.timer) clearTimeout(e.timer)
   inflight.delete(id)
+  // A server-acked write proves the doc is writable again — clear any sticky
+  // rejection state (e.g. doc-too-large after the user ran the subcollection
+  // migration) so its banner dismisses itself exactly when the problem is
+  // actually fixed, not on a timer.
+  if (lastError) lastError = null
   emit()
 }
 
 // The write rejected (permission-denied, oversized doc, etc.) — a real error.
+// Unlike the suppressed stalled-ack signal (which false-positives on wedged
+// but-still-syncing connections), a rejection is definitive: the server
+// refused the write and the data is NOT in the cloud. docTooLarge marks the
+// one rejection class with a specific user remedy (Danger Zone → Migrate to
+// Subcollections); CloudSyncBanner renders it loudly.
 export function trackWriteFailed(id, err) {
   const e = inflight.get(id)
   if (e && e.timer) clearTimeout(e.timer)
   inflight.delete(id)
-  lastError = { message: errText(err), at: Date.now() }
+  // Loud by design. A rejection can land AFTER settleOrProceed's grace
+  // released the caller — the save already reported success, so this line
+  // is the only trace of why the data silently reverted. A real field
+  // report ("sync works, then ~30s later everything snaps back to
+  // preseason") was exactly this: the rejection arrived late, was recorded
+  // here, and nothing rendered or logged it.
+  console.error(`[cloudSync] write REJECTED by server${e?.label ? ` (${e.label})` : ''}:`, err)
+  lastError = { message: errText(err), label: e?.label || null, at: Date.now(), docTooLarge: isDocTooLargeError(err) }
   emit()
 }

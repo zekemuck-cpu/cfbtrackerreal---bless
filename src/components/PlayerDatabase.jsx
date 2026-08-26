@@ -18,7 +18,7 @@ import { downloadRecruitingDatabaseJson, computeRecentRanks, reorderByRecentRank
 import { getContrastTextColor } from '../utils/colorUtils';
 import { Modal } from './ui';
 import ScoutScorePanel from './ScoutScorePanel';
-import { getEditionKey } from '../editions';
+import { getEditionKey, isPcAutoDynasty } from '../editions';
 
 // Places the gem/bust icon at the diagonal right end of the name's actual
 // FIRST rendered line — whether that line ends up being the whole name (short
@@ -542,7 +542,7 @@ export function GradeReportContent({ player: rawPlayer, allPlayers, weightsMap, 
   // dynasty's chosen alternative to MaxPlaysCFB, so it shouldn't also show
   // up here once they've opted into their own grading system instead.
   const { currentDynasty } = useDynasty();
-  const showScoutScore = getEditionKey(currentDynasty) === 'cfb27' && !currentDynasty?.scoutStaffEnabled;
+  const showScoutScore = getEditionKey(currentDynasty) === 'cfb27' && !(currentDynasty?.scoutStaffEnabled && isPcAutoDynasty(currentDynasty));
   // A Recruiting Database entry always has attributes filled in, but a fresh
   // Targets recruit can genuinely have attributes: null (not scouted yet) —
   // normalize once here so every helper below (calcWeightedAvg,

@@ -95,7 +95,7 @@ function _drainBatchCommitQueue() {
   }
 }
 
-function commitBatch(batch) {
+export function commitBatch(batch) {
   return new Promise((resolve, reject) => {
     const run = () => {
       _activeBatchCommits++
@@ -2547,13 +2547,21 @@ async function deleteSubcollection(dynastyId, subcollectionName) {
     // dynasty that's 10 batches × ~500ms RTT + ~900ms of artificial
     // sleep = ~6s just for the players subcollection. Parallel
     // commits land in roughly one round-trip.
+    //
+    // Through commitBatch, not batch.commit() directly: this is the single
+    // heaviest fan-out in the file — a 5,000-player dynasty queues ~11
+    // commits here at once, and deleteDynasty calls this for six
+    // subcollections in parallel, so unbounded it can put 60+ commits on
+    // one write stream. The limiter keeps the batches overlapping (so the
+    // latency win above still holds) but caps how many are actually in
+    // flight.
     const batches = []
     for (let i = 0; i < snapshot.docs.length; i += BATCH_SIZE) {
       const batch = writeBatch(db)
       for (const docSnap of snapshot.docs.slice(i, i + BATCH_SIZE)) {
         batch.delete(docSnap.ref)
       }
-      batches.push(batch.commit())
+      batches.push(commitBatch(batch))
     }
     await Promise.all(batches)
   } catch (error) {

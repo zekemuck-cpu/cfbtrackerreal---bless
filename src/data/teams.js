@@ -265,6 +265,11 @@ export function stripMascotFromName(fullName) {
 // "Texas A&M" match "Texas A and M".
 const normNameKey = (s) => String(s || '')
   .toLowerCase()
+  // Strip diacritics before the alphanumeric filter below, which would
+  // otherwise turn an accented letter into a SPACE rather than its plain
+  // equivalent — "San Jose State" and "San José State" then failed to match.
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
   .replace(/[''ʻ`.]/g, '')
   .replace(/&/g, ' and ')
   .replace(/[^a-z0-9]+/g, ' ')
@@ -290,14 +295,38 @@ export function getTidFromTeamText(text, dynastyTeams = null) {
 
   // Tolerant school-name scan: compare punctuation-normalized school names so
   // apostrophe/diacritic/ampersand variants still resolve.
-  const school = (s) => normNameKey(stripMascotFromName(String(s || ''))) || normNameKey(s)
-  const target = school(raw)
-  if (!target) return null
+  // Compare VARIANT SETS rather than one canonical string. Two reasons the
+  // single-string form missed real matches:
+  //   - stripMascotFromName treats a trailing "St"/"State" as the mascot on a
+  //     short input ("Boise St" -> "Boise"), so the stripped form alone can't
+  //     be trusted; the unstripped form has to stay in play.
+  //   - "Boise St" / "App St" / "Sam Houston St" are everywhere in pasted
+  //     scoreboards. Expanding a standalone "st" word to "state" is safe for
+  //     FBS (no school name contains a "St."/"Saint" word) and deliberately
+  //     ONE-WAY — dropping "State" instead would merge genuinely different
+  //     schools (Washington vs Washington State).
+  const expandSt = (s) => s.replace(/\bst\b/g, 'state')
+  const variants = (s) => {
+    const full = normNameKey(s)
+    const stripped = normNameKey(stripMascotFromName(String(s || '')))
+    const out = new Set()
+    for (const v of [full, stripped]) {
+      if (!v) continue
+      out.add(v)
+      out.add(expandSt(v))
+    }
+    return out
+  }
+  const targets = variants(raw)
+  if (targets.size === 0) return null
 
   const scan = (teamsObj) => {
     if (!teamsObj || typeof teamsObj !== 'object') return null
     for (const [tid, team] of Object.entries(teamsObj)) {
-      if (team?.name && school(team.name) === target) return Number(tid)
+      if (!team?.name) continue
+      for (const v of variants(team.name)) {
+        if (targets.has(v)) return Number(tid)
+      }
     }
     return null
   }

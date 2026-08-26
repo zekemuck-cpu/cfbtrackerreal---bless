@@ -77,6 +77,54 @@ describe('console dynasty — manually entered box scores still credit stats', (
     // into a materialized empty stat line.
     expect(out[1].statsByYear?.[2026]?.passing).toBeUndefined()
   })
+
+  // Real incident: a console dynasty whose season stats were entered through
+  // the Season Stats sheet (statsByYear written directly, no game boxScore
+  // behind them) lost the whole roster's stats when revertWeek triggered a
+  // resync. The clearing branch assumed every stat in a box-score category
+  // was box-score-derived and "healed" the sheet data away.
+  it('a resync with ZERO box-scored games changes nothing at all', () => {
+    const players = [{
+      pid: 1, name: 'Jack Moran', position: 'QB', teamsByYear: { 2026: 10 },
+      statsByYear: { 2026: { passing: { yds: 3200, tds: 28 }, gamesPlayed: 12 } },
+    }]
+    const games = [
+      { id: 'g1', year: 2026, team1Tid: 10, team2Tid: 20, homeTeamTid: 10, team1Score: 31, team2Score: 10 },
+    ]
+    const out = recalculateStatsFromBoxScores(players, games, 2026, { skipGamesPlayed: false })
+    expect(out[0].statsByYear[2026].passing.yds).toBe(3200)
+    expect(out[0].statsByYear[2026].gamesPlayed).toBe(12)
+  })
+
+  it('sheet-entered stats survive when only OTHER teams have box scores', () => {
+    // One CPU game somewhere in the league has a box score; the user's own
+    // team (tid 30) never appears in any box-scored game. Their sheet-entered
+    // stats cannot be residue of those box scores and must be left alone.
+    const players = [{
+      pid: 1, name: 'Rice Quarterback', position: 'QB', teamsByYear: { 2026: 30 },
+      statsByYear: { 2026: { passing: { yds: 2900, tds: 24 }, gamesPlayed: 11 } },
+    }]
+    const games = [
+      { id: 'g1', year: 2026, team1Tid: 10, team2Tid: 20, homeTeamTid: 10, boxScore: box },
+    ]
+    const out = recalculateStatsFromBoxScores(players, games, 2026, { skipGamesPlayed: false })
+    expect(out[0].statsByYear[2026].passing.yds).toBe(2900)
+    expect(out[0].statsByYear[2026].gamesPlayed).toBe(11)
+  })
+
+  it('still clears stale residue for a player whose team IS in a box-scored game', () => {
+    // The healing the clearing branch exists for must keep working: tid 10
+    // participates in the box-scored game, this player has box-score-shaped
+    // stats, but the current box score no longer credits them.
+    const players = [{
+      pid: 9, name: 'Ghost Player', position: 'WR', teamsByYear: { 2026: 10 },
+      statsByYear: { 2026: { receiving: { yds: 500 }, gamesPlayed: 4 } },
+    }]
+    const games = [{ id: 'g1', year: 2026, team1Tid: 10, team2Tid: 20, homeTeamTid: 10, boxScore: box }]
+    const out = recalculateStatsFromBoxScores(players, games, 2026, { skipGamesPlayed: false })
+    expect(out[0].statsByYear[2026].receiving).toBeUndefined()
+    expect(out[0].statsByYear[2026].gamesPlayed).toBe(0)
+  })
 })
 
 describe('console dynasty — rankings read the same with no CFP poll present', () => {

@@ -57,13 +57,31 @@ rclone config
 
 # Upload (run from the repo root, on whichever machine has the full pack —
 # it's gitignored, so this has to be the machine it was originally built on)
-rclone copy public/cfb27-portraits r2remote:cfb27-portraits --progress
+# The DOUBLED path is not a typo — see the warning below.
+rclone copy public/cfb27-portraits r2remote:cfb27-portraits/cfb27-portraits \
+  --progress --transfers=32 --checkers=32
 ```
 
-Preserve the folder structure exactly as-is (`unique/`, `generic/`,
-`coach-unique/`, `coach-generic/`) — `mapPortraitUrl`/`mapCoachPortraitUrl`
-build paths like `/cfb27-portraits/unique/{id}.webp` and append them
-directly onto `VITE_CFB27_PORTRAIT_BASE`.
+**The destination path is `<bucket>/cfb27-portraits`, not `<bucket>`.**
+`mapPortraitUrl`/`mapCoachPortraitUrl` build `/cfb27-portraits/unique/{id}.webp`
+and append that directly onto `VITE_CFB27_PORTRAIT_BASE` — the
+`/cfb27-portraits/` segment is part of the PATH (it mirrors the local
+`public/` folder that Vite serves in dev), not the bucket name. Uploading to
+the bucket root instead puts the files at `/unique/{id}.webp`, which 404s
+every single image even though the bucket looks correctly populated. That is
+an expensive mistake to discover: it costs a full re-upload of ~26,000 files.
+
+Preserve the folder structure below that prefix exactly as-is (`unique/`,
+`generic/`, `coach-unique/`, `coach-generic/`).
+
+`--transfers=32` matters — 26k small files is latency-bound, not
+bandwidth-bound, and rclone's default of 4 makes this take hours longer.
+
+Verify before declaring victory (expect `200`, not `404`):
+
+```bash
+curl -I https://<your-public-host>/cfb27-portraits/unique/<an-id-you-uploaded>.webp
+```
 
 ### 4. Set the env var
 

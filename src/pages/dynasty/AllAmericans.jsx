@@ -165,7 +165,12 @@ export default function AllAmericans() {
   const handleAllAmericansSave = async (data) => {
     const year = displayYear
 
-    if (data.allAmericans && data.allAmericans.length > 0) {
+    // Preseason picks are PREDICTIONS, not earned honors. processHonorPlayers
+    // writes the accolade onto each player's permanent career record, so
+    // running it for a preseason list would stamp a real All-American honor
+    // on a player who hasn't earned one — visible forever on their player
+    // page and in every honors tally. Only final honors get attributed.
+    if (!isPreseasonView && data.allAmericans && data.allAmericans.length > 0) {
       const aaEntries = data.allAmericans.map(entry => ({
         ...entry,
         name: entry.player,
@@ -229,12 +234,24 @@ export default function AllAmericans() {
 
     const existingByYear = currentDynasty.allAmericansByYear || {}
     const existingYearData = existingByYear[year] || {}
+    // Route the entered list to the store matching the view it was entered
+    // from. Preseason picks and final honors are two independent lists on the
+    // same year (allAmericansPreseason vs allAmericans) — the modal emits its
+    // rows under `allAmericans` regardless, so writing that key blindly made
+    // preseason entry overwrite the postseason list. Reported as "when you add
+    // preseason All-Americans it makes them All-Americans for the postseason,
+    // it doesn't differentiate."
+    const { allAmericans: enteredList, ...restOfData } = data
+    const routed = { ...restOfData }
+    if (enteredList !== undefined) {
+      routed[isPreseasonView ? 'allAmericansPreseason' : 'allAmericans'] = enteredList
+    }
     await updateDynasty(currentDynasty.id, {
       allAmericansByYear: {
         ...existingByYear,
         [year]: {
           ...existingYearData,
-          ...data
+          ...routed
         }
       }
     })
@@ -554,6 +571,7 @@ export default function AllAmericans() {
         onSave={handleAllAmericansSave}
         currentYear={displayYear}
         teamColors={teamColors}
+        variant={isPreseasonView ? 'preseason' : 'final'}
       />
     </div>
   )

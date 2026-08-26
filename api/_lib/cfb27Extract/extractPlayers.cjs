@@ -110,11 +110,12 @@ async function getAllTableRecords(save, name) {
       // decode failure, not "this instance is just an empty scratch copy")
       // came back as an empty array indistinguishable from "the save
       // genuinely has none of these," with zero trace anywhere. Caught the
-      // "All Coaches leaderboard empty" report: the in-game Coach Stats
-      // screen showed the data was there, but getAllTableRecords(save,
-      // 'Coach') returned []. Logging + reporting it here (not just
-      // buildAllHeadCoaches counting zero rows afterward) is what actually
-      // distinguishes "no data" from "couldn't read it."
+      // "All Coaches leaderboard empty" report (that leaderboard has since
+      // been removed): the in-game Coach Stats screen showed the data was
+      // there, but getAllTableRecords(save, 'Coach') returned []. Logging +
+      // reporting it here, rather than letting a caller silently count zero
+      // rows afterward, is what distinguishes "no data" from "couldn't read
+      // it."
       readErrors++;
       lastError = err;
       console.warn(`[getAllTableRecords] "${name}" instance failed to read: ${err?.message || err}`);
@@ -1813,7 +1814,7 @@ async function buildLeagueHonors(save, awardRecords) {
 // CoachAward table (Franchise-Schemas/CoachAward.ftx: AwardType/Coach/Team),
 // not PlayerAward, since the winner is a coach, not a player. Coach is a
 // direct reference to a Coach row (FirstName/LastName), same resolution
-// pattern buildCoachingStaff/buildAllHeadCoaches already use elsewhere.
+// pattern buildCoachingStaff already uses elsewhere.
 const COACH_AWARD_TYPES = {
   BEST_HC: 'bearBryantCoachOfTheYear',
   BEST_AC: 'broyles',

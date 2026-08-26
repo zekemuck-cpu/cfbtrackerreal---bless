@@ -81,10 +81,10 @@ describe('stripTeamsByYearFlatFields', () => {
         for (const subField of Object.values(TEAMS_BYYEAR_FLAT_FIELDS)) {
           expect(subField in strippedYear).toBe(false)
         }
-        // Deliberately-excluded and unrelated fields must survive untouched
-        expect(strippedYear.conference).toBe('Big Ten')
-        expect(strippedYear.record).toBe('10-2')
-        expect(strippedYear.teamRecord).toBe('10-2')
+        // conference/record/teamRecord are routed as of the Phase C audit, so
+        // they're covered by the `subField in strippedYear` loop above. What
+        // still matters is that stripping is SURGICAL: a field nobody routed
+        // must survive, or the strip is eating unrelated user data.
         expect(strippedYear.customField).toBe('untouched')
       }
       // Team meta fields untouched
@@ -99,8 +99,10 @@ describe('stripTeamsByYearFlatFields', () => {
 
     expect(extracted.rankByWeekByTeamYear['0']['2029']).toEqual(teams['0'].byYear[2029].rankByWeek)
     expect(extracted.schedulesByTeamYear['1']['2029']).toEqual(teams['1'].byYear[2029].schedule)
-    // Excluded fields must never appear in the extracted output at all
-    expect(extracted.conferenceByTeamYear).toBeUndefined()
+    // conference is routed as of the Phase C audit — it must now appear,
+    // under its OWN flat store (the record/teamRecord split is what made
+    // routing these three safe; see foldTeamsByYearFieldsFromFlat.test.js).
+    expect(extracted.conferenceByTeamYear['0']['2029']).toEqual(teams['0'].byYear[2029].conference)
   })
 
   it('actually shrinks serialized size — the whole point of the migration', () => {
@@ -120,7 +122,9 @@ describe('stripTeamsByYearFlatFields', () => {
   })
 
   it('is a no-op (returns the same reference) when nothing needs stripping', () => {
-    const teams = { 0: { tid: 0, abbr: 'T0', byYear: { 2029: { conference: 'Big Ten' } } } }
+    // `wins` is not in TEAMS_BYYEAR_FLAT_FIELDS — conference no longer works
+    // as the "unrouted" example here, since Phase C routes it.
+    const teams = { 0: { tid: 0, abbr: 'T0', byYear: { 2029: { wins: 11 } } } }
     const { strippedTeams, extracted } = stripTeamsByYearFlatFields(teams)
     expect(strippedTeams).toBe(teams)
     expect(extracted).toEqual({})

@@ -142,7 +142,15 @@ export default function Rankings() {
         // weeks from the picker entirely. Only skip the one known-bogus
         // legacy sentinel ("100", a deprecated shared CCG/bowl key) —
         // every other non-negative week is a real synced snapshot.
-        if (wk < 0 || wk === 100) continue
+        // Bounded rather than fully open. The whitelist this replaces existed to
+        // keep orphan/garbage keys out of the picker, and dropping it entirely
+        // would let ANY stray key surface as a real poll week. The save's raw
+        // counter is continuous and has been seen past 20 on a deep CFP run, so
+        // 0-40 covers every legitimate raw week with room to spare, alongside the
+        // app's own canonical 101-105 postseason slots. 100 stays excluded — it's
+        // the deprecated shared CCG/bowl sentinel.
+        const isRealPollWeek = (wk >= 0 && wk <= 40) || (wk >= 101 && wk <= 105)
+        if (!isRealPollWeek || wk === 100) continue
         let v = wk >= 10 ? cfp[k] : media[k]
         if (typeof v !== 'number' || v < 1 || v > 25) v = wk >= 10 ? media[k] : cfp[k]
         if (typeof v !== 'number' || v < 1 || v > 25) continue

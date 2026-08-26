@@ -1704,7 +1704,23 @@ export default function TeamYear() {
 
   // Use games[] version first, then legacy
   const teamCCGame = ccGamesFromGames[0] || ccGamesFromLegacy[0] || null
-  const ccWinnerTid = teamCCGame?.winnerTid || resolveTid(teamCCGame?.winner, teamsSource)
+  // Winner: stored winnerTid first (CPU sheet flows write it), then the legacy
+  // winner abbr, then derive from scores. The score fallback matters because
+  // user-entered CC games (GameEdit/GameEntryModal) historically never stored
+  // winnerTid at all — without it, the user's own conference title showed no
+  // Champions badge while every CPU champion's did.
+  const ccWinnerTid = (() => {
+    if (!teamCCGame) return null
+    if (teamCCGame.winnerTid != null) return teamCCGame.winnerTid
+    const legacyWinner = resolveTid(teamCCGame.winner, teamsSource)
+    if (legacyWinner != null) return legacyWinner
+    const s1 = Number(teamCCGame.team1Score)
+    const s2 = Number(teamCCGame.team2Score)
+    if (!Number.isFinite(s1) || !Number.isFinite(s2) || s1 === s2) return null
+    const t1 = teamCCGame.team1Tid ?? resolveTid(teamCCGame.team1, teamsSource)
+    const t2 = teamCCGame.team2Tid ?? resolveTid(teamCCGame.team2, teamsSource)
+    return s1 > s2 ? t1 : t2
+  })()
   const wonCC = ccWinnerTid === tid
 
   // Get bowl game for this team in this year (tid-based)

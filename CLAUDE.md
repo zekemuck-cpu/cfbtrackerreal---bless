@@ -42,7 +42,14 @@ Do NOT commit automatically. Only commit when user explicitly requests it.
 
 ### Version stamp on every commit
 
-The footer version (e.g. `v2026.05.07.0010`) is **auto-generated at build time** by `vite.config.js` — it's `YYYY.MM.DD.NNNN` where `NNNN` is the count of today's commits. There is no hardcoded version string to bump; the build pipeline does it from git history.
+The footer version is `YYYY.MM.DD.NNNN` (e.g. `v2026.05.07.0010`), assembled in `vite.config.js`:
+
+- **`YYYY.MM.DD` auto-derives** from the build date (UTC), so it flips on its own at midnight.
+- **`NNNN` is `MANUAL_BUILD`, a hardcoded constant you MUST bump by hand on every commit that ships code.** It resets to `'0001'` on the first commit of each new UTC date and increments by one for each commit after that.
+
+It used to be derived from `git log --since="today"`, but Vercel ships **shallow clones**, so the count came back wrong and the footer stuck on the same number across deploys — destroying the one signal that tells a user "my fix actually shipped." Hence the manual constant.
+
+**Forgetting to bump it is silent.** The build succeeds, the deploy succeeds, and the footer reads the same as before — so a shipped fix looks unshipped and a stalled deploy looks fine. Note the date prefix still moves on its own, so `2026.08.03.0002` on Aug 3 means "built today, counter stale," NOT "stuck on an old build."
 
 **What this means in practice:** every commit that ships code MUST be paired with a fresh `npm run build` so the new bundle hash + version stamp land in `dist/index.html`. Workflow:
 

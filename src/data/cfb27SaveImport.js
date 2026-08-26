@@ -1,4 +1,4 @@
-// Maps rows extracted from a CFB 27 PC save (via api/cfb27-save-parse.js,
+// Maps rows extracted from a CFB 27 PC save (via api/_handlers/cfb27/save-parse.js,
 // vendored from the verified cfb27-extract tool) into the app's player
 // object shape. Mirrors defaultRosterLoader.js's per-player shaping — same
 // teamsByYear/classByYear/overallByYear/devTraitByYear/attributesByYear
@@ -17,6 +17,12 @@ import GENERIC_PORTRAIT_KEYS from './cfb27GenericPortraitKeys.json'
 import UNIQUE_COACH_PORTRAIT_IDS from './cfb27UniqueCoachPortraitIds.json'
 import GENERIC_COACH_PORTRAIT_KEYS from './cfb27GenericCoachPortraitKeys.json'
 import { calculateRecruitingClassScore } from '../utils/recruitingScore'
+// Portrait host resolution lives in imageProxy.js (dependency-free) so the
+// render-time rebase doesn't have to pull this module's portrait-manifest
+// JSONs into every bundle that renders an image. Re-exported here because
+// this is where portrait URLs are BUILT, so it's the natural import site.
+import { portraitBase, resolvePortraitUrl } from '../utils/imageProxy'
+export { portraitBase, resolvePortraitUrl }
 
 // Static manifests of what actually has a file in public/cfb27-portraits/ —
 // generated from that folder's own listing (regenerate by re-running the
@@ -266,8 +272,7 @@ export function mapPortraitUrl(genericHeadAssetName, portraitId) {
   // where the portrait pack was never deployed — every player photo fell
   // back to the team-logo/silhouette placeholder. mapCoachPortraitUrl below
   // already had this fix; this one just never got it applied.
-  const base = import.meta.env?.VITE_CFB27_PORTRAIT_BASE || window.location.origin
-  return `${String(base).replace(/\/$/, '')}${relPath}`
+  return `${portraitBase()}${relPath}`
 }
 
 // Coach counterpart to mapPortraitUrl — same two-branch scheme, same bundled
@@ -300,8 +305,7 @@ export function mapCoachPortraitUrl(genericHeadAssetName) {
   // bandwidth is free. VITE_CFB27_PORTRAIT_BASE points at that host (e.g. an
   // R2/CDN origin, no trailing slash). Falls back to this app's own origin,
   // which is what a local dev copy of public/cfb27-portraits/ uses.
-  const base = import.meta.env?.VITE_CFB27_PORTRAIT_BASE || window.location.origin
-  return `${String(base).replace(/\/$/, '')}${relPath}`
+  return `${portraitBase()}${relPath}`
 }
 
 // A handful of save rows are junk/placeholder records, not real players.
@@ -318,7 +322,7 @@ function isValidRow(row) {
 /**
  * Map one extracted save row into the app's player object shape.
  *
- * @param {object} row - one row from api/cfb27-save-parse.js's `players` array
+ * @param {object} row - one row from api/_handlers/cfb27/save-parse.js's `players` array
  * @param {object} opts
  * @param {number} opts.year - the dynasty's starting year (immutable history key)
  * @param {number} opts.pid - the pid to assign this player
@@ -424,7 +428,7 @@ function resolveTeamTid(team, teamNick, dynastyTeams) {
  * invalid/junk rows and rows whose team name doesn't resolve to a known tid
  * (e.g. the save's "FCS West" placeholder entry).
  *
- * @param {object[]} rows - raw `players` array from api/cfb27-save-parse.js
+ * @param {object[]} rows - raw `players` array from api/_handlers/cfb27/save-parse.js
  * @param {object} dynastyTeams - the dynasty's teams object (tid -> team)
  * @returns {{ byTid: Map<number, object[]>, unresolvedTeamNames: string[] }}
  */
@@ -456,7 +460,7 @@ export function groupExtractedRowsByTid(rows, dynastyTeams) {
  * save team_id space, so this map is the single source of truth for
  * resolving them to app tids without re-deriving team names per row.
  *
- * @param {object[]} rows - raw `players` array from api/cfb27-save-parse.js
+ * @param {object[]} rows - raw `players` array from api/_handlers/cfb27/save-parse.js
  * @param {object} dynastyTeams - the dynasty's teams object (tid -> team)
  * @returns {Map<number, number>} raw team_id -> app tid
  */
@@ -783,9 +787,37 @@ function gameDateTimeFields(g) {
   }
 }
 
-export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTeams) {
+// The app's canonical Conference Championship slot. gameSlot() in
+// DynastyContext returns 16 for a conference championship, and WeeklyScores
+// navigates to week 16 for that phase — but the SAVE's own CCG week is not a
+// fixed number (SeasonInfo.RegularSeasonWeekConferenceChampionship has been
+// observed as both 15 and 16 across real saves). Anything that carries a raw
+// save week straight through therefore lands the CCG on whatever number that
+// save happened to use, which is why it has to be normalized here.
+export const APP_CCG_WEEK = 16
+
+// TeamIndex 255 is the save's "not a real opponent" sentinel. It covers EA's
+// 5 directional FCS filler schools (kept — they're real schedule slots, see
+// FCS_FILLER_NAME_TO_TID) but ALSO non-game calendar entries that share the
+// sentinel. "Practice" is the preseason practice slot: it has no opponent, no
+// score, and never resolves to a team, but it was being imported as a real
+// Week 0 schedule entry with a blank logo. Beyond looking wrong, it created a
+// 0-0 game record that the recap prompt's record math counted as a LOSS
+// (reported from a real 12-0 dynasty whose write-up prompt read 11-1).
+const NON_TEAM_SENTINEL_NAMES = new Set(['practice', 'bye', 'open', 'open date', 'off', 'none'])
+
+/**
+ * @param {number|null} [ccgWeek] - the save's own conference-championship
+ *   week (SeasonInfo.conferenceChampionshipWeek). Games at this week are
+ *   remapped to APP_CCG_WEEK and tagged isConferenceChampionship so they
+ *   land in the app's Conf Champ slot instead of a regular-season week.
+ *   Omitted (null) → no CCG normalization, previous behavior.
+ */
+export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTeams, ccgWeek = null) {
   const userAbbr = dynastyTeams?.[userAppTid]?.abbr
   const out = []
+  // Raw save week -> the week the app actually files this game under.
+  const appWeek = (w) => (ccgWeek != null && w === ccgWeek ? APP_CCG_WEEK : w)
 
   for (const g of rawGames || []) {
     if (g.weekType !== 'RegularSeason') continue
@@ -808,10 +840,13 @@ export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTe
     if (rawOpponentId === 255) {
       const rawOpponentName = isHome ? g.awayTeam : g.homeTeam
       if (!rawOpponentName) continue
+      // Drop the sentinel's non-game entries (practice/bye slots) while
+      // keeping the real FCS filler schools — see NON_TEAM_SENTINEL_NAMES.
+      if (NON_TEAM_SENTINEL_NAMES.has(String(rawOpponentName).trim().toLowerCase())) continue
       const fcsTid = FCS_FILLER_NAME_TO_TID[rawOpponentName] || null
       const fcsAbbr = fcsTid != null ? (dynastyTeams?.[fcsTid]?.abbr || null) : null
       out.push({
-        week: g.week,
+        week: appWeek(g.week),
         userTeam: userAbbr,
         userTeamTid: userAppTid,
         opponent: fcsAbbr || rawOpponentName,
@@ -826,19 +861,26 @@ export function mapScheduleForTeam(rawGames, rawTeamIdMap, userAppTid, dynastyTe
     const opponentAbbr = dynastyTeams?.[opponentAppTid]?.abbr
     if (!opponentAbbr) continue
 
+    const isCCG = ccgWeek != null && g.week === ccgWeek
     out.push({
-      week: g.week,
+      week: appWeek(g.week),
       userTeam: userAbbr,
       userTeamTid: userAppTid,
       opponent: opponentAbbr,
       opponentTid: opponentAppTid,
       location: isHome ? 'home' : 'away',
+      // Tagged so the schedule diff files this as the app's Conference
+      // Championship rather than a plain regular-season game. Without it the
+      // user's own CCG either vanished (raw week 16, outside the old 0-15
+      // filter) or silently became a regular Week 15 game (raw week 15) —
+      // both reported as "sync didn't save the SEC Championship".
+      ...(isCCG ? { isConferenceChampionship: true, gameType: 'conference_championship' } : {}),
       ...gameDateTimeFields(g),
     })
   }
 
   return out
-    .filter((entry) => entry.week >= 0 && entry.week <= 15)
+    .filter((entry) => entry.week >= 0 && entry.week <= APP_CCG_WEEK)
     .sort((a, b) => a.week - b.week)
 }
 

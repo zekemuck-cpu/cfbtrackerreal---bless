@@ -81,23 +81,23 @@ export default function ScheduleEntryModal({ isOpen, onClose, onSave, currentYea
 ═══════════════════════════════════════════════════════════
 CRITICAL RULES — read before anything else
 ═══════════════════════════════════════════════════════════
-1. OUTPUT COLUMNS C AND D ONLY (2 values per row). Columns A (Week) and B (User Team) are PROTECTED and pre-filled — never output them.
-2. ROW ORDER IS FIXED: row 1 = Week 0, row 2 = Week 1, ..., row 16 = Week 15. Rows are keyed to the pre-filled Week number in column A — never reorder.
-3. Output EXACTLY 16 data rows, each with EXACTLY 2 tab-separated values.
+1. OUTPUT 3 VALUES PER ROW: the week number, then column C (CPU Team), then column D (Site). Nothing else — column B (User Team) is pre-filled and never output (rule 9).
+2. ROW ORDER IS FIXED: row 1 = Week 0, row 2 = Week 1, ..., row 16 = Week 15 — never reorder. Every row also LEADS with its own week number, so a dropped or shifted row can't silently slide the rest of the season by one.
+3. Output EXACTLY 16 data rows, each with EXACTLY 3 tab-separated values (2 tab characters).
 4. There are NO score columns. Do NOT output scores. This sheet is the pre-game schedule, not the results.
 5. TEAM NAMES ONLY (column C) — use values from the TEAM NAMES list below, OR the literal word "BYE" for a bye week. Column C is a strict dropdown.
 6. SITE (column D) must be EXACTLY one of these 3 literal values, case-sensitive: "Home", "Road", "Neutral". Do NOT use "Away" — the sheet's dropdown uses "Road" instead. Do NOT invent other values.
 7. BYE WEEKS: If the user has a bye that week, put "BYE" in column C and leave column D BLANK.
 8. BLANK CELLS if the matchup is unknown. Never guess, never use "N/A", "TBD", dash. Never leave column C blank if a game is scheduled — fill the opponent or "BYE".
 9. Never change or output the User Team (column B is pre-filled with ${targetTeamName} on every row).
-10. No header row, no Week numbers, no scores, no commentary or explanation INSIDE the data.
+10. No header row, no scores, no commentary or explanation INSIDE the data — the leading week number from rule 1 is the only extra field.
 11. Output ONLY the fenced tsv block, nothing before or after it.
 
 ═══════════════════════════════════════════════════════════
-SECTION: "Schedule" — 16 rows × 2 editable columns
+SECTION: "Schedule" — 16 rows, one per week
 ═══════════════════════════════════════════════════════════
 
-Row | Col A (PROTECTED) | Col B (PROTECTED)    | Col C (CPU Team)                             | Col D (Site)
+Row | Col A (Week)      | Col B (PROTECTED)    | Col C (CPU Team)                             | Col D (Site)
 ----+-------------------+----------------------+----------------------------------------------+-----------------------------
   1 | 0                 | ${targetTeamName}    | opponent name, or "BYE", or blank if unknown | "Home" / "Road" / "Neutral" / blank
   2 | 1                 | ${targetTeamName}    | opponent name, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
@@ -115,6 +115,9 @@ Row | Col A (PROTECTED) | Col B (PROTECTED)    | Col C (CPU Team)               
  14 | 13                | ${targetTeamName}    | opponent name, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
  15 | 14                | ${targetTeamName}    | opponent name, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
  16 | 15                | ${targetTeamName}    | opponent name, or "BYE", or blank            | "Home" / "Road" / "Neutral" / blank
+
+Col A is the week number — it is already filled in on the sheet, but each row
+of your OUTPUT must still lead with it (see rule 1). Col B is never output.
 
 Column C (CPU Team) allowed values (strict dropdown — wrong value is rejected):
   - "BYE" — for a bye week (then leave column D blank)

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { getCurrentTeamAbbr } from '../data/teamRegistry'
+import { resolvePortraitUrl } from '../utils/imageProxy'
 import { getPlayerBoxScoreTotals } from '../context/DynastyContext'
 import { useToast } from './ui/Toast'
 import { uploadImage } from '../utils/imageUpload'
@@ -1127,7 +1128,7 @@ export default function PlayerEditModalNew({
               >
                 {formData.pictureUrl ? (
                   <img
-                    src={formData.pictureUrl}
+                    src={resolvePortraitUrl(formData.pictureUrl)}
                     alt=""
                     className="w-16 h-16 rounded-full object-cover border-3 group-hover:opacity-80 transition-opacity"
                     style={{ borderColor: 'var(--surface-3)' }}

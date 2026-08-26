@@ -11,11 +11,26 @@
 // JSON at dynasty-creation time; the whole-country path
 // (buildAllDefaultRosterPlayers, cfb27 only) fetches every team's chunk in
 // parallel so a CFB 27 dynasty is fully rostered from day one.
+import { mapPortraitUrl } from './cfb27SaveImport'
+
 const rosterFiles = import.meta.glob('./defaultRosters/*.json')
 // CFB 27 launch rosters carry the full per-player attribute set (parsed from the
 // CFB27 Player Ratings workbook). Selected only for cfb27 dynasties; every team
 // is its own lazy chunk.
 const cfb27RosterFiles = import.meta.glob('./cfb27Rosters/*.json')
+
+// Per-team portrait maps: { <normalized player name>: <GenericHeadAssetName> }.
+// At dynasty start the console and PC rosters are the SAME players, so every
+// seeded player can get their real in-game face instead of a silhouette. Only
+// covers that first seed — from then on it's the user's to maintain, exactly
+// as before.
+//
+// Generated from a base save by scripts/build-default-portrait-map.mjs (the
+// bundled rosters carry no portrait id; that link exists only inside a save).
+// Per-team files and lazy, matching the roster globs above, so a dynasty
+// downloads only the teams it actually seeds. Absent or empty files are a
+// no-op — every player just keeps the blank pictureUrl it had before.
+const portraitFiles = import.meta.glob('./cfb27Portraits/*.json')
 
 // Pick the right glob + path prefix for an edition. cfb27 dynasties read the
 // attribute-rich launch rosters; everything else reads the base set.
@@ -28,6 +43,27 @@ const filesForEdition = (edition) =>
 // exists for that tid (teambuilder/custom team, or an unrostered team). For
 // cfb27 it prefers the launch roster but falls back to the base file so a team
 // that only exists in the base set still seeds.
+// MUST stay in lockstep with normalizeName in
+// scripts/build-default-portrait-map.mjs — the generator writes keys with it
+// and this reads them back, so any drift silently yields zero matches.
+const normalizePortraitName = (s) => String(s || '')
+  .toLowerCase()
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-z0-9]+/g, '')
+
+async function loadPortraitMap(numTid) {
+  const loader = portraitFiles[`./cfb27Portraits/${numTid}.json`]
+  if (!loader) return null
+  try {
+    const mod = await loader()
+    const map = mod?.default || mod
+    return map && typeof map === 'object' && Object.keys(map).length ? map : null
+  } catch {
+    return null
+  }
+}
+
 async function loadRosterData(numTid, edition) {
   const cfb27Loader = edition === 'cfb27' ? cfb27RosterFiles[`./cfb27Rosters/${numTid}.json`] : null
   const loader = cfb27Loader || rosterFiles[`./defaultRosters/${numTid}.json`]
@@ -43,7 +79,19 @@ async function loadRosterData(numTid, edition) {
 // Shape one raw bundled player record into an app player object. `pid` is the
 // already-resolved unique id (callers own pid allocation so a single team and a
 // whole-country seed can share this mapping without re-deriving ids).
-function shapeRosterPlayer(p, numTid, year, pid) {
+// Resolve a seeded player's face from the team's portrait map. Returns '' for
+// anything unmatched (a name the map doesn't carry, or no map at all), which
+// is exactly the previous behavior — the avatar then falls back to the team
+// logo as it always did.
+export function portraitUrlFor(p, portraits) {
+  if (!portraits) return ''
+  const full = p?.name || `${p?.firstName || ''} ${p?.lastName || ''}`
+  const asset = portraits[normalizePortraitName(full)]
+  if (!asset) return ''
+  return mapPortraitUrl(asset, null) || ''
+}
+
+function shapeRosterPlayer(p, numTid, year, pid, portraits = null) {
   // The sheet flow stores the player's class in `year`; mirror that.
   const klass = p.class || p.year || 'Fr'
   // readRosterFromRosterSheet defaults a blank dev trait to 'Normal'.
@@ -72,7 +120,7 @@ function shapeRosterPlayer(p, numTid, year, pid) {
     weight: p.weight != null ? p.weight : null,
     hometown: p.hometown || '',
     state: p.state || '',
-    pictureUrl: '',
+    pictureUrl: portraitUrlFor(p, portraits),
     // abilities are bonus data the sheet flow doesn't capture — keep them.
     ...(Array.isArray(p.abilities) && p.abilities.length ? { abilities: p.abilities } : {}),
 
@@ -118,7 +166,8 @@ export async function buildDefaultRosterPlayers(tid, year, startPID = 1, edition
 
   const src = Array.isArray(data?.players) ? data.players : []
   let pid = startPID
-  return src.filter(isNamedPlayer).map((p) => shapeRosterPlayer(p, numTid, year, pid++))
+  const portraits = await loadPortraitMap(numTid)
+  return src.filter(isNamedPlayer).map((p) => shapeRosterPlayer(p, numTid, year, pid++, portraits))
 }
 
 /**
@@ -156,7 +205,13 @@ export async function buildAllDefaultRosterPlayers(teams, year, startPID = 1, ed
     .sort((a, b) => a - b)
 
   // Load every team's raw data in parallel; preserve tid order for pid stability.
-  const raws = await Promise.all(tids.map((t) => loadRosterData(t, edition)))
+  // Portrait maps load alongside them — same per-team lazy chunks, so this adds
+  // no extra round trips beyond the teams already being seeded, and resolves to
+  // null for any team without one.
+  const [raws, portraitMaps] = await Promise.all([
+    Promise.all(tids.map((t) => loadRosterData(t, edition))),
+    Promise.all(tids.map((t) => loadPortraitMap(t))),
+  ])
 
   const players = []
   let pid = startPID
@@ -164,7 +219,7 @@ export async function buildAllDefaultRosterPlayers(teams, year, startPID = 1, ed
     const src = Array.isArray(raws[i]?.players) ? raws[i].players : []
     for (const p of src) {
       if (!isNamedPlayer(p)) continue
-      players.push(shapeRosterPlayer(p, numTid, year, pid++))
+      players.push(shapeRosterPlayer(p, numTid, year, pid++, portraitMaps[i]))
     }
   })
   return players

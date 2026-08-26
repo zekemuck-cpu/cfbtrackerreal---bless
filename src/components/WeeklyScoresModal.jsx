@@ -992,6 +992,9 @@ Don't just glance at this list. Physically execute each check on your draft.
     // the data. Only enforced when prior save had a meaningful count.
     const priorCount = Number(currentDynasty?.weeklyScoresEntered?.[year]?.[week]?.gameCount) || 0
     const newCount = games.filter(g => typeof g.homeScore === 'number' && typeof g.awayScore === 'number').length
+    // Scheduled-only rows (no scores) still count as content — an empty save
+    // means neither played games nor scheduled matchups came through.
+    const schedRowCount = games.filter(g => g.homeScore == null && g.awayScore == null && g.homeTid && g.awayTid).length
     if (priorCount >= 20 && newCount < priorCount * 0.8 && (priorCount - newCount) >= 10) {
       const ok = await confirm({
         title: 'Game count dropped sharply',
@@ -1002,7 +1005,24 @@ Don't just glance at this list. Physically execute each check on your draft.
       if (!ok) return false
     }
 
-    await saveWeeklyScores(currentDynasty.id, games, year, week, rankWeek)
+    // Intentional CLEAR. saveWeeklyScores hard-blocks an empty save so a
+    // failed paste can't silently wipe a saved week — but that also made a
+    // mistakenly-entered week impossible to undo here, since emptying the
+    // sheet is the only way to remove its last game. Ask once, in terms that
+    // separate the two cases (a failed paste is an accident; deleting every
+    // game is a decision), and pass the confirmation through.
+    let allowEmptyClear = false
+    if (newCount === 0 && schedRowCount === 0 && priorCount > 0) {
+      allowEmptyClear = await confirm({
+        title: `Delete all ${priorCount} saved game${priorCount === 1 ? '' : 's'} for Week ${week}?`,
+        message: `The sheet is empty, so saving it removes every game already saved for Week ${week}, ${year}. Say Cancel if your paste just failed to come through — your data is untouched either way.`,
+        confirmLabel: 'Delete them',
+        variant: 'danger',
+      })
+      if (!allowEmptyClear) return false
+    }
+
+    await saveWeeklyScores(currentDynasty.id, games, year, week, rankWeek, { allowEmptyClear })
     const schedCount = games.filter(g => g.homeScore == null && g.awayScore == null && g.homeTid && g.awayTid).length
     const parts = []
     if (newCount > 0 || schedCount === 0) parts.push(`${newCount} game${newCount === 1 ? '' : 's'}`)

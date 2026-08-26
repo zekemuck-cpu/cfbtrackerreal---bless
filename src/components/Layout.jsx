@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext'
 import { useCurrentTeamColors } from '../hooks/useTeamColors'
 import { getTeamLogoByTid } from '../data/teams'
 import { TEAMS, getCurrentTeamAbbr, getCurrentTeamTid, getCurrentTeamName } from '../data/teamRegistry'
-import { isCfb27 } from '../editions'
 import { warmScoutScoresForDynasty } from '../utils/scoutScore'
 import ClassAdvancementModal from './ClassAdvancementModal'
 import CloudSyncBanner from './CloudSyncBanner'
@@ -84,7 +83,7 @@ function PcLoadProgress({ dynastyId, getPcLoadProgress }) {
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly, isPcDynastyDataConfirmed, getPcLoadProgress } = useDynasty()
+  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly, migrateToSubcollections, isPcDynastyDataConfirmed, getPcLoadProgress } = useDynasty()
   const [showCfb27SyncModal, setShowCfb27SyncModal] = useState(false)
   // PC (CFB27) dynasties get their state from "Sync from Save," not manual
   // week advancement — the header's Advance Week control is replaced with a
@@ -250,6 +249,88 @@ export default function Layout({ children }) {
     }
   }, [])
 
+  // ── Auto-migrate un-migrated CLOUD dynasties to subcollections ──────────
+  //
+  // WHY THIS RUNS BY ITSELF: a legacy cloud dynasty keeps players/games ON the
+  // main document. As it grows, the main doc approaches Firestore's 1 MiB cap,
+  // and once there the server starts REJECTING writes. Every save batches a
+  // main-doc lastModified bump atomically, so games, rankings, recruiting —
+  // everything — fails at once, while the optimistic local state keeps showing
+  // the data. Users experienced that as "it freezes", "batch edit doesn't
+  // work", and "it says it saved but on reload a whole season is gone". The
+  // remedy already existed (Danger Zone -> Migrate to Subcollections) but it
+  // required knowing the button was there and what it was for, so people only
+  // found it AFTER losing data. Nothing about that is discoverable, hence this.
+  //
+  // Safe to run unattended, by construction:
+  //   • migrateDynastyToSubcollections re-reads the MAIN DOC from Firestore
+  //     itself — it never trusts React state, so a partially-hydrated client
+  //     can't cause it to migrate (and then delete) an incomplete roster.
+  //   • It writes players + games into their subcollections FIRST and only
+  //     then deletes the arrays from the main doc. A failure part-way leaves
+  //     both copies — the safe direction — and re-running is idempotent.
+  //   • It no-ops on an already-migrated dynasty.
+  //
+  // Deliberately gated: cloud only (local storage has no doc cap), never in
+  // view-only mode (a read-only viewer has no write permission and it isn't
+  // their dynasty to restructure), and ONE attempt per dynasty per session —
+  // same reasoning as the v2 stamp above, so a write that doesn't stick can't
+  // turn every listener snapshot into another migration attempt. Scheduled at
+  // idle so it never competes with the initial load.
+  const subcollectionMigrationAttemptedRef = useRef(new Set())
+  useEffect(() => {
+    const dyn = currentDynasty
+    if (!dyn?.id || isViewOnly) return
+    if (dyn._subcollectionsMigrated) return
+    // Cloud only. A firebase-style id is the same signal updateDynasty uses.
+    const looksLikeFirebaseId = typeof dyn.id === 'string' && dyn.id.length >= 20 && !/^\d+$/.test(dyn.id)
+    const isCloud = dyn.storageType === 'cloud' || looksLikeFirebaseId
+    if (!isCloud) return
+    if (subcollectionMigrationAttemptedRef.current.has(dyn.id)) return
+    subcollectionMigrationAttemptedRef.current.add(dyn.id)
+
+    const dynastyId = dyn.id
+    const run = async () => {
+      try {
+        const result = await migrateToSubcollections(dynastyId)
+        // No `cancelled` guard here on purpose: a SUCCESSFUL migration flips
+        // _subcollectionsMigrated, which re-runs this effect and fires the
+        // cleanup — so a cancel-check after the await would suppress the toast
+        // in exactly the case it's meant for.
+        if (!result?.success || result.alreadyMigrated) return
+        const moved = (result.playerCount || 0) + (result.gameCount || 0)
+        if (moved > 0) {
+          toast.success('Cloud storage optimized — your dynasty is set up to keep saving as it grows.')
+        }
+      } catch (err) {
+        // Never surface this to the user: it's a background optimization, the
+        // dynasty still works un-migrated, and it retries next session.
+        console.error('[auto-migrate] subcollection migration failed:', err)
+      }
+    }
+
+    let idleId = null
+    let timerId = null
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(run, { timeout: 8000 })
+    } else {
+      timerId = setTimeout(run, 3000)
+    }
+    return () => {
+      if (idleId != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idleId)
+      if (timerId != null) clearTimeout(timerId)
+    }
+    // Deps are NARROW on purpose. currentDynasty is a fresh object on every
+    // real-time listener snapshot; depending on it would re-run this effect
+    // constantly, and each re-run's cleanup cancels the still-pending idle
+    // callback while the once-per-session ref guard stops the new run from
+    // rescheduling it — the migration would be cancelled forever and never
+    // actually fire. Every field read above is listed here, so the closure
+    // cannot go stale. migrateToSubcollections/toast are omitted deliberately:
+    // their identities change per render, their behavior does not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDynasty?.id, currentDynasty?._subcollectionsMigrated, currentDynasty?.storageType, isViewOnly])
+
   // Warm the ScoutScore cache for this dynasty's current-year recruiting targets
   // so the Scout Board is already populated when the user opens Recruiting
   // (instead of a few-second fetch on first click). Scheduled during browser
@@ -270,7 +351,7 @@ export default function Layout({ children }) {
     if (!dyn?.id || !(dyn.players?.length > 0)) return
     // Scout Staff mode replaces the MaxPlaysCFB ScoutScore surfaces, so don't
     // warm (or hit) the ScoutScore cache for those dynasties.
-    if (dyn.scoutStaffEnabled && isCfb27(dyn)) return
+    if (dyn.scoutStaffEnabled && isPcAutoDynasty(dyn)) return
     if (warmedDynastyRef.current === dyn.id) return
     warmedDynastyRef.current = dyn.id
 

@@ -68,6 +68,7 @@ import {
   getSeasonsSubcollection,
   splitSeasonalUpdateByYear,
   writeSeasonalUpdate,
+  replaceSeasonConferenceDivisions,
   diffSeasonalDeletions,
   migrateSeasonalFieldsToSubcollection,
   migrateTeamsByYearDuplicatesToSubcollection,
@@ -120,7 +121,7 @@ import {
 } from '../data/teamRegistry'
 import { importUniverse, mergePosts, ensureUniverseLoaded, DEFAULT_SOCIAL_SETTINGS, DEFAULT_SOCIAL_PLATFORM, SOCIAL_UNIVERSE_VERSION } from '../data/socialModel'
 import { findMatchingPlayer, getPlayerLastHonorDescription, normalizePlayerName } from '../utils/playerMatching'
-import { syncDerivedFieldsFromV2, legacyMovementToCanonical } from '../data/rosterModel'
+import { syncDerivedFieldsFromV2, legacyMovementToCanonical, reconcileDevTraitMirror } from '../data/rosterModel'
 import { buildDefaultRosterPlayers, buildAllDefaultRosterPlayers } from '../data/defaultRosterLoader'
 import { bulkSeedPlayers } from '../utils/cfb27BulkSeed'
 import { syncPlayersToSubcollection } from '../utils/cfb27SyncPlayers'
@@ -139,6 +140,7 @@ import { migrateTeamNameParts } from '../data/teams'
 import { isSameWeek, isSameYear } from '../utils/compareUtils'
 import { shapeTargetForDatabase } from '../utils/recruitAttributes'
 import { settleOrProceed } from '../utils/firestoreWriteGuard'
+import { describeInvalidFirestoreValues, findInvalidFirestoreValues } from '../utils/firestorePayloadAudit'
 import { withTimeout } from '../utils/withTimeout'
 import { normalizeEditionKey, DEFAULT_EDITION, isPcAutoDynasty } from '../editions'
 import { getSyncStamp, setSyncStamp } from '../utils/subcollectionSyncStamp'
@@ -847,6 +849,194 @@ export function isCFPGameWinner(game, tid) {
   if (!Number.isFinite(s1) || !Number.isFinite(s2) || s1 === s2) return false
   const winnerTid = s1 > s2 ? game.team1Tid : game.team2Tid
   return winnerTid === tid
+}
+
+/**
+ * Resolve which bracket slot a CFP game belongs to, from whatever identity
+ * it carries: an explicit cfpSlot, a slot-shaped id, its bowl name, or —
+ * for semifinals/first round — the participants' seeds. Seed lookups are
+ * Number-coerced (legacy cfpSeeds store tid as a string; game records store
+ * numbers — a strict === matched nothing).
+ */
+export function resolveCfpSlotForGame(dynasty, game) {
+  if (!game) return null
+  const type = detectGameType(game)
+  const prefixByType = {
+    [GAME_TYPES.CFP_FIRST_ROUND]: 'cfpfr',
+    [GAME_TYPES.CFP_QUARTERFINAL]: 'cfpqf',
+    [GAME_TYPES.CFP_SEMIFINAL]: 'cfpsf',
+    [GAME_TYPES.CFP_CHAMPIONSHIP]: 'cfpnc',
+  }
+  const prefix = prefixByType[type]
+  if (!prefix) return null
+
+  if (typeof game.cfpSlot === 'string' && game.cfpSlot.startsWith(prefix)) return game.cfpSlot
+  const idMatch = typeof game.id === 'string' && game.id.match(/^(cfp(?:fr|qf|sf)\d|cfpnc)-\d+$/)
+  if (idMatch && idMatch[1].startsWith(prefix)) return idMatch[1]
+  if (prefix === 'cfpnc') return 'cfpnc'
+  if (game.bowlName) {
+    const byBowl = getSlotIdFromBowlName(game.bowlName)
+    if (byBowl && byBowl.startsWith(prefix)) return byBowl
+  }
+
+  const seeds = dynasty?.cfpSeedsByYear?.[game.year] ?? dynasty?.cfpSeedsByYear?.[String(game.year)] ?? []
+  const seedOf = (tid) => {
+    if (tid == null) return null
+    const entry = seeds.find(s => s && s.tid != null && Number(s.tid) === Number(tid))
+    return entry?.seed ?? null
+  }
+  const s1 = seedOf(game.team1Tid)
+  const s2 = seedOf(game.team2Tid)
+
+  if (prefix === 'cfpsf') {
+    // cfpsf1 is the 1/4 half of the bracket (seeds 1,8,9 vs 4,5,12);
+    // cfpsf2 the 2/3 half (2,7,10 vs 3,6,11) — see CFP_BRACKET_FLOW.
+    const SF1 = new Set([1, 4, 5, 8, 9, 12])
+    const SF2 = new Set([2, 3, 6, 7, 10, 11])
+    for (const seed of [s1, s2]) {
+      if (seed == null) continue
+      if (SF1.has(seed)) return 'cfpsf1'
+      if (SF2.has(seed)) return 'cfpsf2'
+    }
+    return null
+  }
+  if (prefix === 'cfpqf') {
+    const slotByByeSeed = { 1: 'cfpqf1', 4: 'cfpqf2', 3: 'cfpqf3', 2: 'cfpqf4' }
+    for (const seed of [s1, s2]) {
+      if (seed != null && slotByByeSeed[seed]) return slotByByeSeed[seed]
+    }
+    return null
+  }
+  if (prefix === 'cfpfr') {
+    const slotByFrSeed = { 5: 'cfpfr1', 12: 'cfpfr1', 8: 'cfpfr2', 9: 'cfpfr2', 6: 'cfpfr3', 11: 'cfpfr3', 7: 'cfpfr4', 10: 'cfpfr4' }
+    for (const seed of [s1, s2]) {
+      if (seed != null && slotByFrSeed[seed]) return slotByFrSeed[seed]
+    }
+  }
+  return null
+}
+
+/**
+ * Land a CFP game save on its bracket-slot record instead of leaving a
+ * parallel freeform record.
+ *
+ * The bracket page addresses every CFP game by its SLOT id
+ * (`cfpsf1-<year>`, via getCFPGameId) and its winner propagation keys off
+ * cfpSlot. A CFP result saved through any other surface (the dashboard's
+ * round tiles → GameEntryModal → addGame) used to land under a freeform
+ * timestamp id with no cfpSlot — so the bracket kept linking to its empty
+ * shell (an editor with no teams in it), the result never propagated, and
+ * the championship stayed TBD even with both semifinals entered. Real
+ * report, three rounds of it.
+ *
+ * Returns { game, updatedGames, structureChanged }: the game re-identified
+ * onto its slot (merged over the shell when one exists), the games array
+ * with the stray/shell duplicates collapsed to that one record, and a flag
+ * telling the caller the write can't take the single-doc fast path (the
+ * old freeform doc must be orphan-cleaned by the full write).
+ */
+export function adoptCfpSlotIdentity(dynasty, game, updatedGames) {
+  const noop = { game, updatedGames, structureChanged: false }
+  if (!game || game.year == null) return noop
+  const slotId = resolveCfpSlotForGame(dynasty, game)
+  if (!slotId) return noop
+  const slotGameId = getCFPGameId(slotId, game.year)
+
+  const needsReId = game.id !== slotGameId
+  const needsSlotField = game.cfpSlot !== slotId
+  if (!needsReId && !needsSlotField) return noop
+
+  // Any OTHER record already holding the slot identity (the bracket's
+  // shell) becomes the base; the incoming result overlays it.
+  const twin = updatedGames.find(g =>
+    g !== game && g.id !== game.id && Number(g.year) === Number(game.year) &&
+    (g.id === slotGameId || g.cfpSlot === slotId)
+  )
+
+  const merged = {
+    ...(twin || {}),
+    ...game,
+    id: slotGameId,
+    cfpSlot: slotId,
+  }
+  const dropIds = new Set([game.id, twin?.id].filter(id => id != null && id !== slotGameId))
+  const nextGames = [...updatedGames.filter(g => g.id !== slotGameId && !dropIds.has(g.id)), merged]
+  return { game: merged, updatedGames: nextGames, structureChanged: needsReId || !!twin }
+}
+
+/**
+ * Collapse duplicate CFP records that describe the SAME bracket slot.
+ *
+ * A CFP game entered outside the bracket page used to be stored under a
+ * freeform id with no cfpSlot (fixed going forward by adoptCfpSlotIdentity),
+ * which left two records for one game: the bracket's slot record and the
+ * user's actual result. The generic duplicate-shell migration can't clean
+ * this up — it groups by team pair and bails when either side is null, and
+ * an untouched bracket shell has exactly that (team1Tid/team2Tid null). So
+ * the bracket kept linking to the empty shell: clicking the game opened an
+ * editor with no teams in it, and the real result sat in a record nothing
+ * pointed at. Confirmed against a real exported dynasty carrying three of
+ * these at once.
+ *
+ * Grouped by the resolved SLOT rather than by teams, because the slot IS a
+ * CFP game's identity and is the one thing both copies agree on even when
+ * one has no teams at all.
+ *
+ * The richest record wins WHOLESALE (scores beat teams beat neither; ties
+ * go to whichever already sits on the slot id). Deliberately not a
+ * field-by-field merge: team order and score order are paired, and mixing
+ * `team1Tid` from one copy with `team1Score` from another — they're often
+ * stored in opposite order — would silently invert a result.
+ */
+export function healCfpSlotDuplicates(dynasty) {
+  const games = dynasty?.games
+  if (!Array.isArray(games) || games.length < 2) return dynasty
+
+  const bySlot = new Map()
+  games.forEach((g, idx) => {
+    if (!g || g.year == null) return
+    const slot = resolveCfpSlotForGame(dynasty, g)
+    if (!slot) return
+    const key = `${Number(g.year)}|${slot}`
+    if (!bySlot.has(key)) bySlot.set(key, [])
+    bySlot.get(key).push(idx)
+  })
+
+  const replacements = new Map() // idx -> merged game
+  const drop = new Set()
+  for (const [key, idxs] of bySlot) {
+    if (idxs.length < 2) continue
+    const [yearStr, slot] = key.split('|')
+    const slotId = getCFPGameId(slot, Number(yearStr))
+    const rank = (g) => {
+      const hasScores = g.team1Score != null && g.team2Score != null
+      const hasTeams = g.team1Tid != null && g.team2Tid != null
+      return (hasScores ? 4 : 0) + (hasTeams ? 2 : 0) + (g.id === slotId ? 1 : 0)
+    }
+    const sorted = [...idxs].sort((a, b) => rank(games[b]) - rank(games[a]))
+    const keepIdx = sorted[0]
+    const winner = games[keepIdx]
+    // Fill ONLY fields the winner genuinely lacks — never scores or tids,
+    // which must stay paired with each other (see header).
+    const carryOver = {}
+    for (const otherIdx of sorted.slice(1)) {
+      const o = games[otherIdx]
+      for (const field of ['bowlName', 'week', 'gameType']) {
+        if (winner[field] == null && o[field] != null && carryOver[field] == null) carryOver[field] = o[field]
+      }
+      drop.add(otherIdx)
+    }
+    replacements.set(keepIdx, { ...carryOver, ...winner, id: slotId, cfpSlot: slot })
+  }
+
+  if (drop.size === 0 && replacements.size === 0) return dynasty
+  const next = []
+  games.forEach((g, idx) => {
+    if (drop.has(idx)) return
+    next.push(replacements.get(idx) || g)
+  })
+  console.log(`[applyMigrations] Collapsed ${drop.size} duplicate CFP slot record(s)`)
+  return { ...dynasty, games: next }
 }
 
 /**
@@ -1754,27 +1944,46 @@ export function getTeamRankForWeek(dynasty, tidOrAbbr, year, week) {
     return n >= 1 && n <= 25 ? n : null
   }
   if (entry) {
-    // Exact week first.
-    const exact = validRank(entry[week] ?? entry[String(week)] ?? entry[Number(week)])
-    if (exact != null) return exact
+    // Exact week first. An EXPLICITLY-PRESENT null/invalid entry means "this
+    // team is unranked as of this week" — the Top 25 sheet save writes exactly
+    // that for teams that fell out of a poll — and must stop the lookup here,
+    // not fall through to carry-forward.
+    const hasExact = week in entry || String(week) in entry || Number(week) in entry
+    if (hasExact) {
+      return validRank(entry[week] ?? entry[String(week)] ?? entry[Number(week)])
+    }
     // CARRY-FORWARD: a poll stands until a newer one is entered. If this exact
     // week has no ranking (e.g. the user entered a preseason / early Top 25 but
     // hasn't entered a fresh poll for this week), fall back to the most recent
-    // EARLIER week that does — including preseason (week 0). Without this, the
-    // Scores page and Sportsbook showed no rank pips for teams that are clearly
-    // ranked on the Rankings page (which displays the latest populated week).
-    // Regular-season weeks (≤20) never inherit a postseason poll (101–105).
+    // EARLIER week with an entry — including preseason (week 0). Without this,
+    // the Scores page and Sportsbook showed no rank pips for teams that are
+    // clearly ranked on the Rankings page (which displays the latest populated
+    // week). Regular-season weeks (≤20) never inherit a postseason poll
+    // (101–105).
+    //
+    // The scan keeps the most recent PRESENT entry, valid or not — an explicit
+    // null at week N is the drop-out marker, and it must win over week N-1's
+    // real rank. The old scan skipped invalid values, so a team that fell out
+    // of the poll carried its last rank forward forever: deleting the rank on
+    // the game re-derived it right back, and re-saving the Top 25 couldn't
+    // clear it either ("rank stuck at #23" report).
     const wk = Number(week)
     if (Number.isFinite(wk)) {
-      let best = null, bestWk = -Infinity
+      let bestRaw
+      let bestWk = -Infinity
       for (const k of Object.keys(entry)) {
         const kw = Number(k)
         if (!Number.isFinite(kw) || kw > wk) continue
         if (wk <= 20 && kw > 20) continue
-        const r = validRank(entry[k])
-        if (r != null && kw > bestWk) { bestWk = kw; best = r }
+        if (kw > bestWk) { bestWk = kw; bestRaw = entry[k] }
       }
-      if (best != null) return best
+      if (bestWk !== -Infinity) {
+        const r = validRank(bestRaw)
+        // A valid rank carries forward; an explicit unranked marker means
+        // unranked from that week on — do NOT continue into the preseason
+        // fallback, which would resurrect an even older rank.
+        return r
+      }
     }
   }
   // Preseason-array fallback — a separate store some dynasties use before any
@@ -2245,6 +2454,17 @@ export function syncGameRanksFromRankByWeek(games, teams, affectedYears) {
         updated = { ...updated, team2Rank: r }
         mutated = true
       }
+    }
+    // Retire the legacy alias fields on unified-format games. They sit
+    // later in the display fallback chain (team1Rank → userRank → poll),
+    // so a stale userRank/opponentRank resurfaces the exact phantom rank
+    // this sync just cleared. Only for games with tids — a pure-legacy
+    // game (no team1Tid/team2Tid) stores its ONLY rank in these fields
+    // and must not be touched.
+    if ((g.team1Tid != null || g.team2Tid != null) &&
+        (g.userRank != null || g.opponentRank != null)) {
+      updated = { ...updated, userRank: null, opponentRank: null }
+      mutated = true
     }
     return updated
   })
@@ -2816,16 +3036,31 @@ export function getRecordAsOfGame(dynasty, game, tid) {
   if (gameOrder < 15) return calcRecord
 
   // Postseason games (CC + bowls + CFP): CPU teams may not have their full
-  // regular season in dynasty.games. If stored covers more games than calc,
-  // combine stored (reg-season baseline) with calc (postseason contribution).
-  const calcGames = calc.wins + calc.losses
+  // regular season in dynasty.games — stored records (standings uploads)
+  // then know the regular season better than the games array does. Combine
+  // stored (regular-season baseline) with ONLY the postseason games the
+  // array contributes. The old version added the FULL calc (regular +
+  // postseason) on top of stored, double-counting every regular-season
+  // game both sources knew about — on a user team whose entire season is
+  // in the games array, that rendered a 12-2 champion as "24-4".
+  // Regular-season slots are 0–15 (gameSlot: CC=16, bowls/CFP 17–20), so
+  // upToWeek 15 captures exactly the regular season.
+  const regCalc = calculateTeamRecordFromGames(dynasty, tid, game.year, {
+    upToWeek: 15,
+    includeUpToWeek: true
+  })
+  const regCalcGames = regCalc.wins + regCalc.losses
   const stored = getStoredTeamRecord(dynasty, tid, game.year)
   const storedGames = stored ? (stored.wins + stored.losses) : 0
 
-  if (calcGames >= storedGames || storedGames === 0) return calcRecord
+  // The games array knows the regular season at least as well as any
+  // stored record — calc alone is complete and correct.
+  if (regCalcGames >= storedGames || storedGames === 0) return calcRecord
 
-  const totalWins = stored.wins + calc.wins
-  const totalLosses = stored.losses + calc.losses
+  const postWins = calc.wins - regCalc.wins
+  const postLosses = calc.losses - regCalc.losses
+  const totalWins = stored.wins + postWins
+  const totalLosses = stored.losses + postLosses
   return {
     overall: `${totalWins}-${totalLosses}`,
     conference: `${stored.confWins}-${stored.confLosses}`,
@@ -3674,6 +3909,17 @@ export function recalculateStatsFromBoxScores(players, games, year, options = {}
     Number(g.year) === yearNum && g.boxScore
   )
 
+  // NOTHING to recompute from -> change NOTHING. This function's clearing
+  // branch below exists to heal stale box-score residue, but stats in
+  // statsByYear are not necessarily box-score-derived: console dynasties
+  // enter whole seasons through the Season Stats sheet, which writes the
+  // same category keys with no game boxScore behind them. When a year has
+  // zero box-scored games, "recompute from box scores" used to mean
+  // "delete every player's season line and zero gamesPlayed" — a real user
+  // lost a whole roster's stats this way when revertWeek triggered a
+  // resync ("stats for my Rice players are now removed").
+  if (gamesWithBoxScores.length === 0) return players
+
   // Build aggregated stats in parallel per-(tid,name) and per-name-only.
   // The tid-scoped index is preferred whenever a player's team-for-year is
   // known - this is what stops two unrelated real players who happen to
@@ -3761,6 +4007,13 @@ export function recalculateStatsFromBoxScores(players, games, year, options = {}
       // (or a team change) doesn't linger forever. A player with nothing to
       // clear is returned as-is to avoid needless object churn across the
       // whole roster.
+      //
+      // ONLY when their team actually appears in a box-scored game this
+      // year, though. If it never does, this player's stats cannot be
+      // residue of these box scores — they came from somewhere else (the
+      // Season Stats sheet), and "healing" them would just destroy manual
+      // data the recompute knows nothing about.
+      if (tid == null || !participantTidUnion.has(Number(tid))) return player
       const hasStaleBoxScoreStats = categoryKeys.some(cat => existingYearStats[cat])
       if (!hasStaleBoxScoreStats) return player
 
@@ -3985,7 +4238,28 @@ export function isGamePlayed(g) {
  *   updatedSchedule: Array // the schedule with gameId/opponentTid/isBye filled in
  * }}
  */
-export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
+export function computeScheduleDiff(dynasty, newSchedule, userTid, year, options = {}) {
+  // protectPlayed: leave an already-played game (or one carrying a box score)
+  // completely alone instead of reassigning or removing it.
+  //
+  // OFF by default, and deliberately so. The manual Schedule Entry flow
+  // already handles this the right way: it feeds `playedAffected` to
+  // ScheduleSaveConfirmModal, which warns "N played games will lose data"
+  // and relabels the button "Delete N games and save", so the user sees
+  // the cost and decides. Blocking it there would take away a legitimate
+  // correction (fixing the wrong opponent on a week already scored) AND
+  // silently empty the warning that makes the choice visible.
+  //
+  // Sync from Save has no such prompt — it applies the diff on its own. A
+  // save whose schedule for some week doesn't line up on a later sync would
+  // silently reassign or delete a played game, taking its aiRecap /
+  // scoreGraphic / preview with it, since those live on the game record.
+  // That path passes protectPlayed and stops guessing at settled results.
+  const { protectPlayed = false } = options
+  // Matches what playedAffected already counts as worth warning about — a
+  // box score is real entered data even if isPlayed was never flipped.
+  const hasPlayedData = (g) => isGamePlayed(g) || !!(g?.boxScore && Object.keys(g.boxScore).length > 0)
+
   const existingGames = dynasty.games || []
 
   // Bulletproof against a nullish userTid: without this, `g.userTid ===
@@ -4107,17 +4381,17 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
       return
     }
 
-    // A game that's already been PLAYED is permanent — see playedAffected's
-    // own doc comment above (computed but, until now, never actually
-    // consulted by any caller). Reassigning its opponent/site after the
-    // fact is never a legitimate correction (a played game's result can't
-    // retroactively be about a different team), only a symptom of the
-    // save's own schedule data not lining up perfectly for that week on
-    // THIS particular sync — and it's exactly the kind of change that was
-    // silently dropping a game's attached aiRecap/scoreGraphic/preview
-    // content, since those live on the game record itself. Leave it
-    // completely untouched instead of patching it.
-    if (isGamePlayed(existing)) {
+    // A played game's outcome is settled — a later sync disagreeing about
+    // who it was against is the save's schedule not lining up, not a real
+    // correction. Keep it exactly as it stands. Opt-in (protectPlayed) —
+    // this same diff also backs manual Schedule Entry, which already
+    // handles a played-game change correctly via its own confirmation
+    // step (ScheduleSaveConfirmModal warns "N played games will lose
+    // data" and lets the user explicitly proceed); forcing this guard
+    // unconditionally there would silently block a legitimate correction.
+    // Only the Sync from Save call site passes protectPlayed: true, since
+    // that path has no such confirmation of its own.
+    if (protectPlayed && hasPlayedData(existing)) {
       toKeep.push({ week, opponent: entry.opponent })
       updatedSchedule.push({ ...entry, week, gameId: existing.id, opponentTid: existingOpponentTid, location: existingLocation, isBye: false })
       return
@@ -4149,14 +4423,12 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
   })
 
   // toRemove: existing games whose week isn't in the new schedule, or is now BYE.
-  // A PLAYED game is never removed — see the matching guard above in the
-  // toUpdate branch. The save simply not (yet) referencing a week it
-  // already reported a real result for isn't evidence the game never
-  // happened; deleting it would take its attached aiRecap/scoreGraphic/
-  // preview content with it.
+  // Under protectPlayed, a played game is never removed: the save not (yet)
+  // referencing a week it already reported a result for is not evidence the
+  // game never happened, and deleting it discards its attached content.
   const toRemove = []
   existingByWeek.forEach((g, week) => {
-    if (isGamePlayed(g)) return
+    if (protectPlayed && hasPlayedData(g)) return
     const newEntry = newSchedule.find(e => Number(e.week) === week)
     const isBye = newEntry && (newEntry.opponent?.toUpperCase() === 'BYE' || newEntry.isBye)
     const stillReferenced = referencedWeeks.has(week) && !isBye
@@ -5336,9 +5608,11 @@ export function getCustomConferencesForYear(dynasty, year) {
   // Build the alignment STRICTLY from each team's own per-tid conference for the
   // season, carrying BACK to the most recent prior season it was set (a conference
   // persists until the team is moved, so a 2036 realignment holds in 2037, 2038…).
-  // No real-world default map and no legacy bulk stores are consulted — those are
-  // folded into the per-tid field once, on load (backfillConferencesPerTeam), so
-  // this resolver never needs them. Only this dynasty's real, non-FCS teams appear;
+  // No real-world default map is consulted, and the per-tid field always wins.
+  // The one exception is a per-team fallback to the bulk customConferencesByYear
+  // snapshot, for a team backfillConferencesPerTeam never reached (see below) —
+  // it can only fill a gap, never override a per-tid answer. Nothing is invented:
+  // only this dynasty's real, non-FCS teams appear;
   // nothing is invented. A team with no conference in any season is simply absent
   // (unassigned) rather than guessed from a default.
   const startYear = Number(dynasty.startYear)
@@ -7007,10 +7281,11 @@ export function DynastyProvider({ children }) {
   // actually observed so far (docs loaded / elapsed seconds), not a
   // canned duration.
   const pcLoadProgressRef = useRef({})
-  // Value itself is never read — its setter exists only to force a
-  // re-render of consumers when the ref above changes.
-  // eslint-disable-next-line no-unused-vars
-  const [pcLoadProgressTick, setPcLoadProgressTick] = useState(0)
+  // The value is never read — the setter exists only to force a re-render of
+  // consumers when the ref above changes, so it is left unbound rather than
+  // named and silenced (this repo runs eslint with noInlineConfig, so an
+  // inline disable comment is inert and reports as a warning of its own).
+  const [, setPcLoadProgressTick] = useState(0)
 
   const startPcLoadProgress = (dynastyId) => {
     pcLoadProgressRef.current[dynastyId] = { collections: {}, startedAt: Date.now() }
@@ -8177,6 +8452,13 @@ export function DynastyProvider({ children }) {
           }
         }
       }
+
+      // CFP duplicates the pass above structurally cannot catch: it groups by
+      // team pair and bails when either side is null, which is exactly what an
+      // untouched bracket shell looks like. healCfpSlotDuplicates groups by
+      // bracket SLOT instead, so an empty shell and the real result it should
+      // have been are recognized as the same game. See its header.
+      migrated = healCfpSlotDuplicates(migrated)
 
       // Reconstruct dynasty.teams[tid].byYear[year].{rankByWeek,division,
       // schoolGrades,recruitingClassConferenceRank,recruitingClassStats}
@@ -9876,6 +10158,36 @@ export function DynastyProvider({ children }) {
       return
     }
 
+    // HARD STOP on a year mismatch, before anything is computed or written.
+    // Every part of this sync keys its writes to dynasty.currentYear
+    // (buildSyncPlan's very first line), while the year ROLLOVER is
+    // deliberately manual (computeCfb27SyncSeasonAdvance refuses to cross
+    // it). Those two facts combined made syncing a next-season save
+    // destructive: the 2027 schedule was written INTO 2026, deleting last
+    // season's real games via the schedule diff and CPU-game prune — a real
+    // user lost their previous season's results this way ("it loads the
+    // schedule but it just overwrites the previous one still saying 2026").
+    // The save's SeasonYear only increments once the new season actually
+    // starts, so in normal play (offseason included) the years always match
+    // and this never fires.
+    const saveYear = Number(parsed?.season?.year)
+    const trackerYear = Number(dynasty.currentYear)
+    if (Number.isFinite(saveYear) && Number.isFinite(trackerYear) && saveYear !== trackerYear) {
+      if (saveYear > trackerYear) {
+        throw new Error(
+          `This save is in ${saveYear}, but the tracker is still in ${trackerYear}. ` +
+          `Nothing was synced. Finish out ${trackerYear} in the tracker (advance through the ` +
+          `offseason and start the ${saveYear} season), then run this sync again — syncing a ` +
+          `next-season save early would overwrite last season's schedule and results.`
+        )
+      }
+      throw new Error(
+        `This save is from ${saveYear}, but the tracker is already in ${trackerYear}. ` +
+        `Nothing was synced. This looks like an older save file (or the wrong dynasty's save) — ` +
+        `upload a current save from this dynasty instead.`
+      )
+    }
+
     // CRITICAL: dynasty.players/.games (from findDynastyById, a plain state
     // lookup) are NOT guaranteed to hold the full, current subcollection
     // contents for a cloud dynasty — only getDynastyPlayers/getDynastyGames
@@ -9935,7 +10247,7 @@ export function DynastyProvider({ children }) {
     let mergedGames = freshGames
     let scheduleDiff = { updatedSchedule: [] }
     if (plan.scheduleForUserTeam?.length) {
-      scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, dynasty.currentYear)
+      scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, dynasty.currentYear, { protectPlayed: true })
       mergedGames = applyScheduleDiff(freshGames, scheduleDiff)
     }
     mergedGames = applyCfb27GameScores(mergedGames, plan.gameScoresForUserTeam, plan.boxScoresByWeek, Number(dynasty.currentYear))
@@ -10634,9 +10946,23 @@ export function DynastyProvider({ children }) {
         try {
           const OFF_MAIN_DOC = ['players', 'games', 'recruitingDatabasePlayers', 'weekRecapsByYear', 'socialFeedByYear', 'socialCharacters', 'teamFuture']
           const projected = { ...dynasty }
-          for (const k of OFF_MAIN_DOC) delete projected[k]
-          for (const k of Object.keys(projected)) {
-            if (isSeasonalField(k)) delete projected[k]
+          // Excluding the subcollection-backed fields from the projection is
+          // only honest for a dynasty that has actually MIGRATED them off the
+          // main doc. An un-migrated legacy cloud dynasty still physically
+          // carries players/games/seasonal data ON the server doc — excluding
+          // them here undercounted the real doc, so the guard stayed silent
+          // while the doc sailed past 1 MB, and then the SERVER rejected every
+          // subsequent write (each save batches a main-doc bump, and batches
+          // are atomic — so games, recruiting, recaps, all of it fails while
+          // the UI keeps showing the data locally). That silent months-long
+          // wedge is the "whole season gone except week two" report. For
+          // un-migrated dynasties project the FULL doc, so the guard fires
+          // loudly BEFORE the cap and names the remedy.
+          if (dynasty._subcollectionsMigrated) {
+            for (const k of OFF_MAIN_DOC) delete projected[k]
+            for (const k of Object.keys(projected)) {
+              if (isSeasonalField(k)) delete projected[k]
+            }
           }
           // `dynasty.teams` here is the FOLDED-BACK shape (see
           // foldTeamsByYearFieldsFromFlat) — every reader's convenience
@@ -10648,12 +10974,12 @@ export function DynastyProvider({ children }) {
           // survive (the exact bug that made `teams` keep showing up as
           // the "biggest field" even after that data stopped actually
           // living on the main doc).
-          if (projected.teams) {
-            projected.teams = stripTeamsByYearFlatFields(projected.teams).strippedTeams
-            projected.teams = stripRecruitingClassRosterFromTeams(projected.teams).strippedTeams
-          }
           for (const [k, v] of Object.entries(updatesWithTimestamp)) {
             if (k.includes('.')) continue
+            // The write path always routes these to subcollections for cloud,
+            // so updates to them never land on the main doc regardless of
+            // migration state — always excluded from the DELTA (the base copy
+            // above still counts the legacy on-doc data when un-migrated).
             if (OFF_MAIN_DOC.includes(k) || isSeasonalField(k)) continue
             // The incoming update's OWN `teams` needs the same re-strip as the
             // existing dynasty's above, or this loop just overwrites the
@@ -10672,6 +10998,24 @@ export function DynastyProvider({ children }) {
               continue
             }
             projected[k] = v
+          }
+          // Strip AFTER the overlay, not before. Sync from Save (and any
+          // other caller that sends a whole `teams` map) re-installs its own
+          // un-stripped copy via the loop above — stripping first measured
+          // that raw update, every team's byYear ratings/grades/rankings the
+          // router routes to the subcollection and never writes here. Real
+          // case: guard reported "teams (0.71 MB), 1.01 MB total" and
+          // blocked the sync while the server doc measured 42.9 KB with
+          // teams at 33.5 KB.
+          // recruitingClassRoster gets the same treatment for the same
+          // reason — it's routed to its own (tid, year) subcollection below,
+          // so counting it here would measure bytes that never reach the
+          // main doc. It's stripped separately rather than via
+          // stripTeamsByYearFlatFields because it deliberately isn't in that
+          // registry (see stripRecruitingClassRosterFromTeams).
+          if (projected.teams) {
+            projected.teams = stripTeamsByYearFlatFields(projected.teams).strippedTeams
+            projected.teams = stripRecruitingClassRosterFromTeams(projected.teams).strippedTeams
           }
           // firestoreDocSize (src/utils/firestoreSize.js) computes Firestore's
           // own documented per-document size formula instead of a plain
@@ -10710,9 +11054,13 @@ export function DynastyProvider({ children }) {
               .filter(([, n]) => n > 0)
             const breakdown = top.map(([k, n]) => `${k} (${(n / 1e6).toFixed(2)} MB)`).join(', ')
             const biggest = top[0]?.[0]
-            const hint = biggest === 'recruitingDatabasePlayers' || biggest === 'players'
-              ? ' Open Scout Staff → Recruiting Database, use Export JSON to back it up, then trim it.'
-              : ''
+            // Un-migrated legacy dynasty: the fix is the migration itself —
+            // it moves players/games/seasonal data off the main doc entirely.
+            const hint = !dynasty._subcollectionsMigrated
+              ? ' Fix: open Admin Tools (Danger Zone) and run "Migrate to Subcollections" — it moves the bulky data out of this document.'
+              : (biggest === 'recruitingDatabasePlayers' || biggest === 'players'
+                ? ' Open Scout Staff → Recruiting Database, use Export JSON to back it up, then trim it.'
+                : '')
             throw new Error(
               `This dynasty's core save is ${mb} MB, over Firestore's 1 MB per-document limit. ` +
               `Largest fields: ${breakdown}.${hint}`
@@ -10766,8 +11114,22 @@ export function DynastyProvider({ children }) {
         // mirror from LAST season, leaving the new-season convenience fields
         // pointing at the wrong team (and skewing the name+team+year dedup key).
         const currentYearForSync = updates?.currentYear ?? dynasty?.currentYear
+        // Mirror-edit reconciliation BEFORE the derive step. Surfaces that set
+        // only the top-level devTrait (recruiting modal, player modal's main
+        // dropdown) would otherwise have the edit silently reverted by
+        // syncDerivedFieldsFromV2, which derives devTrait from devTraitByYear
+        // whenever the map has a currentYear entry — the "dev traits won't
+        // stick" reports. See reconcileDevTraitMirror for the exact rule.
+        const priorPlayersByPid = new Map(
+          (Array.isArray(dynasty?.players) ? dynasty.players : [])
+            .filter(p => p?.pid != null)
+            .map(p => [String(p.pid), p])
+        )
         const normalizedPlayers = mainDocUpdates.players.map(p =>
-          syncDerivedFieldsFromV2(p, currentYearForSync)
+          syncDerivedFieldsFromV2(
+            reconcileDevTraitMirror(p, priorPlayersByPid.get(String(p?.pid)), currentYearForSync),
+            currentYearForSync
+          )
         )
         // Also write normalized players back into updatesWithTimestamp so
         // the local-state update at the bottom of this function shows the
@@ -11058,6 +11420,31 @@ export function DynastyProvider({ children }) {
       if (Object.keys(recruitingClassRosterCollect).length > 0) {
         subcollectionPromises.push(
           saveRecruitingClassesSubcollection(dynastyId, recruitingClassRosterCollect)
+            .catch((err) => {
+              // permission-denied here means the recruitingClasses security
+              // rules haven't been deployed to this Firebase project yet —
+              // rules ship via a MANUAL `firebase deploy --only
+              // firestore:rules`, not the git->Vercel pipeline, so the code
+              // can reach users before its rules do. These writes sit in a
+              // Promise.all with every other part of the save: letting this
+              // one optional feature's rejection propagate failed the ENTIRE
+              // whole-league sync with "Missing or insufficient permissions —
+              // synced: nothing yet" for every PC user (live incident, many
+              // reports at once). Degrade to skipping just this data —
+              // opponent recruiting classes won't load until the rules land,
+              // and the next sync after that backfills them. Every OTHER
+              // error still propagates: an invalid payload or size failure is
+              // a real data problem that must surface, not be swallowed.
+              if (String(err?.code || '') === 'permission-denied') {
+                console.error(
+                  '[updateDynasty] recruitingClasses write rejected (permission-denied) — ' +
+                  'security rules for this subcollection are not deployed. Skipping this ' +
+                  'data so the rest of the save proceeds; deploy firestore.rules to fix.'
+                )
+                return
+              }
+              throw err
+            })
         )
       }
       if (mainDocUpdates.teams && typeof mainDocUpdates.teams === 'object') {
@@ -11073,6 +11460,40 @@ export function DynastyProvider({ children }) {
               addTeamsByYearToSeasonalCollect(seasonalField, tidKey, yearKey, value)
             }
           }
+        }
+      }
+      // Third write shape: a WHOLE-TEAM dot path, mainDocUpdates['teams.42']
+      // = { ...team }. updateTeambuilderTeam (rename/recolor) and the
+      // add-team path both write this, and the object they build is spread
+      // from dynasty.teams[tid] — which by then has been through
+      // foldTeamsByYearFieldsFromFlat, so its byYear carries the very
+      // sub-fields we just moved off the main doc. Without this, one
+      // teambuilder edit silently re-inflates the doc with a team's entire
+      // rank/schedule/ratings history and quietly undoes the migration for
+      // that team. Routed through the SAME stripTeamsByYearFlatFields the
+      // full-map handler and the size guard use — a private copy of the walk
+      // here would reintroduce exactly the three-way drift that shared helper
+      // exists to prevent. Wrapping the single team in a one-entry map is all
+      // the adaptation it needs, and the helper clones rather than mutating
+      // (the value is shared with updatesWithTimestamp, which seeds local
+      // React state).
+      {
+        const wholeTeamRe = /^teams\.([^.]+)$/
+        for (const key of Object.keys(mainDocUpdates)) {
+          const m = key.match(wholeTeamRe)
+          if (!m) continue
+          const tidKey = m[1]
+          const team = mainDocUpdates[key]
+          if (!team || typeof team !== 'object' || !team.byYear) continue
+          const { strippedTeams, extracted } = stripTeamsByYearFlatFields({ [tidKey]: team })
+          for (const [seasonalField, byTid] of Object.entries(extracted)) {
+            for (const [extractedTid, byYearMap] of Object.entries(byTid)) {
+              for (const [yearKey, value] of Object.entries(byYearMap)) {
+                addTeamsByYearToSeasonalCollect(seasonalField, extractedTid, yearKey, value)
+              }
+            }
+          }
+          if (strippedTeams[tidKey] !== team) mainDocUpdates[key] = strippedTeams[tidKey]
         }
       }
       {
@@ -11168,13 +11589,36 @@ export function DynastyProvider({ children }) {
         // parallel fast path.
         const isCalendarWrite = ['currentYear', 'currentPhase', 'currentWeek']
           .some(k => k in mainDocUpdates)
+        // Firestore answers a malformed payload with a bare `invalid-argument`
+        // naming NOTHING. On a whole-league sync payload that's unactionable —
+        // it cost days of back-and-forth once already. Audit only on failure
+        // (the walk is deep and the happy path must stay free) and re-throw
+        // with the offending field paths attached, so the error that reaches
+        // the user's sync banner points straight at the culprit.
+        const withPayloadDiagnostics = (p) => p.catch((err) => {
+          const code = String(err?.code || '')
+          const msg = String(err?.message || '')
+          if (/invalid-argument/i.test(code) || /INVALID_ARGUMENT/.test(msg)) {
+            let detail = ''
+            try { detail = describeInvalidFirestoreValues(mainDocUpdates) } catch { /* audit must never mask the real error */ }
+            if (detail) {
+              err.message = `${msg} — offending field(s): ${detail}`
+              console.error('[updateDynasty] Firestore rejected the payload. Invalid values:', findInvalidFirestoreValues(mainDocUpdates))
+            } else {
+              console.error('[updateDynasty] invalid-argument, but no invalid VALUE found — suspect an illegal field path (empty/`.`-containing key) or an oversized field.', { keys: Object.keys(mainDocUpdates) })
+            }
+          }
+          throw err
+        })
         if (isCalendarWrite && subcollectionPromises.length > 0) {
           writePromises.length = 0
           writePromises.push(
-            Promise.all(subcollectionPromises).then(() => updateDynastyInFirestore(dynastyId, mainDocUpdates))
+            withPayloadDiagnostics(
+              Promise.all(subcollectionPromises).then(() => updateDynastyInFirestore(dynastyId, mainDocUpdates))
+            )
           )
         } else {
-          writePromises.push(updateDynastyInFirestore(dynastyId, mainDocUpdates))
+          writePromises.push(withPayloadDiagnostics(updateDynastyInFirestore(dynastyId, mainDocUpdates)))
         }
       }
 
@@ -12322,6 +12766,28 @@ export function DynastyProvider({ children }) {
       updatedGames = [...(dynasty.games || []), game]
     }
 
+    // ─── CFP slot adoption + propagation ────────────────────────────────
+    // A CFP result saved through the dashboard tiles/GameEntryModal must
+    // land on its bracket-slot record and push its winner into the next
+    // round's shell — see adoptCfpSlotIdentity's header for the field
+    // reports behind this. structureChanged forces the full write path
+    // below so the old freeform doc gets orphan-cleaned instead of
+    // lingering as a duplicate in the subcollection.
+    let cfpStructureChanged = false
+    {
+      const adoption = adoptCfpSlotIdentity(dynasty, game, updatedGames)
+      game = adoption.game
+      updatedGames = adoption.updatedGames
+      cfpStructureChanged = adoption.structureChanged
+      if (game.cfpSlot && game.team1Score != null && game.team2Score != null) {
+        const beforeProp = new Map(updatedGames.map(g => [g.id, `${g.team1Tid}|${g.team2Tid}`]))
+        updatedGames = propagateCFPWinner(updatedGames, game)
+        if (updatedGames.some(g => beforeProp.get(g.id) !== `${g.team1Tid}|${g.team2Tid}`)) {
+          cfpStructureChanged = true
+        }
+      }
+    }
+
     // Build updates object - games[] is the single source of truth for CFP games
     // cfpResultsByYear is deprecated and only kept for reading legacy data
     const updates = { games: updatedGames }
@@ -12386,7 +12852,7 @@ export function DynastyProvider({ children }) {
 
     // OPTIMIZATION: For cloud storage with simple game (no box score processing),
     // save just the single game doc instead of rewriting all games
-    if (isCloudStorage && !hasBoxScoreToProcess) {
+    if (isCloudStorage && !hasBoxScoreToProcess && !cfpStructureChanged) {
       console.log(`[addGame] OPTIMIZED: Saving single game ${game.id} to cloud (no box score)`)
 
       try {
@@ -13094,7 +13560,7 @@ export function DynastyProvider({ children }) {
   // imports update in place. Games involving the user's own team that already
   // have scores entered through the schedule flow are PRESERVED — we never
   // overwrite the user's own results.
-  const saveWeeklyScores = async (dynastyId, weeklyGames, year, week, rankWeekOverride = null) => {
+  const saveWeeklyScores = async (dynastyId, weeklyGames, year, week, rankWeekOverride = null, { allowEmptyClear = false } = {}) => {
     if (blockIfReadOnly(dynastyId, 'save weekly scores')) return
     const dynasty = await findDynastyById(dynastyId)
     if (!dynasty) return []
@@ -13326,7 +13792,14 @@ export function DynastyProvider({ children }) {
     // game (which is preserved separately). The success toast still
     // says "Saved 0 games", so the data loss is invisible until the
     // user opens the recap and notices a single game.
-    if (newByPair.size === 0) {
+    // ...UNLESS the caller has explicitly confirmed an intentional clear.
+    // Without that escape hatch this guard makes a mistakenly-entered week
+    // IMPOSSIBLE to undo through the sheet: emptying it is the only way to
+    // remove the last game, and that is exactly the case the guard refuses.
+    // A user hit this after entering their conference championship at Week
+    // 15 by mistake — "I can't delete it, I've tried by google sheets, the
+    // beta embedded sheet."
+    if (newByPair.size === 0 && !allowEmptyClear) {
       const existingWeeklyCount = existingGames.filter(g =>
         g && Number(g.year) === yearNum && Number(g.week) === weekNum
         && g.source === 'weekly-scores'
@@ -19368,6 +19841,16 @@ export function DynastyProvider({ children }) {
         ...cloudPatch,
       }
       if (hasDivisions) {
+        // The dot-key write below routes through writeSeasonalUpdate's
+        // merge-mode setDoc, which can ADD splits but can never REMOVE one
+        // (recursive map merge — an absent or empty key contributes nothing).
+        // The dedicated replace overwrites the year's conferenceDivisions map
+        // exactly as given, so removed splits (and "no splits at all") stick.
+        // The dot key is still passed so the optimistic in-memory state and
+        // listener-revert stamps stay correct; whatever it merges afterwards
+        // is a subset of what the replace already wrote, so order can't
+        // matter.
+        await replaceSeasonConferenceDivisions(dynastyId, year, options.divisions)
         cloudUpdates[`conferenceDivisionsByYear.${yearKey}`] = options.divisions
       }
       if (options.extraUpdates) Object.assign(cloudUpdates, options.extraUpdates)
@@ -20758,6 +21241,20 @@ export function DynastyProvider({ children }) {
   const migrateToSubcollections = async (dynastyId) => {
     const dynasty = dynasties.find(d => d.id === dynastyId)
     if (!dynasty) return { success: false, message: 'Dynasty not found' }
+
+    // Subcollections are a CLOUD (Firestore) concept — a local/IndexedDB
+    // dynasty has no 1 MB doc cap to escape and no Firestore doc to split.
+    // Without this guard the migration asked Firestore for the doc and
+    // surfaced a baffling 'Dynasty not found' to a user whose dynasty is
+    // sitting right there (real report: switched to local to dodge broken
+    // cloud saves, then couldn't understand why this button failed).
+    const isCloudDynasty = dynasty.storageType === 'cloud'
+    if (!isCloudDynasty) {
+      return {
+        success: false,
+        message: 'This dynasty uses local storage, which has no size cap — subcollections only apply to cloud dynasties. To move back to cloud, use Settings → storage migration; it sets up subcollections automatically.',
+      }
+    }
 
     if (dynasty._subcollectionsMigrated) {
       return { success: true, message: 'Already migrated to subcollections', alreadyMigrated: true }

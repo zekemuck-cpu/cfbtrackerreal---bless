@@ -1644,6 +1644,22 @@ export default function GameEdit() {
         overtimes: formData.overtimes,
         team1Rank: formData.team1Rank ? parseInt(formData.team1Rank) : null,
         team2Rank: formData.team2Rank ? parseInt(formData.team2Rank) : null,
+        // This save's ranks are authoritative — null the LEGACY alias fields
+        // too. The merge below ({ ...existingGame, ...gameData }) preserves
+        // any field this payload doesn't name, and the display chain falls
+        // back to userRank/opponentRank when team1Rank/team2Rank are null,
+        // so a stale alias kept resurrecting a rank the user just cleared.
+        userRank: null,
+        opponentRank: null,
+        // Winner derived from the scores being saved right now — overwrites
+        // any stale winnerTid/winner left from a previous result on the
+        // merged-in old record (Champions badges and title counts read it).
+        ...(() => {
+          const s1 = parseInt(formData.team1Score) || 0
+          const s2 = parseInt(formData.team2Score) || 0
+          if (s1 === s2) return { winnerTid: null, winner: null }
+          return { winnerTid: s1 > s2 ? team1Tid : team2Tid, winner: null }
+        })(),
         team1Overall: formData.team1Overall ? parseInt(formData.team1Overall) : null,
         team1Offense: formData.team1Offense ? parseInt(formData.team1Offense) : null,
         team1Defense: formData.team1Defense ? parseInt(formData.team1Defense) : null,
@@ -1863,6 +1879,22 @@ export default function GameEdit() {
         overtimes: formData.overtimes,
         team1Rank: formData.team1Rank ? parseInt(formData.team1Rank) : null,
         team2Rank: formData.team2Rank ? parseInt(formData.team2Rank) : null,
+        // This save's ranks are authoritative — null the LEGACY alias fields
+        // too. The merge below ({ ...existingGame, ...gameData }) preserves
+        // any field this payload doesn't name, and the display chain falls
+        // back to userRank/opponentRank when team1Rank/team2Rank are null,
+        // so a stale alias kept resurrecting a rank the user just cleared.
+        userRank: null,
+        opponentRank: null,
+        // Winner derived from the scores being saved right now — overwrites
+        // any stale winnerTid/winner left from a previous result on the
+        // merged-in old record (Champions badges and title counts read it).
+        ...(() => {
+          const s1 = parseInt(formData.team1Score) || 0
+          const s2 = parseInt(formData.team2Score) || 0
+          if (s1 === s2) return { winnerTid: null, winner: null }
+          return { winnerTid: s1 > s2 ? team1Tid : team2Tid, winner: null }
+        })(),
         team1Overall: formData.team1Overall ? parseInt(formData.team1Overall) : null,
         team1Offense: formData.team1Offense ? parseInt(formData.team1Offense) : null,
         team1Defense: formData.team1Defense ? parseInt(formData.team1Defense) : null,
