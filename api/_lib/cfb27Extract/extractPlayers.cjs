@@ -33,6 +33,18 @@
 const { create: createFranchiseFile } = require('madden-franchise');
 const schema = require('./lib/schema.cjs');
 
+// Reported in the sync response (see extractFullSave's return + cfb27SaveSync.js's
+// allHeadCoaches diagnostics) so a client-side console log can confirm which
+// version actually ran a given sync — the only unambiguous way to tell "the
+// dependency bump deployed" from "still running the old build" without
+// access to Vercel's dashboard/logs.
+let MADDEN_FRANCHISE_VERSION = null;
+try {
+  MADDEN_FRANCHISE_VERSION = require('madden-franchise/package.json').version;
+} catch (err) {
+  MADDEN_FRANCHISE_VERSION = 'unknown';
+}
+
 function openSave(file) {
   return createFranchiseFile(file, { autoParse: true, autoUnempty: true });
 }
@@ -2509,6 +2521,11 @@ async function extractFullSave(filePath, opts = {}) {
     // coaches came back empty" warning can name the exact cause instead of
     // dead-ending at "check server logs" for anyone who can't.
     allHeadCoachesDiagnostics,
+    // Which madden-franchise version actually ran this parse — the one
+    // unambiguous way to confirm a dependency-bump deploy actually went
+    // live vs. the client still hitting a stale build, without needing
+    // access to Vercel's dashboard.
+    maddenFranchiseVersion: MADDEN_FRANCHISE_VERSION,
     coachOffers,
     gameStats,
     depthCharts,

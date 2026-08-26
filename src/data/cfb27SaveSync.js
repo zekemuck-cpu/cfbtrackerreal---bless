@@ -2136,6 +2136,9 @@ export function buildSyncPlan(dynasty, parsed) {
             : `${diag.headCoachRows} HeadCoach row(s) found but none had a resolvable TeamIndex + name.`)
       : '(no diagnostics returned by the API — extraction may be running an older deploy)'
     console.warn(`[cfb27Sync] allHeadCoaches: save parse returned zero coaches — extraction-side issue, not a tid-mapping one. ${diagMsg}`)
+    // Unambiguous deploy check — confirms whether this sync actually ran
+    // against the updated madden-franchise dependency or a stale build.
+    console.warn(`[cfb27Sync] madden-franchise version used by this sync: ${parsed.maddenFranchiseVersion || '(not reported — API is running a pre-upgrade deploy)'}`)
     // Raw field values from the first few Coach rows the extractor actually
     // read, regardless of which case above fired — logged unconditionally
     // so a single sync attempt carries everything needed to fix whichever
