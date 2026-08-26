@@ -432,8 +432,11 @@ export default function LeaguePreferences() {
       )}
 
       {/* Hide Dynasty Blueprint — CFB 27+ only (Blueprint doesn't exist on CFB
-          26). Presentational; never deletes the recorded data. */}
-      {editionHasFeature(currentDynasty, 'dynastyPoints') && (
+          26). Presentational; never deletes the recorded data. Removed for PC
+          (Sync from Save) dynasties — Blueprint is always relevant there, so
+          there's nothing to hide; isDynastyBlueprintEnabled ignores a stale
+          hideDynastyBlueprint left over from before this removal. */}
+      {editionHasFeature(currentDynasty, 'dynastyPoints') && !isPcAutoDynasty(currentDynasty) && (
       <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
         <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
@@ -468,8 +471,12 @@ export default function LeaguePreferences() {
       )}
 
       {/* Hide all ratings — CFB 27+ only (that's where full attribute tracking
-          exists). Overalls, recruit scouting, and everything else stay. */}
-      {editionHasFeature(currentDynasty, 'attributes') && (
+          exists). Overalls, recruit scouting, and everything else stay.
+          Removed for PC (Sync from Save) dynasties — ratings are always
+          synced there, so there's nothing to hide; arePlayerAttributesEnabled/
+          areRatingsHiddenForDisplay ignore a stale hideAllRatings left over
+          from before this removal. */}
+      {editionHasFeature(currentDynasty, 'attributes') && !isPcAutoDynasty(currentDynasty) && (
       <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
         <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
@@ -506,13 +513,16 @@ export default function LeaguePreferences() {
       </section>
       )}
 
-      {/* Hide Weekly Install / Scouting Report — PC (Sync from Save) dynasties
-          only; these rows don't exist for manual-entry dynasties. Default ON. */}
+      {/* Use Weekly Install / Scouting Report — PC (Sync from Save) dynasties
+          only; these rows don't exist for manual-entry dynasties. Default ON.
+          Label reads "Use" (not "Hide") since the toggle's ON state already
+          means "shown, in use" — the old "Hide ..." label read backwards
+          against its own ON/OFF position. */}
       {isPcAutoDynasty(currentDynasty) && (
       <section className="rounded-xl border border-surface-4 overflow-hidden" style={{ background: 'var(--surface-1)' }}>
         <div className="px-4 py-4 flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-semibold text-txt-primary">Hide Weekly Install / Scouting Report</div>
+            <div className="text-sm font-semibold text-txt-primary">Use Weekly Install / Scouting Report</div>
             <p className="text-xs text-txt-tertiary mt-1 leading-relaxed m-0">
               Removes the Weekly Install and Scouting Report rows from the Dashboard to-do list for each week's game.
             </p>
@@ -529,7 +539,7 @@ export default function LeaguePreferences() {
               height: 26,
               backgroundColor: !weeklyInstallScoutingHidden ? 'var(--text-primary)' : 'var(--surface-4)',
             }}
-            title={weeklyInstallScoutingHidden ? 'Show Weekly Install / Scouting Report' : 'Hide Weekly Install / Scouting Report'}
+            title={weeklyInstallScoutingHidden ? 'Enable Weekly Install / Scouting Report' : 'Disable Weekly Install / Scouting Report'}
           >
             <span
               className="inline-block rounded-full transition-transform"

@@ -10,6 +10,7 @@ import { getColorsFromTid, getNameFromTid } from '../../data/teamRegistry'
 import { getTeamLogoByTid, getMascotName, stripMascotFromName } from '../../data/teams'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { displayGroups, displayLabel } from '../../utils/recruitAttributes'
+import { areRatingsHiddenForDisplay } from '../../editions'
 
 // -------------------------------------------------------------------------
 // Stat normalization — mirrors the per-season shape used on the Player page
@@ -494,7 +495,9 @@ export default function ComparePlayers() {
   // Attribute sections (CFB 27 ratings) — grouped like the in-game player card.
   // Only groups/rows with at least one non-empty value across the selected
   // players are shown.
-  const ratingsHidden = currentDynasty?.hideAllRatings === true
+  // PC dynasties can't set "Hide all ratings" at all (League Preferences hides
+  // the toggle for them) — areRatingsHiddenForDisplay ignores a stale true.
+  const ratingsHidden = areRatingsHiddenForDisplay(currentDynasty)
   const attrSections = useMemo(() => {
     if (ratingsHidden) return [] // "Hide all ratings" league preference
     const has = (c, a) => c.attrs?.[a] != null && c.attrs[a] !== ''

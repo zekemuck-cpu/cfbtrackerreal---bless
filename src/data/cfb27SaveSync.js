@@ -2071,6 +2071,18 @@ export function buildSyncPlan(dynasty, parsed) {
         ...(parsed.userCoachInfo.careerStats || {}),
       }
     : null
+  // Diagnostic for "my own coach profile still works, so why is All Coaches
+  // empty" reports — userCoachCareerStats/userCoachPortrait are merge-only
+  // writes (only set below "when present"), so a null userCoachInfo here
+  // means THIS sync wrote neither, and whatever profile is showing is
+  // frozen on an earlier sync's data, not actually refreshed. Same root
+  // cause as allHeadCoaches coming back empty, just silent instead of loud.
+  if (!parsed.userCoachInfo) {
+    const d = parsed.userCoachInfoDiagnostics
+    console.warn(`[cfb27Sync] userCoachInfo: came back null — your own coach profile was NOT updated by this sync (frozen on old data). ${
+      d ? `${d.nonEmptyRows} Coach row(s) read, ${d.userControlledRows} had IsUserControlled set.` : '(no diagnostics returned)'
+    }`)
+  }
   if (parsed.userCoachInfo) {
     const newTid = rawTeamIdMap.get(parsed.userCoachInfo.rawTid)
     const newPosition = parsed.userCoachInfo.position

@@ -491,10 +491,14 @@ const JOB_SECURITY_STATUS_LABELS = {
 };
 
 async function buildUserCoachInfo(save, coachRecords) {
-  if (!coachRecords) return null;
+  if (!coachRecords) return { info: null, diagnostics: { nonEmptyRows: 0, userControlledRows: 0 } };
+  let nonEmptyRows = 0;
+  let userControlledRows = 0;
   for (const rec of coachRecords) {
     if (!rec || rec.isEmpty) continue;
+    nonEmptyRows++;
     if (!readCell(rec, 'IsUserControlled')) continue;
+    userControlledRows++;
     const position = USER_COACH_POSITION_CODE[readCell(rec, 'Position')];
     const rawTid = Number(readCell(rec, 'TeamIndex'));
     if (!position || !Number.isFinite(rawTid)) continue;
@@ -550,21 +554,35 @@ async function buildUserCoachInfo(save, coachRecords) {
     }
 
     return {
-      rawTid,
-      position,
-      coachRec: rec,
-      name: `${first} ${last}`.trim() || null,
-      generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
-      portrait_id: Number(readCell(rec, 'Portrait')) || null,
-      jobSecurityPct: Number.isFinite(jobSecurityPct) ? jobSecurityPct : null,
-      jobSecurityStatus,
-      prestigeGrade,
-      prestigeScore: Number.isFinite(prestigeScore) ? prestigeScore : null,
-      careerWinSeasons: Number.isFinite(careerWinSeasons) ? careerWinSeasons : null,
-      careerStats,
+      info: {
+        rawTid,
+        position,
+        coachRec: rec,
+        name: `${first} ${last}`.trim() || null,
+        generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
+        portrait_id: Number(readCell(rec, 'Portrait')) || null,
+        jobSecurityPct: Number.isFinite(jobSecurityPct) ? jobSecurityPct : null,
+        jobSecurityStatus,
+        prestigeGrade,
+        prestigeScore: Number.isFinite(prestigeScore) ? prestigeScore : null,
+        careerWinSeasons: Number.isFinite(careerWinSeasons) ? careerWinSeasons : null,
+        careerStats,
+      },
+      diagnostics: { nonEmptyRows, userControlledRows },
     };
   }
-  return null;
+  // If this comes back null, userCoachCareerStats/userCoachPortrait are
+  // never written this sync (DynastyContext.jsx's userCoachCareerStatsUpdate
+  // is only set "when present" — merge, not overwrite), so the coach profile
+  // silently FREEZES on whatever it last successfully synced instead of
+  // visibly going empty the way allCoaches does (a full replace every sync).
+  // That's what made "my own coach stats still work" and "All Coaches is
+  // empty" look like two different bugs — they're the same Coach-table
+  // failure; one just fails loud and the other fails silent.
+  if (nonEmptyRows > 0 && userControlledRows === 0) {
+    console.warn(`[buildUserCoachInfo] ${nonEmptyRows} Coach row(s) read but none had IsUserControlled set — same schema failure as buildAllHeadCoaches, just silently frozen instead of visibly empty.`);
+  }
+  return { info: null, diagnostics: { nonEmptyRows, userControlledRows } };
 }
 
 /**
@@ -2447,7 +2465,7 @@ async function extractFullSave(filePath, opts = {}) {
   // that used to rely on a single instance was replaced.
   const coachRecords = await getAllTableRecords(save, 'Coach');
   const coachingStaff = buildCoachingStaff(coachRecords);
-  const userCoachInfo = await buildUserCoachInfo(save, coachRecords);
+  const { info: userCoachInfo, diagnostics: userCoachInfoDiagnostics } = await buildUserCoachInfo(save, coachRecords);
   const { coaches: allHeadCoaches, diagnostics: allHeadCoachesDiagnostics } = await buildAllHeadCoaches(save, coachRecords);
 
   const jobOpeningTable = await getBestTable(save, 'JobOpening');
@@ -2515,6 +2533,14 @@ async function extractFullSave(filePath, opts = {}) {
     leagueHonors,
     heismanWatch,
     userCoachInfo: userCoachInfoResult,
+    // Confirms whether the user's OWN coach profile is actually being
+    // refreshed this sync, or silently frozen on stale data from before the
+    // Coach-table schema issue (userCoachCareerStats/userCoachPortrait are
+    // merge-only writes — DynastyContext.jsx only sets them "when present" —
+    // so a null userCoachInfo here means this sync wrote NEITHER, and the
+    // displayed profile is whatever a much earlier successful sync left
+    // behind, not this one).
+    userCoachInfoDiagnostics,
     allHeadCoaches,
     // Client has no access to this function's own server-side console.warn
     // (Vercel function logs) — surfaced here so cfb27SaveSync.js's "all

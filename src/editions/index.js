@@ -146,8 +146,16 @@ export function editionHasFeature(dynastyOrKey, feature) {
 // Hiding is purely presentational: it never deletes `dynasty.dynastyPoints`,
 // support staff, facilities, or coach salaries — flip the preference back and
 // everything returns exactly as it was.
+//
+// PC (Sync from Save) dynasties can't turn this off at all — the League
+// Preferences toggle is hidden for them (LeaguePreferences.jsx), and this
+// gate ignores a stale `hideDynastyBlueprint: true` left over from before
+// that removal, so Blueprint comes back immediately with no data migration
+// needed.
 export function isDynastyBlueprintEnabled(dynasty) {
-  return editionHasFeature(dynasty, 'dynastyPoints') && dynasty?.hideDynastyBlueprint !== true
+  if (!editionHasFeature(dynasty, 'dynastyPoints')) return false
+  if (isPcAutoDynasty(dynasty)) return true
+  return dynasty?.hideDynastyBlueprint !== true
 }
 
 // Whether FULL per-player attribute (rating) ENTRY is on: the edition supports
@@ -155,10 +163,26 @@ export function isDynastyBlueprintEnabled(dynasty) {
 // preference (`dynasty.hideAllRatings`). Gate the Training Results / Recruit
 // Overalls full-attribute entry sections on this so, when hidden, those flows
 // capture Overall only. Displays (the player Attributes tab, Compare Players)
-// gate on the raw `hideAllRatings` flag instead — they must still show scouted
+// use areRatingsHiddenForDisplay below instead — they must still show scouted
 // data on editions without the full-attribute feature.
+//
+// PC dynasties can't turn ratings off at all — same reasoning/removal as
+// isDynastyBlueprintEnabled above.
 export function arePlayerAttributesEnabled(dynasty) {
-  return editionHasFeature(dynasty, 'attributes') && dynasty?.hideAllRatings !== true
+  if (!editionHasFeature(dynasty, 'attributes')) return false
+  if (isPcAutoDynasty(dynasty)) return true
+  return dynasty?.hideAllRatings !== true
+}
+
+// The raw-flag counterpart arePlayerAttributesEnabled's own comment refers
+// to — used by DISPLAY surfaces (the player Attributes tab, Compare Players)
+// that must still show scouted/recruit data even on an edition without the
+// full-attribute feature, so they can't gate on arePlayerAttributesEnabled
+// itself. Same PC override: the preference is gone for PC, so a leftover
+// `hideAllRatings: true` on a PC dynasty is ignored here too.
+export function areRatingsHiddenForDisplay(dynasty) {
+  if (isPcAutoDynasty(dynasty)) return false
+  return dynasty?.hideAllRatings === true
 }
 
 // True when a dynasty (or edition key) resolves to CFB 27. Gate CFB 27-only

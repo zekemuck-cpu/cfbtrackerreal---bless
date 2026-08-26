@@ -37,7 +37,7 @@ import { buildTimelineEvents, eventsForYear, labelForEventKind } from '../../uti
 import { computeSeasonAV } from '../../utils/approximateValue'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
 import { predictRecruitOverall } from '../../utils/scoutScore'
-import { getEditionConfig, isCfb27, isPcAutoDynasty } from '../../editions'
+import { getEditionConfig, isCfb27, isPcAutoDynasty, areRatingsHiddenForDisplay } from '../../editions'
 import { getPlayerNil } from '../../data/playerNilModel'
 import nilIcon from '../../assets/blueprint/points.png'
 
@@ -551,7 +551,10 @@ function PlayerInner() {
   // "Hide all ratings" league preference removes the Attributes tab entirely
   // (ScoutScore still surfaces a recruit's scouted profile separately). Gated on
   // the raw flag, not the edition, so it's a no-op on editions without ratings.
-  const ratingsHidden = dynasty?.hideAllRatings === true
+  // PC dynasties can't set this flag at all (League Preferences hides the
+  // toggle for them) — areRatingsHiddenForDisplay ignores a stale true left
+  // over from before that removal.
+  const ratingsHidden = areRatingsHiddenForDisplay(dynasty)
   const hasAttributes = !ratingsHidden && !!(displayAttributes && Object.keys(displayAttributes).length)
   // NIL (CFB 27+) — current-season earnings for the hero + per-year for timelines.
   const nilEnabled = !!getEditionConfig(dynasty)?.features?.nil
