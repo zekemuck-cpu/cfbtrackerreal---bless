@@ -59,6 +59,7 @@ export default function InjuryReport() {
     : injuredPlayers.filter((p) => p.position === positionFilter)
 
   const mascotName = getMascotName(selectedTid, teamsSource)
+  const teamAbbr = teamsSource?.[selectedTid]?.abbr || mascotName || 'Team'
   const teamColors = mascotName ? getTeamColors(mascotName, teamsSource) : null
   const primary = teamColors?.primary || '#3a3d47'
   const txt = getContrastTextColor(primary)
@@ -81,46 +82,47 @@ export default function InjuryReport() {
         )}
       />
 
-      <Card padding="none" className="overflow-hidden">
-        {/* Full-bleed team-color band, matching CoachCareer.jsx's stint
-            header banner exactly: true team color + gradient wash + a
-            faint watermark feel from cfb-texture, big Bebas Neue team
-            name, contrast-aware text. */}
-        <div
-          className="cfb-texture flex items-center gap-3 sm:gap-4"
-          style={{
-            backgroundColor: primary,
-            backgroundImage: CFB_GRADIENT,
-            padding: 'clamp(0.75rem, 2vw, 1.25rem)',
-          }}
-        >
-          {selectedTid != null && (
-            <div className="flex-shrink-0">
-              <TeamLogo tid={selectedTid} teams={teamsSource} size="xl" />
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <span
-              className="m-0 leading-[0.95] uppercase break-words block"
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: 'clamp(1.5rem, 2.8vw, 2.1rem)',
-                letterSpacing: '0.5px',
-                color: txt,
-                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
-              }}
-            >
-              {mascotName || 'Team'}
-            </span>
+      <div
+        className="flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-3 py-2.5 min-w-0 cfb-texture rounded-md border border-surface-4 overflow-hidden"
+        style={{
+          backgroundColor: primary,
+          backgroundImage: CFB_GRADIENT,
+        }}
+      >
+        {selectedTid != null && (
+          <div className="flex-shrink-0">
+            <TeamLogo tid={selectedTid} teams={teamsSource} size="sm" />
           </div>
-          <span
-            className="text-xs font-bold uppercase tracking-wider flex-shrink-0"
-            style={{ color: txt, opacity: 0.82 }}
+        )}
+        <div className="min-w-0">
+          <div
+            className="font-display leading-none truncate"
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: 'clamp(0.875rem, 1.4vw, 1.0625rem)',
+              letterSpacing: '0.5px',
+              color: txt,
+              textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+            }}
           >
-            {filteredPlayers.length} {filteredPlayers.length === 1 ? 'Player' : 'Players'} Injured
-          </span>
+            {teamAbbr}
+          </div>
+          <div
+            className="tabular-nums mt-1 truncate"
+            style={{ letterSpacing: '1px', fontSize: '9px', color: txt, opacity: 0.78 }}
+          >
+            {Number.isFinite(currentYear) ? currentYear : ''}
+          </div>
         </div>
+        <span
+          className="ml-auto text-xs font-bold uppercase tracking-wider flex-shrink-0"
+          style={{ color: txt, opacity: 0.82 }}
+        >
+          {filteredPlayers.length} {filteredPlayers.length === 1 ? 'Player' : 'Players'} Injured
+        </span>
+      </div>
 
+      <Card padding="none" className="overflow-hidden">
         {filteredPlayers.length === 0 ? (
           <EmptyState title="No Injuries" message="This team has no injured players for the selected filter." />
         ) : (

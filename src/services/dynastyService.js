@@ -64,6 +64,47 @@ const TEAM_FUTURE_SUBCOLLECTION = 'teamFuture'
 // Batch size limit for Firestore (max 500 per batch)
 const BATCH_SIZE = 450
 
+// updateDynasty deliberately fires every subcollection it touches in
+// PARALLEL for save latency (see its own "Execute subcollection writes and
+// main doc update in parallel" comment) — fine for a normal edit (usually
+// one subcollection, one batch), but a full PC (CFB27) sync touches
+// players, games, teamFuture, recruiting classes, and seasons all at once,
+// each internally chunking into several 450-doc batches of its own. Every
+// one of those batch.commit() calls shares the SAME underlying Firestore
+// write stream, and enough of them in flight at the same moment overflows
+// its queue — confirmed in production as "Write stream exhausted maximum
+// allowed queued writes" during a large sync, alongside read timeouts on
+// other subcollections competing for the same connection. Routing every
+// batch.commit() in this file through this limiter caps how many are
+// actually in flight AT ONCE, globally, regardless of how many independent
+// save functions are running concurrently — without changing what gets
+// written, its ordering guarantees within a single function, or slowing
+// down the common one-batch case at all.
+const MAX_CONCURRENT_BATCH_COMMITS = 3
+let _activeBatchCommits = 0
+const _batchCommitQueue = []
+
+function _drainBatchCommitQueue() {
+  while (_batchCommitQueue.length > 0 && _activeBatchCommits < MAX_CONCURRENT_BATCH_COMMITS) {
+    const run = _batchCommitQueue.shift()
+    run()
+  }
+}
+
+function commitBatch(batch) {
+  return new Promise((resolve, reject) => {
+    const run = () => {
+      _activeBatchCommits++
+      batch.commit().then(
+        (result) => { _activeBatchCommits--; _drainBatchCommitQueue(); resolve(result) },
+        (err) => { _activeBatchCommits--; _drainBatchCommitQueue(); reject(err) }
+      )
+    }
+    if (_activeBatchCommits < MAX_CONCURRENT_BATCH_COMMITS) run()
+    else _batchCommitQueue.push(run)
+  })
+}
+
 // Firestore's per-document cap (1 MiB) is NOT the only limit that matters for
 // a batch write — the whole commit also has to fit under Firestore's request
 // message-size ceiling (~11 MiB). A fixed 450-doc BATCH_SIZE assumes docs stay
@@ -897,7 +938,7 @@ export async function savePlayerToSubcollection(dynastyId, player) {
     const batch = writeBatch(db)
     batch.set(playerRef, playerData)
     bumpDynastyLastModifiedInBatch(batch, dynastyId)
-    await batch.commit()
+    await commitBatch(batch)
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -945,7 +986,7 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
         pidsToRemove.slice(i, i + BATCH_SIZE).forEach(id => {
           batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id))
         })
-        await batch.commit()
+        await commitBatch(batch)
       }
     }
 
@@ -974,7 +1015,7 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
             orphanedIds.slice(i, i + BATCH_SIZE).forEach(id => {
               batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id))
             })
-            await batch.commit()
+            await commitBatch(batch)
           }
           await waitForPendingWrites(db)
         }
@@ -986,7 +1027,7 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
           orphanedIds.slice(i, i + BATCH_SIZE).forEach(id => {
             batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, id))
           })
-          await batch.commit()
+          await commitBatch(batch)
         }
         await waitForPendingWrites(db)
       }
@@ -1040,7 +1081,7 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
         batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION, p.pid), p.data)
       }
 
-      await batch.commit()
+      await commitBatch(batch)
       playersSaved += chunk.length
       console.log(`[savePlayersToSubcollection] Batch ${batchNum + 1}/${playerChunks.length} committed locally (${chunk.length} players)`)
       // Report progress so the create UI can show a moving bar during a big seed.
@@ -1176,7 +1217,7 @@ export async function saveRecruitingDatabaseSubcollection(dynastyId, players) {
       orphanedIds.slice(i, i + BATCH_SIZE).forEach(id => {
         batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_DATABASE_SUBCOLLECTION, id))
       })
-      await batch.commit()
+      await commitBatch(batch)
     }
 
     // Write only the changed/new recruits (batched, small delay between batches
@@ -1191,7 +1232,7 @@ export async function saveRecruitingDatabaseSubcollection(dynastyId, players) {
       // Bump the main doc's lastModified in the SAME batch as the last chunk so
       // other devices' dynasty listener notices the change.
       if (i + BATCH_SIZE >= changed.length) bumpDynastyLastModifiedInBatch(batch, dynastyId)
-      await batch.commit()
+      await commitBatch(batch)
       if (i + BATCH_SIZE < changed.length) {
         await new Promise(resolve => setTimeout(resolve, totalBatches > 3 ? 300 : 200))
       }
@@ -1201,7 +1242,7 @@ export async function saveRecruitingDatabaseSubcollection(dynastyId, players) {
     if (changed.length === 0 && orphanedIds.length > 0) {
       const batch = writeBatch(db)
       bumpDynastyLastModifiedInBatch(batch, dynastyId)
-      await batch.commit()
+      await commitBatch(batch)
     }
 
     await waitForPendingWrites(db)
@@ -1254,7 +1295,7 @@ export async function deletePlayerFromSubcollection(dynastyId, playerId) {
     const batch = writeBatch(db)
     batch.delete(playerRef)
     bumpDynastyLastModifiedInBatch(batch, dynastyId)
-    await batch.commit()
+    await commitBatch(batch)
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -1308,7 +1349,7 @@ export async function saveGameToSubcollection(dynastyId, game) {
     const batch = writeBatch(db)
     batch.set(gameRef, gameData)
     bumpDynastyLastModifiedInBatch(batch, dynastyId)
-    await batch.commit()
+    await commitBatch(batch)
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -1378,7 +1419,7 @@ export async function saveChangedPlayers(dynastyId, changedPlayers = []) {
   if (count === 0) return
   // Cross-device sync trigger — see bumpDynastyLastModifiedInBatch.
   bumpDynastyLastModifiedInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
   await waitForPendingWrites(db)
   console.log(`[saveChangedPlayers] Wrote ${count} changed players in 1 batch`)
 }
@@ -1423,7 +1464,7 @@ export async function saveWeeklyGamesChanges(dynastyId, gamesToSet = [], gameIds
 
   // Cross-device sync trigger — see bumpDynastyLastModifiedInBatch.
   bumpDynastyLastModifiedInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
   await waitForPendingWrites(db)
   console.log(`[saveWeeklyGamesChanges] Committed ${gamesToSet?.length || 0} sets + ${safeDeletes.length} deletes (${(gameIdsToDelete?.length || 0) - safeDeletes.length} delete-then-set duplicates filtered) in 1 batch`)
 }
@@ -1479,7 +1520,7 @@ export async function saveChangedPlayersAndGame(dynastyId, changedPlayers, game)
 
   // Cross-device sync trigger — see bumpDynastyLastModifiedInBatch.
   bumpDynastyLastModifiedInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
   // Single waitForPendingWrites covers the whole batch.
   await waitForPendingWrites(db)
   console.log(`[saveChangedPlayersAndGame] Wrote 1 game + ${playerCount} changed players in one batch`)
@@ -1511,7 +1552,7 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
         idsToRemove.slice(i, i + BATCH_SIZE).forEach(id => {
           batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, id))
         })
-        await batch.commit()
+        await commitBatch(batch)
       }
     }
 
@@ -1552,7 +1593,7 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
               batch.delete(gameRef)
             }
 
-            await batch.commit()
+            await commitBatch(batch)
           }
         }
       }
@@ -1595,7 +1636,7 @@ export async function saveGamesToSubcollection(dynastyId, games, options = {}) {
       for (const g of chunk) {
         batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION, g.id), g.data)
       }
-      await batch.commit()
+      await commitBatch(batch)
 
       // Add delay between batches to prevent "Write stream exhausted" error
       // — same protection savePlayersToSubcollection already has, and the
@@ -1627,7 +1668,7 @@ export async function deleteGameFromSubcollection(dynastyId, gameId) {
     const batch = writeBatch(db)
     batch.delete(gameRef)
     bumpDynastyLastModifiedInBatch(batch, dynastyId)
-    await batch.commit()
+    await commitBatch(batch)
 
     // Wait for server confirmation
     await waitForPendingWrites(db)
@@ -1698,7 +1739,7 @@ export async function saveTeamFutureSubcollection(dynastyId, teamFuture) {
       batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, TEAM_FUTURE_SUBCOLLECTION, String(tid)), sanitizeForFirestore(data))
     }
     bumpDynastyLastModifiedInBatch(batch, dynastyId)
-    await batch.commit()
+    await commitBatch(batch)
   }
 }
 
@@ -1821,7 +1862,7 @@ export async function saveRecruitingClassesSubcollection(dynastyId, recruitingCl
       batch.set(doc(db, DYNASTIES_COLLECTION, dynastyId, RECRUITING_CLASSES_SUBCOLLECTION, p.id), p.data)
     }
     bumpDynastyLastModifiedInBatch(batch, dynastyId)
-    await batch.commit()
+    await commitBatch(batch)
     if (batchNum + 1 < chunks.length) {
       const delayMs = chunks.length > 3 ? 300 : 200
       await new Promise(resolve => setTimeout(resolve, delayMs))
@@ -1883,7 +1924,7 @@ export async function saveWeekRecapToSubcollection(dynastyId, year, week, recap)
   const batch = writeBatch(db)
   batch.set(ref, payload)
   bumpDynastyLastModifiedInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
 }
 
 export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
@@ -1892,7 +1933,7 @@ export async function deleteWeekRecapFromSubcollection(dynastyId, year, week) {
   const batch = writeBatch(db)
   batch.delete(ref)
   bumpDynastyLastModifiedInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
 }
 
 /**
@@ -1985,7 +2026,7 @@ export async function saveSocialFeedToSubcollection(dynastyId, year, week, posts
   const batch = writeBatch(db)
   batch.set(ref, payload)
   bumpSocialUpdatedAtInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
 }
 
 function buildSocialFeedMap(docs) {
@@ -2047,7 +2088,7 @@ export async function saveSocialCharacterShards(dynastyId, charactersById) {
   const metaRef = doc(db, DYNASTIES_COLLECTION, dynastyId, SOCIAL_CHARACTERS_SUBCOLLECTION, '_meta')
   batch.set(metaRef, { shardCount, importedAt: Date.now() })
   bumpSocialUpdatedAtInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
 }
 
 /**
@@ -2070,7 +2111,7 @@ export async function saveSocialCharacterOverrides(dynastyId, characters) {
     batch.set(ref, sanitizeForFirestore({ chars }), { merge: true })
   }
   bumpSocialUpdatedAtInBatch(batch, dynastyId)
-  await batch.commit()
+  await commitBatch(batch)
 }
 
 /**
@@ -2085,7 +2126,7 @@ export async function clearSocialCharacterOverrides(dynastyId) {
   for (let i = 0; i < SOCIAL_OVERRIDE_SHARD_COUNT; i++) {
     batch.delete(doc(db, DYNASTIES_COLLECTION, dynastyId, SOCIAL_CHARACTERS_SUBCOLLECTION, `_ov-${i}`))
   }
-  await batch.commit()
+  await commitBatch(batch)
 }
 
 function mergeSocialCharacterDocs(docs) {

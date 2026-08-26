@@ -542,61 +542,6 @@ export default function DynastyRecords() {
         p.av = Math.round(p.av * 10) / 10
       })
 
-      // Console-trace top 25 with a per-stat breakdown so the user can
-      // verify how the AV math lands. Logs once per memoization (not on
-      // every render). Useful for tuning weights.
-      try {
-        const sorted = Object.values(playerTotals)
-          .filter(p => p.av > 0)
-          .sort((a, b) => b.av - a.av)
-        const trace = sorted.slice(0, 25).map(p => {
-          const player = playerById[p.pid]
-          // Recompute the breakdown for this player's career or season —
-          // mirror the same code path as the value above so the trace
-          // matches the leaderboard exactly.
-          const seasonsForTrace = mode === 'career'
-            ? p.years
-            : [p.year]
-          let totalAv = 0
-          const aggregateParts = {}
-          let primaryPos = player?.position || ''
-          seasonsForTrace.forEach(yr => {
-            const positionForYear = player?.positionByYear?.[yr]
-              || player?.positionByYear?.[String(yr)]
-              || player?.position
-            if (!primaryPos && positionForYear) primaryPos = positionForYear
-            const ys = player?.statsByYear?.[yr] || player?.statsByYear?.[String(yr)]
-            if (!ys) return
-            const { total, parts } = computeSeasonAV(ys, positionForYear, { breakdown: true })
-            totalAv += total
-            Object.entries(parts).forEach(([k, v]) => {
-              aggregateParts[k] = (aggregateParts[k] || 0) + v
-            })
-          })
-          return {
-            name: player?.name || `pid ${p.pid}`,
-            pos: primaryPos,
-            years: mode === 'career' ? `${Math.min(...p.years)}-${Math.max(...p.years)}` : String(p.year),
-            games: p.gamesPlayed || 0,
-            av: p.av,
-            ...Object.fromEntries(Object.entries(aggregateParts).map(([k, v]) => [k, Math.round(v * 10) / 10])),
-          }
-        })
-        const label = mode === 'career'
-          ? '[AV] Career leaders: top 25 with per-role breakdown'
-          : '[AV] Single-season leaders: top 25 with per-role breakdown'
-        // eslint-disable-next-line no-console
-        console.groupCollapsed(label)
-        // eslint-disable-next-line no-console
-        console.table(trace)
-        // eslint-disable-next-line no-console
-        console.groupEnd()
-      } catch (e) {
-        // Logging failure must never break the page render.
-        // eslint-disable-next-line no-console
-        console.warn('[AV] Could not log breakdown:', e?.message || e)
-      }
-
       return Object.values(playerTotals).filter(p => p.av > 0)
     }
 

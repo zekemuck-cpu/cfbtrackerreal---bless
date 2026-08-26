@@ -10,6 +10,7 @@ import { TEAMS, getGameTeamInfo, resolveTid } from '../../data/teamRegistry'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import BowlHistoryEditModal from '../../components/BowlHistoryEditModal'
 import { PageHero, Card, Button, EmptyState, Input } from '../../components/ui'
+import { isPcAutoDynasty } from '../../editions'
 
 // Map abbreviation to mascot name for logo lookup
 const getMascotName = (abbr, teamsData = null) => {
@@ -285,7 +286,9 @@ export default function BowlHistory() {
       <PageHero
         title="Bowl History"
         actions={
-          !isViewOnly && (
+          // PC (CFB27 auto-sync) dynasties get bowl results entirely from
+          // the save — same reasoning as CC History's own canEdit gate.
+          !isViewOnly && !isPcAutoDynasty(currentDynasty) && (
             <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
               Edit
             </Button>
