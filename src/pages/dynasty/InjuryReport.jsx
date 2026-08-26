@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useDynasty, isPlayerOnRoster } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
-import { getTeamLogoByTid, getMascotName } from '../../data/teams'
+import { getTeamLogoByTid, getMascotName, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { proxyImageUrl } from '../../utils/imageProxy'
@@ -59,7 +59,7 @@ export default function InjuryReport() {
     : injuredPlayers.filter((p) => p.position === positionFilter)
 
   const mascotName = getMascotName(selectedTid, teamsSource)
-  const teamAbbr = teamsSource?.[selectedTid]?.abbr || mascotName || 'Team'
+  const teamSchoolName = stripMascotFromName(teamsSource?.[selectedTid]?.name || mascotName || '') || mascotName || 'Team'
   const teamColors = mascotName ? getTeamColors(mascotName, teamsSource) : null
   const primary = teamColors?.primary || '#3a3d47'
   const txt = getContrastTextColor(primary)
@@ -105,7 +105,7 @@ export default function InjuryReport() {
               textShadow: '0 1px 2px rgba(0,0,0,0.3)',
             }}
           >
-            {teamAbbr}
+            {teamSchoolName}
           </div>
           <div
             className="tabular-nums mt-1 truncate"

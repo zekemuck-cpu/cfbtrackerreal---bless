@@ -4107,6 +4107,22 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
       return
     }
 
+    // A game that's already been PLAYED is permanent — see playedAffected's
+    // own doc comment above (computed but, until now, never actually
+    // consulted by any caller). Reassigning its opponent/site after the
+    // fact is never a legitimate correction (a played game's result can't
+    // retroactively be about a different team), only a symptom of the
+    // save's own schedule data not lining up perfectly for that week on
+    // THIS particular sync — and it's exactly the kind of change that was
+    // silently dropping a game's attached aiRecap/scoreGraphic/preview
+    // content, since those live on the game record itself. Leave it
+    // completely untouched instead of patching it.
+    if (isGamePlayed(existing)) {
+      toKeep.push({ week, opponent: entry.opponent })
+      updatedSchedule.push({ ...entry, week, gameId: existing.id, opponentTid: existingOpponentTid, location: existingLocation, isBye: false })
+      return
+    }
+
     // Build the patch we'll apply on save. userTid stays on whichever side
     // it currently sits; we only swap the opponent slot and home flag.
     const userIsTeam1 = existing.team1Tid === userTid
@@ -4132,9 +4148,15 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year) {
     updatedSchedule.push({ ...entry, week, gameId: existing.id, opponentTid, isBye: false })
   })
 
-  // toRemove: existing games whose week isn't in the new schedule, or is now BYE
+  // toRemove: existing games whose week isn't in the new schedule, or is now BYE.
+  // A PLAYED game is never removed — see the matching guard above in the
+  // toUpdate branch. The save simply not (yet) referencing a week it
+  // already reported a real result for isn't evidence the game never
+  // happened; deleting it would take its attached aiRecap/scoreGraphic/
+  // preview content with it.
   const toRemove = []
   existingByWeek.forEach((g, week) => {
+    if (isGamePlayed(g)) return
     const newEntry = newSchedule.find(e => Number(e.week) === week)
     const isBye = newEntry && (newEntry.opponent?.toUpperCase() === 'BYE' || newEntry.isBye)
     const stillReferenced = referencedWeeks.has(week) && !isBye

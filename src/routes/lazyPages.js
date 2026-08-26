@@ -64,7 +64,15 @@ export const ConferenceStandings = lazyWithPreload(() => import('../pages/dynast
 export const CFPBracket = lazyWithPreload(() => import('../pages/dynasty/CFPBracket'))
 export const WeeklyScores = lazyWithPreload(() => import('../pages/dynasty/WeeklyScores'))
 export const CardCollection = lazyWithPreload(() => import('../pages/dynasty/CardCollection'))
-export const ManageRivalries = lazyWithPreload(() => import('../pages/dynasty/ManageRivalries'))
+// Renamed from ManageRivalries.jsx to RivalriesPage.jsx (Aug 2026) — the
+// old filename was stuck on a deployment serving pre-rewrite code no
+// matter how many times it was redeployed, while every other file in the
+// same and later commits updated normally. Confirmed by directly
+// inspecting the live production JS bundle: it still contained the old
+// standalone rivalry-CRUD component, byte for byte, across three separate
+// redeploys spanning several hours. A pure rename gives the module an
+// identity nothing could have a stale build/cache entry for yet.
+export const ManageRivalries = lazyWithPreload(() => import('../pages/dynasty/RivalriesPage'))
 export const Game = lazyWithPreload(() => import('../pages/dynasty/Game'))
 export const GameEdit = lazyWithPreload(() => import('../pages/dynasty/GameEdit'))
 export const SocialCharacter = lazyWithPreload(() => import('../pages/dynasty/SocialCharacter'))
