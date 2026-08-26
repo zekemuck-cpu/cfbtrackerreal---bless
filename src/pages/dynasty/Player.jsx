@@ -3300,7 +3300,7 @@ function PlayerInner() {
           }
 
           yearMovements.forEach(m => {
-            if (m.type === 'entered_portal' || m.type === 'recommit' || m.type === 'departure' || m.type === 'started') {
+            if (m.type === 'entered_portal' || m.type === 'recommit' || m.type === 'departure') {
               if (!timelineEntries.some(e => e.year === m.year && e.type === m.type)) {
                 timelineEntries.push({ ...m, team })
               }
@@ -3380,19 +3380,13 @@ function PlayerInner() {
             case 'recommit': case 'recommitted': return 'Recommitted'
             case 'added': return 'Added'
             case 'removed': return 'Removed'
-            case 'started': {
-              const wk = m.week
-              if (wk == null) return 'Won starting job'
-              if (wk === -1) return 'Won starting job - Preseason'
-              return `Won starting job - Week ${wk}`
-            }
             default: return m.type
           }
         }
 
         const getMovementColor = (type) => {
           switch (type) {
-            case 'recruited': case 'added': case 'started': case 'arrival': return '#22c55e'
+            case 'recruited': case 'added': case 'arrival': return '#22c55e'
             case 'portal_in': case 'juco_in': case 'transfer': return '#3b82f6'
             case 'entered_portal': case 'encouraged_transfer': return '#f59e0b'
             case 'departure': case 'removed': return '#ef4444'
@@ -3582,7 +3576,6 @@ function PlayerInner() {
               {showReason && (
                 <span className="italic text-txt-tertiary">{m.reason}</span>
               )}
-              {m.type === 'started' && m.position && <span>{m.position}</span>}
               {m.draftRound && <span className="text-txt-tertiary">Rd {m.draftRound}</span>}
             </span>
           )
@@ -3834,23 +3827,6 @@ function PlayerInner() {
                 const baseMovements = transferIdx >= 0
                   ? yd.movements.filter((_, i) => i !== transferIdx)
                   : yd.movements
-                // Inject started chip: read from dynasty.startersByYear[year][position] = { pid, week }
-                const yearStarters = dynasty?.startersByYear?.[yd.year]
-                  ?? dynasty?.startersByYear?.[String(yd.year)]
-                  ?? {}
-                const starterEntry = Object.entries(yearStarters).find(([, v]) => {
-                  const entryPid = v != null && typeof v === 'object' ? v.pid : v
-                  return String(entryPid) === String(player.pid)
-                })
-                const starterPos = starterEntry?.[0] ?? null
-                const starterWeek = starterEntry
-                  ? (starterEntry[1] != null && typeof starterEntry[1] === 'object'
-                      ? starterEntry[1].week
-                      : null)
-                  : null
-                const seasonMovements = (starterPos && !baseMovements.some(m => m.type === 'started'))
-                  ? [...baseMovements, { type: 'started', year: yd.year, position: starterPos, week: starterWeek }]
-                  : baseMovements
 
                 if (transferMovement) {
                   // teamsByYear is the source of truth — prefer the previous season's team
@@ -4036,7 +4012,7 @@ function PlayerInner() {
                     metaRow,
                     rightSlot,
                     sub,
-                    movements: seasonMovements,
+                    movements: baseMovements,
                     rowTeam: yd.team
                   }
                 })
