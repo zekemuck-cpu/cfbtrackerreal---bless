@@ -553,6 +553,40 @@ export async function getDynasty(dynastyId) {
   }
 }
 
+// Same as getDynasty above, but forces a server round-trip instead of
+// Firestore's default cache-first read. The main dynasty doc carries
+// `teams` (per-team `byYear[year].rankByWeek` Top 25 history, among other
+// season data) and `rivalries` — fields the CFB27 auto-sync (see
+// syncDynastyFromCFB27Save in DynastyContext.jsx) merges INTO before
+// writing back. buildSyncPlan already re-fetches players/games fresh for
+// exactly this reason (see its own "CRITICAL" comment); this covers the
+// same class of bug for the main doc's own fields. Without it, a sync run
+// against a stale cached snapshot (e.g. right after opening the app, or a
+// write from another session/tab not yet reflected locally) silently wrote
+// that stale `teams` back over Firestore's real data — permanently
+// dropping whichever weeks' rankByWeek entries existed only server-side,
+// which is exactly what made the Top 25 page's week list stay stuck at
+// just Preseason + whatever the last couple of syncs happened to catch.
+export async function getDynastyFromServer(dynastyId) {
+  try {
+    const docRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
+    const docSnap = await getDocFromServer(docRef)
+
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      const { id: _, ...cleanData } = data
+      return {
+        id: docSnap.id,
+        ...cleanData
+      }
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching dynasty from server:', error)
+    throw error
+  }
+}
+
 // Get a public dynasty by share code (no authentication required)
 export async function getPublicDynastyByShareCode(shareCode) {
   try {

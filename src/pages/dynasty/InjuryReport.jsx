@@ -6,7 +6,14 @@ import { getTeamLogoByTid, getMascotName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
 import { proxyImageUrl } from '../../utils/imageProxy'
-import { PageHero, Card, EmptyState, Select } from '../../components/ui'
+import { PageHero, Card, EmptyState, Select, TeamLogo } from '../../components/ui'
+
+// Shared CFB-aesthetic gradient overlay for team-colored panels — same
+// constant CoachCareer.jsx uses for its stint header band, reused here so
+// the Injury Report team banner matches that look exactly instead of its
+// own one-off styling.
+const CFB_GRADIENT =
+  'linear-gradient(120deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 44%), linear-gradient(180deg, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.40) 100%)'
 
 // Whole-league Injury Report, sourced from CFB27 sync — see
 // extractPlayers.cjs's injury fields (InjuryStatus/InjuryType/
@@ -75,14 +82,41 @@ export default function InjuryReport() {
       />
 
       <Card padding="none" className="overflow-hidden">
-        <div className="flex items-center gap-3 px-4 py-3 cfb-texture" style={{ backgroundColor: primary, color: txt }}>
-          {logo && (
-            <span className="w-8 h-8 rounded-full bg-white p-0.5 flex-shrink-0 flex items-center justify-center">
-              <img src={logo} alt="" className="w-full h-full object-contain" />
-            </span>
+        {/* Full-bleed team-color band, matching CoachCareer.jsx's stint
+            header banner exactly: true team color + gradient wash + a
+            faint watermark feel from cfb-texture, big Bebas Neue team
+            name, contrast-aware text. */}
+        <div
+          className="cfb-texture flex items-center gap-3 sm:gap-4"
+          style={{
+            backgroundColor: primary,
+            backgroundImage: CFB_GRADIENT,
+            padding: 'clamp(0.75rem, 2vw, 1.25rem)',
+          }}
+        >
+          {selectedTid != null && (
+            <div className="flex-shrink-0">
+              <TeamLogo tid={selectedTid} teams={teamsSource} size="xl" />
+            </div>
           )}
-          <span className="font-display font-black uppercase tracking-wide">{mascotName || 'Team'}</span>
-          <span className="ml-auto text-xs font-bold uppercase tracking-wider opacity-80">
+          <div className="min-w-0 flex-1">
+            <span
+              className="m-0 leading-[0.95] uppercase break-words block"
+              style={{
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: 'clamp(1.5rem, 2.8vw, 2.1rem)',
+                letterSpacing: '0.5px',
+                color: txt,
+                textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+              }}
+            >
+              {mascotName || 'Team'}
+            </span>
+          </div>
+          <span
+            className="text-xs font-bold uppercase tracking-wider flex-shrink-0"
+            style={{ color: txt, opacity: 0.82 }}
+          >
             {filteredPlayers.length} {filteredPlayers.length === 1 ? 'Player' : 'Players'} Injured
           </span>
         </div>

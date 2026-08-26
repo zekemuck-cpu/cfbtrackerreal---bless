@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, Link, useSearchParams } from 'react-router-dom'
-import { useDynasty, GAME_TYPES, detectGameType } from '../../context/DynastyContext'
+import { useDynasty, GAME_TYPES, detectGameType, getCustomConferencesForYear } from '../../context/DynastyContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getTeamLogo, getTeamLogoByTid, getMascotName as getMascotNameFromTeams, getSchoolName } from '../../data/teams'
@@ -210,7 +210,17 @@ export default function ConferenceChampionshipHistory() {
         return g.conference === conferenceName
       }
 
-      const customConferences = currentDynasty?.conferencesByYear?.[currentDynasty?.currentYear]
+      // `dynasty.conferencesByYear` was never a real field (nothing ever
+      // wrote it) — every lookup against it silently returned undefined,
+      // which forced getTeamConference to fall back to the static
+      // real-world conference table below instead of this dynasty's own
+      // (possibly realigned) alignment. getCustomConferencesForYear is the
+      // actual source of truth (teams[tid].byYear[year].conference, with
+      // carry-back) and — critically — is keyed by the GAME's own year,
+      // not the dynasty's current year, so a past season's CCG still
+      // resolves against the alignment that was live THAT season rather
+      // than whatever it is now.
+      const customConferences = getCustomConferencesForYear(currentDynasty, g.year)
       const team1Conf = getTeamConference(team1, customConferences, currentDynasty?.teams)
       const team2Conf = getTeamConference(team2, customConferences, currentDynasty?.teams)
       return team1Conf === conferenceName || team2Conf === conferenceName

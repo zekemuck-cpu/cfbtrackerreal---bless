@@ -9,6 +9,7 @@ import { getContrastTextColor } from '../../utils/colorUtils'
 import { getConferenceLogo } from '../../data/conferenceLogos'
 import ConferencesModal from '../../components/ConferencesModal'
 import { conferenceTeams as DEFAULT_CONFERENCE_TEAMS } from '../../data/conferenceTeams'
+import { isPcAutoDynasty } from '../../editions'
 import { getConferenceTrophy } from '../../utils/trophyEngine'
 import {
   PageHero,
@@ -224,7 +225,14 @@ export default function ConferenceStandings() {
 
   if (!currentDynasty) return null
 
-  const standingsByYear = currentDynasty.conferenceStandingsByYear || {}
+  // PC (CFB27 auto-sync) dynasties get standings entirely from the save —
+  // conferenceStandingsByYear is a legacy manual-entry snapshot
+  // (ConferenceStandingsModal's Google Sheets flow) that the sync pipeline
+  // never writes to, so for a PC dynasty it can only ever be stale/partial
+  // leftover data (e.g. from before the dynasty switched fully to
+  // auto-sync). Treat it as if it doesn't exist rather than letting it
+  // shadow the live, save-derived roster/records computed below.
+  const standingsByYear = isPcAutoDynasty(currentDynasty) ? {} : (currentDynasty.conferenceStandingsByYear || {})
   // Year picker shows: any year with saved standings, any year with
   // games entered (so an in-progress season is reachable), and the
   // dynasty's current year as a guaranteed entry.
@@ -589,7 +597,6 @@ export default function ConferenceStandings() {
           ? liveTeamTids.has(Number(row.tid))
           : (row?.team == null || abbrIsLive(row.team))
       )
-    if (saved.length > 0) return saved
 
     const confMap = customConfsForYear || DEFAULT_CONFERENCE_TEAMS
     const aliases = CONFERENCE_ALIASES[conferenceName] || [conferenceName]
@@ -617,6 +624,26 @@ export default function ConferenceStandings() {
         rows.push({ team: abbr, tid: null, wins: 0, losses: 0, pointsFor: 0, pointsAgainst: 0 })
       }
     }
+
+    // `saved` is a legacy/manual-entry snapshot (ConferenceStandingsModal),
+    // written independently of the live alignment above and never
+    // guaranteed to cover every team currently in the conference (e.g. it
+    // predates a realignment, or was only ever entered for a handful of
+    // teams). It used to fully REPLACE the live roster whenever it had any
+    // rows at all — so a conference whose saved snapshot only listed 3 of
+    // 12 teams permanently showed just those 3, even though the accurate,
+    // complete roster was sitting right here uncomputed. Overlay saved
+    // rows onto the live roster instead (by tid, or by abbr for tid-less
+    // legacy rows) so a saved stat line is preserved but can never
+    // suppress a team the live alignment says belongs in this conference.
+    for (const row of saved) {
+      const idx = row.tid != null
+        ? rows.findIndex(r => r.tid === Number(row.tid))
+        : rows.findIndex(r => r.tid == null && r.team === row.team)
+      if (idx >= 0) rows[idx] = { ...rows[idx], ...row }
+      else rows.push(row)
+    }
+
     return rows
   }
 

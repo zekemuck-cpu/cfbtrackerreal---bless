@@ -5,6 +5,7 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { PageHero, Card, EmptyState, Select } from '../../components/ui'
 import SortableStatsTable from '../../components/SortableStatsTable'
 import { computeLeagueTeamStats } from '../../utils/leagueTeamStats'
+import { stripMascotFromName } from '../../data/teams'
 import { currentPollRank } from '../../utils/teamRanking'
 
 const SIDES = [
@@ -133,7 +134,7 @@ export default function TeamStats() {
       const dgp = t.defGames || 0
       out.push({
         tid,
-        name: meta.name,
+        name: stripMascotFromName(meta.name) || meta.name,
         abbr: meta.abbr,
         logo: meta.logo,
         rank: currentPollRank(currentDynasty, tid, effectiveYear),

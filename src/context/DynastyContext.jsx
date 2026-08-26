@@ -11,6 +11,7 @@ import {
   deleteDynastyWithSubcollections,
   leaveDynasty as leaveDynastyInFirestore,
   migrateLocalStorageData,
+  getDynastyFromServer,
   // Subcollection functions
   getPlayersSubcollection,
   getGamesSubcollection,
@@ -9687,7 +9688,37 @@ export function DynastyProvider({ children }) {
     // just weren't loaded into state yet at the moment of the sync.
     const freshPlayers = await getDynastyPlayers(dynasty)
     const freshGames = await getDynastyGames(dynasty)
-    const dynastyForPlan = { ...dynasty, players: freshPlayers, games: freshGames }
+
+    // Same staleness risk as players/games above, for the main doc's own
+    // fields — `teams` (rankByWeek Top 25 history, cfpSeedsByYear, etc.)
+    // and `rivalries` are read directly off `dynasty` (React state, which
+    // can be a cache-first snapshot) and merged into by buildSyncPlan
+    // below. A stale base here doesn't just display wrong — it gets
+    // WRITTEN BACK, permanently erasing whichever weeks/entries only
+    // existed in the server's copy. Cloud dynasties force a real server
+    // read to close that gap; local (IndexedDB) dynasties have no such
+    // cache-vs-server split, so `dynasty` is already authoritative.
+    let dynastyForPlan = { ...dynasty, players: freshPlayers, games: freshGames }
+    if (dynasty.storageType === 'cloud') {
+      try {
+        const freshDynastyDoc = await getDynastyFromServer(dynastyId)
+        if (freshDynastyDoc) {
+          dynastyForPlan = {
+            ...dynastyForPlan,
+            teams: freshDynastyDoc.teams ?? dynastyForPlan.teams,
+            rivalries: freshDynastyDoc.rivalries ?? dynastyForPlan.rivalries,
+            cfpSeedsByYear: freshDynastyDoc.cfpSeedsByYear ?? dynastyForPlan.cfpSeedsByYear,
+            coachPosition: freshDynastyDoc.coachPosition ?? dynastyForPlan.coachPosition,
+            newJobData: freshDynastyDoc.newJobData ?? dynastyForPlan.newJobData,
+          }
+        }
+      } catch (err) {
+        // A failed server read here just means the sync proceeds on the
+        // same (potentially stale) local snapshot it always used before
+        // this fix — no worse than before, so don't block the sync over it.
+        console.error('Failed to fetch fresh dynasty doc before sync:', err)
+      }
+    }
     await report('Loading current roster & games…', 12)
 
     await report('Comparing against your save…', 15)
