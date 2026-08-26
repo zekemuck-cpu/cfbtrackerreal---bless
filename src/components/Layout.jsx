@@ -12,7 +12,7 @@ import CloudSyncBanner from './CloudSyncBanner'
 import DynastyMigrationModal from './DynastyMigrationModal'
 import CFB27SyncModal from './CFB27SyncModal'
 import { needsV2Migration, isCleanButUnstamped } from '../data/migrateDynastyV2'
-import { useToast, useConfirm } from './ui'
+import { useToast, useConfirm, LoadingState } from './ui'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 import { isPcAutoDynasty } from '../editions'
 
@@ -26,12 +26,41 @@ const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly } = useDynasty()
+  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly, isPcDynastyDataConfirmed } = useDynasty()
   const [showCfb27SyncModal, setShowCfb27SyncModal] = useState(false)
   // PC (CFB27) dynasties get their state from "Sync from Save," not manual
   // week advancement — the header's Advance Week control is replaced with a
   // direct shortcut to that same modal Dashboard.jsx's action tile opens.
   const isCfb27Auto = isPcAutoDynasty(currentDynasty)
+  // PC dynasties are synced from an external save and can be opened on a
+  // device whose local Firestore cache hasn't caught up yet — a cache-first
+  // read paints instantly but can be stale/incomplete right after a Sync
+  // from Save (or any cross-device open), and a full roster's worth of
+  // subcollections can take several seconds to reconcile. Rather than flash
+  // wrong numbers and silently correct them, block the page content on a
+  // plain "Loading..." until the server read has confirmed both players and
+  // games for this dynasty this session. Local (non-cloud) PC dynasties have
+  // no cache-staleness risk — everything's already in memory — so this only
+  // applies to cloud storage.
+  const pcDataWaiting = isCfb27Auto
+    && currentDynasty?.storageType === 'cloud'
+    && !isPcDynastyDataConfirmed(currentDynasty.id)
+  // Safety valve: if confirmation never lands (offline, a permission error,
+  // a genuinely wedged connection), don't leave the user staring at
+  // "Loading..." forever — show whatever we have after a generous timeout.
+  // Mirrors the boot watchdogs already used for cloud sync in
+  // DynastyContext.jsx (same reasoning: a stuck loading screen is worse
+  // than briefly-stale data).
+  const [pcDataWatchdogExpired, setPcDataWatchdogExpired] = useState(false)
+  useEffect(() => {
+    if (!pcDataWaiting) {
+      setPcDataWatchdogExpired(false)
+      return
+    }
+    const timer = setTimeout(() => setPcDataWatchdogExpired(true), 20000)
+    return () => clearTimeout(timer)
+  }, [pcDataWaiting, currentDynasty?.id])
+  const pcDataPending = pcDataWaiting && !pcDataWatchdogExpired
   const [showV2Migration, setShowV2Migration] = useState(false)
   const [v2MigrationDismissed, setV2MigrationDismissed] = useState(false)
   const { user, signOut, isAdmin } = useAuth()
@@ -992,7 +1021,11 @@ export default function Layout({ children }) {
       <main id="main" tabIndex={-1} className={`flex-1 [overflow-x:clip] ${isHomePage || isAccountPage || isSocialPage ? '' : 'px-4 py-6'} ${isDynastyPage || isHomePage || isAccountPage ? '' : 'container mx-auto'}`}>
         {isDynastyPage ? (
           <div key={location.pathname} className="max-w-[1440px] mx-auto w-full page-enter">
-            {children}
+            {pcDataPending ? (
+              <LoadingState message="Loading..." />
+            ) : (
+              children
+            )}
           </div>
         ) : (
           <div key={location.pathname} className="page-enter">

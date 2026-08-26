@@ -732,11 +732,22 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
     // a Save button) forever with no error. Race it against a timeout so a
     // bad connection surfaces as a catchable error instead of an infinite
     // "Saving…" — callers already fall back to dynasty.players on failure.
+    const requestedAt = Date.now()
     const snapshot = await Promise.race([
       getDocs(playersRef),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out loading players — check your connection and try again.')), 15000)),
     ])
-    return snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    const fresh = snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    // The cache-miss branch never hit the network in the background — this
+    // return value IS the fresh server read. Callers that passed onFresh use
+    // it as their "this collection is now server-confirmed" signal (see
+    // isPcDynastyDataConfirmed in DynastyContext.jsx); without firing it
+    // here too, a dynasty whose cache was empty this session would never be
+    // marked confirmed.
+    if (onFresh) {
+      try { onFresh(fresh, { requestedAt }) } catch (e) { console.error('onFresh callback threw:', e) }
+    }
+    return fresh
   } catch (error) {
     console.error('Error fetching players subcollection:', error)
     throw error
@@ -782,8 +793,14 @@ export async function getGamesSubcollection(dynastyId, options = {}) {
   }
 
   try {
+    const requestedAt = Date.now()
     const snapshot = await getDocs(gamesRef)
-    return snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    const fresh = snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    // Cache-miss branch — see the matching comment in getPlayersSubcollection.
+    if (onFresh) {
+      try { onFresh(fresh, { requestedAt }) } catch (e) { console.error('onFresh callback threw:', e) }
+    }
+    return fresh
   } catch (error) {
     console.error('Error fetching games subcollection:', error)
     throw error

@@ -6912,6 +6912,39 @@ export function DynastyProvider({ children }) {
     currentDynastyIdRef.current = currentDynasty?.id || null
   }, [currentDynasty?.id])
 
+  // Per-dynasty, per-session tracking of which subcollections have been
+  // confirmed against the SERVER (not just the local Firestore cache) —
+  // used to gate the full-page "Loading..." state on the PC (CFB27
+  // auto-sync) dynasty screens (see Layout.jsx). A cache-first read paints
+  // instantly but can be stale/incomplete right after a "Sync from Save"
+  // (or on any cross-device open) — a plain console dynasty is small and
+  // single-writer so this never shows, but a PC dynasty's full-roster
+  // subcollections can take several seconds to reconcile, during which the
+  // cache-first paint shows wrong numbers. Rather than trying to make the
+  // cache itself never be stale, PC dynasty pages block on this flag and
+  // show a loading state until the server read (or a stamp match proving
+  // the cache is already current — see gatedFreshOptions) confirms both
+  // players and games for that dynasty this session.
+  const pcConfirmedPartsRef = useRef({}) // dynastyId -> Set of confirmed part names
+  // Value itself is never read — its setter exists only to force a
+  // re-render of consumers when the ref above changes.
+  // eslint-disable-next-line no-unused-vars
+  const [pcConfirmedTick, setPcConfirmedTick] = useState(0)
+
+  const markPcDynastyPartConfirmed = (dynastyId, part) => {
+    if (!dynastyId) return
+    const existing = pcConfirmedPartsRef.current[dynastyId] || new Set()
+    if (existing.has(part)) return
+    existing.add(part)
+    pcConfirmedPartsRef.current[dynastyId] = existing
+    setPcConfirmedTick(t => t + 1)
+  }
+
+  const isPcDynastyDataConfirmed = (dynastyId) => {
+    const parts = pcConfirmedPartsRef.current[dynastyId]
+    return !!parts && parts.has('players') && parts.has('games')
+  }
+
   // Change-detection for the dynasties listener (Firestore read cost). The
   // listener otherwise re-reads ALL five subcollections for EVERY loaded
   // dynasty on every fire — so editing one dynasty re-reads the subcollections
@@ -7058,6 +7091,10 @@ export function DynastyProvider({ children }) {
       // it — "it sits in the system for like 10 seconds and then disappears."
       // requestedAt makes that deterministic instead of a stopwatch bet.
       const onFreshGames = (fresh, meta) => {
+        // Fires regardless of the guards below — a PC dynasty page is
+        // waiting on this to know the server round-trip actually
+        // completed (see isPcDynastyDataConfirmed / pcConfirmedPartsRef).
+        markPcDynastyPartConfirmed(dynastyId, 'games')
         if (skipListenerUpdatesCountRef.current > 0) return // active save in flight; don't clobber
         // Stale-snapshot guard. Firestore's eventual consistency sometimes
         // delivers a subcollection snapshot that predates a local save AFTER
@@ -7077,6 +7114,7 @@ export function DynastyProvider({ children }) {
         })
       }
       const onFreshPlayers = (fresh, meta) => {
+        markPcDynastyPartConfirmed(dynastyId, 'players')
         if (skipListenerUpdatesCountRef.current > 0) return
         // Same stale-read rule as games — this is the one that made a
         // just-added recruit vanish on a large dynasty.
@@ -7148,6 +7186,13 @@ export function DynastyProvider({ children }) {
       // had NO gate at all, so every page refresh / dynasty open re-read
       // all five subcollections (~800-1500 billed reads) unconditionally.
       const loadRev = dynastyDocRev(dynasty)
+      // When the stamp already matches the current rev, gatedFreshOptions skips
+      // wiring onFresh at all (cache is trusted, nothing changed since our last
+      // completed server read) — so onFreshPlayers/onFreshGames will never fire
+      // to mark confirmation. Mark it here instead so PC dynasty pages don't
+      // wait forever on a collection that was already known-fresh.
+      if (loadRev > 0 && getSyncStamp(dynastyId, 'players') === loadRev) markPcDynastyPartConfirmed(dynastyId, 'players')
+      if (loadRev > 0 && getSyncStamp(dynastyId, 'games') === loadRev) markPcDynastyPartConfirmed(dynastyId, 'games')
       const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture, subcollectionRecruitingClasses] = await Promise.all([
         getPlayersSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'players', loadRev, onFreshPlayers)),
         getGamesSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'games', loadRev, onFreshGames)),
@@ -8223,6 +8268,10 @@ export function DynastyProvider({ children }) {
             // local state to avoid clobber.
             const dynId = dynasty.id
             const onFreshGames = (fresh, meta) => {
+              // Fires regardless of the guards below — a PC dynasty page is
+              // waiting on this to know the server round-trip actually
+              // completed (see isPcDynastyDataConfirmed).
+              markPcDynastyPartConfirmed(dynId, 'games')
               if (skipListenerUpdatesCountRef.current > 0) return
               // Don't let a background server-read (kicked off before a local save)
               // overwrite games that were just committed locally. The cache-first
@@ -8240,6 +8289,7 @@ export function DynastyProvider({ children }) {
               })
             }
             const onFreshPlayers = (fresh, meta) => {
+              markPcDynastyPartConfirmed(dynId, 'players')
               if (skipListenerUpdatesCountRef.current > 0) return
               // Previously UNGUARDED: any background players read that landed
               // after a local save silently overwrote it, which is what made a
@@ -8310,6 +8360,12 @@ export function DynastyProvider({ children }) {
             // persisted per-collection stamps let each getter skip its
             // billed server re-read when nothing actually changed since
             // the last completed sync — see gatedFreshOptions.
+            //
+            // Same reasoning as selectDynasty's copy: a stamp match means
+            // gatedFreshOptions won't wire onFresh at all, so mark confirmed
+            // here or a PC dynasty page would wait forever on this collection.
+            if (rev > 0 && getSyncStamp(dynasty.id, 'players') === rev) markPcDynastyPartConfirmed(dynasty.id, 'players')
+            if (rev > 0 && getSyncStamp(dynasty.id, 'games') === rev) markPcDynastyPartConfirmed(dynasty.id, 'games')
             const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture, subcollectionRecruitingClasses] = await Promise.all([
               getPlayersSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'players', rev, onFreshPlayers)),
               getGamesSubcollection(dynasty.id, gatedFreshOptions(dynasty.id, 'games', rev, onFreshGames)),
@@ -20980,6 +21036,7 @@ export function DynastyProvider({ children }) {
     loading,
     cloudSyncing,
     loadingDynastyId,
+    isPcDynastyDataConfirmed,
     isViewOnly,
     createDynasty,
     updateDynasty,
