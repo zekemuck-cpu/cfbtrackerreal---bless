@@ -5,6 +5,7 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
   connectFirestoreEmulator,
+  CACHE_SIZE_UNLIMITED,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -70,9 +71,18 @@ googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 // latency bump for a connection that actually delivers writes across the board.
 // If IndexedDB isn't available (Safari private browsing, blocked storage),
 // Firebase silently falls back to memory cache.
+// No cacheSizeBytes here previously means Firestore's own default (40MB)
+// applied, silently LRU-evicting older cached documents once a dynasty's
+// data (a full PC roster + 800+ games, some carrying embedded box scores,
+// easily exceeds that) grew past it — so "the tracker's most recent
+// picture" wasn't actually guaranteed to still be in cache on a later
+// visit, even for a dynasty just looked at. CACHE_SIZE_UNLIMITED removes
+// that eviction pressure entirely; the only remaining ceiling is the
+// browser's own IndexedDB storage quota, which is far larger.
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager(),
+    cacheSizeBytes: CACHE_SIZE_UNLIMITED,
   }),
   experimentalForceLongPolling: true,
 });

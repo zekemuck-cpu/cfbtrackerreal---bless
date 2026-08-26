@@ -12,7 +12,7 @@ import CloudSyncBanner from './CloudSyncBanner'
 import DynastyMigrationModal from './DynastyMigrationModal'
 import CFB27SyncModal from './CFB27SyncModal'
 import { needsV2Migration, isCleanButUnstamped } from '../data/migrateDynastyV2'
-import { useToast, useConfirm, LoadingState } from './ui'
+import { useToast, useConfirm } from './ui'
 import { preloadCommonDynastyPages } from '../routes/lazyPages'
 import { isPcAutoDynasty } from '../editions'
 
@@ -23,10 +23,68 @@ import { isPcAutoDynasty } from '../editions'
 // eslint-disable-next-line no-undef
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev'
 
+// Real progress bar for the PC dynasty loading gate — percentage and ETA
+// both come from actual docs loaded so far (see getPcLoadProgress in
+// DynastyContext.jsx), not a simulated/animated fill. Falls back to an
+// indeterminate bar with no percentage when the total isn't known yet
+// (e.g. the very first tick, or an aggregate-count read failed) rather
+// than showing a fabricated number.
+function PcLoadProgress({ dynastyId, getPcLoadProgress }) {
+  const progress = getPcLoadProgress(dynastyId)
+  const pct = progress?.pct
+  const etaSeconds = progress?.etaSeconds
+  const known = typeof pct === 'number'
+
+  const etaLabel = (seconds) => {
+    if (seconds == null) return null
+    if (seconds <= 1) return 'less than a second remaining'
+    if (seconds < 60) return `~${seconds}s remaining`
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `~${m}m ${s}s remaining`
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 py-16 px-4">
+      <div className="text-sm font-medium text-txt-secondary">
+        {known ? `Loading… ${pct}%` : 'Loading…'}
+      </div>
+      <div
+        className="w-full max-w-xs h-2 rounded-full overflow-hidden"
+        style={{ backgroundColor: 'var(--surface-3)' }}
+        role="progressbar"
+        aria-valuenow={known ? pct : undefined}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div
+          className={known ? 'h-full rounded-full transition-[width] duration-300 ease-out' : 'h-full rounded-full pc-load-indeterminate'}
+          style={{
+            backgroundColor: 'var(--accent-primary, #22c55e)',
+            width: known ? `${pct}%` : '40%',
+          }}
+        />
+      </div>
+      <div className="text-xs text-txt-tertiary tabular-nums" style={{ minHeight: '1em' }}>
+        {etaLabel(etaSeconds) || ' '}
+      </div>
+      <style>{`
+        @keyframes pc-load-indeterminate-slide {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(250%); }
+        }
+        .pc-load-indeterminate {
+          animation: pc-load-indeterminate-slide 1.1s ease-in-out infinite;
+        }
+      `}</style>
+    </div>
+  )
+}
+
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly, isPcDynastyDataConfirmed } = useDynasty()
+  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly, isPcDynastyDataConfirmed, getPcLoadProgress } = useDynasty()
   const [showCfb27SyncModal, setShowCfb27SyncModal] = useState(false)
   // PC (CFB27) dynasties get their state from "Sync from Save," not manual
   // week advancement — the header's Advance Week control is replaced with a
@@ -1022,7 +1080,7 @@ export default function Layout({ children }) {
         {isDynastyPage ? (
           <div key={location.pathname} className="max-w-[1440px] mx-auto w-full page-enter">
             {pcDataPending ? (
-              <LoadingState message="Loading..." />
+              <PcLoadProgress dynastyId={currentDynasty?.id} getPcLoadProgress={getPcLoadProgress} />
             ) : (
               children
             )}

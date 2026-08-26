@@ -140,7 +140,7 @@ import { isSameWeek, isSameYear } from '../utils/compareUtils'
 import { shapeTargetForDatabase } from '../utils/recruitAttributes'
 import { settleOrProceed } from '../utils/firestoreWriteGuard'
 import { withTimeout } from '../utils/withTimeout'
-import { normalizeEditionKey, DEFAULT_EDITION } from '../editions'
+import { normalizeEditionKey, DEFAULT_EDITION, isPcAutoDynasty } from '../editions'
 import { getSyncStamp, setSyncStamp } from '../utils/subcollectionSyncStamp'
 import { getAllStaffDataForDynasty } from '../components/staffDB'
 
@@ -6972,6 +6972,57 @@ export function DynastyProvider({ children }) {
     return !!parts && parts.has('players') && parts.has('games')
   }
 
+  // Real (not simulated) load progress for the PC dynasty loading screen —
+  // { [dynastyId]: { collections: { players: {loaded,total}, games: {...},
+  // weekRecaps: {...}, ... }, startedAt } }. players/games report genuine
+  // per-page counts (see getSubcollectionPaged in dynastyService.js, the
+  // only two collections large enough for that to matter); the other five
+  // subcollections are small enough that "pending" -> "done" (weight 1
+  // each) in one jump is an honest enough picture without paying for a
+  // separate count query on each. Percentage and ETA are both derived
+  // from these real numbers — ETA specifically from the throughput
+  // actually observed so far (docs loaded / elapsed seconds), not a
+  // canned duration.
+  const pcLoadProgressRef = useRef({})
+  // Value itself is never read — its setter exists only to force a
+  // re-render of consumers when the ref above changes.
+  // eslint-disable-next-line no-unused-vars
+  const [pcLoadProgressTick, setPcLoadProgressTick] = useState(0)
+
+  const startPcLoadProgress = (dynastyId) => {
+    pcLoadProgressRef.current[dynastyId] = { collections: {}, startedAt: Date.now() }
+    setPcLoadProgressTick(t => t + 1)
+  }
+
+  const updatePcLoadProgress = (dynastyId, collectionName, loaded, total) => {
+    const entry = pcLoadProgressRef.current[dynastyId]
+    if (!entry) return
+    entry.collections[collectionName] = { loaded, total }
+    setPcLoadProgressTick(t => t + 1)
+  }
+
+  const getPcLoadProgress = (dynastyId) => {
+    const entry = pcLoadProgressRef.current[dynastyId]
+    if (!entry) return null
+    const cols = Object.values(entry.collections)
+    if (cols.length === 0) return { pct: 0, etaSeconds: null, loaded: 0, total: null }
+    let loaded = 0
+    let total = 0
+    let knownTotal = true
+    for (const c of cols) {
+      loaded += c.loaded || 0
+      if (c.total == null) { knownTotal = false; continue }
+      total += c.total
+    }
+    if (!knownTotal || total <= 0) return { pct: null, etaSeconds: null, loaded, total: null }
+    const pct = Math.min(100, Math.round((loaded / total) * 100))
+    const elapsedSec = (Date.now() - entry.startedAt) / 1000
+    const rate = elapsedSec > 0 ? loaded / elapsedSec : 0
+    const remaining = Math.max(0, total - loaded)
+    const etaSeconds = rate > 0 ? Math.max(0, Math.round(remaining / rate)) : null
+    return { pct, etaSeconds, loaded, total }
+  }
+
   // Change-detection for the dynasties listener (Firestore read cost). The
   // listener otherwise re-reads ALL five subcollections for EVERY loaded
   // dynasty on every fire — so editing one dynasty re-reads the subcollections
@@ -7089,6 +7140,8 @@ export function DynastyProvider({ children }) {
     }
 
     setLoadingDynastyId(dynastyId)
+    const trackingPcLoad = isPcAutoDynasty(dynasty)
+    if (trackingPcLoad) startPcLoadProgress(dynastyId)
 
     try {
       // Load subcollections from Firestore. ALL of them — players,
@@ -7220,9 +7273,27 @@ export function DynastyProvider({ children }) {
       // wait forever on a collection that was already known-fresh.
       if (loadRev > 0 && getSyncStamp(dynastyId, 'players') === loadRev) markPcDynastyPartConfirmed(dynastyId, 'players')
       if (loadRev > 0 && getSyncStamp(dynastyId, 'games') === loadRev) markPcDynastyPartConfirmed(dynastyId, 'games')
+      // Stamp match means gatedFreshOptions below skips the fetch entirely
+      // (and with it, onPageProgress) — seed progress as already-complete
+      // here using the trusted cache's own count, so the bar doesn't sit
+      // at 0% waiting on a fetch that's intentionally not happening.
+      if (trackingPcLoad && loadRev > 0 && getSyncStamp(dynastyId, 'players') === loadRev) {
+        const cachedCount = (dynasty.players || []).length
+        updatePcLoadProgress(dynastyId, 'players', cachedCount, cachedCount)
+      }
+      if (trackingPcLoad && loadRev > 0 && getSyncStamp(dynastyId, 'games') === loadRev) {
+        const cachedCount = (dynasty.games || []).length
+        updatePcLoadProgress(dynastyId, 'games', cachedCount, cachedCount)
+      }
       const [subcollectionPlayers, subcollectionGames, subcollectionRecaps, subcollectionSeasons, subcollectionRecruitingDatabase, subcollectionTeamFuture, subcollectionRecruitingClasses] = await Promise.all([
-        getPlayersSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'players', loadRev, onFreshPlayers)),
-        getGamesSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'games', loadRev, onFreshGames)),
+        getPlayersSubcollection(dynastyId, {
+          ...gatedFreshOptions(dynastyId, 'players', loadRev, onFreshPlayers),
+          ...(trackingPcLoad ? { onPageProgress: (p) => updatePcLoadProgress(dynastyId, 'players', p.loaded, p.total) } : {}),
+        }),
+        getGamesSubcollection(dynastyId, {
+          ...gatedFreshOptions(dynastyId, 'games', loadRev, onFreshGames),
+          ...(trackingPcLoad ? { onPageProgress: (p) => updatePcLoadProgress(dynastyId, 'games', p.loaded, p.total) } : {}),
+        }),
         getWeekRecapsSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'weekRecaps', loadRev, onFreshRecaps)),
         getSeasonsSubcollection(dynastyId, gatedFreshOptions(dynastyId, 'seasons', loadRev, onFreshSeasons)),
         // Isolated with its own catch: this is the newest of these five
@@ -7252,6 +7323,17 @@ export function DynastyProvider({ children }) {
           return {}
         }),
       ])
+
+      // The other five subcollections are small enough (relative to a
+      // full PC roster + full schedule) that per-page progress isn't
+      // worth the extra count queries — each just contributes a single
+      // "pending" -> "done" unit, real in the sense that it only flips
+      // once its own fetch above has genuinely resolved.
+      if (trackingPcLoad) {
+        for (const name of ['weekRecaps', 'seasons', 'recruitingDatabase', 'teamFuture', 'recruitingClasses']) {
+          updatePcLoadProgress(dynastyId, name, 1, 1)
+        }
+      }
 
       // Use subcollection data if available, otherwise fall back to main document
       const players = subcollectionPlayers.length > 0 ? subcollectionPlayers : (dynasty.players || [])
@@ -21085,6 +21167,7 @@ export function DynastyProvider({ children }) {
     cloudSyncing,
     loadingDynastyId,
     isPcDynastyDataConfirmed,
+    getPcLoadProgress,
     isViewOnly,
     createDynasty,
     updateDynasty,

@@ -13,6 +13,10 @@ import {
   writeBatch,
   query,
   where,
+  orderBy,
+  startAfter,
+  limit,
+  documentId,
   onSnapshot,
   serverTimestamp,
   deleteField,
@@ -751,8 +755,62 @@ export async function getSubcollectionServerCount(dynastyId, subcollectionName) 
   return snap.data().count
 }
 
+// Real (not simulated) incremental progress for the PC dynasty loading
+// screen: pages a collection straight from the server in ordered chunks,
+// reporting `{ loaded, total }` after each page lands, instead of one
+// opaque all-or-nothing read. Used only for players/games — the two
+// collections large enough (a full PC roster + 800+ games) for this to
+// matter; every other subcollection reports its own total in one atomic
+// jump when its single read resolves (see loadDynastyData).
+//
+// `deadlineAt` is a single shared wall-clock timestamp (not a per-page
+// timer) — a page that starts at 14.9s doesn't get its own fresh 15s
+// budget, the whole fetch shares one ceiling. That ceiling exists purely
+// as a circuit breaker for a genuinely dead connection; under any normal
+// connection this finishes well inside it precisely because it's reading
+// in bounded chunks instead of one unbounded blocking call.
+async function getSubcollectionPaged(ref, { pageSize = 200, onPageProgress, deadlineAt } = {}) {
+  let total = null
+  try {
+    const countSnap = await getCountFromServer(ref)
+    total = countSnap.data().count
+  } catch {
+    total = null // Aggregate count itself failed — progress degrades to "unknown total" rather than failing the whole load.
+  }
+
+  const results = []
+  if (total === 0) {
+    onPageProgress?.({ loaded: 0, total: 0 })
+    return results
+  }
+
+  let lastDoc = null
+  for (;;) {
+    let pageQuery = query(ref, orderBy(documentId()), limit(pageSize))
+    if (lastDoc) pageQuery = query(ref, orderBy(documentId()), startAfter(lastDoc), limit(pageSize))
+
+    const pagePromise = getDocsFromServer(pageQuery)
+    const snap = deadlineAt != null
+      ? await Promise.race([
+          pagePromise,
+          new Promise((_, reject) => setTimeout(
+            () => reject(new Error('Timed out loading — check your connection and try again.')),
+            Math.max(1000, deadlineAt - Date.now())
+          )),
+        ])
+      : await pagePromise
+
+    if (snap.empty) break
+    for (const d of snap.docs) results.push({ ...d.data(), _firestoreId: d.id })
+    lastDoc = snap.docs[snap.docs.length - 1]
+    onPageProgress?.({ loaded: results.length, total })
+    if (snap.docs.length < pageSize) break
+  }
+  return results
+}
+
 export async function getPlayersSubcollection(dynastyId, options = {}) {
-  const { onFresh = null, serverFirst = false } = options
+  const { onFresh = null, serverFirst = false, onPageProgress = null } = options
   const playersRef = collection(db, DYNASTIES_COLLECTION, dynastyId, PLAYERS_SUBCOLLECTION)
 
   // serverFirst: destructive one-shot flows (cloud→local migration) must read
@@ -777,6 +835,12 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
   // never reached Device B until something else evicted the cache.
   // Caller updates React state in onFresh so the UI catches up the
   // moment the network returns.
+  //
+  // onPageProgress (PC dynasty loading screen only): when provided, both
+  // the background confirm-read below AND the cache-miss read further
+  // down page through the server in chunks instead of one opaque call,
+  // reporting real (not simulated) {loaded, total} as each page lands —
+  // one shared 15s deadline across the whole fetch either way.
   try {
     const cachedSnap = await getDocsFromCache(playersRef)
     if (!cachedSnap.empty) {
@@ -786,8 +850,11 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
       // getDocsFromServer billed a full-collection read for nothing.
       if (onFresh) {
         const requestedAt = Date.now()
-        getDocsFromServer(playersRef).then(snap => {
-          const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+        const deadlineAt = requestedAt + 15000
+        const fetchFresh = onPageProgress
+          ? getSubcollectionPaged(playersRef, { onPageProgress, deadlineAt })
+          : getDocsFromServer(playersRef).then(snap => snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id })))
+        fetchFresh.then(fresh => {
           try { onFresh(fresh, { requestedAt }) } catch (e) { console.error('onFresh callback threw:', e) }
         }).catch(() => {})
       }
@@ -808,11 +875,13 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
     // bad connection surfaces as a catchable error instead of an infinite
     // "Saving…" — callers already fall back to dynasty.players on failure.
     const requestedAt = Date.now()
-    const snapshot = await Promise.race([
-      getDocs(playersRef),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out loading players — check your connection and try again.')), 15000)),
-    ])
-    const fresh = snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    const deadlineAt = requestedAt + 15000
+    const fresh = onPageProgress
+      ? await getSubcollectionPaged(playersRef, { onPageProgress, deadlineAt })
+      : (await Promise.race([
+          getDocs(playersRef),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out loading players — check your connection and try again.')), 15000)),
+        ])).docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
     // The cache-miss branch never hit the network in the background — this
     // return value IS the fresh server read. Callers that passed onFresh use
     // it as their "this collection is now server-confirmed" signal (see
@@ -835,7 +904,7 @@ export async function getPlayersSubcollection(dynastyId, options = {}) {
  * @returns {Promise<Array>} Array of game objects
  */
 export async function getGamesSubcollection(dynastyId, options = {}) {
-  const { onFresh = null, serverFirst = false } = options
+  const { onFresh = null, serverFirst = false, onPageProgress = null } = options
   const gamesRef = collection(db, DYNASTIES_COLLECTION, dynastyId, GAMES_SUBCOLLECTION)
 
   // serverFirst — see comment in getPlayersSubcollection.
@@ -849,6 +918,8 @@ export async function getGamesSubcollection(dynastyId, options = {}) {
   // viewed on Device B) propagate: the cached read returns instantly
   // for the fast initial paint, and the background server fetch
   // pushes any newer data into React state once it returns.
+  //
+  // onPageProgress — see the matching comment in getPlayersSubcollection.
   try {
     const cachedSnap = await getDocsFromCache(gamesRef)
     if (!cachedSnap.empty) {
@@ -856,8 +927,11 @@ export async function getGamesSubcollection(dynastyId, options = {}) {
       // Only pay for the server read when a caller wants the fresh result.
       if (onFresh) {
         const requestedAt = Date.now()
-        getDocsFromServer(gamesRef).then(snap => {
-          const fresh = snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+        const deadlineAt = requestedAt + 15000
+        const fetchFresh = onPageProgress
+          ? getSubcollectionPaged(gamesRef, { onPageProgress, deadlineAt })
+          : getDocsFromServer(gamesRef).then(snap => snap.docs.map(d => ({ ...d.data(), _firestoreId: d.id })))
+        fetchFresh.then(fresh => {
           try { onFresh(fresh, { requestedAt }) } catch (e) { console.error('onFresh callback threw:', e) }
         }).catch(() => {})
       }
@@ -869,8 +943,13 @@ export async function getGamesSubcollection(dynastyId, options = {}) {
 
   try {
     const requestedAt = Date.now()
-    const snapshot = await getDocs(gamesRef)
-    const fresh = snapshot.docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
+    const deadlineAt = requestedAt + 15000
+    const fresh = onPageProgress
+      ? await getSubcollectionPaged(gamesRef, { onPageProgress, deadlineAt })
+      : (await Promise.race([
+          getDocs(gamesRef),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out loading games — check your connection and try again.')), 15000)),
+        ])).docs.map(d => ({ ...d.data(), _firestoreId: d.id }))
     // Cache-miss branch — see the matching comment in getPlayersSubcollection.
     if (onFresh) {
       try { onFresh(fresh, { requestedAt }) } catch (e) { console.error('onFresh callback threw:', e) }
