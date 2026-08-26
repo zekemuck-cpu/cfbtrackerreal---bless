@@ -5321,6 +5321,31 @@ export function getCustomConferencesForYear(dynasty, year) {
   const startYear = Number(dynasty.startYear)
   const minYear = Number.isFinite(startYear) ? Math.min(startYear, yearNum) : (yearNum - 50)
 
+  // Bulk snapshot fallback, per team: backfillConferencesPerTeam is meant to
+  // guarantee every team ends up with a per-tid entry, but it only RUNS
+  // once per dynasty (gated on _conferencesBackfilledV2) and only covers
+  // whatever teams existed in the bulk store AT THAT TIME — a team added
+  // later (teambuilder import, FCS-filler promoted to real, etc.), or one
+  // the initial CFB27 conference-table parse simply missed, has no per-tid
+  // entry and no future write will ever backfill it retroactively. Without
+  // this, such a team is silently "unassigned" forever — invisible on
+  // Conf. Standings / CC History even though the bulk snapshot (captured
+  // once at dynasty creation from the save's real Conference table) may
+  // already have it. Checked per-team, same year + carry-back window as
+  // the per-tid loop above, so it never overrides a real per-tid answer —
+  // it only fills the gap for a team that has none.
+  const bulkByYear = dynasty.customConferencesByYear || {}
+  const findInBulk = (abbr) => {
+    for (let y = yearNum; y >= minYear; y--) {
+      const snapshot = bulkByYear[y] || bulkByYear[String(y)]
+      if (!snapshot) continue
+      for (const [conf, abbrs] of Object.entries(snapshot)) {
+        if (Array.isArray(abbrs) && abbrs.includes(abbr)) return conf
+      }
+    }
+    return null
+  }
+
   const result = {}
   for (const team of Object.values(teams)) {
     if (!team || team.isFCS || !team.abbr) continue
@@ -5332,6 +5357,7 @@ export function getCustomConferencesForYear(dynasty, year) {
         if (c) { conf = c; break }
       }
     }
+    if (!conf) conf = findInBulk(team.abbr)
     if (!conf) continue
     if (!Array.isArray(result[conf])) result[conf] = []
     result[conf].push(team.abbr)

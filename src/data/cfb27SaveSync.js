@@ -1804,6 +1804,38 @@ export function buildSyncPlan(dynasty, parsed) {
     }
   }
 
+  // Conference alignment — refreshed from the save's own Conference table
+  // (parsed.conferences, the same authoritative source CreateDynasty.jsx
+  // uses) on EVERY sync, not just once at dynasty creation. Before this,
+  // teams[tid].byYear[year].conference — the single source of truth
+  // getCustomConferencesForYear reads for CC History / Conf. Standings /
+  // isConferenceGame — was captured ONE TIME at creation and never touched
+  // again by the regular sync. Any team wrong or missing in that initial
+  // snapshot (or moved by in-season realignment afterward) stayed wrong
+  // forever with no self-correction — confirmed as the actual cause of CC
+  // History misattributing games between conferences that share teams over
+  // time (e.g. Conference USA <-> Sun Belt realignment). Writing it here
+  // every sync makes conference membership fully self-healing, same as
+  // every other synced field.
+  for (const conf of parsed.conferences || []) {
+    for (const rawTid of conf.teamIds || []) {
+      const tid = rawTeamIdMap.get(rawTid)
+      if (tid == null) continue
+      const tidKey = String(tid)
+      const team = mergedTeams[tidKey]
+      if (!team) continue
+      const yearData = team.byYear[year] || {}
+      if (yearData.conference === conf.name) continue
+      mergedTeams[tidKey] = {
+        ...team,
+        byYear: {
+          ...team.byYear,
+          [year]: { ...yearData, conference: conf.name },
+        },
+      }
+    }
+  }
+
   // CFP Committee Poll — a SEPARATE ranking from the Media Poll above (see
   // extractPlayers.cjs's buildTeamMaps for why: verified against a real
   // save that the two genuinely disagree, e.g. Media Poll had Georgia #1/

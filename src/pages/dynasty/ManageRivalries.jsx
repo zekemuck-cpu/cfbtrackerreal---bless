@@ -30,7 +30,7 @@ export default function ManageRivalries() {
     <div className="space-y-6 max-w-4xl mx-auto">
       <PageHero
         title="Rivalries"
-        subtitle="Formed automatically from real-world rivalries and your own games. Add your own if one's missing, and name a trophy once it's earned one."
+        subtitle="Synced automatically from your save and your own games. Add one if it's missing, and name a trophy once it's earned one."
       />
       <RivalriesTab
         dynasty={currentDynasty}
