@@ -10072,14 +10072,6 @@ export function DynastyProvider({ children }) {
     // previously-good value.
     const userCoachCareerStatsUpdate = plan.userCoachCareerStats ? { userCoachCareerStats: plan.userCoachCareerStats } : {}
 
-    // "All Coaches" national leaderboard (every current FBS head coach) —
-    // see cfb27SaveSync.js's allCoachesUpdate comment. Keyed by year like
-    // the rest of this dynasty's per-season snapshots (cfpSeedsByYear,
-    // finalPollsByYear); full overwrite for the current year each sync.
-    const allCoachesUpdate = plan.allCoachesUpdate
-      ? { allCoachesByYear: { ...(dynasty.allCoachesByYear || {}), [dynasty.currentYear]: plan.allCoachesUpdate } }
-      : {}
-
     // Coach Carousel — plan.coachOffersUpdate is always the CURRENT live
     // list from this sync (see cfb27SaveSync.js), so it's a full replace,
     // never merged with what was there before: an offer that's since
@@ -10092,9 +10084,9 @@ export function DynastyProvider({ children }) {
     // User-facing labels for the leftover main-doc fields, keyed by their
     // ACTUAL top-level field name (not the local `...xyzUpdate` variable
     // name) — used for both progress messages and partial-failure errors so
-    // neither ever exposes an internal field name like `allCoachesUpdate`.
-    // Falls back to a generic label for anything not listed here, so adding
-    // a new sync field later can never crash the labeler.
+    // neither ever exposes an internal variable name. Falls back to a
+    // generic label for anything not listed here, so adding a new sync
+    // field later can never crash the labeler.
     const SYNC_FIELD_LABELS = {
       teams: 'team data',
       games: 'games',
@@ -10115,7 +10107,6 @@ export function DynastyProvider({ children }) {
       newJobData: 'coach profile',
       userCoachPortrait: 'coach profile',
       userCoachCareerStats: 'coach profile',
-      allCoachesByYear: 'national coach rankings',
       coachOffers: 'coaching carousel',
     }
     const chunkLabel = (chunk) => {
@@ -10147,7 +10138,7 @@ export function DynastyProvider({ children }) {
       // this stays a single write — only cloud dynasties need the chunked
       // sequence below.
       await report('Saving…', 95)
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...allCoachesUpdate, ...coachOffersUpdate, platform: 'pc' })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, platform: 'pc' })
       await report('Done', 100)
     } else {
       // Same recompute as the local branch, but diffed against freshPlayers
@@ -10214,7 +10205,7 @@ export function DynastyProvider({ children }) {
         teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate,
         ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate,
         ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate,
-        ...allCoachesUpdate, ...coachOffersUpdate, platform: 'pc',
+        ...coachOffersUpdate, platform: 'pc',
       }
       const chunks = chunkUpdateObject(fullUpdate, { lastKeys: ['currentYear', 'currentPhase', 'currentWeek'] })
 

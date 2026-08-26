@@ -33,18 +33,6 @@
 const { create: createFranchiseFile } = require('madden-franchise');
 const schema = require('./lib/schema.cjs');
 
-// Reported in the sync response (see extractFullSave's return + cfb27SaveSync.js's
-// allHeadCoaches diagnostics) so a client-side console log can confirm which
-// version actually ran a given sync — the only unambiguous way to tell "the
-// dependency bump deployed" from "still running the old build" without
-// access to Vercel's dashboard/logs.
-let MADDEN_FRANCHISE_VERSION = null;
-try {
-  MADDEN_FRANCHISE_VERSION = require('madden-franchise/package.json').version;
-} catch (err) {
-  MADDEN_FRANCHISE_VERSION = 'unknown';
-}
-
 function openSave(file) {
   return createFranchiseFile(file, { autoParse: true, autoUnempty: true });
 }
@@ -580,117 +568,9 @@ async function buildUserCoachInfo(save, coachRecords) {
   // empty" look like two different bugs — they're the same Coach-table
   // failure; one just fails loud and the other fails silent.
   if (nonEmptyRows > 0 && userControlledRows === 0) {
-    console.warn(`[buildUserCoachInfo] ${nonEmptyRows} Coach row(s) read but none had IsUserControlled set — same schema failure as buildAllHeadCoaches, just silently frozen instead of visibly empty.`);
+    console.warn(`[buildUserCoachInfo] ${nonEmptyRows} Coach row(s) read but none had IsUserControlled set.`);
   }
   return { info: null, diagnostics: { nonEmptyRows, userControlledRows } };
-}
-
-/**
- * Every current Head Coach in the league (not just the human's own row) —
- * powers the "All Coaches" national leaderboard, same column set as the
- * in-game Coach Stats screen minus "Cost": verified against a real sync
- * that neither ContractSalary nor any other Coach-record numeric field
- * (CoachPoints, ExperiencePoints, LegacyScore, AwardPoints, Level,
- * CoachPrestigeScore — all tried) matches that screen's Cost column, even
- * in relative ranking order, so it's presumed to be a value EA computes
- * for that UI rather than a single stored field. CoachPrestigeScore is
- * used instead as the table's default sort.
- */
-async function buildAllHeadCoaches(save, coachRecords) {
-  const coaches = [];
-  // Raw samples of whatever's actually in the first few non-empty rows,
-  // captured regardless of which filter (if any) a row fails — so if this
-  // comes back empty AGAIN, the actual field values are already in hand
-  // instead of needing yet another round-trip to find out why 'Position'
-  // isn't reading as the expected 'HeadCoach' string, or TeamIndex/name
-  // aren't resolving. Capped at 5 so this never meaningfully affects payload
-  // size.
-  const rowSamples = [];
-  if (!coachRecords) {
-    return { coaches, diagnostics: { tableRows: 0, nonEmptyRows: 0, headCoachRows: 0, schemaFields: [], rowSamples } }
-  }
-  const schemaFields = (coachRecords.schema?.attributes || []).map((f) => f.name)
-  let nonEmptyRows = 0;
-  let headCoachRows = 0;
-  for (const rec of coachRecords) {
-    if (!rec || rec.isEmpty) continue;
-    nonEmptyRows++;
-    if (rowSamples.length < 5) {
-      rowSamples.push({
-        position: readCell(rec, 'Position'),
-        teamIndex: readCell(rec, 'TeamIndex'),
-        firstName: readCell(rec, 'FirstName'),
-        lastName: readCell(rec, 'LastName'),
-      })
-    }
-    if (readCell(rec, 'Position') !== 'HeadCoach') continue;
-    headCoachRows++;
-    const rawTid = Number(readCell(rec, 'TeamIndex'));
-    if (!Number.isFinite(rawTid)) continue;
-    const first = readCell(rec, 'FirstName') || '';
-    const last = readCell(rec, 'LastName') || '';
-    const name = `${first} ${last}`.trim();
-    if (!name) continue;
-
-    const jobSecurityPct = Number(readCell(rec, 'CurrentJobSecurityPercentage'));
-    const rawPrestigeGrade = readCell(rec, 'CoachPrestige');
-    const prestigeGrade = rawPrestigeGrade != null ? (LETTER_GRADE_LABELS[rawPrestigeGrade] ?? null) : null;
-    const prestigeScore = Number(readCell(rec, 'CoachPrestigeScore'));
-    const rawJobSecurityStatus = readCell(rec, 'CurrentJobSecurityStatus');
-    const jobSecurityStatus = rawJobSecurityStatus != null ? (JOB_SECURITY_STATUS_LABELS[rawJobSecurityStatus] ?? null) : null;
-
-    let careerStats = null;
-    try {
-      const careerStatsRec = await resolveRef(save, readCell(rec, 'CareerStats'));
-      if (careerStatsRec && !careerStatsRec.isEmpty) {
-        careerStats = {};
-        for (const [key, field] of Object.entries(CAREER_COACH_STATS_FIELDS)) {
-          const v = Number(readCell(careerStatsRec, field));
-          careerStats[key] = Number.isFinite(v) ? v : 0;
-        }
-      }
-    } catch (err) {
-      // Leave careerStats null for this coach; the rest of the row is
-      // still useful.
-    }
-
-    coaches.push({
-      rawTid,
-      name,
-      generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
-      portrait_id: Number(readCell(rec, 'Portrait')) || null,
-      jobSecurityPct: Number.isFinite(jobSecurityPct) ? jobSecurityPct : null,
-      jobSecurityStatus,
-      prestigeGrade,
-      prestigeScore: Number.isFinite(prestigeScore) ? prestigeScore : null,
-      careerStats,
-    });
-  }
-  // Diagnostic for the "All Coaches leaderboard came back empty" report —
-  // same "announce it instead of failing silently" spirit as getBestTable's
-  // own discarded-record warning above. Logged here (server-side, Vercel
-  // function logs) AND returned as `diagnostics` so the caller can also
-  // surface it in the SYNC RESPONSE — the client has no access to these
-  // server logs, so without threading it through, "all coaches came back
-  // empty" is a dead end for anyone who can't check Vercel directly.
-  const tableDiag = coachRecords.diagnostics || null
-  if (nonEmptyRows === 0) {
-    // Distinguish "the table really has nothing" from "every instance threw
-    // during readRecords()" — getAllTableRecords now reports the latter
-    // (readErrors > 0) instead of silently returning an empty array either
-    // way, which used to make these two very different situations
-    // indistinguishable from here.
-    if (tableDiag && tableDiag.readErrors > 0 && tableDiag.readErrors === tableDiag.candidateCount) {
-      console.warn(`[buildAllHeadCoaches] Coach table read failed on all ${tableDiag.candidateCount} instance(s): ${tableDiag.lastErrorMessage}`);
-    } else {
-      console.warn('[buildAllHeadCoaches] Coach table returned zero non-empty rows.');
-    }
-  } else if (headCoachRows === 0) {
-    console.warn(`[buildAllHeadCoaches] ${nonEmptyRows} Coach row(s) read but none had Position === 'HeadCoach'. Sample rows: ${JSON.stringify(rowSamples)}`);
-  } else if (coaches.length < headCoachRows) {
-    console.warn(`[buildAllHeadCoaches] ${headCoachRows} HeadCoach row(s) found but only ${coaches.length} had a resolvable TeamIndex + name. Sample rows: ${JSON.stringify(rowSamples)}`);
-  }
-  return { coaches, diagnostics: { tableRows: coachRecords.length, nonEmptyRows, headCoachRows, schemaFields, rowSamples, table: tableDiag } };
 }
 
 /**
@@ -2466,7 +2346,6 @@ async function extractFullSave(filePath, opts = {}) {
   const coachRecords = await getAllTableRecords(save, 'Coach');
   const coachingStaff = buildCoachingStaff(coachRecords);
   const { info: userCoachInfo, diagnostics: userCoachInfoDiagnostics } = await buildUserCoachInfo(save, coachRecords);
-  const { coaches: allHeadCoaches, diagnostics: allHeadCoachesDiagnostics } = await buildAllHeadCoaches(save, coachRecords);
 
   const jobOpeningTable = await getBestTable(save, 'JobOpening');
   const coachOffers = await buildCoachOffers(save, jobOpeningTable, userCoachInfo?.coachRec);
@@ -2541,17 +2420,6 @@ async function extractFullSave(filePath, opts = {}) {
     // displayed profile is whatever a much earlier successful sync left
     // behind, not this one).
     userCoachInfoDiagnostics,
-    allHeadCoaches,
-    // Client has no access to this function's own server-side console.warn
-    // (Vercel function logs) — surfaced here so cfb27SaveSync.js's "all
-    // coaches came back empty" warning can name the exact cause instead of
-    // dead-ending at "check server logs" for anyone who can't.
-    allHeadCoachesDiagnostics,
-    // Which madden-franchise version actually ran this parse — the one
-    // unambiguous way to confirm a dependency-bump deploy actually went
-    // live vs. the client still hitting a stale build, without needing
-    // access to Vercel's dashboard.
-    maddenFranchiseVersion: MADDEN_FRANCHISE_VERSION,
     coachOffers,
     gameStats,
     depthCharts,

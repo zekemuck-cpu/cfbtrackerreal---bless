@@ -2103,12 +2103,11 @@ export function buildSyncPlan(dynasty, parsed) {
         ...(parsed.userCoachInfo.careerStats || {}),
       }
     : null
-  // Diagnostic for "my own coach profile still works, so why is All Coaches
-  // empty" reports — userCoachCareerStats/userCoachPortrait are merge-only
-  // writes (only set below "when present"), so a null userCoachInfo here
-  // means THIS sync wrote neither, and whatever profile is showing is
-  // frozen on an earlier sync's data, not actually refreshed. Same root
-  // cause as allHeadCoaches coming back empty, just silent instead of loud.
+  // Diagnostic for "my own coach profile isn't updating" reports —
+  // userCoachCareerStats/userCoachPortrait are merge-only writes (only set
+  // below "when present"), so a null userCoachInfo here means THIS sync
+  // wrote neither, and whatever profile is showing is frozen on an earlier
+  // sync's data, not actually refreshed.
   if (!parsed.userCoachInfo) {
     const d = parsed.userCoachInfoDiagnostics
     console.warn(`[cfb27Sync] userCoachInfo: came back null — your own coach profile was NOT updated by this sync (frozen on old data). ${
@@ -2125,77 +2124,6 @@ export function buildSyncPlan(dynasty, parsed) {
         userJobChangeResolved = true
       }
     }
-  }
-
-  // National "All Coaches" leaderboard (extractPlayers.cjs's
-  // buildAllHeadCoaches) — every current FBS head coach, tid-mapped and
-  // fully replaced each sync (same lifetime-counter reasoning as
-  // userCoachCareerStats above: the save's own numbers are always the
-  // current truth, no merge needed). Coaches whose team doesn't resolve to
-  // an app tid (FCS filler slots, unrecognized rows) are dropped rather
-  // than stored with a null team.
-  const rawAllHeadCoaches = parsed.allHeadCoaches || []
-  const allCoachesUpdate = rawAllHeadCoaches
-    .map((c) => {
-      const tid = rawTeamIdMap.get(c.rawTid)
-      if (tid == null) return null
-      return {
-        tid,
-        name: c.name ?? null,
-        genericHeadAssetName: c.generic_head_asset_name ?? null,
-        portraitId: c.portrait_id ?? null,
-        jobSecurityPct: c.jobSecurityPct ?? null,
-        jobSecurityStatus: c.jobSecurityStatus ?? null,
-        prestigeGrade: c.prestigeGrade ?? null,
-        prestigeScore: c.prestigeScore ?? null,
-        ...(c.careerStats || {}),
-      }
-    })
-    .filter(Boolean)
-  // Diagnostic for the "All Coaches leaderboard is empty" report — same
-  // "announce it instead of failing silently" spirit as getBestTable's own
-  // discarded-record warning in extractPlayers.cjs. Distinguishes the two
-  // possible causes at the exact point they'd occur: the extractor itself
-  // returned nothing (check api server logs for buildAllHeadCoaches /
-  // Coach table read issues), vs. every returned coach's team failed to
-  // resolve through rawTeamIdMap (a raw team_id / name-resolution mismatch
-  // worth comparing against a working field like teamRatings for the same
-  // sync).
-  if (rawAllHeadCoaches.length === 0) {
-    // buildAllHeadCoaches' own diagnostics (extractPlayers.cjs) — threaded
-    // through the API response since its console.warn only reaches Vercel's
-    // server logs, which most users can't check. Names the exact cause:
-    // the Coach table read nothing at all, it read rows but none were
-    // Position === 'HeadCoach', or HeadCoach rows existed but none had a
-    // resolvable TeamIndex + name.
-    const diag = parsed.allHeadCoachesDiagnostics
-    const tableDiag = diag?.table
-    const diagMsg = diag
-      ? (diag.nonEmptyRows === 0
-          ? (tableDiag && tableDiag.readErrors > 0 && tableDiag.readErrors === tableDiag.candidateCount
-              ? `Coach table FAILED TO READ on all ${tableDiag.candidateCount} instance(s) — parse error: ${tableDiag.lastErrorMessage}`
-              : 'Coach table returned zero non-empty rows (read succeeded, table genuinely empty in this save).')
-          : diag.headCoachRows === 0
-            ? `${diag.nonEmptyRows} Coach row(s) read but none had Position === 'HeadCoach'.`
-            : `${diag.headCoachRows} HeadCoach row(s) found but none had a resolvable TeamIndex + name.`)
-      : '(no diagnostics returned by the API — extraction may be running an older deploy)'
-    console.warn(`[cfb27Sync] allHeadCoaches: save parse returned zero coaches — extraction-side issue, not a tid-mapping one. ${diagMsg}`)
-    // Unambiguous deploy check — confirms whether this sync actually ran
-    // against the updated madden-franchise dependency or a stale build.
-    console.warn(`[cfb27Sync] madden-franchise version used by this sync: ${parsed.maddenFranchiseVersion || '(not reported — API is running a pre-upgrade deploy)'}`)
-    // Raw field values from the first few Coach rows the extractor actually
-    // read, regardless of which case above fired — logged unconditionally
-    // so a single sync attempt carries everything needed to fix whichever
-    // cause it turns out to be, instead of requiring another round-trip
-    // just to go look at the data.
-    if (diag) {
-      console.warn(`[cfb27Sync] allHeadCoaches diagnostics — schema fields: ${JSON.stringify(diag.schemaFields)}`)
-      console.warn(`[cfb27Sync] allHeadCoaches diagnostics — sample rows: ${JSON.stringify(diag.rowSamples)}`)
-    }
-  } else if (allCoachesUpdate.length === 0) {
-    console.warn(`[cfb27Sync] allHeadCoaches: extracted ${rawAllHeadCoaches.length} coach(es) but rawTeamIdMap resolved none of their teams — tid-mapping issue.`)
-  } else if (allCoachesUpdate.length < rawAllHeadCoaches.length * 0.5) {
-    console.warn(`[cfb27Sync] allHeadCoaches: only ${allCoachesUpdate.length} of ${rawAllHeadCoaches.length} coaches resolved a tid — check rawTeamIdMap coverage.`)
   }
 
   // Coach Carousel — pending job offers from OTHER schools for the user's
@@ -2233,7 +2161,6 @@ export function buildSyncPlan(dynasty, parsed) {
     userJobChangeResolved,
     userCoachPortrait,
     userCoachCareerStats,
-    allCoachesUpdate,
     coachOffersUpdate,
     seasonInfo,
     unresolvedTeamNames: playerDiff.unresolvedTeamNames,

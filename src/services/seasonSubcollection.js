@@ -49,14 +49,9 @@ const SEASONS_SUBCOLLECTION = 'seasons'
 // weekRecapsByYear is intentionally NOT in this list — it has its own
 // dedicated subcollection (one doc per year-week) for unrelated reasons.
 export const PER_YEAR_FIELDS = [
-  // Every current FBS head coach, one full national snapshot per season,
-  // forever — the same unbounded per-year growth as staffMovesByYear below.
-  // Was previously unrouted, so a CFB27-synced dynasty's national coach
-  // leaderboard accumulated on the MAIN doc every sync (1 MiB cap risk).
-  'allCoachesByYear',
-  // Weekly awards, one entry per season, forever — same unbounded shape as
-  // allCoachesByYear above. Flagged by the accurate main-doc size guard as a
-  // real (if smaller) contributor on a fully-synced CFB27 dynasty.
+  // Weekly awards, one entry per season, forever — unbounded per-year
+  // growth. Flagged by the accurate main-doc size guard as a real
+  // contributor on a fully-synced CFB27 dynasty.
   'playersOfWeekByYear',
   'heismanWatchByYear',
   'allAmericansByYear',
