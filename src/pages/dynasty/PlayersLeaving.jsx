@@ -43,6 +43,13 @@ const PENDING_REASON_LABEL = (reason) => {
   return `Transferred — ${reason}`
 }
 
+// The rating as of the year they're leaving, not whatever's currently
+// tracked on the player record — matters for a departed player, whose
+// top-level `overall` can have moved on (traded/re-rated at a new team)
+// since the year this page is looking at.
+const overallForYear = (player, year) =>
+  player?.overallByYear?.[year] ?? player?.overallByYear?.[String(year)] ?? player?.overall ?? null
+
 export default function PlayersLeaving() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
@@ -78,7 +85,11 @@ export default function PlayersLeaving() {
       // instead of just "Transferred" when it's available.
       const baseLabel = REASON_LABEL[reasonKey] || 'Departed'
       const reasonLabel = movement?.departureReason ? `${baseLabel} — ${movement.departureReason}` : baseLabel
-      return { pid: p.pid, name: p.name, position: p.position, reasonLabel, pending: false }
+      // Their rating as of the last year they were actually on our roster —
+      // by displayYear they're already gone, so overallByYear[displayYear]
+      // (if set at all) would reflect wherever they ended up next, not the
+      // player we're showing here.
+      return { pid: p.pid, name: p.name, position: p.position, reasonLabel, pending: false, overall: overallForYear(p, prevYear) }
     })
 
   // Still on the roster, but marked leaving for THIS year — dynasty.
@@ -101,11 +112,19 @@ export default function PlayersLeaving() {
         position: player?.position,
         reasonLabel: PENDING_REASON_LABEL(entry.reason),
         pending: true,
+        overall: overallForYear(player, displayYear),
       }
     })
 
+  // Highest overall first — a null/unknown rating sorts last rather than
+  // colliding with a real 0 OVR.
   const leavers = [...confirmedLeavers, ...pendingLeavers]
-    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+    .sort((a, b) => {
+      if (a.overall == null && b.overall == null) return (a.name || '').localeCompare(b.name || '')
+      if (a.overall == null) return 1
+      if (b.overall == null) return -1
+      return b.overall - a.overall || (a.name || '').localeCompare(b.name || '')
+    })
 
   return (
     <div className="space-y-6">
@@ -128,6 +147,7 @@ export default function PlayersLeaving() {
                   </Link>
                   <span className="ml-2 text-xs text-txt-tertiary uppercase">{p.position}</span>
                 </div>
+                <div className="text-sm font-bold text-txt-primary tabular-nums w-8 text-right">{p.overall ?? '--'}</div>
                 {p.pending && <Badge variant="warning" className="mr-1.5">Pending</Badge>}
                 <Badge variant="outline">{p.reasonLabel}</Badge>
               </div>
