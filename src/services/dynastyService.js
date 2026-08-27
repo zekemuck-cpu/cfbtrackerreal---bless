@@ -1203,6 +1203,16 @@ export async function savePlayersToSubcollection(dynastyId, players, options = {
  * getPlayersSubcollection — same cache-first read + onFresh callback for a
  * background server refresh, so a save made on one device shows up on
  * another without waiting for the local cache to get evicted.
+ *
+ * Network reads page through getSubcollectionPaged (200 docs/page, one
+ * shared 15s deadline for the whole fetch) instead of a single unbounded
+ * getDocs() — this is the WHOLE national recruiting board, not just the
+ * user's team, so it's the same "large enough that one round trip can
+ * exceed a fixed timeout" shape as players/games, just without a loading
+ * screen wired to show progress for it. Was a single getDocs() with the
+ * same 15s cap, which meant a dynasty with a large enough board would time
+ * out on EVERY cache-miss load — reported as a recurring failure, not a
+ * one-off network blip, on a real dynasty.
  */
 export async function getRecruitingDatabaseSubcollection(dynastyId, options = {}) {
   if (!dynastyId) return []
@@ -1221,8 +1231,8 @@ export async function getRecruitingDatabaseSubcollection(dynastyId, options = {}
       const cached = cachedSnap.docs.map(d => d.data())
       // Only pay for the server read when a caller wants the fresh result.
       if (onFresh) {
-        getDocsFromServer(ref).then(snap => {
-          const fresh = snap.docs.map(d => d.data())
+        const deadlineAt = Date.now() + 15000
+        getSubcollectionPaged(ref, { deadlineAt }).then(fresh => {
           try { onFresh(fresh) } catch (e) { console.error('onFresh callback threw:', e) }
         }).catch(() => {})
       }
@@ -1233,11 +1243,8 @@ export async function getRecruitingDatabaseSubcollection(dynastyId, options = {}
   }
 
   try {
-    const snapshot = await Promise.race([
-      getDocs(ref),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out loading the Recruiting Database — check your connection and try again.')), 15000)),
-    ])
-    return snapshot.docs.map(d => d.data())
+    const deadlineAt = Date.now() + 15000
+    return await getSubcollectionPaged(ref, { deadlineAt })
   } catch (error) {
     console.error('Error fetching Recruiting Database subcollection:', error)
     throw error
