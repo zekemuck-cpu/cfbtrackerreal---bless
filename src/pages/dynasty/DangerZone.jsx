@@ -16,7 +16,7 @@ import { SEED_TO_SLOT, getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot } from 
 import { findMatchingPlayer, normalizePlayerName } from '../../utils/playerMatching'
 import { migrateDynastyToV2 } from '../../data/migrateDynastyV2'
 import { syncDerivedFieldsFromV2 } from '../../data/rosterModel'
-import { EDITIONS, getEditionKey, getEditionConfig } from '../../editions'
+import { EDITIONS, getEditionKey, getEditionConfig, isPcAutoDynasty } from '../../editions'
 import { migrateLegacyCoachesToCids } from '../../data/coachModel'
 import CalendarJumper from '../../components/CalendarJumper'
 import {
@@ -79,6 +79,18 @@ export default function DangerZone() {
   const { id: dynastyId } = useParams()
   const pathPrefix = usePathPrefix()
   useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
+  // Gates the "Use With Caution" repair tools below — every one of them was
+  // written for console (manual-entry) failure modes: roster carryover gaps
+  // from advanceWeek's local logic, blank transfer years from Sheet import,
+  // manual redshirt confirmation, CFP brackets from hand-entered results,
+  // etc. None of those failure modes can occur on a PC dynasty (its roster/
+  // transfers/classes/CFP data all come straight from the save every sync,
+  // "save always wins"), so running one would do nothing useful at best —
+  // or actively corrupt data the next sync would otherwise have kept
+  // correct — at worst. isPcAutoDynasty, not isViewOnly: this is about
+  // which tools are ever meaningful for this dynasty's data model, not
+  // about edit permission.
+  const isPc = isPcAutoDynasty(currentDynasty)
 
   // Status states
   const [clearCacheStatus, setClearCacheStatus] = useState(null)
@@ -3365,6 +3377,15 @@ export default function DangerZone() {
           subtitle="Known to corrupt records on dynasties started on older builds. Back up first."
         />
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {/* Console-only repair tools — every one below fixes a failure mode
+              specific to manual data entry or the local advanceWeek/import
+              logic. None of that applies to a PC dynasty, whose roster,
+              transfers, classes, and CFP data all come straight from the
+              save every sync — running one of these would either do nothing
+              (get overwritten by the next sync) or actively corrupt data the
+              next sync would otherwise have kept correct. See isPc's own
+              comment above. */}
+          {!isPc && (<>
           <ActionCard
             danger
             title="Repair CFP Games"
@@ -3405,6 +3426,10 @@ export default function DangerZone() {
             onClick={handleClearRoster}
             status={clearRosterStatus}
           />
+          </>)}
+          {/* PC-only — hidden for console the same way the tools above are
+              hidden for PC: neither is meaningful on the other platform. */}
+          {isPc && (<>
           <ActionCard
             danger
             pcOnly
@@ -3423,6 +3448,8 @@ export default function DangerZone() {
             onClick={handleRebuildGamesFromSchedule}
             status={rebuildGamesStatus}
           />
+          </>)}
+          {!isPc && (<>
           <Card className="flex flex-col h-full">
             <div className="mb-3">
               <h3 className="label-sm text-txt-primary m-0">Migrate to NCAA 11</h3>
@@ -3461,6 +3488,7 @@ export default function DangerZone() {
             onClick={handleOpenAdvanceModal}
             status={advanceClassesStatus}
           />
+          </>)}
         </div>
       </div>
 
