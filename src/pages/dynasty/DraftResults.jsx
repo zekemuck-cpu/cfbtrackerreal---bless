@@ -206,23 +206,6 @@ export default function DraftResults() {
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
                 <div className="space-y-6">
-                  {topSchools.length > 0 && (
-                    <Card>
-                      <h3 className="font-display font-bold uppercase text-txt-primary mb-3" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
-                        Most Players Drafted
-                      </h3>
-                      <div className="flex flex-wrap gap-3">
-                        {topSchools.map((s, i) => (
-                          <div key={s.tid} className="flex items-center gap-2 px-3 py-1.5 rounded-md" style={{ background: 'var(--surface-2)' }}>
-                            <span className="text-xs text-txt-tertiary tabular-nums w-4">{i + 1}</span>
-                            <img src={getTeamLogoByTid(s.tid, currentDynasty.teams)} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
-                            <span className="text-sm font-semibold text-txt-primary">{getMascotName(s.tid, currentDynasty.teams)}</span>
-                            <span className="text-sm text-txt-tertiary tabular-nums">{s.count}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  )}
                   <div>
                     <div className="flex items-center gap-3 mb-3">
                       <h3 className="font-display font-bold uppercase text-txt-primary m-0" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
@@ -290,6 +273,24 @@ export default function DraftResults() {
                       )
                     )}
                   </Card>
+
+                  {topSchools.length > 0 && (
+                    <Card className="mt-6">
+                      <h3 className="font-display font-bold uppercase text-txt-primary mb-3" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
+                        Most Players Drafted
+                      </h3>
+                      <div className="space-y-2">
+                        {topSchools.map((s, i) => (
+                          <div key={s.tid} className="flex items-center gap-2 py-1.5" style={{ borderTop: i > 0 ? '1px solid var(--surface-4)' : 'none' }}>
+                            <span className="text-xs text-txt-tertiary tabular-nums w-4">{i + 1}</span>
+                            <img src={getTeamLogoByTid(s.tid, currentDynasty.teams)} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
+                            <span className="text-sm font-semibold text-txt-primary flex-1 min-w-0 truncate">{getMascotName(s.tid, currentDynasty.teams)}</span>
+                            <span className="text-sm text-txt-tertiary tabular-nums">{s.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
                 </div>
               </div>
             )
