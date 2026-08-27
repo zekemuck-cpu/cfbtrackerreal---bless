@@ -3502,7 +3502,7 @@ export default function Dashboard() {
       // moment the game itself calls the End of Season Recap.
       if (week === 0) return 'End of Season Recap'
       if (week === 1) return 'Players Leaving'
-      if (week >= 2 && week <= 4) return `Recruiting Week ${week - 1} of 4`
+      if (week >= 2 && week <= 4) return isCfb27Auto ? `Offseason Recruiting Week ${week - 1} of 4` : `Recruiting Week ${week - 1} of 4`
       if (week === 5) return 'National Signing Day'
       if (week === 6) return 'Training Results'
       if (week === 7) return 'Offseason'
@@ -7483,17 +7483,20 @@ export default function Dashboard() {
               // structure this sync writes to (see cfb27SaveSync.js), so this
               // naturally shows real synced results once a draft happens.
               // PC mode: pure View, no manual entry — the sync already writes
-              // this the same way handleDraftResultsSave does.
+              // this the same way handleDraftResultsSave does. Links to the
+              // dedicated Draft Results page (not the Team page's departures
+              // tab) — that page also has a team dropdown and a Full Draft
+              // view covering the whole league, not just this dynasty's own
+              // team, so the View button always shows even when North Texas
+              // itself has zero draftees this year.
               if (recruitingWeekNum === 1) {
                 if (isCfb27Auto) {
                   o26Todos.push(pcViewTodo({
                     key: 'draft-results-pc',
                     done: hasDraftResultsData,
                     title: 'Draft Results',
-                    subtitle: hasDraftResultsData ? `${draftResultsCount} player${draftResultsCount !== 1 ? 's' : ''} drafted` : 'Not yet synced',
-                    url: (hasDraftResultsData && currentDynasty?.currentTid != null)
-                      ? `${pathPrefix}/team/${currentDynasty.currentTid}/${currentDynasty.currentYear}?tab=departures`
-                      : null,
+                    subtitle: hasDraftResultsData ? `${draftResultsCount} player${draftResultsCount !== 1 ? 's' : ''} drafted` : 'No players drafted this year',
+                    url: `${pathPrefix}/draft-results/${offseasonDataYear}`,
                   }))
                 } else {
                   // Green only when the user has explicitly saved results (even empty []).
@@ -7781,7 +7784,7 @@ export default function Dashboard() {
               return (
                 <>
                   <h3 className="font-display font-bold uppercase leading-none text-txt-primary py-3 pl-3 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', ...sectionStripStyle }}>
-                    {recruitingWeekNum === 4 ? 'National Signing Day' : `Recruiting Week ${recruitingWeekNum} of 4`}
+                    {recruitingWeekNum === 4 ? 'National Signing Day' : isCfb27Auto ? `Offseason Recruiting Week ${recruitingWeekNum} of 4` : `Recruiting Week ${recruitingWeekNum} of 4`}
                   </h3>
                   {renderTodoList({ todos: o26Todos, isViewOnly })}
                 </>
