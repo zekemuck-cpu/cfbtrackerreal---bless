@@ -1557,6 +1557,50 @@ function mapDepthCharts(rawDepthCharts, rawTeamIdMap, pidByAssetName, pidByPlaye
   return out
 }
 
+// Fallback for the rare save state where NO Coach row has IsUserControlled
+// set at all — confirmed real (not just theoretical): a user reported it
+// on a save where they were plainly not mid-transition, still head coach
+// of their own team, sync after sync. A team+position lookup alone was
+// already tried as the PRIMARY signal once and pulled after it showed real
+// users a WRONG coach's face (mapCoachingStaff's header comment: a team's
+// position slot can hold a different coach than the human, confirmed on a
+// real save mid-succession). This fallback is deliberately narrower than
+// that: it only fires when the coach in the dynasty's KNOWN team+position
+// slot has the EXACT name the last successful IsUserControlled sync
+// already confirmed was the user (dynasty.userCoachPortrait.name) — a
+// genuinely different coach sitting in that slot, the exact failure mode
+// that got the old approach pulled, still won't match and still leaves the
+// profile frozen rather than guessing wrong. Needs at least one prior
+// successful sync to have a known name to check against; a dynasty that's
+// never had one stays frozen same as before. Only recovers name/portrait —
+// career stats/job security/prestige need the raw Coach row's CareerStats
+// resolution, which only happens inside buildUserCoachInfo server-side, so
+// those still freeze on a fallback-recovered sync.
+//
+// @param {object} dynasty - dynasty.userCoachPortrait/.coachPosition
+// @param {object} parsed - the raw result from api/cfb27-save-parse.js (userCoachInfo, coachingStaff)
+// @param {number} userTid - dynasty.currentTid, already resolved to a Number
+// @param {Map<number,number>} rawTeamIdMap - from buildRawTeamIdMap
+// @returns {{name: string, genericHeadAssetName: string|null, portraitId: number|null} | null}
+export function findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamIdMap) {
+  if (parsed.userCoachInfo) return null
+  if (!dynasty.userCoachPortrait?.name || !parsed.coachingStaff) return null
+  const positionKey = { HC: 'headCoach', OC: 'offensiveCoordinator', DC: 'defensiveCoordinator' }[dynasty.coachPosition]
+  if (!positionKey) return null
+  let rawUserTid = null
+  for (const [rawTid, tid] of rawTeamIdMap) {
+    if (Number(tid) === Number(userTid)) { rawUserTid = rawTid; break }
+  }
+  const candidate = rawUserTid != null ? parsed.coachingStaff[rawUserTid]?.[positionKey] : null
+  const knownName = String(dynasty.userCoachPortrait.name).trim().toLowerCase()
+  if (!candidate?.name || String(candidate.name).trim().toLowerCase() !== knownName) return null
+  return {
+    name: candidate.name,
+    genericHeadAssetName: candidate.generic_head_asset_name ?? null,
+    portraitId: candidate.portrait_id ?? null,
+  }
+}
+
 /**
  * Assemble everything a sync needs to write, from one parsed save and the
  * dynasty's current state. Ties reconcilePlayers/reconcileRecruitingBoard
@@ -2099,37 +2143,33 @@ export function buildSyncPlan(dynasty, parsed) {
   // after a correct re-sync, since "no mismatch this time" and "never had
   // one" produce the exact same (null) userJobChange otherwise.
   let userJobChangeResolved = false
+  const userCoachPortraitFallback = findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamIdMap)
   // The human's own real headshot — read directly off the SAME
   // IsUserControlled row used for job-change detection above, not
   // cross-referenced through mergedTeams' byTeam+position coaching staff
   // map. Verified against a real save those two can disagree (a team's
   // "headCoach" position slot held a different coach than the row actually
   // flagged as the human) — IsUserControlled is the only reliable way to
-  // identify the specific coach that's really the user.
+  // identify the specific coach that's really the user, EXCEPT for the
+  // narrow name-matched fallback above.
   const userCoachPortrait = parsed.userCoachInfo
     ? {
         name: parsed.userCoachInfo.name ?? null,
         genericHeadAssetName: parsed.userCoachInfo.generic_head_asset_name ?? null,
         portraitId: parsed.userCoachInfo.portrait_id ?? null,
       }
-    : null
+    : userCoachPortraitFallback
 
-  // Real, save-authoritative career totals for the human coach — a full
-  // overwrite every sync (these are lifetime counters the save itself
-  // maintains, so last-synced value is always the correct one; no merge
-  // logic needed). jobSecurityPct/prestige are live, current-moment values
-  // (not history) — CoachCareer.jsx shows them as a snapshot only, same as
-  // the in-game coach card. Null when the save didn't resolve CareerStats
-  // (very old dynasties/edge cases) rather than write a half-empty object.
+  // Real, save-authoritative career win/loss totals for the human coach — a
+  // full overwrite every sync (lifetime counters the save itself maintains,
+  // so last-synced value is always correct; no merge logic needed).
+  // CoachCareer.jsx uses these to cover seasons before this dynasty started
+  // tracking games, preferring its own game-derived record whenever this
+  // saved total is behind. Job security/prestige/bowl-and-title counters
+  // used to be synced here too; trimmed since nothing in the app displays
+  // them — see buildUserCoachInfo's header comment in extractPlayers.cjs.
   const userCoachCareerStats = parsed.userCoachInfo
-    ? {
-        jobSecurityPct: parsed.userCoachInfo.jobSecurityPct ?? null,
-        jobSecurityStatus: parsed.userCoachInfo.jobSecurityStatus ?? null,
-        prestigeGrade: parsed.userCoachInfo.prestigeGrade ?? null,
-        prestigeScore: parsed.userCoachInfo.prestigeScore ?? null,
-        careerWinSeasons: parsed.userCoachInfo.careerWinSeasons ?? null,
-        ...(parsed.userCoachInfo.careerStats || {}),
-      }
+    ? { ...(parsed.userCoachInfo.careerStats || {}) }
     : null
   // Diagnostic for "my own coach profile isn't updating" reports —
   // userCoachCareerStats/userCoachPortrait are merge-only writes (only set
@@ -2138,9 +2178,12 @@ export function buildSyncPlan(dynasty, parsed) {
   // sync's data, not actually refreshed.
   if (!parsed.userCoachInfo) {
     const d = parsed.userCoachInfoDiagnostics
-    console.warn(`[cfb27Sync] userCoachInfo: came back null — your own coach profile was NOT updated by this sync (frozen on old data). ${
-      d ? `${d.nonEmptyRows} Coach row(s) read, ${d.userControlledRows} had IsUserControlled set.` : '(no diagnostics returned)'
-    }`)
+    const diagText = d ? `${d.nonEmptyRows} Coach row(s) read, ${d.userControlledRows} had IsUserControlled set.` : '(no diagnostics returned)'
+    if (userCoachPortraitFallback) {
+      console.warn(`[cfb27Sync] userCoachInfo: came back null, but the team+name fallback matched — name/portrait refreshed anyway this sync (career stats/job security still frozen). ${diagText}`)
+    } else {
+      console.warn(`[cfb27Sync] userCoachInfo: came back null — your own coach profile was NOT updated by this sync (frozen on old data). ${diagText}`)
+    }
   }
   if (parsed.userCoachInfo) {
     const newTid = rawTeamIdMap.get(parsed.userCoachInfo.rawTid)

@@ -430,53 +430,19 @@ const USER_COACH_POSITION_CODE = {
 // shape. Coach.CareerStats is a single (non-array) reference field, resolved
 // the same way as other proven reference fields in this file (Team.HeadCoach,
 // Conference.TeamSlots) via resolveRef. Verified against a real save's Coach
-// schema (Franchise-Schemas/CareerCoachStats.ftx, 26 members) — these are
-// LIFETIME totals across the coach's whole career (any school), not scoped to
-// the coach's current school, except WinsAtCurrentSchool/LossesAtCurrentSchool
-// which are explicitly current-school-only and intentionally not surfaced here
-// (the app's own per-stint game-derived numbers already cover that case).
+// schema (Franchise-Schemas/CareerCoachStats.ftx, 26 members total) — these
+// two are LIFETIME totals across the coach's whole career (any school), used
+// by CoachCareer.jsx to cover seasons before this dynasty started tracking
+// games. Was 22 fields (bowl/conf-title/NC/playoff/rivalry/Top-25 records,
+// draft picks, prestige, job security, etc.) — trimmed to just the two the
+// app actually reads anywhere. The rest were being resolved and synced every
+// week for nothing: no page renders them, so a save that fails to resolve
+// them (the exact IsUserControlled gap this function already guards against)
+// was "freezing" data nothing ever showed in the first place. Less written
+// is less that can go stale.
 const CAREER_COACH_STATS_FIELDS = {
   wins: 'Wins',
   losses: 'Losses',
-  bowlWins: 'BowlWins',
-  bowlLosses: 'BowlLosses',
-  confChampWins: 'ConfChampWins',
-  confChampLosses: 'ConfChampLosses',
-  playoffWins: 'PlayoffWins',
-  playoffLosses: 'PlayoffLosses',
-  ncWins: 'NCWins',
-  ncLosses: 'NCLosses',
-  rivalWins: 'RivalWins',
-  rivalLosses: 'RivalLosses',
-  top25Wins: 'Top25Wins',
-  top25Losses: 'Top25Losses',
-  draftPicks: 'DraftPicks',
-  firstRoundDraftPicks: 'FirstRoundDraftPicks',
-  top5RecruitClasses: 'Top5RecruitClasses',
-  timesFired: 'TimesFired',
-  confChampWinStreak: 'ConfChampWinStreak',
-  rivalWinStreak: 'RivalWinStreak',
-  winsAtCurrentSchool: 'WinsAtCurrentSchool',
-  lossesAtCurrentSchool: 'LossesAtCurrentSchool',
-};
-
-// Coach.CoachPrestige (LetterGrade enum) decodes to symbol names like
-// "Dplus"/"Aminus" (verified against Football-Schemas/LetterGrade.ftx's 17
-// members) — not the "D+"/"A-" the in-game coach card actually displays.
-// "Incomplete" means the game hasn't assigned a grade yet (e.g. year one).
-const LETTER_GRADE_LABELS = {
-  Aplus: 'A+', A: 'A', Aminus: 'A-',
-  Bplus: 'B+', B: 'B', Bminus: 'B-',
-  Cplus: 'C+', C: 'C', Cminus: 'C-',
-  Dplus: 'D+', D: 'D', Dminus: 'D-',
-  F: 'F', Incomplete: null,
-};
-
-// Coach.CurrentJobSecurityStatus (JobSecurityStatus enum) decodes to
-// "SafeForNow"/"HotSeat" etc. (Franchise-Schemas/JobSecurityStatus.ftx) —
-// spaced out to match the in-game "Safe For Now"/"Hot Seat" label text.
-const JOB_SECURITY_STATUS_LABELS = {
-  Safe: 'Safe', SafeForNow: 'Safe For Now', Low: 'Low', HotSeat: 'Hot Seat', Invalid: null,
 };
 
 async function buildUserCoachInfo(save, coachRecords) {
@@ -513,20 +479,6 @@ async function buildUserCoachInfo(save, coachRecords) {
     const first = readCell(rec, 'FirstName') || '';
     const last = readCell(rec, 'LastName') || '';
 
-    // Live, current-moment program/coach standing — snapshot only (no
-    // history), same convention as the in-game coach card.
-    const jobSecurityPct = Number(readCell(rec, 'CurrentJobSecurityPercentage'));
-    const rawPrestigeGrade = readCell(rec, 'CoachPrestige');
-    const prestigeGrade = rawPrestigeGrade != null
-      ? (LETTER_GRADE_LABELS[rawPrestigeGrade] ?? null)
-      : null;
-    const prestigeScore = Number(readCell(rec, 'CoachPrestigeScore'));
-    const careerWinSeasons = Number(readCell(rec, 'CareerWinSeasons'));
-    const rawJobSecurityStatus = readCell(rec, 'CurrentJobSecurityStatus');
-    const jobSecurityStatus = rawJobSecurityStatus != null
-      ? (JOB_SECURITY_STATUS_LABELS[rawJobSecurityStatus] ?? null)
-      : null;
-
     let careerStats = null;
     try {
       const careerStatsRec = await resolveRef(save, readCell(rec, 'CareerStats'));
@@ -550,11 +502,6 @@ async function buildUserCoachInfo(save, coachRecords) {
         name: `${first} ${last}`.trim() || null,
         generic_head_asset_name: readCell(rec, 'GenericHeadAssetName') || null,
         portrait_id: Number(readCell(rec, 'Portrait')) || null,
-        jobSecurityPct: Number.isFinite(jobSecurityPct) ? jobSecurityPct : null,
-        jobSecurityStatus,
-        prestigeGrade,
-        prestigeScore: Number.isFinite(prestigeScore) ? prestigeScore : null,
-        careerWinSeasons: Number.isFinite(careerWinSeasons) ? careerWinSeasons : null,
         careerStats,
       },
       diagnostics: { nonEmptyRows, userControlledRows },
