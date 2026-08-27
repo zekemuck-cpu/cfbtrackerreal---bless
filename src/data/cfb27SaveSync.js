@@ -70,6 +70,7 @@ import {
 } from './cfb27SaveImport'
 import { attributeNamesFor } from '../utils/recruitAttributes'
 import { getCFPGameId, CFP_BRACKET_SLOTS } from './cfpConstants'
+import { mergeSimulatedDraftPicks } from './draftEngine'
 
 function normalizedNameTeamKey(name, tid) {
   const n = (name || '').toLowerCase().trim()
@@ -267,10 +268,11 @@ export function buildLeagueDraftResults(leavingPlayers, players, rawTeamIdMap) {
     const tid = rawTeamIdMap.get(row.team_id)
     if (tid == null) continue
     resultsByAssetName.set(leaving.assetName, {
+      assetName: leaving.assetName,
       playerName: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
       position: row.position,
       classYear: row.year,
-      overall: row.overall,
+      overall: row.ovr,
       tid,
       draftRound: draftRoundLabel,
       round: leaving.projectRound,
@@ -2390,7 +2392,24 @@ export function buildSyncPlan(dynasty, parsed) {
   // sync until it's actually resolved. See buildLeavingPlayers' comment
   // (extractPlayers.cjs) for how ProjectRound was verified against a real
   // save's Draft Results screen.
-  const leagueDraftResultsUpdate = buildLeagueDraftResults(parsed.leavingPlayers, parsed.players, rawTeamIdMap)
+  // The fictional NFL team/pick-number overlay is generated once per year
+  // and frozen from then on — see mergeSimulatedDraftPicks' header comment
+  // for why (real round data can keep shifting sync to sync; the mock
+  // destination, once assigned, must not). Every year stays anchored to
+  // REAL_2026_DRAFT_ORDER, but drifts further from it the more OTHER years
+  // in this dynasty have already had their own mock picks generated
+  // (checked across every year already on file, not just this one) — the
+  // dynasty's first-ever generated year (count 0) stays close to the real
+  // order, the second (count 1) drifts more, and so on.
+  const rawLeagueDraftResults = buildLeagueDraftResults(parsed.leavingPlayers, parsed.players, rawTeamIdMap)
+  const priorGeneratedYearCount = Object.entries(dynasty.leagueDraftResultsByYear || {}).filter(
+    ([y, arr]) => Number(y) !== year && (arr || []).some((r) => r.team)
+  ).length
+  const leagueDraftResultsUpdate = mergeSimulatedDraftPicks(
+    rawLeagueDraftResults,
+    dynasty.leagueDraftResultsByYear?.[year],
+    { generationIndex: priorGeneratedYearCount }
+  )
 
   return {
     toCreatePlayers,

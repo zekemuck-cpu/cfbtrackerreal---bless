@@ -240,6 +240,10 @@ export default function Sidebar({ isOpen, onClose, dynastyId, teamColors, curren
     { name: 'All Teams', path: `${pathPrefix}/teams` },
     ...(!isViewOnly ? [{ name: 'Manage Rivalries', path: `${pathPrefix}/rivalries` }] : []),
     { name: 'All Players', path: `${pathPrefix}/players` },
+    // PC-only — every entry comes from the save's own LeavingPlayer
+    // projections (see draftResults.leagueDraftResultsByYear), so a
+    // manually-tracked or console dynasty has no data to ever show here.
+    ...(isPcAuto ? [{ name: 'Draft History', path: `${pathPrefix}/draft-results` }] : []),
     { name: 'Compare Players', path: `${pathPrefix}/compare` },
     { name: 'Card Collection', path: `${pathPrefix}/cards` },
     ...(showCoachesLink ? [{ name: 'Coaches', path: `${pathPrefix}/coaches` }] : []),
