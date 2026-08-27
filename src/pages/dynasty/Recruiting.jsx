@@ -1622,7 +1622,7 @@ export default function Recruiting() {
               </button>
             </div>
           )}
-          {isOwnTeam && !isViewOnly && (
+          {isOwnTeam && !isViewOnly && !isPcAutoDynasty(currentDynasty) && (
             <div className="flex items-center px-3 sm:px-4 py-3 flex-shrink-0">
               <button
                 type="button"
