@@ -360,6 +360,13 @@ export default function CreateDynasty() {
       // it always uses the Starting Year / Game Edition / team the user
       // actually submitted with — see cfb27Preview's comment above.
       if (cfb27Parsed?.players?.length) {
+        // Baseline for the "different save file?" warning in Advance Week
+        // (CFB27SyncModal.jsx) — captured here too, not just on the first
+        // sync, so even the VERY FIRST re-sync after creation can catch an
+        // accidental wrong-dynasty upload instead of silently accepting
+        // whatever file comes in first.
+        dynastyData.cfb27SaveFileName = cfb27FileName
+
         const editionTeams = initializeDynastyTeams(dynastyData.gameEdition)
         const { byTid } = groupExtractedRowsByTid(cfb27Parsed.players, editionTeams)
         const year = Number(dynastyData.startYear)

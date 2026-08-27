@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useDynasty } from '../context/DynastyContext'
+import { useConfirm } from './ui/ConfirmDialog'
 import { uploadAndParseCfb27Save } from '../utils/cfb27SaveUpload'
 import Modal from './ui/Modal'
 import Button from './ui/Button'
@@ -15,7 +16,8 @@ import Button from './ui/Button'
  * CreateDynasty.jsx, which only ever creates a brand-new dynasty.
  */
 export default function CFB27SyncModal({ isOpen, onClose }) {
-  const { currentDynasty, syncDynastyFromCFB27Save } = useDynasty()
+  const { currentDynasty, syncDynastyFromCFB27Save, updateDynasty } = useDynasty()
+  const { confirm } = useConfirm()
   const fileInputRef = useRef(null)
 
   const [status, setStatus] = useState(null) // null | 'uploading' | 'parsing' | 'syncing' | 'done' | 'error'
@@ -29,6 +31,31 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Catches the most common real accident: uploading a DIFFERENT
+    // dynasty's save file into this one (e.g. two saves being played in
+    // parallel). CFB27 autosaves keep the same file name every week for a
+    // given save slot, so once we've recorded one successful sync's file
+    // name, a differently-named file is a strong signal something's wrong.
+    // Soft check only — legitimately renaming/re-exporting the same save is
+    // normal, so this warns instead of blocking, and a confirmed new name
+    // just becomes the new expected one going forward. Checked BEFORE
+    // upload so a "wrong file" mistake doesn't even cost the time to
+    // upload+parse it.
+    const expectedName = currentDynasty?.cfb27SaveFileName
+    if (expectedName && file.name !== expectedName) {
+      const ok = await confirm({
+        title: 'Different save file?',
+        message: `This file ("${file.name}") doesn't match the save you've been using for this dynasty ("${expectedName}"). If this is actually a different dynasty's save, syncing it will overwrite this dynasty's real data. Continue anyway?`,
+        confirmLabel: 'Continue',
+        variant: 'danger',
+      })
+      if (!ok) {
+        e.target.value = ''
+        return
+      }
+    }
+
     setError('')
     setErrorParts(null)
     setResult(null)
@@ -45,6 +72,12 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
         // reads as one continuous bar instead of resetting partway through.
         onProgress: (p) => setProgress({ ...p, pct: 10 + Math.round((p.pct / 100) * 90) }),
       })
+      // Record this sync's file name as the new expected baseline — a
+      // dynasty synced before this feature existed has none yet, and a
+      // just-confirmed rename/re-export shouldn't keep getting flagged.
+      if (file.name !== expectedName) {
+        try { await updateDynasty(currentDynasty.id, { cfb27SaveFileName: file.name }) } catch (_) {}
+      }
       setResult(syncResult)
       setStatus('done')
     } catch (err) {
