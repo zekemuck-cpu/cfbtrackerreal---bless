@@ -6869,8 +6869,20 @@ export default function Dashboard() {
               }
 
               // Staff Moves (coaching carousel) — belongs to the National
-              // Championship phase, not the End of Season Recap.
-              {
+              // Championship phase, not the End of Season Recap. PC-only
+              // exclusion: this is a manual screenshot-and-paste-to-AI
+              // entry (StaffMovesModal), same shape as the AI recap tools,
+              // because the save's Coach table has no history of past
+              // moves at all — each row is a snapshot of who's CURRENTLY
+              // coaching where (FirstName/LastName/Position/TeamIndex),
+              // with no PreviousSchool/PreviousPosition/reason fields to
+              // read a "hired away / fired / went to the NFL" narrative
+              // from. A PC auto-sync dynasty has no save data this task
+              // could ever be filled in from automatically, so showing it
+              // as an actionable to-do is pure busywork for that edition —
+              // console dynasties (already curating everything by hand)
+              // keep it.
+              if (!isCfb27Auto) {
                 const scYear = Number(currentDynasty.currentYear)
                 const staffMoves = currentDynasty?.staffMovesByYear?.[scYear] || currentDynasty?.staffMovesByYear?.[String(scYear)]
                 const staffMovesDone = !!staffMoves?.completed

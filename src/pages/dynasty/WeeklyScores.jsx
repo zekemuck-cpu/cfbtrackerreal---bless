@@ -446,7 +446,14 @@ export default function WeeklyScores() {
   // season has recorded staff moves, so the deep-link from the dashboard works.
   const staffMovesData = currentDynasty?.staffMovesByYear?.[displayYear] || currentDynasty?.staffMovesByYear?.[String(displayYear)]
   const staffMoves = Array.isArray(staffMovesData?.moves) ? staffMovesData.moves : []
-  const showCoachCarousel = displayWeek >= 20 || staffMoves.length > 0
+  // The "come enter it" invitation (displayWeek >= 20 with no data yet)
+  // only makes sense where the Dashboard's Staff Moves entry point still
+  // exists — PC dynasties no longer have one (the save's Coach table
+  // carries no history/reason for a move, so it was never fillable there
+  // in the first place; see Dashboard.jsx's staff-moves todo for the full
+  // reasoning). Still shows for a PC dynasty that already HAS moves
+  // recorded (e.g. from before this changed, or a sheet import).
+  const showCoachCarousel = staffMoves.length > 0 || (displayWeek >= 20 && !isPcAuto)
 
   // Tab state lives in the URL (?tab=scores|recap) so deep-links from the
   // dashboard's recap to-do land directly on the recap view, and so the
