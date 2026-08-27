@@ -712,7 +712,18 @@ async function buildLeavingPlayers(save, playerFieldPicker) {
     if (!playerRec || playerRec.isEmpty) continue;
     const assetName = readCell(playerRec, playerFieldPicker.assetName);
     if (!assetName) continue;
-    out.push({ assetName, category: mapped.category, reason: mapped.reason });
+    // ProjectRound (1-7) is only meaningful for an EarlyNFL_* row (category
+    // 'draft') — it's this row's scouting-projected draft round. Verified
+    // against a real save: for a resolved early-declaration player, this
+    // value matches the in-game "Draft Results" screen's Round column
+    // exactly (checked against a real 9-player Ohio State draft class,
+    // every round correct). The game's "Draft Results" screen turns out to
+    // BE this same projection, not a separate literal draft-night sim
+    // result — PLYR_DRAFTROUND on the player record itself is a different,
+    // much-later-resolving field that stays at its "not yet drafted"
+    // sentinel through virtually this entire cycle.
+    const projectRound = readCell(rec, 'ProjectRound');
+    out.push({ assetName, category: mapped.category, reason: mapped.reason, projectRound: Number.isFinite(projectRound) ? projectRound : null });
   }
   return out;
 }

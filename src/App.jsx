@@ -32,7 +32,7 @@ import {
   GameEdit, DangerZone, LeagueSettings, CardCollection, PromptStudio, DynastyBlueprint, CoachProfile, CoachEdit, DevTools,
   SocialCharacter, LeaguePreferences, ImageGallery, ManageRivalries, SchemeBuilder,
   TopClasses, PlayersOfWeek, HeismanWatch, InjuryReport, WeeklyScouting, WeeklyInstall,
-  PlayersLeaving, TrainingResults,
+  PlayersLeaving, TrainingResults, DraftResults,
 } from './routes/lazyPages'
 
 
@@ -101,6 +101,8 @@ function AppRoutes() {
             <Route path="heisman-watch/:year" element={<HeismanWatch />} />
             <Route path="players-leaving" element={<PlayersLeaving />} />
             <Route path="players-leaving/:year" element={<PlayersLeaving />} />
+            <Route path="draft-results" element={<DraftResults />} />
+            <Route path="draft-results/:year" element={<DraftResults />} />
             <Route path="training-results" element={<TrainingResults />} />
             <Route path="training-results/:year" element={<TrainingResults />} />
             <Route path="injury-report" element={<InjuryReport />} />
@@ -218,6 +220,8 @@ function AppRoutes() {
                   <Route path="heisman-watch/:year" element={<HeismanWatch />} />
                   <Route path="players-leaving" element={<PlayersLeaving />} />
                   <Route path="players-leaving/:year" element={<PlayersLeaving />} />
+                  <Route path="draft-results" element={<DraftResults />} />
+                  <Route path="draft-results/:year" element={<DraftResults />} />
                   <Route path="training-results" element={<TrainingResults />} />
                   <Route path="training-results/:year" element={<TrainingResults />} />
                   <Route path="injury-report" element={<InjuryReport />} />

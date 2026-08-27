@@ -10585,6 +10585,16 @@ export function DynastyProvider({ children }) {
       }
     }
 
+    // Whole-league Draft Results (every team, every round) — powers the
+    // Draft Results page's team dropdown and "Full Draft" view. Always a
+    // full replace for THIS year (never merged in), same reasoning as
+    // playersLeavingUpdate above — a player's projected round can keep
+    // shifting sync to sync right up until it's actually resolved, and a
+    // stale entry from an earlier sync would otherwise sit there forever.
+    const leagueDraftResultsUpdate = plan.leagueDraftResultsUpdate
+      ? { leagueDraftResultsByYear: { ...(dynasty.leagueDraftResultsByYear || {}), [dynasty.currentYear]: plan.leagueDraftResultsUpdate } }
+      : {}
+
     // Real CFP seed list + bowl-host config — mirrors CFPSeedsModal's exact
     // save shape (cfpSeedsByYear/cfpSeedsByYearTid/cfpBowlConfigByYear) so
     // this sync and manual entry stay fully interchangeable. plan.cfpSeeds
@@ -10721,6 +10731,7 @@ export function DynastyProvider({ children }) {
       coachOffers: 'coaching carousel',
       playersLeavingByYear: 'players leaving',
       playersLeavingByTeamYear: 'players leaving',
+      leagueDraftResultsByYear: 'draft results',
     }
     const chunkLabel = (chunk) => {
       const labels = [...new Set(
@@ -10740,7 +10751,7 @@ export function DynastyProvider({ children }) {
       // this stays a single write — only cloud dynasties need the chunked
       // sequence below.
       await enterPhase('saveFinal', 'Saving…')
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, platform: 'pc' })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, platform: 'pc' })
       finishSyncTiming()
       if (onProgress) { try { onProgress({ message: 'Done', pct: 100, etaSeconds: 0 }) } catch (_) {} }
     } else {
@@ -10801,7 +10812,7 @@ export function DynastyProvider({ children }) {
         teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate,
         ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate,
         ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate,
-        ...coachOffersUpdate, ...playersLeavingUpdate, platform: 'pc',
+        ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, platform: 'pc',
       }
       const chunks = chunkUpdateObject(fullUpdate, { lastKeys: ['currentYear', 'currentPhase', 'currentWeek'] })
 
@@ -21085,6 +21096,7 @@ export function DynastyProvider({ children }) {
       playersLeavingByTeamYear: estimateSize(dynasty.playersLeavingByTeamYear || {}),
       draftResultsByYear: estimateSize(dynasty.draftResultsByYear || {}),
       draftResultsByTeamYear: estimateSize(dynasty.draftResultsByTeamYear || {}),
+      leagueDraftResultsByYear: estimateSize(dynasty.leagueDraftResultsByYear || {}),
       cfpResultsByYear: estimateSize(dynasty.cfpResultsByYear || {}),
       bowlResultsByYear: estimateSize(dynasty.bowlResultsByYear || {}),
       rankingsHistoryByYear: estimateSize(dynasty.rankingsHistoryByYear || {}),

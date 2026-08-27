@@ -87,6 +87,7 @@ export const WeeklyScouting = lazyWithPreload(() => import('../pages/dynasty/Wee
 export const WeeklyInstall = lazyWithPreload(() => import('../pages/dynasty/WeeklyInstall'))
 export const PlayersLeaving = lazyWithPreload(() => import('../pages/dynasty/PlayersLeaving'))
 export const TrainingResults = lazyWithPreload(() => import('../pages/dynasty/TrainingResults'))
+export const DraftResults = lazyWithPreload(() => import('../pages/dynasty/DraftResults'))
 
 // Preload map: sidebar nav name → chunk preload fn.
 // Called on mouseenter/focus of nav links so chunks warm up before click.

@@ -230,6 +230,56 @@ export function resolveDepartureReason({ draftRound, leaving, lastClass }) {
 }
 
 /**
+ * Whole-league "who got drafted, in what round" — every team, not just the
+ * user's own tracked roster, so the Draft Results page can look up any team
+ * and build a full round-by-round board. Built directly from a sync's own
+ * whole-league leavingPlayers + players (raw parse rows), so it needs no
+ * dynasty.players tracking at all — works even for a team this dynasty has
+ * never otherwise touched. Meant to be written fresh every sync (full
+ * replace) — a player's projected round can still shift sync to sync until
+ * it's actually resolved. See buildLeavingPlayers' comment (extractPlayers.
+ * cjs) for how ProjectRound was verified against a real save's Draft
+ * Results screen (exact round-for-round match for a real 9-player class).
+ *
+ * @param {Array<{assetName:string, category:string, projectRound:number|null}>} leavingPlayers
+ * @param {Array<object>} players - raw whole-league rows from the save parse
+ * @param {Map<number,number>} rawTeamIdMap - raw save team id -> app tid
+ */
+export function buildLeagueDraftResults(leavingPlayers, players, rawTeamIdMap) {
+  const rowsByAssetName = new Map()
+  for (const row of players || []) {
+    if (row.asset_name) rowsByAssetName.set(row.asset_name, row)
+  }
+  // LeavingPlayer occasionally carries more than one identical row for the
+  // SAME player (verified against a real save: two Julian Sayin rows, two
+  // Jeremiah Smith rows, both pairs agreeing on round/position/class down
+  // to the letter) — deduped by assetName rather than by the built entry's
+  // full shape, so a genuinely later, DIFFERENT projected round for the
+  // same player still simply overwrites the earlier one instead of
+  // appearing as two separate draft picks.
+  const resultsByAssetName = new Map()
+  for (const leaving of leavingPlayers || []) {
+    if (leaving.category !== 'draft' || !Number.isFinite(leaving.projectRound)) continue
+    const row = rowsByAssetName.get(leaving.assetName)
+    if (!row) continue
+    const draftRoundLabel = mapDraftRound(leaving.projectRound - 1)
+    if (!draftRoundLabel) continue
+    const tid = rawTeamIdMap.get(row.team_id)
+    if (tid == null) continue
+    resultsByAssetName.set(leaving.assetName, {
+      playerName: `${row.first_name || ''} ${row.last_name || ''}`.trim(),
+      position: row.position,
+      classYear: row.year,
+      overall: row.overall,
+      tid,
+      draftRound: draftRoundLabel,
+      round: leaving.projectRound,
+    })
+  }
+  return [...resultsByAssetName.values()]
+}
+
+/**
  * Reconcile one save's whole-league player rows against the dynasty's
  * currently-tracked players.
  *
@@ -469,12 +519,20 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, le
     if (alreadyHasMoreSpecificDeparture(p, year)) continue
     const lastStint = getLastKnownStint(p, year + 1) // include the sync year itself
     const lastClass = lastStint?.klass || p.classByYear?.[year] || ''
-    // A real draft round from the save is definitive proof over the
-    // Sr-vs-not heuristic below — e.g. an underclassman who declared early
-    // would otherwise be misclassified 'graduated' had no draft data existed.
+    // A real draft round beats the Sr-vs-not heuristic below — e.g. an
+    // underclassman who declared early would otherwise be misclassified
+    // 'graduated'. PLYR_DRAFTROUND on the player record itself (rawRow)
+    // almost never actually resolves within a normal sync's timeframe
+    // (verified against a real save: 16,254 of 16,257 players still carried
+    // its "not yet drafted" sentinel deep into the offseason) — the save's
+    // real, reliably-available signal is LeavingPlayer's ProjectRound for an
+    // EarlyNFL_* entry instead (see extractPlayers.cjs's buildLeavingPlayers
+    // comment: verified round-for-round against a real 9-player draft
+    // class), so that's the fallback source here, not just a last resort.
     const rawRow = rowsByAssetName.get(p.cfb27AssetName)
-    const draftRound = rawRow ? mapDraftRound(rawRow.draft_round) : null
-    const leaving = !draftRound ? leavingByAssetName.get(p.cfb27AssetName) : null
+    const leaving = leavingByAssetName.get(p.cfb27AssetName)
+    const draftRound = mapDraftRound(rawRow?.draft_round)
+      || (leaving?.category === 'draft' && Number.isFinite(leaving.projectRound) ? mapDraftRound(leaving.projectRound - 1) : null)
     const { departure, departureReason } = resolveDepartureReason({ draftRound, leaving, lastClass })
     departures.push({
       pid: p.pid,
@@ -2303,6 +2361,18 @@ export function buildSyncPlan(dynasty, parsed) {
     })
     .filter(Boolean)
 
+  // Whole-league "who got drafted, in what round" — every team, not just
+  // the user's own tracked roster, so the Draft Results page can look up
+  // any team and build a full round-by-round board. Built directly from
+  // this sync's own whole-league parsed.players + parsed.leavingPlayers, so
+  // it needs no dynasty.players tracking at all — works even for a team
+  // this dynasty has never otherwise touched. Written fresh every sync
+  // (full replace) — a player's projected round can still shift sync to
+  // sync until it's actually resolved. See buildLeavingPlayers' comment
+  // (extractPlayers.cjs) for how ProjectRound was verified against a real
+  // save's Draft Results screen.
+  const leagueDraftResultsUpdate = buildLeagueDraftResults(parsed.leavingPlayers, parsed.players, rawTeamIdMap)
+
   return {
     toCreatePlayers,
     toUpdatePatches,
@@ -2331,6 +2401,7 @@ export function buildSyncPlan(dynasty, parsed) {
     coachOffersUpdate,
     seasonInfo,
     playersLeavingUpdate,
+    leagueDraftResultsUpdate,
     unresolvedTeamNames: playerDiff.unresolvedTeamNames,
     summary: {
       playersUpdated: playerDiff.stats.updated,
