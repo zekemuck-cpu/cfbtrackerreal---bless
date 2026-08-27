@@ -5,10 +5,13 @@ import Modal from './ui/Modal'
 import Button from './ui/Button'
 
 /**
- * "Sync from Save" — re-uploads a newer CFB27 save against the CURRENT
- * (already-tracked) dynasty and reconciles it: new arrivals, departures,
- * transfers, rating/ranking/coaching-staff updates, schedule scores, and
- * recruiting board changes. Counterpart to the CFB27 import flow in
+ * "Advance Week" for a PC (CFB27) dynasty — re-uploads a newer save against
+ * the CURRENT (already-tracked) dynasty and reconciles it: new arrivals,
+ * departures, transfers, rating/ranking/coaching-staff updates, schedule
+ * scores, and recruiting board changes, then moves the tracker's week/phase
+ * to match. Labeled the same as the manual Advance Week button (console
+ * dynasties) since this is the PC equivalent, even though the mechanism is
+ * an upload rather than a click. Counterpart to the CFB27 import flow in
  * CreateDynasty.jsx, which only ever creates a brand-new dynasty.
  */
 export default function CFB27SyncModal({ isOpen, onClose }) {
@@ -76,7 +79,7 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Sync from Save"
+      title="Advance Week"
       size="sm"
       closeOnBackdrop={!busy}
       closeOnEscape={!busy}
@@ -91,8 +94,7 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
       {isCfb27Dynasty && status === null && (
         <>
           <p className="text-sm text-txt-secondary mb-4">
-            Upload a newer save from this same dynasty. The save always wins — anything it tracks (roster, ratings,
-            rankings, coaching staff, schedule scores, recruiting board) overwrites what's here now.
+            Upload an updated save file for this same dynasty. The week will advance and imports all of your new data automatically.
           </p>
           <input
             ref={fileInputRef}
