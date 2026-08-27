@@ -5,7 +5,7 @@ import { useDynasty } from '../../context/DynastyContext'
 import { proxyImageUrl } from '../../utils/imageProxy'
 import { getTargetStatus } from '../../utils/recruitingTargets'
 import { getScoutScoresFor, headlinePercentile, predictRecruitOverall, ordinal } from '../../utils/scoutScore'
-import { getEditionKey } from '../../editions'
+import { getEditionKey, isPcAutoDynasty } from '../../editions'
 import { POSITION_FILTER_OPTIONS, matchesPositionFilter } from '../../utils/recruitFilters'
 import { GradeReportContent, getGradeTier, DevTraitPill } from '../../components/PlayerDatabase'
 import ScoutScorePanel from '../../components/ScoutScorePanel'
@@ -619,16 +619,26 @@ export default function ScoutBoard({ dynasty, year, userTid, pathPrefix, positio
     boardActionsRef.current.setSortBy = changeSortBy
     boardActionsRef.current.openClearAll = () => setShowClearAll(true)
   }
+  // On PC, the save enforces a hard 35-slot recruiting board, so the header
+  // counts should mirror activeRanked (above) and only count targets still
+  // actually occupying a slot — a boardRemoved target (committed elsewhere,
+  // or manually dropped) already freed its slot on the save's board. Console
+  // boards have no such cap, so unremoved history stays in the count there.
+  const isPc = isPcAutoDynasty(dynasty)
+  const countableTargets = useMemo(
+    () => (isPc ? targetsBeforeTypeFilter.filter((t) => !t.p.boardRemoved || t.status === 'committed_us') : targetsBeforeTypeFilter),
+    [targetsBeforeTypeFilter, isPc]
+  )
   useEffect(() => {
     onBoardReady?.({
       total: targets.length,
       openCount: openTargetCount,
       sortBy,
-      bothCount: targetsBeforeTypeFilter.length,
-      hsCount: targetsBeforeTypeFilter.filter((t) => !t.p.previousTeam).length,
-      portalCount: targetsBeforeTypeFilter.filter((t) => !!t.p.previousTeam).length,
+      bothCount: countableTargets.length,
+      hsCount: countableTargets.filter((t) => !t.p.previousTeam).length,
+      portalCount: countableTargets.filter((t) => !!t.p.previousTeam).length,
     })
-  }, [targets.length, openTargetCount, sortBy, targetsBeforeTypeFilter])
+  }, [targets.length, openTargetCount, sortBy, countableTargets])
 
   if (targets.length === 0) {
     // Distinguish "nothing tracked at all" from "nothing of the type the
