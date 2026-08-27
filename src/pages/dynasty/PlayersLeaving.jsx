@@ -4,17 +4,31 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getUserTeamTid } from '../../data/teamRegistry'
 import { PageHero, Card, EmptyState, TitleWithYear, Badge } from '../../components/ui'
 
-// Every departure reason a movementByYear entry can carry (see
-// MOVEMENT_TYPES, src/context/DynastyContext.jsx) mapped to a short,
-// human label for this list — anything unrecognized falls back to
+// Every departure reason a movementByYear entry can carry, across BOTH the
+// legacy top-level `type` vocabulary (MOVEMENT_TYPES, DynastyContext.jsx)
+// and the newer `departure` sub-key vocabulary a v2 entry actually uses
+// (see getPlayersNeedingClassConfirmation's v2DepartureTypesYr/
+// v2DepartureShapesYr, same file) — this list previously only covered the
+// legacy set, so every CFB27-synced departure (which always writes
+// `departure: 'transfer_out'|'graduated'|'pro_draft'`, never the legacy
+// `type` values) fell through to the generic "Departed" fallback below,
+// regardless of the real reason. Anything still unrecognized falls back to
 // "Departed" rather than showing a raw enum string.
 const REASON_LABEL = {
+  // Legacy `type` values
   transfer: 'Transferred',
   portal_in: 'Transferred',
   graduate: 'Graduated',
   draft: 'NFL Draft',
   departure: 'Departed',
   removed: 'Removed',
+  // v2 `departure` sub-key values
+  transfer_out: 'Transferred',
+  entered_portal: 'Transferred',
+  transferred_out: 'Transferred',
+  graduated: 'Graduated',
+  pro_draft: 'NFL Draft',
+  declared_for_draft: 'NFL Draft',
 }
 
 export default function PlayersLeaving() {
@@ -46,11 +60,17 @@ export default function PlayersLeaving() {
     .map((p) => {
       const movement = p.movementByYear?.[displayYear]
       const reasonKey = movement?.departure || movement?.type
+      // PC-synced transfers carry the save's own real sub-reason (e.g. "Pro
+      // Potential", "Brand Exposure" — see cfb27SaveSync.js's
+      // reconcilePlayers/LEAVE_TYPE_MAP) — shown alongside the broad label
+      // instead of just "Transferred" when it's available.
+      const baseLabel = REASON_LABEL[reasonKey] || 'Departed'
+      const reasonLabel = movement?.departureReason ? `${baseLabel} — ${movement.departureReason}` : baseLabel
       return {
         pid: p.pid,
         name: p.name,
         position: p.position,
-        reasonLabel: REASON_LABEL[reasonKey] || 'Departed',
+        reasonLabel,
         newTeamTid: p.teamsByYear?.[displayYear] ?? null,
       }
     })

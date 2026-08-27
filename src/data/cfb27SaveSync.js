@@ -202,6 +202,34 @@ function isNoOpPlayerPatch(existing, patch, year) {
 }
 
 /**
+ * Decides a departed player's movementByYear departure reason. Pulled out of
+ * reconcilePlayers' departures loop as its own pure function so it can be
+ * unit-tested directly — the loop's surrounding state (team resolution,
+ * dangling-recruit matching, etc.) isn't needed to exercise this one
+ * decision. Precedence: a real draft round from the save (definitive) beats
+ * the save's own LeavingPlayer projection (real transfer reason / real
+ * graduation flag) beats the Sr-vs-not heuristic (last resort, only reached
+ * when LeavingPlayer has no resolvable entry for this player — e.g. its
+ * LeaveType was an enum value this schema has no name for; see
+ * extractPlayers.cjs's LEAVE_TYPE_MAP comment).
+ *
+ * @param {object} params
+ * @param {number|null} params.draftRound
+ * @param {{category:'transfer'|'draft'|'graduate', reason:string|null}|null|undefined} params.leaving
+ * @param {string} params.lastClass
+ * @returns {{departure: 'pro_draft'|'transfer_out'|'graduated', departureReason: string|null}}
+ */
+export function resolveDepartureReason({ draftRound, leaving, lastClass }) {
+  const departure = draftRound
+    ? 'pro_draft'
+    : leaving?.category === 'transfer' ? 'transfer_out'
+    : leaving?.category === 'graduate' ? 'graduated'
+    : (/Sr$/.test(lastClass || '') ? 'graduated' : 'pro_draft')
+  const departureReason = !draftRound && leaving?.category === 'transfer' ? leaving.reason : null
+  return { departure, departureReason }
+}
+
+/**
  * Reconcile one save's whole-league player rows against the dynasty's
  * currently-tracked players.
  *
@@ -218,7 +246,16 @@ function isNoOpPlayerPatch(existing, patch, year) {
  *   stats: {updated:number, arrivals:number, departures:number, transfers:number}
  * }}
  */
-export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) {
+export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, leavingPlayers }) {
+  // Keyed by cfb27AssetName — the save's own real "why is this player
+  // projected to leave" data (extractPlayers.cjs's buildLeavingPlayers,
+  // reading the LeavingPlayer table), used below to replace the departures
+  // loop's Sr-vs-not guess with the save's real transfer sub-reason
+  // ("Pro Potential", "Brand Exposure", etc.) or graduation flag wherever
+  // it's available. Verified against a real save: matches the in-game
+  // "Players Leaving" screen's Reason column exactly for transfers.
+  const leavingByAssetName = new Map((leavingPlayers || []).map((lp) => [lp.assetName, lp]))
+
   const { byTid, unresolvedTeamNames } = groupExtractedRowsByTid(rows, dynastyTeams)
 
   // Whole, UNFILTERED row list keyed by asset_name — a player who left the
@@ -437,7 +474,8 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
     // would otherwise be misclassified 'graduated' had no draft data existed.
     const rawRow = rowsByAssetName.get(p.cfb27AssetName)
     const draftRound = rawRow ? mapDraftRound(rawRow.draft_round) : null
-    const departure = draftRound ? 'pro_draft' : (/Sr$/.test(lastClass) ? 'graduated' : 'pro_draft')
+    const leaving = !draftRound ? leavingByAssetName.get(p.cfb27AssetName) : null
+    const { departure, departureReason } = resolveDepartureReason({ draftRound, leaving, lastClass })
     departures.push({
       pid: p.pid,
       name: p.name,
@@ -445,7 +483,11 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams }) 
         ...(draftRound ? { draftYear: year, draftRound } : {}),
         movementByYear: {
           ...(p.movementByYear || {}),
-          [year]: { type: 'departure', departure, toTid: null, ...(draftRound ? { draftRound } : {}) },
+          [year]: {
+            type: 'departure', departure, toTid: null,
+            ...(draftRound ? { draftRound } : {}),
+            ...(departureReason ? { departureReason } : {}),
+          },
         },
       },
     })
@@ -1644,7 +1686,7 @@ export function buildSyncPlan(dynasty, parsed) {
   // user's own team (see that function's header comment).
   const rawTeamIdMap = buildRawTeamIdMap(parsed.players || [], dynastyTeams)
 
-  const playerDiff = reconcilePlayers(parsed.players || [], existingPlayers, { year, dynastyTeams })
+  const playerDiff = reconcilePlayers(parsed.players || [], existingPlayers, { year, dynastyTeams, leavingPlayers: parsed.leavingPlayers })
   const recruitDiff = reconcileRecruitingBoard(parsed.recruitingBoard || [], existingPlayers, {
     userTid,
     year, // the recruiting CLASS year — see reconcileRecruitingBoard's param comment for why NOT +1

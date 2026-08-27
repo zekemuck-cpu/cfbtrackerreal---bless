@@ -652,6 +652,65 @@ async function buildDepthCharts(save, teamRecords, playerFieldPicker) {
   return depthCharts;
 }
 
+// LeavingPlayer.LeaveType raw enum name -> a real departure reason, used by
+// cfb27SaveSync.js's departures loop instead of guessing from Sr-vs-not +
+// draft-round alone. Verified against a real save: LeavingPlayer is a real,
+// whole-league table (2,647 non-empty rows in the verification save) with a
+// resolvable Player reference and a LeaveType enum that already carries the
+// SAME transfer sub-reasons the in-game "Players Leaving" screen shows
+// ("Transfer (Pro Potential)", "Transfer (Brand Exposure)", etc.) — not
+// previously read anywhere in this extractor. "Graduation" (the schema's
+// documented default, enum value 0) never actually appeared in that save;
+// every graduating senior instead carried an undocumented raw value (16)
+// this library's bundled schema has no name for, indistinguishable here
+// from "no data" — left unmapped so the caller falls back to its own
+// Sr-vs-not heuristic for that case rather than guessing wrong with false
+// confidence.
+const LEAVE_TYPE_MAP = {
+  Graduation: { category: 'graduate', reason: null },
+  EarlyNFL_1: { category: 'draft', reason: null },
+  EarlyNFL_2: { category: 'draft', reason: null },
+  EarlyNFL_3: { category: 'draft', reason: null },
+  EarlyNFL_4: { category: 'draft', reason: null },
+  EarlyNFL_5: { category: 'draft', reason: null },
+  EarlyNFL_6: { category: 'draft', reason: null },
+  EarlyNFL_7: { category: 'draft', reason: null },
+  Transfer_BrandExposure: { category: 'transfer', reason: 'Brand Exposure' },
+  Transfer_ChampionshipContenter: { category: 'transfer', reason: 'Championship Contender' },
+  Transfer_CoachPrestige: { category: 'transfer', reason: 'Coach Prestige' },
+  Transfer_PlayingTime: { category: 'transfer', reason: 'Playing Time' },
+  Transfer_ProPotential: { category: 'transfer', reason: 'Pro Potential' },
+  Transfer_ProximityToHome: { category: 'transfer', reason: 'Proximity To Home' },
+  Transfer_PlayingStyle: { category: 'transfer', reason: 'Playing Style' },
+  Transfer_ConferencePrestige: { category: 'transfer', reason: 'Conference Prestige' },
+};
+
+/**
+ * Whole-league "who's projected to leave, and why" — one entry per resolvable
+ * LeavingPlayer row, keyed by the SAME cfb27AssetName used to match a
+ * departed player back to their tracked record in cfb27SaveSync.js. Only
+ * rows with a recognized LeaveType are returned — an unmapped raw value
+ * (see LEAVE_TYPE_MAP's comment) is dropped rather than guessed at.
+ */
+async function buildLeavingPlayers(save, playerFieldPicker) {
+  if (!playerFieldPicker.assetName) return [];
+  const table = await getBestTable(save, 'LeavingPlayer');
+  if (!table || !table.records) return [];
+
+  const out = [];
+  for (const rec of table.records) {
+    if (!rec || rec.isEmpty) continue;
+    const mapped = LEAVE_TYPE_MAP[readCell(rec, 'LeaveType')];
+    if (!mapped) continue;
+    const playerRec = await resolveRef(save, readCell(rec, 'Player'));
+    if (!playerRec || playerRec.isEmpty) continue;
+    const assetName = readCell(playerRec, playerFieldPicker.assetName);
+    if (!assetName) continue;
+    out.push({ assetName, category: mapped.category, reason: mapped.reason });
+  }
+  return out;
+}
+
 /**
  * Conference name -> member team ids, resolved via the reference chain
  * Conference.TeamSlots -> "Team[]" array-table row -> that row's TeamN
@@ -2330,6 +2389,7 @@ async function extractFullSave(filePath, opts = {}) {
   )];
   const gameStats = await buildGameStats(save, playerTable, teamRecords, playerFieldPicker, playedWeeks);
   const depthCharts = await buildDepthCharts(save, teamRecords, playerFieldPicker);
+  const leavingPlayers = await buildLeavingPlayers(save, playerFieldPicker);
 
   // coachRec (a raw internal file-parsing object, needed only for
   // buildCoachOffers' identity match above) can't survive JSON
@@ -2371,6 +2431,7 @@ async function extractFullSave(filePath, opts = {}) {
     coachOffers,
     gameStats,
     depthCharts,
+    leavingPlayers,
   };
 }
 
