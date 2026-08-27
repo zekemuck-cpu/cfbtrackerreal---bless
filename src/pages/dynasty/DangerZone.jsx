@@ -1052,7 +1052,7 @@ export default function DangerZone() {
   const handleResetCfb27SyncData = async () => {
     const ok = await confirm({
       title: 'Reset all CFB27 sync data?',
-      message: `This wipes EVERYTHING the CFB27 save sync has ever written to this dynasty, for every year: every player, every game, team ratings/rankings/coaching staff/school grades/recruiting classes, Players of the Week, Heisman Watch, All-Americans/All-Conference, named awards, CFP seeds, NFL draft results, the Coach Carousel job-offer list, and the current week/phase (reset to Preseason Wk 0). Your next "Advance Week" rebuilds everything fresh from whatever save you upload. Use this to recover from accidentally syncing the wrong dynasty's save file. This cannot be undone.`,
+      message: `This wipes EVERYTHING the CFB27 save sync has ever written to this dynasty, for every year: every player, every game, team ratings/rankings/coaching staff/school grades/recruiting classes, Players of the Week, Heisman Watch, All-Americans/All-Conference, named awards, CFP seeds, NFL draft results, the Coach Carousel job-offer list, Players Leaving, and the current week/phase (reset to Preseason Wk 0). Your next "Advance Week" rebuilds everything fresh from whatever save you upload. Use this to recover from accidentally syncing the wrong dynasty's save file. This cannot be undone.`,
       confirmLabel: 'Reset Sync Data',
       variant: 'danger',
     })
@@ -1087,6 +1087,8 @@ export default function DangerZone() {
         draftResultsByTeamYear: {},
         coachOffers: [],
         newJobData: null,
+        playersLeavingByYear: {},
+        playersLeavingByTeamYear: {},
       })
       setResetCfb27Status({ success: true, message: 'All CFB27 sync data cleared. Use "Advance Week" with the correct save file to rebuild.' })
     } catch (error) {

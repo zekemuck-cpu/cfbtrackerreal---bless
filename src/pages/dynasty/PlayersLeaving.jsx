@@ -31,6 +31,18 @@ const REASON_LABEL = {
   declared_for_draft: 'NFL Draft',
 }
 
+// dynasty.playersLeavingByYear entries (both the console-entry flow's own
+// PlayersLeavingModal.jsx and the CFB27 sync's playersLeavingUpdate,
+// cfb27SaveSync.js) carry `reason` as one of these 16 literal strings — a
+// DIFFERENT vocabulary from movementByYear's departure/type keys above,
+// since this list represents a still-pending PROJECTION, not a confirmed
+// roster change yet.
+const PENDING_REASON_LABEL = (reason) => {
+  if (reason === 'Graduating') return 'Graduated'
+  if (reason === 'Pro Draft') return 'NFL Draft'
+  return `Transferred — ${reason}`
+}
+
 export default function PlayersLeaving() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
@@ -51,7 +63,7 @@ export default function PlayersLeaving() {
   // "Left the team" = was on our roster last year, isn't this year — same
   // definition the user asked for, regardless of where they ended up
   // (another team, the draft, graduated, or just cut).
-  const leavers = (currentDynasty.players || [])
+  const confirmedLeavers = (currentDynasty.players || [])
     .filter((p) => {
       const wasHere = Number(p.teamsByYear?.[prevYear]) === Number(userTid)
       const isHereNow = Number(p.teamsByYear?.[displayYear]) === Number(userTid)
@@ -66,14 +78,33 @@ export default function PlayersLeaving() {
       // instead of just "Transferred" when it's available.
       const baseLabel = REASON_LABEL[reasonKey] || 'Departed'
       const reasonLabel = movement?.departureReason ? `${baseLabel} — ${movement.departureReason}` : baseLabel
+      return { pid: p.pid, name: p.name, position: p.position, reasonLabel, pending: false }
+    })
+
+  // Still on the roster, but marked leaving for THIS year — dynasty.
+  // playersLeavingByYear, written by either PlayersLeavingModal.jsx
+  // (console) or the CFB27 sync's playersLeavingUpdate (PC). This is the
+  // save's/sheet's CURRENT projection, ahead of the roster actually being
+  // updated to remove them (which can lag well behind — a PC sync doesn't
+  // see a departure as "confirmed" above until the save's own roster drops
+  // them, sometimes not until the year rolls over). Excludes anyone already
+  // in confirmedLeavers so a player who's both projected AND already
+  // resolved this sync doesn't show up twice.
+  const confirmedPids = new Set(confirmedLeavers.map((p) => p.pid))
+  const pendingLeavers = (currentDynasty.playersLeavingByYear?.[displayYear] || [])
+    .filter((entry) => entry.pid != null && !confirmedPids.has(entry.pid))
+    .map((entry) => {
+      const player = (currentDynasty.players || []).find((p) => p.pid === entry.pid)
       return {
-        pid: p.pid,
-        name: p.name,
-        position: p.position,
-        reasonLabel,
-        newTeamTid: p.teamsByYear?.[displayYear] ?? null,
+        pid: entry.pid,
+        name: entry.playerName || player?.name,
+        position: player?.position,
+        reasonLabel: PENDING_REASON_LABEL(entry.reason),
+        pending: true,
       }
     })
+
+  const leavers = [...confirmedLeavers, ...pendingLeavers]
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
 
   return (
@@ -97,6 +128,7 @@ export default function PlayersLeaving() {
                   </Link>
                   <span className="ml-2 text-xs text-txt-tertiary uppercase">{p.position}</span>
                 </div>
+                {p.pending && <Badge variant="warning" className="mr-1.5">Pending</Badge>}
                 <Badge variant="outline">{p.reasonLabel}</Badge>
               </div>
             ))}

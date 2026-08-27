@@ -2276,6 +2276,33 @@ export function buildSyncPlan(dynasty, parsed) {
     .map((o) => mapCoachOffer(o, rawTeamIdMap, dynastyTeams))
     .filter(Boolean)
 
+  // The current-moment "who's projected to leave, right now" list — the
+  // SAME store (dynasty.playersLeavingByYear) the console-entry "Players
+  // Leaving" screen (PlayersLeavingModal.jsx) writes to, keyed to the
+  // CURRENT year (not year+1) exactly like handlePlayersLeavingSave does.
+  // Deliberately NOT gated on the player actually being absent from this
+  // sync's roster — a save's LeavingPlayer projections show up well before
+  // the roster itself is ever updated to remove them (that can lag by
+  // several syncs, sometimes not until the year actually rolls over), so
+  // waiting for reconcilePlayers' departures loop (which only fires once a
+  // player is truly gone) left this list empty through the entire "Players
+  // Leaving" week for a real user — the exact bug this fixes. Restricted to
+  // the user's OWN current-year roster, same scope PlayersLeavingModal.jsx's
+  // own userRoster uses.
+  const leavingByAssetNameForRoster = new Map((parsed.leavingPlayers || []).map((lp) => [lp.assetName, lp]))
+  const playersLeavingUpdate = existingPlayers
+    .filter((p) => p.cfb27AssetName && Number(p.teamsByYear?.[year]) === userTid)
+    .map((p) => {
+      const leaving = leavingByAssetNameForRoster.get(p.cfb27AssetName)
+      if (!leaving) return null
+      const reason = leaving.category === 'draft' ? 'Pro Draft'
+        : leaving.category === 'graduate' ? 'Graduating'
+        : leaving.reason
+      if (!reason) return null
+      return { playerName: p.name, pid: p.pid, reason }
+    })
+    .filter(Boolean)
+
   return {
     toCreatePlayers,
     toUpdatePatches,
@@ -2303,6 +2330,7 @@ export function buildSyncPlan(dynasty, parsed) {
     userCoachCareerStats,
     coachOffersUpdate,
     seasonInfo,
+    playersLeavingUpdate,
     unresolvedTeamNames: playerDiff.unresolvedTeamNames,
     summary: {
       playersUpdated: playerDiff.stats.updated,

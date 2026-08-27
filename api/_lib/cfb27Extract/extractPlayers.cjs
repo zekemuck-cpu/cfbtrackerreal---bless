@@ -652,20 +652,26 @@ async function buildDepthCharts(save, teamRecords, playerFieldPicker) {
   return depthCharts;
 }
 
-// LeavingPlayer.LeaveType raw enum name -> a real departure reason, used by
-// cfb27SaveSync.js's departures loop instead of guessing from Sr-vs-not +
-// draft-round alone. Verified against a real save: LeavingPlayer is a real,
-// whole-league table (2,647 non-empty rows in the verification save) with a
-// resolvable Player reference and a LeaveType enum that already carries the
-// SAME transfer sub-reasons the in-game "Players Leaving" screen shows
-// ("Transfer (Pro Potential)", "Transfer (Brand Exposure)", etc.) — not
-// previously read anywhere in this extractor. "Graduation" (the schema's
-// documented default, enum value 0) never actually appeared in that save;
-// every graduating senior instead carried an undocumented raw value (16)
-// this library's bundled schema has no name for, indistinguishable here
-// from "no data" — left unmapped so the caller falls back to its own
-// Sr-vs-not heuristic for that case rather than guessing wrong with false
-// confidence.
+// LeavingPlayer.LeaveType raw enum name -> a real departure reason. Verified
+// against a real save: LeavingPlayer is a real, whole-league table (2,647
+// non-empty rows in the verification save) with a resolvable Player
+// reference and a LeaveType enum that already carries the SAME transfer
+// sub-reasons the in-game "Players Leaving" screen shows ("Transfer (Pro
+// Potential)", "Transfer (Brand Exposure)", etc.) — not previously read
+// anywhere in this extractor. "Graduation" (the schema's documented default,
+// enum value 0) never actually appeared in that save; every graduating
+// senior instead carried an undocumented raw value (16) this library's
+// bundled schema has no name for, indistinguishable here from "no data" —
+// left unmapped so callers fall back to their own guess for that case rather
+// than guessing wrong with false confidence.
+//
+// `reason` strings are spelled to match, character-for-character, the 16
+// literal Transfer Reason values PlayersLeavingModal.jsx's console-entry
+// flow already uses (src/components/PlayersLeavingModal.jsx's aiPrompt) —
+// cfb27SaveSync.js writes these straight into dynasty.playersLeavingByYear,
+// the SAME store the console flow's own Players Leaving screen reads from,
+// so a PC-synced entry and a console-typed one are indistinguishable to
+// every downstream reader (Draft Results, Transfer Destinations, etc.).
 const LEAVE_TYPE_MAP = {
   Graduation: { category: 'graduate', reason: null },
   EarlyNFL_1: { category: 'draft', reason: null },
@@ -680,7 +686,7 @@ const LEAVE_TYPE_MAP = {
   Transfer_CoachPrestige: { category: 'transfer', reason: 'Coach Prestige' },
   Transfer_PlayingTime: { category: 'transfer', reason: 'Playing Time' },
   Transfer_ProPotential: { category: 'transfer', reason: 'Pro Potential' },
-  Transfer_ProximityToHome: { category: 'transfer', reason: 'Proximity To Home' },
+  Transfer_ProximityToHome: { category: 'transfer', reason: 'Proximity to Home' },
   Transfer_PlayingStyle: { category: 'transfer', reason: 'Playing Style' },
   Transfer_ConferencePrestige: { category: 'transfer', reason: 'Conference Prestige' },
 };
