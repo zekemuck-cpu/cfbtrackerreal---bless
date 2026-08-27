@@ -1610,7 +1610,7 @@ export default function Recruiting() {
               <option value="priority">My Priority</option>
             </Select>
           </div>
-          {!isViewOnly && openTargets.length > 0 && (
+          {!isViewOnly && !isPcAutoDynasty(currentDynasty) && openTargets.length > 0 && (
             <div className="flex items-center px-3 sm:px-4 py-3 flex-shrink-0">
               <button
                 type="button"

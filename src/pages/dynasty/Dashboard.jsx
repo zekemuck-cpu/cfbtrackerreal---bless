@@ -3497,6 +3497,10 @@ export default function Dashboard() {
       return week === 4 ? 'National Championship' : `Bowl Week ${week}`
     }
     if (phase === 'offseason') {
+      // Week 0 is the save's own "OffSeason" weekType, reported the instant
+      // bowls/the championship end — before Players Leaving (week 1). Same
+      // moment the game itself calls the End of Season Recap.
+      if (week === 0) return 'End of Season Recap'
       if (week === 1) return 'Players Leaving'
       if (week >= 2 && week <= 4) return `Recruiting Week ${week - 1} of 4`
       if (week === 5) return 'National Signing Day'
@@ -7926,6 +7930,25 @@ export default function Dashboard() {
                       All caught up — nothing to do this week.
                     </div>
                   ) : renderTodoList({ todos: w8Todos, isViewOnly })}
+                </>
+              )
+            }
+
+            // Week 0: End of Season Recap — the save's own "OffSeason"
+            // weekType, reported the instant bowls/the championship end,
+            // before Players Leaving (week 1). Matches the in-game name so
+            // it doesn't read as an unrelated, unnumbered week.
+            if (week === 0) {
+              return (
+                <>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <h3 className="font-display font-bold leading-none text-txt-primary" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '-0.02em' }}>
+                      End of Season Recap
+                    </h3>
+                  </div>
+                  <p className="text-sm text-txt-secondary">
+                    Click "Advance Week" to continue.
+                  </p>
                 </>
               )
             }
