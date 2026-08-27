@@ -808,6 +808,21 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
     // it without re-deriving it.
     const isHighSchoolRecruit = row.recruit_class === 'HighSchool'
     const jucoClassLabel = mapRecruitClassLabel(row.recruit_class)
+    // Transfer portal recruit — a recruit's Player.TeamIndex always reads the
+    // save's "no team assigned" sentinel (255) whether they're a true HS
+    // prospect or mid-portal, even once HardCommitted (see
+    // buildRecruitingBoard's header comment in extractPlayers.cjs), so it
+    // can never tell us a portal player's origin team. Recruit.Class is the
+    // only signal available: anything that's neither 'HighSchool' nor a
+    // JUCO variant is a portal transfer. previousTeam gets the same generic
+    // 'Transfer Portal' placeholder the app already falls back to elsewhere
+    // (Dashboard.jsx's manual-entry path) when no real origin school is
+    // known -- it's exactly what the Big Board's HS/Portal toggle
+    // (`!!p.previousTeam`, ScoutBoard.jsx) and the Recruiting Database's
+    // portal exclusion (`!r.isPortal && !r.previousTeam`, ScoutStaff.jsx)
+    // both key off. Before this, PC-synced portal targets had neither field
+    // set at all and silently fell into the "High School" bucket.
+    const isPortalRecruit = !isHighSchoolRecruit && !jucoClassLabel
     const attributesRevealed = isSigned || !isHighSchoolRecruit || (row.prospect_hours_spent || 0) >= 30
     // The Gem/Bust scouting read (the green/red gem badge on the in-game
     // Scouting screen) is gated behind the SAME full-scouting reveal as
@@ -851,6 +866,8 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
       isHighSchoolRecruit,
       recruitClass: row.recruit_class || null,
       jucoClassLabel,
+      isPortal: isPortalRecruit,
+      previousTeam: isPortalRecruit ? 'Transfer Portal' : null,
       scoutedFully: attributesRevealed,
       gemBust,
       // Where the user's own team ranks in this recruit's interest list
@@ -950,6 +967,8 @@ export function reconcileRecruitingBoard(rawTargets, existingPlayers, { userTid,
         // ("HighSchool"/"JuniorCollege_Junior") into the UI.
         name, class: jucoClassLabel || 'HS', position,
         isHighSchoolRecruit,
+        isPortal: isPortalRecruit,
+        previousTeam: isPortalRecruit ? 'Transfer Portal' : null,
         archetype, stars: fields.stars, devTrait: fields.devTrait, gemBust: fields.gemBust,
         nationalRank: fields.nationalRank, stateRank: fields.stateRank, positionRank: fields.positionRank,
         height: fields.height, weight: fields.weight, hometown: fields.hometown, state: fields.state,
