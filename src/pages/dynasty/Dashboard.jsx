@@ -6413,7 +6413,18 @@ export default function Dashboard() {
               const hasStandingsData = !!standingsForYear && Object.keys(standingsForYear).length > 0
               const standingsCount = hasStandingsData ? Object.keys(standingsForYear).length : 0
 
-              const hasPollsData = (currentDynasty?.finalPollsByYear?.[yearForW5]?.media?.length > 0) || (currentDynasty?.finalPollsByYear?.[String(yearForW5)]?.media?.length > 0)
+              // PC sync writes the season's real Final Top 25 into
+              // teams[tid].byYear[year].rankByWeek[105] (the same "Final
+              // Poll" slot Rankings.jsx's own week selector already
+              // recognizes — see cfb27SaveSync.js's isFinalPollSync) once
+              // the save itself reports the season is over. Manual/console
+              // entry still goes through finalPollsByYear via the modal
+              // below, so both are checked here.
+              const hasFinalRankByWeek = Object.values(currentDynasty?.teams || {}).some(t =>
+                (t?.byYear?.[yearForW5]?.rankByWeek?.[105] ?? t?.byYear?.[String(yearForW5)]?.rankByWeek?.[105]) != null
+              )
+              const hasPollsData = hasFinalRankByWeek
+                || (currentDynasty?.finalPollsByYear?.[yearForW5]?.media?.length > 0) || (currentDynasty?.finalPollsByYear?.[String(yearForW5)]?.media?.length > 0)
 
               const teamStatsForYear = currentDynasty?.teamStatsByYear?.[yearForW5] || currentDynasty?.teamStatsByYear?.[String(yearForW5)]
               const hasTeamStats = !!teamStatsForYear && Object.keys(teamStatsForYear).length > 0

@@ -1557,6 +1557,20 @@ function mapDepthCharts(rawDepthCharts, rawTeamIdMap, pidByAssetName, pidByPlaye
   return out
 }
 
+// Merge one team's new entering-week rank into its existing rankByWeek map,
+// also stamping the app's dedicated "Final Poll" slot (105) when this sync
+// is confirmed to be the season's real final poll — see the isFinalPollSync
+// call site's header comment in buildSyncPlan for why. Pulled out as its
+// own pure function so this specific merge behavior is unit-testable
+// without a full buildSyncPlan fixture.
+export function buildRankByWeekPatch(existingRankByWeek, week, rank, isFinalPollSync) {
+  return {
+    ...(existingRankByWeek || {}),
+    [week]: rank,
+    ...(isFinalPollSync ? { 105: rank } : {}),
+  }
+}
+
 // Fallback for the rare save state where NO Coach row has IsUserControlled
 // set at all — confirmed real (not just theoretical): a user reported it
 // on a save where they were plainly not mid-transition, still head coach
@@ -1856,6 +1870,19 @@ export function buildSyncPlan(dynasty, parsed) {
   }
 
   const rankings = mapPreseasonTop25(parsed.teamRankings, rawTeamIdMap, dynastyTeams) // {rank, team, tid}[]; name is generic despite the "preseason" framing
+  // Once the save itself reports 'offseason', the season is genuinely over
+  // and there is no next poll coming — parsed.teamRankings at this exact
+  // moment IS the season's real Final Top 25 (the same media poll shown on
+  // the save's own "End of Season Recap > Final Top 25" screen), not just
+  // this week's snapshot. Also stamped into the app's dedicated Final Poll
+  // slot (week 105 — see Rankings.jsx's weekLabel/hasFinalInRankByWeek) so
+  // it shows up as a real, selectable "Final Poll" entry there and lights
+  // up the Dashboard's Final Top 25 task, instead of being reachable only
+  // by manually finding whatever ordinary week number the save happened to
+  // report — which is where a PC dynasty's Final Top 25 was invisible
+  // before this, even though the sync had been capturing the data all
+  // along under a plain numbered week nothing recognized as "final."
+  const isFinalPollSync = parsed.season?.phase === 'offseason'
   for (const entry of rankings) {
     const tidKey = String(entry.tid)
     const team = mergedTeams[tidKey]
@@ -1865,7 +1892,7 @@ export function buildSyncPlan(dynasty, parsed) {
       ...team,
       byYear: {
         ...team.byYear,
-        [year]: { ...yearData, rankByWeek: { ...(yearData.rankByWeek || {}), [week]: entry.rank } },
+        [year]: { ...yearData, rankByWeek: buildRankByWeekPatch(yearData.rankByWeek, week, entry.rank, isFinalPollSync) },
       },
     }
   }
