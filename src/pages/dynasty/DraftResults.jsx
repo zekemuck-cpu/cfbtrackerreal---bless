@@ -101,6 +101,11 @@ export default function DraftResults() {
             <div className="divide-y" style={{ borderColor: 'var(--surface-4)' }}>
               {teamResults.map((r, i) => (
                 <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <img
+                    src={getTeamLogoByTid(r.tid, currentDynasty.teams)}
+                    alt=""
+                    className="w-6 h-6 flex-shrink-0 object-contain"
+                  />
                   <div className="flex-1 min-w-0">
                     <span className="font-semibold text-txt-primary">{r.playerName || 'Unknown'}</span>
                     <span className="ml-2 text-xs text-txt-tertiary uppercase">{r.position}</span>
