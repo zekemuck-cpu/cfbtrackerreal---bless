@@ -165,15 +165,6 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
               Week and phase advanced to match your save.
             </p>
           )}
-          {result.stoppedAtOffseason && (
-            <p className="text-xs text-txt-secondary mb-4">
-              Advanced through the end of the season. Keep clicking Advance here in the tracker through the
-              offseason — since your roster and stats are already synced from the save, it normally won't ask
-              you anything (a class-progression prompt only appears for a player whose games-played this
-              season is unknown). The year itself only flips once you Advance into the new season, so play
-              on in-game and sync again whenever you want the newest data.
-            </p>
-          )}
           {result.unresolvedTeamNames?.length > 0 && (
             <p className="text-xs text-txt-secondary mb-4">
               Not recognized and skipped: {result.unresolvedTeamNames.join(', ')}

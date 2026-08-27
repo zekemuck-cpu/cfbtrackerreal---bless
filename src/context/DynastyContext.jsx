@@ -5257,6 +5257,98 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
   return needsConfirmation
 }
 
+// Walks (week, phase) forward using the SAME transition rules advanceWeek
+// uses (DynastyContext.jsx's advanceWeek, ~line 11022) — but as a pure
+// computation, not by invoking that function repeatedly. advanceWeek reads
+// dynasty state via closures over the provider's currentDynasty/dynasties —
+// calling it N times in a tight loop from another async function does NOT
+// see its own prior writes (each call still closes over the SAME pre-loop
+// state), so it can never walk forward more than one step no matter how
+// many times it's awaited. Recomputing the transition rules directly on
+// data already fetched fresh avoids that trap entirely.
+//
+// Used ONLY by the CFB27 (PC) sync — and for a PC dynasty, this walker is
+// the ONLY way the tracker's week/phase ever moves: the header's manual
+// "Advance Week" button is hidden entirely for isCfb27Auto dynasties
+// (Layout.jsx), replaced by "Sync from Save". An earlier version of this
+// function stopped the moment it would enter 'offseason' at all, then a
+// later version still paused at offseason week 4->5 (Signing Day) whenever
+// a player's games-played was unknown, mirroring handleAdvanceWeek's own
+// class/redshirt confirmation prompt (Layout.jsx ~line 683) — reasoning
+// that redshirt status needed a human decision the same way it does for a
+// CONSOLE dynasty, which has no save file to read it from. That reasoning
+// doesn't hold for PC: the save itself reports each player's real class
+// (redshirted or not) once the tracker's year actually rolls over and a
+// save from the new season gets synced — cfb27SaveSync.js writes
+// classByYear[year] straight from the save's own data on every sync
+// ("save always wins"), so whatever this walker or advanceWeek's carryover
+// logic guesses in the interim is provisional and gets corrected for free
+// the next time a new-season save is synced. Console users have to type
+// the answer in because nothing will ever correct it for them; PC users
+// never do. So this walker never stops mid-offseason at all — it carries a
+// PC dynasty straight through every offseason week to match whatever the
+// save reports. Never crosses the year itself — this function refuses to
+// run at all across a year mismatch (below) and offseason week 7 has no
+// further transition rule defined, so it can't run away past the last week
+// this walker models; the actual year rollover (advanceToNewSeason) is
+// separate, heavier machinery triggered elsewhere.
+export function computeCfb27SyncSeasonAdvance(startWeek, startPhase, targetYear, targetPhase, targetWeek, currentYear) {
+  const phaseOrder = ['preseason', 'regular_season', 'conference_championship', 'postseason', 'offseason']
+  let week = Number(startWeek)
+  let phase = startPhase
+  let reachedTarget = false
+
+  if (Number(currentYear) !== Number(targetYear)) {
+    // A year boundary is exactly the offseason->preseason transition this
+    // is deliberately not automating — leave it for the user.
+    return { week, phase, reachedTarget: false }
+  }
+
+  let iterations = 0
+  while (iterations < 60) {
+    if (phase === targetPhase && week === Number(targetWeek)) { reachedTarget = true; break }
+    const phaseIdx = phaseOrder.indexOf(phase)
+    const targetIdx = phaseOrder.indexOf(targetPhase)
+    if (phaseIdx > targetIdx) break // already past what the save reports — don't walk backwards
+    if (phase === targetPhase && week > Number(targetWeek)) {
+      // Already in the target phase but ahead of the fresh target week —
+      // can only happen if the previously-stored week was wrong (e.g. a
+      // since-fixed week-mapping bug). Counting up from here would just
+      // overshoot past this phase entirely and miss the target, so trust
+      // the save's own (authoritative) week label instead.
+      week = Number(targetWeek)
+      reachedTarget = true
+      break
+    }
+
+    let nextWeek = week + 1
+    let nextPhase = phase
+    // Mirrors advanceWeek's own phase-transition conditions exactly
+    // (DynastyContext.jsx ~11059-11198) — kept in sync manually since
+    // duplicating the transition RULES (not the side effects) is the
+    // deliberate tradeoff here.
+    if (phase === 'preseason' && nextWeek >= 1) {
+      nextPhase = 'regular_season'; nextWeek = 0
+    } else if (phase === 'regular_season' && nextWeek > 15) {
+      nextPhase = 'conference_championship'; nextWeek = 1
+    } else if (phase === 'conference_championship' && nextWeek > 1) {
+      nextPhase = 'postseason'; nextWeek = 1
+    } else if (phase === 'postseason' && nextWeek > 5) {
+      nextPhase = 'offseason'; nextWeek = 1
+    }
+    // No offseason->preseason rule here on purpose — see this function's
+    // header comment. Offseason week 7 is the last week it can ever reach;
+    // the year-mismatch guard above is what actually prevents this from
+    // ever needing to model crossing into a new year.
+
+    week = nextWeek
+    phase = nextPhase
+    iterations += 1
+  }
+
+  return { week, phase, reachedTarget }
+}
+
 /**
  * Check if user is on a new team (first year coaching this team)
  * This checks if the team for the PREVIOUS year differs from the current team
@@ -10053,76 +10145,6 @@ export function DynastyProvider({ children }) {
    * @param {object} parsed - the raw result from api/cfb27-save-parse.js (same shape createDynasty's CFB27 import consumes)
    * @returns {Promise<{summary: object, unresolvedTeamNames: string[]}>}
    */
-  // Walks (week, phase) forward using the SAME transition rules advanceWeek
-  // uses (DynastyContext.jsx's advanceWeek, ~line 11022) — but as a pure
-  // computation, not by invoking that function repeatedly. advanceWeek reads
-  // dynasty state via closures over this component's currentDynasty/
-  // dynasties — calling it N times in a tight loop from another async
-  // function does NOT see its own prior writes (each call still closes over
-  // the SAME pre-loop state), so it can never walk forward more than one
-  // step no matter how many times it's awaited. Recomputing the transition
-  // rules directly on data already fetched fresh avoids that trap entirely.
-  // Deliberately stops at 'offseason': crossing into the next year's
-  // preseason needs per-player class/redshirt confirmations (see
-  // advanceWeek's `classConfirmations` param) only the user can make — this
-  // does not attempt to guess those.
-  function computeCfb27SyncSeasonAdvance(startWeek, startPhase, targetYear, targetPhase, targetWeek, currentYear) {
-    const phaseOrder = ['preseason', 'regular_season', 'conference_championship', 'postseason', 'offseason']
-    let week = Number(startWeek)
-    let phase = startPhase
-    let reachedTarget = false
-    let stoppedAtOffseason = false
-
-    if (Number(currentYear) !== Number(targetYear)) {
-      // A year boundary is exactly the offseason->preseason transition this
-      // is deliberately not automating — leave it for the user.
-      return { week, phase, reachedTarget: false, stoppedAtOffseason: false }
-    }
-
-    let iterations = 0
-    while (iterations < 60) {
-      if (phase === targetPhase && week === Number(targetWeek)) { reachedTarget = true; break }
-      const phaseIdx = phaseOrder.indexOf(phase)
-      const targetIdx = phaseOrder.indexOf(targetPhase)
-      if (phaseIdx > targetIdx) break // already past what the save reports — don't walk backwards
-      if (phase === targetPhase && week > Number(targetWeek)) {
-        // Already in the target phase but ahead of the fresh target week —
-        // can only happen if the previously-stored week was wrong (e.g. a
-        // since-fixed week-mapping bug). Counting up from here would just
-        // overshoot past this phase entirely and miss the target, so trust
-        // the save's own (authoritative) week label instead.
-        week = Number(targetWeek)
-        reachedTarget = true
-        break
-      }
-      if (phase === 'offseason') { stoppedAtOffseason = true; break }
-
-      let nextWeek = week + 1
-      let nextPhase = phase
-      // Mirrors advanceWeek's own phase-transition conditions exactly
-      // (DynastyContext.jsx ~11059-11198) — kept in sync manually since
-      // duplicating the transition RULES (not the side effects) is the
-      // deliberate tradeoff here.
-      if (phase === 'preseason' && nextWeek >= 1) {
-        nextPhase = 'regular_season'; nextWeek = 0
-      } else if (phase === 'regular_season' && nextWeek > 15) {
-        nextPhase = 'conference_championship'; nextWeek = 1
-      } else if (phase === 'conference_championship' && nextWeek > 1) {
-        nextPhase = 'postseason'; nextWeek = 1
-      } else if (phase === 'postseason' && nextWeek > 5) {
-        nextPhase = 'offseason'; nextWeek = 1
-      }
-
-      if (nextPhase === 'offseason' && phase !== 'offseason') { stoppedAtOffseason = true; break }
-
-      week = nextWeek
-      phase = nextPhase
-      iterations += 1
-    }
-
-    return { week, phase, reachedTarget, stoppedAtOffseason }
-  }
-
   const syncDynastyFromCFB27Save = async (dynastyId, parsed, { onProgress } = {}) => {
     if (blockIfReadOnly(dynastyId, 'sync CFB27 save')) return
 
@@ -10401,13 +10423,32 @@ export function DynastyProvider({ children }) {
     })
     await enterPhase('recalcStats', 'Applying game results…')
 
+    const statsYear = Number(dynasty.currentYear)
+
+    // Reconcile the roster (arrivals/departures/rating & class patches from
+    // plan) against mergedGames' box scores ONCE, here — both storage
+    // branches below (useLocalStorage/cloud) used to redo this exact same
+    // reconciliation independently right before their own writes.
+    const existingByPid = new Map(freshPlayers.map((p) => [p.pid, p]))
+    for (const { pid, patch } of [...plan.toUpdatePatches, ...plan.departurePatches]) {
+      const existing = existingByPid.get(pid)
+      if (existing) existingByPid.set(pid, { ...existing, ...patch })
+    }
+    for (const created of plan.toCreatePlayers) {
+      existingByPid.set(created.pid, created)
+    }
+    // Whole-league box scores just landed on mergedGames above — recompute
+    // every player's season stat totals from them (same machinery the
+    // manual "Fix Player Stats" admin action uses), or the box scores sit
+    // on the games unread and every stats page stays empty.
+    const mergedPlayers = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
+
     // Auto-advance currentWeek/currentPhase to match the save's own season
     // state — computed here (pure function, not by invoking advanceWeek)
     // and folded into the SAME write below, so the header/checklist agree
     // with the data just written in this same call rather than needing a
     // separate "Advance Week" click.
     let reachedTargetSeason = false
-    let stoppedAtOffseason = false
     let seasonFieldUpdates = {}
     if (plan.seasonInfo) {
       const advance = computeCfb27SyncSeasonAdvance(
@@ -10416,7 +10457,6 @@ export function DynastyProvider({ children }) {
         dynasty.currentYear
       )
       reachedTargetSeason = advance.reachedTarget
-      stoppedAtOffseason = advance.stoppedAtOffseason
       if (advance.week !== Number(dynasty.currentWeek) || advance.phase !== dynasty.currentPhase) {
         seasonFieldUpdates = { currentWeek: advance.week, currentPhase: advance.phase }
       }
@@ -10626,7 +10666,6 @@ export function DynastyProvider({ children }) {
     const coachOffersUpdate = { coachOffers: plan.coachOffersUpdate || [] }
 
     const useLocalStorage = dynasty.storageType !== 'cloud'
-    const statsYear = Number(dynasty.currentYear)
 
     // User-facing labels for the leftover main-doc fields, keyed by their
     // ACTUAL top-level field name (not the local `...xyzUpdate` variable
@@ -10666,19 +10705,8 @@ export function DynastyProvider({ children }) {
     }
 
     if (useLocalStorage) {
-      const existingByPid = new Map(freshPlayers.map((p) => [p.pid, p]))
-      for (const { pid, patch } of [...plan.toUpdatePatches, ...plan.departurePatches]) {
-        const existing = existingByPid.get(pid)
-        if (existing) existingByPid.set(pid, { ...existing, ...patch })
-      }
-      for (const created of plan.toCreatePlayers) {
-        existingByPid.set(created.pid, created)
-      }
-      // Whole-league box scores just landed on mergedGames above — recompute
-      // every player's season stat totals from them (same machinery the
-      // manual "Fix Player Stats" admin action uses), or the box scores sit
-      // on the games unread and every stats page stays empty.
-      const mergedPlayers = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
+      // mergedPlayers already reconciled+recalculated above, shared with the
+      // season-advance check.
       await enterPhase('saveRoster', 'Recalculating stats…')
 
       // No Firestore size ceiling applies to a local (IndexedDB) dynasty, so
@@ -10698,21 +10726,14 @@ export function DynastyProvider({ children }) {
       // this same sync (teamsByYear/classByYear/overallByYear above) — a
       // bare `{ statsByYear: { [year]: ... } }` patch would replace the
       // whole map via {merge:true} and wipe every other tracked season.
-      const existingByPid = new Map(freshPlayers.map((p) => [p.pid, p]))
-      for (const { pid, patch } of [...plan.toUpdatePatches, ...plan.departurePatches]) {
-        const existing = existingByPid.get(pid)
-        if (existing) existingByPid.set(pid, { ...existing, ...patch })
-      }
-      for (const created of plan.toCreatePlayers) {
-        existingByPid.set(created.pid, created)
-      }
-      const recalculated = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
-      const recalculatedByPid = new Map(recalculated.map((p) => [p.pid, p]))
+      // mergedPlayers already reconciled+recalculated above, shared with the
+      // season-advance check.
+      const recalculatedByPid = new Map(mergedPlayers.map((p) => [p.pid, p]))
       await enterPhase('saveRoster', 'Recalculating stats…')
 
       const createPidSet = new Set(plan.toCreatePlayers.map((p) => p.pid))
       const statsPatches = []
-      for (const player of recalculated) {
+      for (const player of mergedPlayers) {
         if (createPidSet.has(player.pid)) continue // folded into the create doc below instead
         const freshPlayer = freshPlayers.find((p) => p.pid === player.pid)
         // stableStringify — same key-order-independence reasoning as the
@@ -10795,7 +10816,6 @@ export function DynastyProvider({ children }) {
       summary: plan.summary,
       unresolvedTeamNames: plan.unresolvedTeamNames,
       reachedTargetSeason,
-      stoppedAtOffseason,
     }
   }
 
