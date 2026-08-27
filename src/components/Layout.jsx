@@ -83,25 +83,40 @@ function PcLoadProgress({ dynastyId, getPcLoadProgress }) {
 export default function Layout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly, migrateToSubcollections, isPcDynastyDataConfirmed, getPcLoadProgress } = useDynasty()
+  const { currentDynasty, advanceWeek, advanceToNewSeason, revertWeek, updateDynasty, phaseOverride, setPhaseOverride, advanceReadyInfo, toggleAdvanceReady, isViewOnly, migrateToSubcollections, isPcDynastyDataConfirmed, isPcDynastyDocConfirmed, getPcLoadProgress } = useDynasty()
   const [showCfb27SyncModal, setShowCfb27SyncModal] = useState(false)
   // PC (CFB27) dynasties get their state from "Sync from Save," not manual
   // week advancement — the header's Advance Week control is replaced with a
   // direct shortcut to that same modal Dashboard.jsx's action tile opens.
   const isCfb27Auto = isPcAutoDynasty(currentDynasty)
+  // Guards the header's week/phase label specifically — separate from (and
+  // much cheaper/faster than) pcDataPending below, which waits on the
+  // entire roster+schedule. Firestore's local cache can hand back a week/
+  // phase from well before the dynasty's real current state — verified
+  // against a real report: a user's browser displayed a much earlier week
+  // than reality, and it survived multiple hard refreshes, because a hard
+  // refresh doesn't clear this local store (only DynastyContext's own
+  // bounded-time fallback, or a real cache clear, does). Console dynasties
+  // and local (non-cloud) ones never write this field through an external
+  // sync the same way, so they're not at risk here and stay unguarded.
+  const phaseDisplayReady = !isCfb27Auto || currentDynasty?.storageType !== 'cloud' || isPcDynastyDocConfirmed(currentDynasty?.id)
   // PC dynasties are synced from an external save and can be opened on a
   // device whose local Firestore cache hasn't caught up yet — a cache-first
   // read paints instantly but can be stale/incomplete right after a Sync
   // from Save (or any cross-device open), and a full roster's worth of
   // subcollections can take several seconds to reconcile. Rather than flash
   // wrong numbers and silently correct them, block the page content on a
-  // plain "Loading..." until the server read has confirmed both players and
-  // games for this dynasty this session. Local (non-cloud) PC dynasties have
-  // no cache-staleness risk — everything's already in memory — so this only
-  // applies to cloud storage.
+  // plain "Loading..." until the server read has confirmed players, games,
+  // AND the dynasty doc itself (currentWeek/currentPhase — see
+  // phaseDisplayReady's comment) for this dynasty this session. Without the
+  // dynasty-doc check, the body could unblock as soon as players/games
+  // confirm while the week/phase was still stale, and render offseason
+  // task lists keyed off the wrong week. Local (non-cloud) PC dynasties
+  // have no cache-staleness risk — everything's already in memory — so
+  // this only applies to cloud storage.
   const pcDataWaiting = isCfb27Auto
     && currentDynasty?.storageType === 'cloud'
-    && !isPcDynastyDataConfirmed(currentDynasty.id)
+    && (!isPcDynastyDataConfirmed(currentDynasty.id) || !isPcDynastyDocConfirmed(currentDynasty.id))
   // Safety valve: if confirmation never lands (offline, a permission error,
   // a genuinely wedged connection), don't leave the user staring at
   // "Loading..." forever — show whatever we have after a generous timeout.
@@ -918,6 +933,7 @@ export default function Layout({ children }) {
                     <span className="font-semibold text-xs sm:text-sm" style={{ color: headerText }}>
                       {currentDynasty.currentYear}
                     </span>
+                    {phaseDisplayReady ? (
                     <span className="font-medium text-xs sm:text-sm truncate" style={{ color: headerText }}>
                       <span className="sm:hidden">
                         {currentDynasty.currentPhase === 'conference_championship' ? 'CC' :
@@ -938,6 +954,16 @@ export default function Layout({ children }) {
                         {currentDynasty.currentPhase !== 'postseason' && currentDynasty.currentPhase !== 'offseason' && currentDynasty.currentPhase !== 'conference_championship' && currentDynasty.currentPhase !== 'preseason' && ` Wk ${currentDynasty.currentWeek}`}
                       </span>
                     </span>
+                    ) : (
+                      // Not yet confirmed fresh from the server — show a neutral
+                      // placeholder rather than a week/phase that might be stale
+                      // (see phaseDisplayReady's own comment). Self-clears within
+                      // a few seconds either from the live listener or the
+                      // bounded-time fallback in DynastyContext.jsx.
+                      <span className="font-medium text-xs sm:text-sm truncate opacity-50" style={{ color: headerText }} aria-live="polite">
+                        Syncing…
+                      </span>
+                    )}
                   </div>
                 </>
               )})()}

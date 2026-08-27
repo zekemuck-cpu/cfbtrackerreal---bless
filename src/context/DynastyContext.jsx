@@ -7373,6 +7373,25 @@ export function DynastyProvider({ children }) {
     return !!parts && parts.has('players') && parts.has('games')
   }
 
+  // Separate from isPcDynastyDataConfirmed (players+games — a much bigger,
+  // slower read) — this is just "has the main dynasty doc itself, which
+  // carries currentWeek/currentPhase, been confirmed fresh from the server
+  // at least once." Deliberately its own check: the header's week/phase
+  // label can and should unblock as soon as this one small doc is
+  // confirmed, without waiting on the whole roster/schedule load — matching
+  // what an incognito window naturally does (no local cache to show first,
+  // so it goes straight to the real value immediately, well before the
+  // page body finishes loading). See Layout.jsx's header for where this
+  // gates the display, and the boot-watchdog effect below for the bounded-
+  // time fallback that forces a direct server read if this never fires on
+  // its own (a live listener can get stuck indefinitely — verified: a
+  // user's browser sat on a stale week/phase from earlier in their season,
+  // surviving multiple hard refreshes, because a hard refresh doesn't touch
+  // this local store at all).
+  const isPcDynastyDocConfirmed = (dynastyId) => {
+    return !!pcConfirmedPartsRef.current[dynastyId]?.has('dynastyDoc')
+  }
+
   // Real (not simulated) load progress for the PC dynasty loading screen —
   // { [dynastyId]: { collections: { players: {loaded,total}, games: {...},
   // weekRecaps: {...}, ... }, startedAt } }. players/games report genuine
@@ -7424,6 +7443,43 @@ export function DynastyProvider({ children }) {
     const etaSeconds = rate > 0 ? Math.max(0, Math.round(remaining / rate)) : null
     return { pct, etaSeconds, loaded, total }
   }
+
+  // Bounded-time fallback for isPcDynastyDocConfirmed. The realtime listener
+  // (subscribeToDynasties) is USUALLY fast, but it can get stuck indefinitely
+  // — verified against a real report: a user's browser sat on a stale week/
+  // phase from earlier in their season, surviving multiple hard refreshes,
+  // because a hard refresh clears the page's asset cache but not Firestore's
+  // own local store, and nothing was forcing a real server read to break
+  // through a listener that had silently stopped confirming. If the listener
+  // hasn't confirmed the currently-viewed cloud dynasty's main doc within a
+  // few seconds, force one directly — this guarantees the real value always
+  // arrives within a bounded time, with no manual cache-clearing ever
+  // required. Scoped to the current dynasty only (not every dynasty a user
+  // has) to avoid paying for a forced read on ones nobody's looking at; local
+  // (non-cloud) dynasties have no server doc to fall back to and are skipped.
+  useEffect(() => {
+    const dynastyId = currentDynasty?.id
+    if (!dynastyId || currentDynasty?.storageType !== 'cloud') return
+    if (isPcDynastyDocConfirmed(dynastyId)) return
+    const timer = setTimeout(async () => {
+      if (isPcDynastyDocConfirmed(dynastyId)) return // resolved on its own already
+      try {
+        const fresh = await getDynastyFromServer(dynastyId)
+        if (fresh) {
+          setDynasties(prev => prev.map(d => (String(d.id) === String(dynastyId) ? { ...d, ...fresh } : d)))
+          setCurrentDynasty(prev => (prev && String(prev.id) === String(dynastyId) ? { ...prev, ...fresh } : prev))
+        }
+      } catch (err) {
+        console.error('[dynastyDoc watchdog] forced server read failed:', err)
+      } finally {
+        // Mark confirmed either way — a failed forced read is the same
+        // "we tried our best, stop blocking the UI forever" reasoning the
+        // existing 20s PC load watchdog already uses (Layout.jsx).
+        markPcDynastyPartConfirmed(dynastyId, 'dynastyDoc')
+      }
+    }, 6000)
+    return () => clearTimeout(timer)
+  }, [currentDynasty?.id, currentDynasty?.storageType])
 
   // Change-detection for the dynasties listener (Firestore read cost). The
   // listener otherwise re-reads ALL five subcollections for EVERY loaded
@@ -8732,7 +8788,18 @@ export function DynastyProvider({ children }) {
     })
 
     // Subscribe to real-time updates for cloud dynasties (Firestore)
-    const unsubscribe = subscribeToDynasties(user.uid, async (firestoreDynasties) => {
+    const unsubscribe = subscribeToDynasties(user.uid, async (firestoreDynasties, meta) => {
+      // A confirmed-from-server snapshot proves every dynasty it contains is
+      // NOT sitting on a stale local cache right now — mark them regardless
+      // of the skip/transition guards below (same reasoning as onFreshGames/
+      // onFreshPlayers' own "fires regardless" comment: this is about
+      // whether we've PROVEN freshness at least once, not about whether we
+      // apply this particular snapshot's data to state). See
+      // isPcDynastyDocConfirmed's own comment for what this unblocks.
+      if (meta && !meta.fromCache) {
+        for (const d of firestoreDynasties) markPcDynastyPartConfirmed(d.id, 'dynastyDoc')
+      }
+
       // Check if phase transition is in progress - ALWAYS skip during transitions
       if (phaseTransitionInProgressRef.current) {
         return
@@ -21913,6 +21980,7 @@ export function DynastyProvider({ children }) {
     cloudSyncing,
     loadingDynastyId,
     isPcDynastyDataConfirmed,
+    isPcDynastyDocConfirmed,
     getPcLoadProgress,
     isViewOnly,
     createDynasty,

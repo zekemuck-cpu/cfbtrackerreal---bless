@@ -248,7 +248,19 @@ function resubscribingSnapshot(makeQuery, onSnap, label) {
   }
 }
 
-// Subscribe to real-time updates for user's dynasties
+// Subscribe to real-time updates for user's dynasties. The callback's
+// second argument exposes `{ fromCache }` — Firestore's own cache-first
+// behavior (persistentLocalCache, config/firebase.js) means this listener
+// can fire with a locally-cached snapshot BEFORE the server has actually
+// been reached, and a stuck/failing connection can leave it stuck there
+// indefinitely (verified: a user's browser sat on a stale week/phase from
+// a much earlier point in their season, surviving multiple hard refreshes,
+// because a hard refresh clears the page's asset cache but NOT this
+// IndexedDB-backed store — only an incognito window, which has no local
+// store to fall back on, showed the real, current server data). Callers
+// use `fromCache` to know whether data they just received is actually
+// confirmed-current or might still be stale, instead of assuming every
+// snapshot is trustworthy.
 export function subscribeToDynasties(userId, callback) {
   return resubscribingSnapshot(
     () => query(collection(db, DYNASTIES_COLLECTION), where('userId', '==', userId)),
@@ -262,7 +274,7 @@ export function subscribeToDynasties(userId, callback) {
           ...cleanData
         }
       })
-      callback(dynasties)
+      callback(dynasties, { fromCache: snapshot.metadata.fromCache })
     },
     'dynasties'
   )
