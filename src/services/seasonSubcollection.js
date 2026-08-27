@@ -40,9 +40,12 @@ import {
   waitForPendingWrites,
 } from 'firebase/firestore'
 import { db } from '../config/firebase'
+import { isDocTooLargeError } from '../utils/firestoreErrors'
 
 const DYNASTIES_COLLECTION = 'dynasties'
 const SEASONS_SUBCOLLECTION = 'seasons'
+// dynasties/{id}/seasons/{year}/teamShards/{0..TEAM_SHARD_COUNT-1}
+const TEAM_SHARDS_SUBCOLLECTION = 'teamShards'
 
 // Per-year fields. Shape on main doc: `{ [year]: data }`.
 // On the season doc they're stored under the suffix-stripped name.
@@ -162,6 +165,72 @@ const ALL_SEASONAL_FIELDS = new Set([...PER_YEAR_FIELDS, ...PER_TEAM_YEAR_FIELDS
 /** Fast `is this field season-scoped?` test for the updateDynasty router. */
 export function isSeasonalField(fieldName) {
   return ALL_SEASONAL_FIELDS.has(fieldName)
+}
+
+// Season-doc field names (suffix-stripped) that are per-TEAM-year — used by
+// writeSeasonalUpdate/getSeasonsSubcollection to know which cells of a
+// season-doc patch belong in a team shard instead of directly on the
+// season doc. See the TEAM_SHARD_COUNT block below for why this exists.
+const PER_TEAM_YEAR_SEASON_FIELD_NAMES = new Set(Object.values(PER_TEAM_YEAR_TO_SEASON_FIELD))
+
+// A single seasons/{year} doc holds every per-team-year field (schedule,
+// coaching staff, recruiting commitments, rank-by-week, etc.) for EVERY
+// team in the dynasty, combined. That was fine at first — per-YEAR
+// granularity looked like enough headroom versus the old "one field,
+// every year, forever" main-doc shape — but for a deep dynasty with a
+// full ~130+ team league, one season's combined per-team-year data can
+// itself cross Firestore's 1 MiB cap (confirmed against a real dynasty:
+// seasons/2026 alone hit 1,049,245 bytes and started rejecting every
+// write). Sharding by team spreads that same data across TEAM_SHARD_COUNT
+// sibling docs under the season doc, at
+// seasons/{year}/teamShards/{0..TEAM_SHARD_COUNT-1} — an ~130-team season
+// that filled one ~1 MB doc lands each shard around 1/8th that size, with
+// years of headroom before hitting the cap again. 8 was picked as a
+// balance: enough shards that the per-shard size stays comfortably under
+// the cap for a full league, few enough that reading a season's team data
+// back doesn't multiply into a per-TEAM read (that would trade a size
+// problem for a Firestore-cost problem — see getSeasonsSubcollection).
+export const TEAM_SHARD_COUNT = 8
+
+/**
+ * Deterministic shard index for a team key (tid, numeric-as-string, or a
+ * legacy abbr string — all three appear as keys in *ByTeamYear fields
+ * across the codebase's migration history). MUST be a pure function of the
+ * key alone so the same team always lands in the same shard on every
+ * write, or a later write could orphan an earlier one in a sibling shard.
+ * Exported for direct unit testing — everything else that depends on this
+ * being stable needs a live Firestore round-trip to verify.
+ */
+export function shardForTeamKey(teamKey) {
+  const s = String(teamKey)
+  let hash = 0
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0
+  return hash % TEAM_SHARD_COUNT
+}
+
+/**
+ * Split one year's season-doc patch (season-field-named, as produced by
+ * splitSeasonalUpdateByYear) into what stays directly on the season doc
+ * (per-year fields) and what routes to each team shard (per-team-year
+ * fields, keyed by shard index). Pure — pulled out of writeSeasonalUpdate
+ * so the routing logic itself is unit-testable without a live Firestore.
+ */
+export function splitYearPatchIntoSeasonAndShards(yearNum, patch) {
+  const seasonDocPatch = { year: yearNum }
+  const shardPatches = {} // shardIndex -> { [seasonField]: { [teamKey]: value } }
+  for (const [seasonField, value] of Object.entries(patch || {})) {
+    if (!PER_TEAM_YEAR_SEASON_FIELD_NAMES.has(seasonField) || !value || typeof value !== 'object') {
+      seasonDocPatch[seasonField] = value
+      continue
+    }
+    for (const [teamKey, teamValue] of Object.entries(value)) {
+      const shard = shardForTeamKey(teamKey)
+      if (!shardPatches[shard]) shardPatches[shard] = {}
+      if (!shardPatches[shard][seasonField]) shardPatches[shard][seasonField] = {}
+      shardPatches[shard][seasonField][teamKey] = teamValue
+    }
+  }
+  return { seasonDocPatch, shardPatches }
 }
 
 // teams[tid].byYear[year] sub-fields that are ALSO fully covered by a flat
@@ -307,11 +376,58 @@ export function stripTeamsByYearFlatFields(teams) {
   return { strippedTeams: stripped, extracted }
 }
 
+// Fetch one year's team shards and flatten them back into the
+// { [seasonField]: { [teamKey]: value } } shape a season doc's own
+// per-team-year fields used to hold directly, so the caller can merge
+// this into the season doc's data before rehydrating. A year with no
+// shards yet (nothing ever written per-team for it, or it predates this
+// sharding) just contributes nothing — not an error.
+async function fetchTeamShardsMerged(dynastyId, yearKey, mode) {
+  const shardsRef = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, yearKey, TEAM_SHARDS_SUBCOLLECTION)
+  let snap
+  try {
+    if (mode === 'server') snap = await getDocsFromServer(shardsRef)
+    else if (mode === 'cache') snap = await getDocsFromCache(shardsRef)
+    else snap = await getDocs(shardsRef)
+  } catch (_) {
+    return {}
+  }
+  const merged = {}
+  for (const d of snap.docs) {
+    const shardData = d.data() || {}
+    for (const [seasonField, teamMap] of Object.entries(shardData)) {
+      if (!teamMap || typeof teamMap !== 'object') continue
+      if (!merged[seasonField]) merged[seasonField] = {}
+      Object.assign(merged[seasonField], teamMap)
+    }
+  }
+  return merged
+}
+
+// Merge each season doc's team-shard data back onto it (in-memory only —
+// nothing is written), producing doc-like objects rehydrateSeasonalShapes
+// can consume exactly as it did before sharding existed. Years are fetched
+// in parallel since a long dynasty can have many season docs.
+async function mergeShardsIntoSeasonDocs(dynastyId, docs, mode) {
+  return Promise.all(docs.map(async (d) => {
+    const yearKey = d.id
+    const baseData = d.data() || {}
+    const shardFields = await fetchTeamShardsMerged(dynastyId, yearKey, mode)
+    if (Object.keys(shardFields).length === 0) return { id: yearKey, data: () => baseData }
+    const mergedData = { ...baseData }
+    for (const [seasonField, teamMap] of Object.entries(shardFields)) {
+      mergedData[seasonField] = { ...(baseData[seasonField] || {}), ...teamMap }
+    }
+    return { id: yearKey, data: () => mergedData }
+  }))
+}
+
 /**
  * Read all season docs and rehydrate the legacy main-doc shapes.
  * Returns an object whose keys are the original ByYear / ByTeamYear
  * field names, so consumers see exactly what they used to see — they
- * don't have to know the data moved.
+ * don't have to know the data moved (or that it's further sharded by
+ * team under each season doc — see TEAM_SHARD_COUNT above).
  *
  * Cache-first like other subcollection reads to keep mobile cold-start
  * latency tolerable; a server probe runs in the background to keep the
@@ -325,15 +441,20 @@ export async function getSeasonsSubcollection(dynastyId, options = {}) {
   // caller aborts instead of proceeding with partial data.
   if (serverFirst) {
     const snap = await getDocsFromServer(ref)
-    return rehydrateSeasonalShapes(snap.docs)
+    const merged = await mergeShardsIntoSeasonDocs(dynastyId, snap.docs, 'server')
+    return rehydrateSeasonalShapes(merged)
   }
   let docs
+  let mode = 'default'
   try {
     const cached = await getDocsFromCache(ref)
     if (!cached.empty) {
       if (onFresh) {
-        getDocsFromServer(ref).then(snap => {
-          try { onFresh(rehydrateSeasonalShapes(snap.docs)) } catch (e) { console.error('onFresh callback threw:', e) }
+        getDocsFromServer(ref).then(async snap => {
+          try {
+            const mergedFresh = await mergeShardsIntoSeasonDocs(dynastyId, snap.docs, 'server')
+            onFresh(rehydrateSeasonalShapes(mergedFresh))
+          } catch (e) { console.error('onFresh callback threw:', e) }
         }).catch(err => {
           // Stale-while-revalidate background refresh failed. Cached data is
           // still served, so we don't surface to the user, but log for
@@ -342,18 +463,21 @@ export async function getSeasonsSubcollection(dynastyId, options = {}) {
         })
       }
       docs = cached.docs
+      mode = 'cache'
     }
   } catch (_) { /* fall through */ }
   if (!docs) {
     try {
       const snap = await getDocs(ref)
       docs = snap.docs
+      mode = 'default'
     } catch (error) {
       console.error('Error fetching seasons subcollection:', error)
       return {}
     }
   }
-  return rehydrateSeasonalShapes(docs)
+  const merged = await mergeShardsIntoSeasonDocs(dynastyId, docs, mode)
+  return rehydrateSeasonalShapes(merged)
 }
 
 export function rehydrateSeasonalShapes(docs) {
@@ -531,18 +655,60 @@ export async function writeSeasonalUpdate(dynastyId, byYear) {
   const years = Object.keys(byYear)
   if (years.length === 0) return []
 
-  // Always use a batch — even for a single year — so we can include
-  // the main-doc lastModified bump atomically. The bump is what makes
-  // subscribeToDynasties on other devices fire; without it, this
-  // subcollection write is invisible to Device B's listener.
+  // Route per-team-year cells into their team shard instead of the season
+  // doc itself — see TEAM_SHARD_COUNT above for why. Per-year cells (no
+  // team dimension) stay directly on the season doc same as always.
   const mainDocRef = doc(db, DYNASTIES_COLLECTION, dynastyId)
-  const batch = writeBatch(db)
+  const writes = [] // { ref, data }
   for (const yearKey of years) {
-    const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, String(yearKey))
-    batch.set(ref, { year: Number(yearKey), ...byYear[yearKey] }, { merge: true })
+    const { seasonDocPatch, shardPatches } = splitYearPatchIntoSeasonAndShards(Number(yearKey), byYear[yearKey])
+    writes.push({ ref: doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, String(yearKey)), data: seasonDocPatch })
+    for (const [shardIndex, shardData] of Object.entries(shardPatches)) {
+      writes.push({
+        ref: doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, String(yearKey), TEAM_SHARDS_SUBCOLLECTION, shardIndex),
+        data: shardData,
+      })
+    }
   }
-  batch.update(mainDocRef, { lastModified: Date.now() })
-  await batch.commit()
+
+  // Firestore batches cap at 500 operations. A normal save touches one or
+  // two years (a handful of writes); chunk conservatively anyway so a
+  // multi-year migration/backfill can never exceed the cap. The main-doc
+  // lastModified bump — what makes subscribeToDynasties fire on other
+  // devices — rides in the FINAL chunk so it lands after every write it's
+  // meant to announce.
+  const BATCH_LIMIT = 450
+  let migratedOnRetry = false
+  for (let i = 0; i < writes.length; i += BATCH_LIMIT) {
+    const chunk = writes.slice(i, i + BATCH_LIMIT)
+    const commitChunk = async () => {
+      const batch = writeBatch(db)
+      for (const { ref, data } of chunk) batch.set(ref, data, { merge: true })
+      if (i + BATCH_LIMIT >= writes.length) batch.update(mainDocRef, { lastModified: Date.now() })
+      await batch.commit()
+    }
+    try {
+      await commitChunk()
+    } catch (err) {
+      // A season doc can still be over the cap here even after the routing
+      // above — a dynasty whose season docs predate sharding (this year's
+      // per-team-year data is still embedded directly on the doc, not yet
+      // in shards) has that same doc rejecting THIS patch, however small,
+      // until it's shrunk. The background one-time migration
+      // (migrateSeasonTeamDataToShards, run on dynasty load) usually beats
+      // the user to it, but there's no ordering guarantee between "page
+      // loaded" and "this save happened to fire first" — so self-heal here
+      // too rather than surfacing a rejection the user has no way to act
+      // on. Runs at most once per writeSeasonalUpdate call (migratedOnRetry
+      // guard) — a second failure after an actual shard migration means
+      // something else is wrong, and must propagate rather than loop.
+      if (!isDocTooLargeError(err) || migratedOnRetry) throw err
+      migratedOnRetry = true
+      console.warn(`[writeSeasonalUpdate] a season doc rejected as too-large — running the team-shard migration and retrying once: ${err?.code || err?.message}`)
+      await migrateSeasonTeamDataToShards(dynastyId)
+      await commitChunk()
+    }
+  }
   return years
 }
 
@@ -627,7 +793,12 @@ export async function migrateSeasonalFieldsToSubcollection(dynastyId, mainDocSou
   try {
     const seasonsRef = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION)
     const snap = await getDocsFromServer(seasonsRef)
-    for (const d of snap.docs) {
+    // Merge in team-shard data so a per-team-year field already migrated
+    // to its shard reads as "existing" here too — checking the season doc
+    // alone would see that field as absent (it now lives in a shard) and
+    // wrongly re-fan stale main-doc data back over it.
+    const mergedDocs = await mergeShardsIntoSeasonDocs(dynastyId, snap.docs, 'server')
+    for (const d of mergedDocs) {
       const yearKey = Number(d.id)
       if (!Number.isFinite(yearKey)) continue
       const existing = d.data() || {}
@@ -781,8 +952,13 @@ export async function migrateTeamsByYearDuplicatesToSubcollection(dynastyId, mai
   try {
     const seasonsRef = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION)
     const snap = await getDocsFromServer(seasonsRef)
+    // Merge in team-shard data — see the identical note in
+    // migrateSeasonalFieldsToSubcollection above; without it, every
+    // per-team-year cell already migrated to a shard reads as "missing"
+    // here and gets wrongly overwritten with the stale main-doc duplicate.
+    const mergedDocs = await mergeShardsIntoSeasonDocs(dynastyId, snap.docs, 'server')
     const existingByYear = {}
-    for (const d of snap.docs) existingByYear[d.id] = d.data() || {}
+    for (const d of mergedDocs) existingByYear[d.id] = d.data() || {}
     for (const yearKey of Object.keys(byYear)) {
       const existing = existingByYear[yearKey] || {}
       for (const seasonField of Object.keys(byYear[yearKey])) {
@@ -848,6 +1024,163 @@ export async function migrateTeamsByYearDuplicatesToSubcollection(dynastyId, mai
 }
 
 /**
+ * One-shot per-dynasty migration for season docs written BEFORE team
+ * sharding existed — their per-team-year fields (schedule, coaching staff,
+ * recruiting commitments, rank-by-week, etc.) are embedded directly on the
+ * seasons/{year} doc instead of split across seasons/{year}/teamShards/*.
+ * For a deep dynasty with a full league, that embedded data can itself push
+ * a single season doc past Firestore's 1 MiB cap — confirmed against a real
+ * dynasty whose seasons/2026 hit 1,049,245 bytes and started rejecting
+ * every write, even though the migrated main doc + players/games
+ * subcollections were nowhere near their own limits. This is the fix: move
+ * each season's per-team-year data into its shards, then shrink the season
+ * doc by deleting those fields from it.
+ *
+ * Same 3-phase paranoid pattern as the migrations above: write shards,
+ * confirm the writes reached the server, read back and verify, and ONLY
+ * THEN clear the season doc — a failure at any phase leaves that year
+ * exactly as it was (safe to retry) rather than risking data loss.
+ *
+ * Per-year fields (no team dimension) are untouched — they were never the
+ * problem (no ~136x multiplier) and have no shard equivalent.
+ */
+export async function migrateSeasonTeamDataToShards(dynastyId) {
+  const seasonsRef = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION)
+  let seasonDocs
+  try {
+    const snap = await getDocsFromServer(seasonsRef)
+    seasonDocs = snap.docs
+  } catch (err) {
+    console.warn('[season team-shard migration] could not read season docs from server:', err?.code || err?.message)
+    return { migrated: [], cleared: [] }
+  }
+
+  const migratedYears = []
+  const clearedYears = []
+
+  for (const seasonDoc of seasonDocs) {
+    const yearKey = seasonDoc.id
+    const yearNum = Number(yearKey)
+    if (!Number.isFinite(yearNum)) continue
+    const data = seasonDoc.data() || {}
+
+    // Collect whichever per-team-year fields are still embedded directly
+    // on this season doc (a dynasty already migrated has none — fast no-op).
+    const embeddedFields = {}
+    let hasEmbedded = false
+    for (const seasonField of PER_TEAM_YEAR_SEASON_FIELD_NAMES) {
+      const value = data[seasonField]
+      if (value && typeof value === 'object' && Object.keys(value).length > 0) {
+        embeddedFields[seasonField] = value
+        hasEmbedded = true
+      }
+    }
+    if (!hasEmbedded) continue
+
+    // Build the shard patches this year's embedded data maps to.
+    const shardPatches = {}
+    for (const [seasonField, teamMap] of Object.entries(embeddedFields)) {
+      for (const [teamKey, value] of Object.entries(teamMap)) {
+        const shard = shardForTeamKey(teamKey)
+        if (!shardPatches[shard]) shardPatches[shard] = {}
+        if (!shardPatches[shard][seasonField]) shardPatches[shard][seasonField] = {}
+        shardPatches[shard][seasonField][teamKey] = value
+      }
+    }
+
+    // SUBCOLLECTION-WINS GUARD — a shard may already have fresher data for
+    // some cells (e.g. a partial migration retry, or a save that landed in
+    // the shard after this read started). Never let the embedded copy
+    // (necessarily no newer than what's already on the season doc) clobber
+    // it; only fill genuinely missing cells.
+    try {
+      const shardsRef = collection(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, yearKey, TEAM_SHARDS_SUBCOLLECTION)
+      const shardSnap = await getDocsFromServer(shardsRef)
+      const existingByShard = {}
+      for (const d of shardSnap.docs) existingByShard[d.id] = d.data() || {}
+      for (const shardIndex of Object.keys(shardPatches)) {
+        const existing = existingByShard[shardIndex] || {}
+        for (const seasonField of Object.keys(shardPatches[shardIndex])) {
+          const teamMap = shardPatches[shardIndex][seasonField]
+          const existingTeamMap = existing[seasonField] || {}
+          for (const teamKey of Object.keys(teamMap)) {
+            const ev = existingTeamMap[teamKey]
+            const hasExisting = ev !== undefined && ev !== null
+              && !(typeof ev === 'object' && !Array.isArray(ev) && Object.keys(ev).length === 0)
+              && !(Array.isArray(ev) && ev.length === 0)
+            if (hasExisting) delete teamMap[teamKey]
+          }
+          if (Object.keys(teamMap).length === 0) delete shardPatches[shardIndex][seasonField]
+        }
+        if (Object.keys(shardPatches[shardIndex]).length === 0) delete shardPatches[shardIndex]
+      }
+    } catch (err) {
+      console.warn(`[season team-shard migration] could not read existing shards for ${yearKey} — skipping this year:`, err?.code || err?.message)
+      continue
+    }
+
+    // Phase 2: write whatever the guard left (only genuinely missing
+    // cells), then confirm the server has it before touching the season doc.
+    if (Object.keys(shardPatches).length > 0) {
+      const writeBatchObj = writeBatch(db)
+      for (const [shardIndex, shardData] of Object.entries(shardPatches)) {
+        const shardRef = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, yearKey, TEAM_SHARDS_SUBCOLLECTION, shardIndex)
+        writeBatchObj.set(shardRef, shardData, { merge: true })
+      }
+      try {
+        await writeBatchObj.commit()
+        await waitForPendingWrites(db)
+      } catch (err) {
+        console.warn(`[season team-shard migration] write/confirm failed for ${yearKey}; aborting clear for this year:`, err?.code || err?.message)
+        continue
+      }
+
+      let verifyOk = true
+      try {
+        for (const shardIndex of Object.keys(shardPatches)) {
+          const shardRef = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, yearKey, TEAM_SHARDS_SUBCOLLECTION, shardIndex)
+          const snap = await getDocFromServer(shardRef)
+          if (!snap.exists()) { verifyOk = false; break }
+          const shardData = snap.data() || {}
+          outer: for (const [seasonField, teamMap] of Object.entries(shardPatches[shardIndex])) {
+            const storedTeamMap = shardData[seasonField]
+            if (!storedTeamMap || typeof storedTeamMap !== 'object') { verifyOk = false; break outer }
+            for (const teamKey of Object.keys(teamMap)) {
+              if (!(teamKey in storedTeamMap)) { verifyOk = false; break outer }
+            }
+          }
+          if (!verifyOk) break
+        }
+      } catch (err) {
+        console.warn(`[season team-shard migration] verify read failed for ${yearKey}:`, err?.code || err?.message)
+        verifyOk = false
+      }
+      if (!verifyOk) {
+        console.warn(`[season team-shard migration] verification failed for ${yearKey}; season doc NOT cleared, will retry on next run`)
+        continue
+      }
+    }
+
+    // Phase 3: shrink the season doc — this is the actual fix for the
+    // over-cap write rejection. Only fields confirmed present in shards
+    // (either already there, or just written + verified above) are cleared.
+    const clearPatch = {}
+    for (const seasonField of Object.keys(embeddedFields)) clearPatch[seasonField] = deleteField()
+    try {
+      const seasonRef = doc(db, DYNASTIES_COLLECTION, dynastyId, SEASONS_SUBCOLLECTION, yearKey)
+      await updateDoc(seasonRef, clearPatch)
+      clearedYears.push(yearKey)
+    } catch (err) {
+      console.warn(`[season team-shard migration] failed to clear season doc ${yearKey}:`, err?.code || err?.message)
+      continue
+    }
+    migratedYears.push(yearKey)
+  }
+
+  return { migrated: migratedYears, cleared: clearedYears }
+}
+
+/**
  * Read-back verification: confirm that the last year we wrote
  * actually has every expected field on the server. Used by the
  * migration's pre-cleanup phase so we never deleteField legacy data
@@ -872,7 +1205,11 @@ async function verifySeasonalWrites(dynastyId, byYear, writtenYearKeys) {
       console.warn(`[season migration] verify: seasons/${sampleYear} doesn't exist on server`)
       return false
     }
-    const data = snap.data() || {}
+    // Per-team-year fields land in a shard, not directly on the season
+    // doc — merge those in before checking, or every one of them reads
+    // as "missing" and the migration refuses to ever clear the main doc.
+    const shardFields = await fetchTeamShardsMerged(dynastyId, String(sampleYear), 'server')
+    const data = { ...(snap.data() || {}), ...shardFields }
     for (const expField of Object.keys(expected)) {
       if (!(expField in data)) {
         console.warn(`[season migration] verify: seasons/${sampleYear} missing expected field ${expField}`)

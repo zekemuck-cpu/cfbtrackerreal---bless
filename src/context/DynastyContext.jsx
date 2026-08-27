@@ -72,6 +72,7 @@ import {
   diffSeasonalDeletions,
   migrateSeasonalFieldsToSubcollection,
   migrateTeamsByYearDuplicatesToSubcollection,
+  migrateSeasonTeamDataToShards,
   TEAMS_BYYEAR_FLAT_FIELDS,
   foldTeamsByYearFieldsFromFlat,
   stripTeamsByYearFlatFields
@@ -7230,7 +7231,7 @@ export function DynastyProvider({ children }) {
   // and the user starts seeing resource-exhausted errors in console.
   // Once per session per dynasty is the right cadence — a permanent failure
   // requires a code fix anyway.
-  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set(), teamsByYearDuplicates: new Set(), teamFuture: new Set() })
+  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set(), teamsByYearDuplicates: new Set(), teamFuture: new Set(), seasonTeamShards: new Set() })
   // Mirror of currentDynasty?.id readable from the dynasties listener
   // closure without forcing the listener to re-subscribe every time the
   // user opens a different dynasty. Keeping this listener stable across
@@ -7740,6 +7741,33 @@ export function DynastyProvider({ children }) {
               console.warn(`[teams migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
             })
         }
+      }
+
+      // A single seasons/{year} doc combines every team's per-team-year
+      // data (schedule, coaching staff, recruiting commitments, etc.) —
+      // for a deep dynasty with a full league that can itself cross
+      // Firestore's 1 MiB cap even though the main doc and players/games
+      // subcollections are fine (confirmed against a real dynasty whose
+      // seasons/2026 hit 1,049,245 bytes and started rejecting every
+      // write). Unlike the other migrations above, there's no cheap
+      // in-memory signal for whether this is needed — the rehydrated
+      // dynasty object looks identical whether a season's per-team-year
+      // data lives on the season doc or already in its shards — so this
+      // one-time-per-session check always costs a server read of the
+      // seasons collection. Cloud-only: local/IndexedDB dynasties have no
+      // Firestore doc to split. migrateSeasonTeamDataToShards itself is
+      // idempotent and a fast no-op for a dynasty with nothing embedded.
+      if (dynasty.storageType === 'cloud' && !migrationsAttemptedRef.current.seasonTeamShards.has(dynastyId)) {
+        migrationsAttemptedRef.current.seasonTeamShards.add(dynastyId)
+        migrateSeasonTeamDataToShards(dynastyId)
+          .then(({ migrated, cleared }) => {
+            if (migrated.length > 0) {
+              console.log(`[season team-shard migration] ${dynastyId}: sharded ${migrated.length} season(s), cleared ${cleared.length} season doc(s)`)
+            }
+          })
+          .catch(err => {
+            console.warn(`[season team-shard migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+          })
       }
 
       // Recruiting Database: same fall-back-to-legacy + fire-and-forget
@@ -8535,6 +8563,7 @@ export function DynastyProvider({ children }) {
     migrationsAttemptedRef.current.seasonal.clear()
     migrationsAttemptedRef.current.recruitingDatabase.clear()
     migrationsAttemptedRef.current.teamsByYearDuplicates.clear()
+    migrationsAttemptedRef.current.seasonTeamShards.clear()
 
     // If user is not signed in (or running under the dev-auth bypass,
     // which has no real Firestore access), skip cloud sync and load
@@ -8935,6 +8964,22 @@ export function DynastyProvider({ children }) {
                     console.warn(`[teams migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
                   })
               }
+            }
+
+            // Same idea, for a season doc's own per-team-year data outgrowing
+            // 1 MiB — see the matching comment in loadDynastyData's copy of
+            // this check.
+            if (dynasty.storageType === 'cloud' && !migrationsAttemptedRef.current.seasonTeamShards.has(dynasty.id)) {
+              migrationsAttemptedRef.current.seasonTeamShards.add(dynasty.id)
+              migrateSeasonTeamDataToShards(dynasty.id)
+                .then(({ migrated, cleared }) => {
+                  if (migrated.length > 0) {
+                    console.log(`[season team-shard migration] ${dynasty.id}: sharded ${migrated.length} season(s), cleared ${cleared.length} season doc(s)`)
+                  }
+                })
+                .catch(err => {
+                  console.warn(`[season team-shard migration] failed for ${dynasty.id}:`, err?.code || err?.message || err)
+                })
             }
 
             // Recruiting Database: same fall-back-to-legacy + fire-and-

@@ -41,6 +41,36 @@ function normalizeTimestamps(value) {
 const rowsOf = (snapshot) =>
   snapshot.docs.map((d) => ({ id: d.id, data: normalizeTimestamps(d.data()) }));
 
+// A season doc's per-team-year fields (schedule, coaching staff, recruiting
+// commitments, etc.) live sharded under seasons/{year}/teamShards/{0-7} —
+// see src/services/seasonSubcollection.js's TEAM_SHARD_COUNT comment for
+// why (a single combined doc for a full league can itself cross Firestore's
+// 1 MiB cap). The literal 'teamShards' name can't be imported from that
+// module here — it's written against the web SDK, this route runs on the
+// admin SDK — so it's duplicated, same as every other subcollection name
+// in this file. Merges shard data back onto each season row before it
+// reaches the client, so getSeasonsSubcollection's rehydration (which
+// expects the pre-sharding embedded shape) sees exactly what it always did.
+async function buildSeasonRows(ref) {
+  const seasonsSnap = await ref.collection('seasons').get();
+  return Promise.all(seasonsSnap.docs.map(async (d) => {
+    const shardsSnap = await ref.collection('seasons').doc(d.id).collection('teamShards').get();
+    let data = d.data();
+    if (!shardsSnap.empty) {
+      const merged = { ...data };
+      for (const shardDoc of shardsSnap.docs) {
+        const shardData = shardDoc.data() || {};
+        for (const [seasonField, teamMap] of Object.entries(shardData)) {
+          if (!teamMap || typeof teamMap !== 'object') continue;
+          merged[seasonField] = { ...(merged[seasonField] || {}), ...teamMap };
+        }
+      }
+      data = merged;
+    }
+    return { id: d.id, data: normalizeTimestamps(data) };
+  }));
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -71,11 +101,11 @@ export default async function handler(req, res) {
     const dynastyId = mainSnap.id;
     const ref = db.collection('dynasties').doc(dynastyId);
 
-    const [players, games, weekRecaps, seasons, socialFeed, socialCharacters, recruitingDatabase] = await Promise.all([
+    const [players, games, weekRecaps, seasonRows, socialFeed, socialCharacters, recruitingDatabase] = await Promise.all([
       ref.collection('players').get(),
       ref.collection('games').get(),
       ref.collection('weekRecaps').get(),
-      ref.collection('seasons').get(),
+      buildSeasonRows(ref),
       ref.collection('socialFeed').get(),
       ref.collection('socialCharacters').get(),
       ref.collection('recruitingDatabase').get(),
@@ -109,7 +139,7 @@ export default async function handler(req, res) {
       players: rowsOf(players),
       games: rowsOf(games),
       weekRecaps: rowsOf(weekRecaps),
-      seasons: rowsOf(seasons),
+      seasons: seasonRows,
       socialFeed: rowsOf(socialFeed),
       socialCharacters: rowsOf(socialCharacters),
       recruitingDatabase: rowsOf(recruitingDatabase),
