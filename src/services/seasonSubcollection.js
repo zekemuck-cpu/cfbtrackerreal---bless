@@ -74,6 +74,7 @@ export const PER_YEAR_FIELDS = [
   'draftResultsByYear',
   'finalPollsByYear',
   'fringeCaseClassByYear',
+  'leagueDraftResultsByYear',
   'lockedCoachingStaffByYear',
   'playersLeavingByYear',
   'playerStatsByYear',

@@ -69,6 +69,7 @@ export default function DraftResults() {
   const [showFullDraft, setShowFullDraft] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedNflTeam, setSelectedNflTeam] = useState('')
+  const [selectedRound, setSelectedRound] = useState(1)
 
   if (!currentDynasty) return null
 
@@ -222,20 +223,35 @@ export default function DraftResults() {
                       </div>
                     </Card>
                   )}
-                  {ROUNDS.filter((round) => byRound[round]?.length).map((round) => (
-                    <div key={round}>
-                      <h3 className="font-display font-bold uppercase text-txt-primary mb-2" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
-                        Round {round}
+                  <div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <h3 className="font-display font-bold uppercase text-txt-primary m-0" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
+                        Round
                       </h3>
+                      <Select
+                        value={selectedRound}
+                        onChange={(e) => setSelectedRound(Number(e.target.value))}
+                        className="max-w-[10rem]"
+                      >
+                        {ROUNDS.map((round) => (
+                          <option key={round} value={round}>Round {round}</option>
+                        ))}
+                      </Select>
+                    </div>
+                    {!byRound[selectedRound]?.length ? (
+                      <Card>
+                        <EmptyState title="No Picks" subtitle={`Nobody was drafted in Round ${selectedRound} of ${displayYear}.`} />
+                      </Card>
+                    ) : (
                       <Card padding="none">
                         <div className="divide-y" style={{ borderColor: 'var(--surface-4)' }}>
-                          {byRound[round].map((r, i) => (
+                          {byRound[selectedRound].map((r, i) => (
                             <DraftRow key={i} r={r} teams={currentDynasty.teams} />
                           ))}
                         </div>
                       </Card>
-                    </div>
-                  ))}
+                    )}
+                  </div>
                 </div>
 
                 <div className="lg:sticky lg:top-4">
