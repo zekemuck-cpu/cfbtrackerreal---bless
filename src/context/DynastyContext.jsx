@@ -59,7 +59,8 @@ import {
   saveSocialCharacterShards,
   clearSocialCharacterOverrides,
   saveSocialCharacterOverrides,
-  getSocialCharactersSubcollection
+  getSocialCharactersSubcollection,
+  migrateOrphanedSocialFeedDoc
 } from '../services/dynastyService'
 import {
   PER_YEAR_FIELDS,
@@ -7231,7 +7232,7 @@ export function DynastyProvider({ children }) {
   // and the user starts seeing resource-exhausted errors in console.
   // Once per session per dynasty is the right cadence — a permanent failure
   // requires a code fix anyway.
-  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set(), teamsByYearDuplicates: new Set(), teamFuture: new Set(), seasonTeamShards: new Set() })
+  const migrationsAttemptedRef = useRef({ recaps: new Set(), seasonal: new Set(), recruitingDatabase: new Set(), teamsByYearDuplicates: new Set(), teamFuture: new Set(), seasonTeamShards: new Set(), socialFeedOrphan: new Set() })
   // Mirror of currentDynasty?.id readable from the dynasties listener
   // closure without forcing the listener to re-subscribe every time the
   // user opens a different dynasty. Keeping this listener stable across
@@ -12056,6 +12057,28 @@ export function DynastyProvider({ children }) {
       getSocialFeedSubcollection(dynastyId, { onFresh: (fresh) => setSocialFor(dynastyId, { feed: fresh }) }),
     ])
     setSocialByDynasty(prev => ({ ...prev, [dynastyId]: { characters, feed } }))
+
+    // One-time recovery for posts trapped by the pre-fix Number(week)
+    // bug — every bowl/CCG/CFP game's social posts used to collide into a
+    // single "{year}-NaN" doc that buildSocialFeedMap silently skipped on
+    // read (see migrateOrphanedSocialFeedDoc's header comment). Fire-and-
+    // forget: reloads social state itself via loadSocial's own onFresh
+    // plumbing isn't wired here, so re-run loadSocial's cloud fetch after a
+    // successful recovery to pick up the recovered posts without requiring
+    // the user to reload the page.
+    if (!migrationsAttemptedRef.current.socialFeedOrphan.has(dynastyId)) {
+      migrationsAttemptedRef.current.socialFeedOrphan.add(dynastyId)
+      migrateOrphanedSocialFeedDoc(dynastyId, dynasty.games).then(({ migrated }) => {
+        if (migrated > 0) {
+          console.log(`[social feed migration] ${dynastyId}: recovered ${migrated} post(s) from the orphaned doc`)
+          socialFetchedRef.current[dynastyId] = false
+          loadSocial(dynastyId)
+        }
+      }).catch(err => {
+        console.warn(`[social feed migration] failed for ${dynastyId}:`, err?.code || err?.message || err)
+      })
+    }
+
     return { socialCharacters: characters, socialFeedByYear: feed }
   }
 
@@ -12114,7 +12137,15 @@ export function DynastyProvider({ children }) {
     const dynasty = socialFindDynasty(dynastyId)
     if (!dynasty) throw new Error('Dynasty not found')
     const yearN = Number(year)
-    const weekN = Number(week)
+    // NOT Number(week) — a postseason game's week is a string sentinel
+    // ('Bowl', 'CCG', 'Bowl 1'/2/3/4 for CFP rounds — GameSocialModal.jsx
+    // reads game.week verbatim for exactly this reason). Number('Bowl') is
+    // NaN, which used to file every bowl/CCG game's posts under the key
+    // NaN while every reader looked them up under 'Bowl'/'CCG' — the posts
+    // saved successfully and just became permanently unreachable. Confirmed
+    // on a real dynasty: recap/graphic (stored directly on the game, no
+    // week-key involved) survived; only the week-keyed social posts vanished.
+    const weekN = week
     const cur = getSocialFor(dynastyId)
     const existingWeek = cur.feed?.[yearN]?.[weekN] || []
     const mergedWeek = mergePosts(existingWeek, newPosts)
@@ -12146,7 +12177,11 @@ export function DynastyProvider({ children }) {
     const dynasty = socialFindDynasty(dynastyId)
     if (!dynasty) throw new Error('Dynasty not found')
     const yearN = Number(year)
-    const weekN = Number(week)
+    // NOT Number(week) — see saveSocialPosts' identical comment. A
+    // postseason game's week is a string sentinel ('Bowl'/'CCG'/'Bowl N'),
+    // and coercing it here filed posts under NaN while every reader looked
+    // them up under the real string, making them permanently unreachable.
+    const weekN = week
     const cur = getSocialFor(dynastyId)
     const hasNewChars = newCharacters && Object.keys(newCharacters).length > 0
     const nextFeed = { ...cur.feed, [yearN]: { ...(cur.feed[yearN] || {}), [weekN]: posts } }

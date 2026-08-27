@@ -2092,13 +2092,25 @@ function socialHashStr(s) {
 
 const socialOverrideShardId = (id) => `_ov-${socialHashStr(id) % SOCIAL_OVERRIDE_SHARD_COUNT}`
 
-const socialFeedDocId = (year, week) => `${Number(year)}-${Number(week)}`
+// week is NOT always numeric — a postseason game's week is a string
+// sentinel ('Bowl', 'CCG', 'Bowl 1'/2/3/4 for CFP rounds; GameSocialModal.jsx
+// reads game.week verbatim for exactly this reason). This used to run
+// Number(week) here, which is NaN for any of those — every bowl/CCG game's
+// posts filed under the SAME doc id ("{year}-NaN") and, worse, the payload's
+// own `week: NaN` field got sanitized to `week: null` before the write
+// (sanitizeForFirestore coerces non-finite numbers to null so one bad value
+// doesn't fail the whole batch), which reads back as 0 — a real week number,
+// not a sentinel. Net effect: every non-numeric-week game's social posts
+// saved successfully but became permanently unreachable, silently merged
+// into one shared doc keyed by nothing meaningful. String(week) instead
+// preserves whatever the game actually uses, matching every reader.
+export const socialFeedDocId = (year, week) => `${Number(year)}-${String(week)}`
 
 export async function saveSocialFeedToSubcollection(dynastyId, year, week, posts) {
   const ref = doc(db, DYNASTIES_COLLECTION, dynastyId, SOCIAL_FEED_SUBCOLLECTION, socialFeedDocId(year, week))
   const payload = sanitizeForFirestore({
     year: Number(year),
-    week: Number(week),
+    week,
     posts: Array.isArray(posts) ? posts : [],
     updatedAt: Date.now(),
   })
@@ -2108,18 +2120,110 @@ export async function saveSocialFeedToSubcollection(dynastyId, year, week, posts
   await commitBatch(batch)
 }
 
-function buildSocialFeedMap(docs) {
+export function buildSocialFeedMap(docs) {
   const out = {}
   for (const d of docs) {
     if (d.id.startsWith('_')) continue
     const data = d.data()
     const y = Number(data.year)
-    const w = Number(data.week)
-    if (!Number.isFinite(y) || !Number.isFinite(w)) continue
+    // week is preserved as whatever was stored (number OR sentinel string)
+    // — see socialFeedDocId's header comment for why this must not go
+    // through Number() here.
+    const w = data.week
+    if (!Number.isFinite(y) || w == null || w === '') continue
     if (!out[y]) out[y] = {}
     out[y][w] = Array.isArray(data.posts) ? data.posts : []
   }
   return out
+}
+
+/**
+ * One-shot recovery for social-feed docs written by the pre-fix
+ * saveSocialPosts/replaceSocialWeek: every bowl/CCG/CFP game's posts (any
+ * game with a non-numeric week) collided into one shared "{year}-NaN" doc,
+ * since Number('Bowl') is NaN. The posts themselves are intact — just filed
+ * under a key nothing ever reads — so this is real recoverable data, not
+ * data that has to be re-created from scratch. Re-files each post under its
+ * OWNING game's real week (looked up by the post's own gameId, which was
+ * never affected by this bug), merges with anything already correctly
+ * filed there (dedup by the post's own deterministic id), then deletes the
+ * broken doc. A post whose game no longer exists in this dynasty is left
+ * alone in the broken doc rather than silently dropped — nothing safe to
+ * re-file it under.
+ *
+ * @param {string} dynastyId
+ * @param {object[]} games - dynasty.games, needed to map gameId -> real week
+ */
+export async function migrateOrphanedSocialFeedDoc(dynastyId, games) {
+  const ref = collection(db, DYNASTIES_COLLECTION, dynastyId, SOCIAL_FEED_SUBCOLLECTION)
+  let snap
+  try {
+    snap = await getDocsFromServer(ref)
+  } catch (err) {
+    console.warn('[social feed migration] could not read subcollection from server:', err?.code || err?.message)
+    return { migrated: 0 }
+  }
+  const orphaned = snap.docs.filter(d => /-NaN$/.test(d.id))
+  if (orphaned.length === 0) return { migrated: 0 }
+
+  const gamesById = {}
+  for (const g of games || []) { if (g?.id) gamesById[g.id] = g }
+
+  // A single orphaned doc can hold posts from MULTIPLE different bowl/CCG/
+  // CFP games that year (they all collided into the same broken id) —
+  // group by each post's owning game's real (year, week) before writing.
+  const byCorrectDoc = new Map() // "year|week" -> { year, week, posts: [] }
+  const leftBehind = []
+  for (const d of orphaned) {
+    const data = d.data() || {}
+    const year = Number(data.year)
+    for (const post of (Array.isArray(data.posts) ? data.posts : [])) {
+      const game = gamesById[post.gameId]
+      if (!Number.isFinite(year) || game?.week == null) { leftBehind.push(post); continue }
+      const key = `${year}|${game.week}`
+      if (!byCorrectDoc.has(key)) byCorrectDoc.set(key, { year, week: game.week, posts: [] })
+      byCorrectDoc.get(key).posts.push(post)
+    }
+  }
+  if (byCorrectDoc.size === 0) return { migrated: 0 }
+
+  let recoveredCount = 0
+  for (const { year, week, posts } of byCorrectDoc.values()) {
+    const targetRef = doc(db, DYNASTIES_COLLECTION, dynastyId, SOCIAL_FEED_SUBCOLLECTION, socialFeedDocId(year, week))
+    let existingPosts = []
+    try {
+      const existingSnap = await getDoc(targetRef)
+      if (existingSnap.exists()) existingPosts = existingSnap.data()?.posts || []
+    } catch (_) { /* proceed with just the recovered posts */ }
+    const byId = new Map()
+    for (const p of existingPosts) byId.set(p.id, p)
+    for (const p of posts) if (!byId.has(p.id)) byId.set(p.id, p)
+    const merged = [...byId.values()]
+    const batch = writeBatch(db)
+    batch.set(targetRef, sanitizeForFirestore({ year, week, posts: merged, updatedAt: Date.now() }))
+    bumpSocialUpdatedAtInBatch(batch, dynastyId)
+    try {
+      await commitBatch(batch)
+      recoveredCount += posts.length
+    } catch (err) {
+      console.warn(`[social feed migration] failed to write recovered posts for ${year}/${week}:`, err?.code || err?.message)
+    }
+  }
+
+  // Only clear an orphaned doc once every post it held has somewhere safe
+  // to live — a post left behind (its game no longer exists) means this
+  // doc still carries data nothing else has, so it must not be deleted.
+  if (leftBehind.length === 0) {
+    const clearBatch = writeBatch(db)
+    for (const d of orphaned) clearBatch.delete(d.ref)
+    try {
+      await commitBatch(clearBatch)
+    } catch (err) {
+      console.warn('[social feed migration] failed to clear orphaned doc(s) — recovered posts are safe either way, will retry clear next run:', err?.code || err?.message)
+    }
+  }
+
+  return { migrated: recoveredCount }
 }
 
 export async function getSocialFeedSubcollection(dynastyId, options = {}) {

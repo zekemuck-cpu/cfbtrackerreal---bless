@@ -48,6 +48,10 @@ function formatCount(n) {
 }
 
 const weekLabel = (week) => {
+  // A postseason game's week can be a string sentinel ('Bowl'/'CCG'/
+  // 'Bowl N') rather than a number — pass those through as-is instead of
+  // falling into the numeric branches below and rendering "Week NaN".
+  if (typeof week === 'string' && !/^\d+$/.test(week.trim())) return week
   const w = Number(week)
   if (w === 0) return 'Week 0'
   if (w === 16) return 'Conf. Championship'

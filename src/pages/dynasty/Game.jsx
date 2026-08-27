@@ -950,7 +950,12 @@ export default function Game() {
   // (the guards would otherwise skip these hooks and crash with React #310).
   const gameSocialPosts = useMemo(() => {
     if (!game) return []
-    const wk = currentDynasty?.socialFeedByYear?.[Number(game.year)]?.[Number(game.week)]
+    // game.week, NOT Number(game.week) — a postseason game's week is a
+    // string sentinel ('Bowl'/'CCG'/'Bowl N'), and socialFeedByYear is
+    // keyed by exactly that value now (see dynastyService.js's
+    // socialFeedDocId header comment for why Number() here silently
+    // orphaned every bowl/CCG game's posts).
+    const wk = currentDynasty?.socialFeedByYear?.[Number(game.year)]?.[game.week]
     if (!Array.isArray(wk)) return []
     return wk.filter(p => p.gameId === game.id)
   }, [currentDynasty?.socialFeedByYear, game?.year, game?.week, game?.id])
