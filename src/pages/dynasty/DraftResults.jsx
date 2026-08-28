@@ -13,6 +13,10 @@ const NFL_TEAM_OPTIONS = Object.entries(NFL_TEAM_NAMES)
   .map(([abbr, name]) => ({ abbr, name }))
   .sort((a, b) => a.name.localeCompare(b.name))
 
+// ESPN's generic league shield — same CDN already trusted for the 32 team
+// logos (see nflTeams.js), just the league-level mark instead of a team.
+const NFL_SHIELD_LOGO = 'https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png'
+
 // Real draft-pick order (overallPick), not overall rating — a mock draft
 // board is read in the order players actually came off the board. A
 // player with no overallPick yet (a leaver added after their year's mock
@@ -28,10 +32,16 @@ function comparePickOrder(a, b) {
 
 // One row's layout, shared by team view, Full Draft Results, and player
 // search. The college logo alone identifies the school — no name text
-// needed alongside it.
-function DraftRow({ r, teams }) {
+// needed alongside it. showRoundBadge is left on for team view/search
+// (rows there can span multiple rounds) but turned off for the Full Draft
+// Results round list, where every row is already scoped to one round via
+// the round dropdown above it.
+function DraftRow({ r, teams, showRoundBadge = true }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
+      <span className="font-semibold text-txt-primary tabular-nums w-9 text-right flex-shrink-0">
+        {r.overallPick ?? '—'}
+      </span>
       <img src={getTeamLogoByTid(r.tid, teams)} alt="" className="w-6 h-6 flex-shrink-0 object-contain" />
       <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
         <span className="font-semibold text-txt-primary">{r.playerName || 'Unknown'}</span>
@@ -39,13 +49,11 @@ function DraftRow({ r, teams }) {
         <span className="text-xs text-txt-tertiary">{r.classYear}</span>
         <span className="text-sm font-bold text-txt-primary tabular-nums">{r.overall ?? '--'}</span>
       </div>
-      <Badge variant="outline">{r.draftRound}</Badge>
+      {showRoundBadge && <Badge variant="outline">{r.draftRound}</Badge>}
       {r.team && (
         <div className="flex items-center gap-2 pl-3 ml-1 border-l" style={{ borderColor: 'var(--surface-4)' }}>
-          <img src={getNflTeamLogo(r.team)} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
-          <span className="text-xs text-txt-tertiary whitespace-nowrap">
-            {getNflTeamName(r.team)}{r.overallPick ? ` — Pick ${r.overallPick}` : ''}
-          </span>
+          <img src={getNflTeamLogo(r.team)} alt="" className="w-6 h-6 flex-shrink-0 object-contain" />
+          <span className="text-xs text-txt-tertiary whitespace-nowrap">{getNflTeamName(r.team)}</span>
         </div>
       )}
     </div>
@@ -131,171 +139,182 @@ export default function DraftResults() {
   return (
     <div className="space-y-6">
       <PageHero
-        title={<TitleWithYear year={displayYear} years={availableYears} onChange={handleYearChange} label="Draft Results" />}
+        title={
+          <div className="flex items-center gap-3">
+            <img src={NFL_SHIELD_LOGO} alt="" className="w-9 h-9 object-contain flex-shrink-0" />
+            <TitleWithYear year={displayYear} years={availableYears} onChange={handleYearChange} label="Draft Results" />
+          </div>
+        }
       />
 
-      <Input
-        type="text"
-        placeholder="Search for a player..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-xs"
-      />
+      {!showFullDraft && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <Select
+            value={selectedTid ?? ''}
+            onChange={(e) => setSelectedTid(Number(e.target.value))}
+            className="max-w-xs"
+          >
+            {teamOptions.map((t) => (
+              <option key={t.tid} value={t.tid}>{t.name}</option>
+            ))}
+          </Select>
+          <Button variant="outline" size="sm" onClick={() => setShowFullDraft(true)}>
+            Full Draft Results
+          </Button>
+        </div>
+      )}
 
-      {searchQuery ? (
-        <Card padding="none">
-          {searchResults.length === 0 ? (
-            <EmptyState title="No Match" subtitle={`No drafted player in ${displayYear} matches "${search.trim()}".`} />
-          ) : (
+      {showFullDraft && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-txt-primary m-0">Full Draft Results — {displayYear}</h2>
+          <Button variant="outline" size="sm" onClick={() => setShowFullDraft(false)}>
+            Back to Team View
+          </Button>
+        </div>
+      )}
+
+      {!showFullDraft && (
+        teamResults.length === 0 ? (
+          <Card>
+            <EmptyState title="No Draft Results" subtitle={`No ${selectedTeamName || 'team'} players were drafted in ${displayYear}.`} />
+          </Card>
+        ) : (
+          <Card padding="none">
             <div className="divide-y" style={{ borderColor: 'var(--surface-4)' }}>
-              {searchResults.map((r, i) => (
+              {teamResults.map((r, i) => (
                 <DraftRow key={i} r={r} teams={currentDynasty.teams} />
               ))}
             </div>
-          )}
-        </Card>
-      ) : (
-        <>
-          {!showFullDraft && (
-            <div className="flex items-center gap-3 flex-wrap">
-              <Select
-                value={selectedTid ?? ''}
-                onChange={(e) => setSelectedTid(Number(e.target.value))}
-                className="max-w-xs"
-              >
-                {teamOptions.map((t) => (
-                  <option key={t.tid} value={t.tid}>{t.name}</option>
-                ))}
-              </Select>
-              <Button variant="outline" size="sm" onClick={() => setShowFullDraft(true)}>
-                Full Draft Results
-              </Button>
-            </div>
-          )}
+          </Card>
+        )
+      )}
 
-          {showFullDraft && (
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-txt-primary m-0">Full Draft Results — {displayYear}</h2>
-              <Button variant="outline" size="sm" onClick={() => setShowFullDraft(false)}>
-                Back to Team View
-              </Button>
-            </div>
-          )}
-
-          {!showFullDraft && (
-            teamResults.length === 0 ? (
-              <Card>
-                <EmptyState title="No Draft Results" subtitle={`No ${selectedTeamName || 'team'} players were drafted in ${displayYear}.`} />
-              </Card>
-            ) : (
-              <Card padding="none">
+      {showFullDraft && (
+        results.length === 0 ? (
+          <Card>
+            <EmptyState title="No Draft Results Yet" subtitle={`Nobody has been drafted in ${displayYear} yet.`} />
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
+            <Card padding="none">
+              <div className="flex items-center justify-between gap-3 flex-wrap p-4" style={{ borderBottom: '1px solid var(--surface-4)' }}>
+                <Select
+                  value={selectedRound}
+                  onChange={(e) => setSelectedRound(Number(e.target.value))}
+                  className="max-w-[10rem]"
+                >
+                  {ROUNDS.map((round) => (
+                    <option key={round} value={round}>Round {round}</option>
+                  ))}
+                </Select>
+                <Input
+                  type="text"
+                  placeholder="Search for a player..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="max-w-xs"
+                />
+              </div>
+              {searchQuery ? (
+                searchResults.length === 0 ? (
+                  <div className="p-8">
+                    <EmptyState title="No Match" subtitle={`No drafted player in ${displayYear} matches "${search.trim()}".`} />
+                  </div>
+                ) : (
+                  <div className="divide-y" style={{ borderColor: 'var(--surface-4)' }}>
+                    {searchResults.map((r, i) => (
+                      <DraftRow key={i} r={r} teams={currentDynasty.teams} />
+                    ))}
+                  </div>
+                )
+              ) : !byRound[selectedRound]?.length ? (
+                <div className="p-8">
+                  <EmptyState title="No Picks" subtitle={`Nobody was drafted in Round ${selectedRound} of ${displayYear}.`} />
+                </div>
+              ) : (
                 <div className="divide-y" style={{ borderColor: 'var(--surface-4)' }}>
-                  {teamResults.map((r, i) => (
-                    <DraftRow key={i} r={r} teams={currentDynasty.teams} />
+                  {byRound[selectedRound].map((r, i) => (
+                    <DraftRow key={i} r={r} teams={currentDynasty.teams} showRoundBadge={false} />
                   ))}
                 </div>
-              </Card>
-            )
-          )}
+              )}
+            </Card>
 
-          {showFullDraft && (
-            results.length === 0 ? (
-              <Card>
-                <EmptyState title="No Draft Results Yet" subtitle={`Nobody has been drafted in ${displayYear} yet.`} />
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start">
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex items-center gap-3 mb-3">
-                      <h3 className="font-display font-bold uppercase text-txt-primary m-0" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
-                        Round
-                      </h3>
-                      <Select
-                        value={selectedRound}
-                        onChange={(e) => setSelectedRound(Number(e.target.value))}
-                        className="max-w-[10rem]"
-                      >
-                        {ROUNDS.map((round) => (
-                          <option key={round} value={round}>Round {round}</option>
-                        ))}
-                      </Select>
-                    </div>
-                    {!byRound[selectedRound]?.length ? (
-                      <Card>
-                        <EmptyState title="No Picks" subtitle={`Nobody was drafted in Round ${selectedRound} of ${displayYear}.`} />
-                      </Card>
+            <div className="lg:sticky lg:top-4">
+              <Card
+                className="relative overflow-hidden"
+                style={selectedNflTeam ? {
+                  backgroundImage: 'radial-gradient(120% 120% at 100% 100%, rgba(255,255,255,0.05), transparent 60%)',
+                } : undefined}
+              >
+                {selectedNflTeam && (
+                  <img
+                    src={getNflTeamLogo(selectedNflTeam)}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute pointer-events-none select-none"
+                    style={{ right: '-2rem', bottom: '-2rem', width: '14rem', height: '14rem', objectFit: 'contain', opacity: 0.08 }}
+                  />
+                )}
+                <div className="relative">
+                  <h3 className="font-display font-bold uppercase text-txt-primary mb-3" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
+                    NFL Team Board
+                  </h3>
+                  <Select
+                    value={selectedNflTeam}
+                    onChange={(e) => setSelectedNflTeam(e.target.value)}
+                    className="w-full mb-3"
+                  >
+                    <option value="">Select an NFL team...</option>
+                    {NFL_TEAM_OPTIONS.map((t) => (
+                      <option key={t.abbr} value={t.abbr}>{t.name}</option>
+                    ))}
+                  </Select>
+                  {selectedNflTeam && (
+                    nflTeamPicks.length === 0 ? (
+                      <p className="text-sm text-txt-tertiary m-0">No picks yet.</p>
                     ) : (
-                      <Card padding="none">
-                        <div className="divide-y" style={{ borderColor: 'var(--surface-4)' }}>
-                          {byRound[selectedRound].map((r, i) => (
-                            <DraftRow key={i} r={r} teams={currentDynasty.teams} />
-                          ))}
-                        </div>
-                      </Card>
-                    )}
-                  </div>
-                </div>
-
-                <div className="lg:sticky lg:top-4">
-                  <Card>
-                    <h3 className="font-display font-bold uppercase text-txt-primary mb-3" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
-                      NFL Team Board
-                    </h3>
-                    <Select
-                      value={selectedNflTeam}
-                      onChange={(e) => setSelectedNflTeam(e.target.value)}
-                      className="w-full mb-3"
-                    >
-                      <option value="">Select an NFL team...</option>
-                      {NFL_TEAM_OPTIONS.map((t) => (
-                        <option key={t.abbr} value={t.abbr}>{t.name}</option>
-                      ))}
-                    </Select>
-                    {selectedNflTeam && (
-                      nflTeamPicks.length === 0 ? (
-                        <p className="text-sm text-txt-tertiary m-0">No picks yet.</p>
-                      ) : (
-                        <div className="space-y-2">
-                          {nflTeamPicks.map((r, i) => (
-                            <div key={i} className="flex items-center gap-2 py-1.5" style={{ borderTop: i > 0 ? '1px solid var(--surface-4)' : 'none' }}>
-                              <img src={getTeamLogoByTid(r.tid, currentDynasty.teams)} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-semibold text-txt-primary truncate">{r.playerName}</div>
-                                <div className="text-xs text-txt-tertiary">
-                                  {r.position} · {r.overall ?? '--'} OVR · {r.draftRound}
-                                  {r.overallPick ? ` — Pick ${r.overallPick}` : ` — ${r.pickLabel || ''}`}
-                                </div>
+                      <div className="space-y-2">
+                        {nflTeamPicks.map((r, i) => (
+                          <div key={i} className="flex items-center gap-2 py-1.5" style={{ borderTop: i > 0 ? '1px solid var(--surface-4)' : 'none' }}>
+                            <span className="font-semibold text-txt-primary tabular-nums w-9 text-right flex-shrink-0">
+                              {r.overallPick ?? '—'}
+                            </span>
+                            <img src={getTeamLogoByTid(r.tid, currentDynasty.teams)} alt="" className="w-6 h-6 flex-shrink-0 object-contain" />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-semibold text-txt-primary truncate">{r.playerName}</div>
+                              <div className="text-xs text-txt-tertiary">
+                                {r.position} · {r.overall ?? '--'} OVR · {r.draftRound}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      )
-                    )}
-                  </Card>
-
-                  {topSchools.length > 0 && (
-                    <Card className="mt-6">
-                      <h3 className="font-display font-bold uppercase text-txt-primary mb-3" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
-                        Most Players Drafted
-                      </h3>
-                      <div className="space-y-2">
-                        {topSchools.map((s, i) => (
-                          <div key={s.tid} className="flex items-center gap-2 py-1.5" style={{ borderTop: i > 0 ? '1px solid var(--surface-4)' : 'none' }}>
-                            <span className="text-xs text-txt-tertiary tabular-nums w-4">{i + 1}</span>
-                            <img src={getTeamLogoByTid(s.tid, currentDynasty.teams)} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
-                            <span className="text-sm font-semibold text-txt-primary flex-1 min-w-0 truncate">{getMascotName(s.tid, currentDynasty.teams)}</span>
-                            <span className="text-sm text-txt-tertiary tabular-nums">{s.count}</span>
                           </div>
                         ))}
                       </div>
-                    </Card>
+                    )
                   )}
                 </div>
-              </div>
-            )
-          )}
-        </>
+              </Card>
+
+              {topSchools.length > 0 && (
+                <Card className="mt-6">
+                  <h3 className="font-display font-bold uppercase text-txt-primary mb-3" style={{ fontSize: '1.05rem', letterSpacing: '0.03em' }}>
+                    Most Players Drafted
+                  </h3>
+                  <div className="space-y-2">
+                    {topSchools.map((s, i) => (
+                      <div key={s.tid} className="flex items-center gap-2 py-1.5" style={{ borderTop: i > 0 ? '1px solid var(--surface-4)' : 'none' }}>
+                        <span className="text-xs text-txt-tertiary tabular-nums w-4">{i + 1}</span>
+                        <img src={getTeamLogoByTid(s.tid, currentDynasty.teams)} alt="" className="w-5 h-5 flex-shrink-0 object-contain" />
+                        <span className="text-sm font-semibold text-txt-primary flex-1 min-w-0 truncate">{getMascotName(s.tid, currentDynasty.teams)}</span>
+                        <span className="text-sm text-txt-tertiary tabular-nums">{s.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          </div>
+        )
       )}
     </div>
   )
