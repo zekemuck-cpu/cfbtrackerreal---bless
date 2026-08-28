@@ -23,7 +23,7 @@ function weekOptions(phase) {
   switch (phase) {
     case 'regular_season': return Array.from({ length: 16 }, (_, i) => i) // 0–15
     case 'postseason': return [1, 2, 3, 4, 5]
-    case 'offseason': return [1, 2, 3, 4, 5, 6, 7]
+    case 'offseason': return [1, 2, 3, 4, 5, 6, 7, 8]
     default: return [0]
   }
 }
@@ -35,7 +35,7 @@ const QUICK = [
   ['Bowl Wk 1', 'postseason', 1],
   ['Natty', 'postseason', 4],
   ['Offseason', 'offseason', 1],
-  ['Signing Day', 'offseason', 5],
+  ['Signing Day', 'offseason', 6],
 ]
 
 const selectClass = 'w-full bg-surface-2 border border-surface-4 rounded-md px-2 py-2 text-sm text-txt-primary'

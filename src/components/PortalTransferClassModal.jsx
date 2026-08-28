@@ -219,7 +219,7 @@ FINAL CHECK before you send
   // sheet pre-fills). Round-trip safe: re-importing unchanged reproduces the
   // saved selections.
   const initialText = useMemo(() => {
-    const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 6
     const dataYear = isAfterYearFlip ? Number(currentYear) - 1 : Number(currentYear)
     const saved = currentDynasty?.portalTransferClassByYear?.[dataYear] || []
     const savedByName = new Map()

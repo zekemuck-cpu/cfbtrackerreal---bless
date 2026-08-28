@@ -8367,9 +8367,20 @@ export function DynastyProvider({ children }) {
       // dynasty parked at old wk≤4 needs no change (those weeks kept their
       // meaning); one parked at wk≥5 was already PAST the inserted week, so
       // it shifts forward to land on the same real-world task it was on.
-      // Gated by a persisted flag so it runs exactly once per dynasty.
+      //
+      // EXCEPT PC auto-sync dynasties: their currentWeek isn't a manually-
+      // incremented counter, it's the save's own raw offseason week number
+      // passed straight through (mapSeasonInfo in cfb27SaveImport.js applies
+      // no transform for offseason). The save's counter already reflects the
+      // real game's 4-recruiting-week structure — the bug was purely this
+      // app's DISPLAY/task-gating layer misreading an already-correct number
+      // (confirmed: a user's save reporting "recruiting week 4 of 4" in-game
+      // synced to a raw currentWeek that this app's old 7-week model showed
+      // as "National Signing Day" — i.e. raw 5, which the new 8-week model
+      // reads correctly as Recruiting Week 4). Shifting it here would push a
+      // PC dynasty a real week ahead of its own save.
       if (!migrated._recruitingWeekExpandV1) {
-        if (migrated.currentPhase === 'offseason' && typeof migrated.currentWeek === 'number') {
+        if (migrated.currentPhase === 'offseason' && typeof migrated.currentWeek === 'number' && !isPcAutoDynasty(migrated)) {
           const w = migrated.currentWeek
           const newW = w >= 5 ? w + 1 : w
           if (newW !== w) migrated = { ...migrated, currentWeek: newW }

@@ -423,7 +423,7 @@ export default function Dashboard() {
   // offseasonDataYear pins the ending-season year S for data tied to the season just
   // played (playersLeaving, recruiting, signing-day tasks) — it equals S at every
   // offseason week (1–4 = currentYear, 5–7 = currentYear-1), matching the >= 5 test below.
-  const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 5
+  const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 6
   const offseasonDataYear = isAfterYearFlip
     ? currentDynasty?.currentYear - 1
     : currentDynasty?.currentYear
@@ -1946,7 +1946,7 @@ export default function Dashboard() {
   // CLEAN SYSTEM: Only updates teamsByYear and movements - no legacy departure fields
   const handleTransferDestinationsSave = async (destinations) => {
     // On Signing Day (week 6) or Training Camp (week 7), year has already flipped, so use previous year
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const nextYear = year + 1
     // CRITICAL: Get tid directly - tid is the ONLY source of truth
@@ -2074,7 +2074,7 @@ export default function Dashboard() {
   const handleRecruitingClassRankSave = async (rank) => {
     // The year flips ENTERING Signing Day (wk5), so from wk5 on the class being
     // ranked belongs to the prior season (currentYear-1).
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const teamAbbr = getCurrentTeamAbbr(currentDynasty) || currentDynasty.teamName
     const existingRanks = currentDynasty.recruitingClassRankByTeamYear || {}
@@ -2126,7 +2126,7 @@ export default function Dashboard() {
   // so re-opening the modal edits the SAME players (no duplicates) and removing
   // a row deletes its player.
   const handleNationalCommitsSave = async (commits) => {
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const enrollmentYear = year + 1
 
@@ -2247,7 +2247,7 @@ export default function Dashboard() {
   // Handle position changes save (National Signing Day)
   const handlePositionChangesSave = async (changes) => {
     // On Signing Day (week 6) or Training Camp (week 7), year has already flipped, so use previous year
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const existingChangesAll = currentDynasty.positionChangesByYear || {}
     const teamTid = getCurrentTeamTid(currentDynasty)
@@ -2403,7 +2403,7 @@ export default function Dashboard() {
   // Handle recruiting class overalls save
   const handleRecruitOverallsSave = async (results) => {
     // On Training Camp (week 7), the year has flipped, but recruits have recruitYear from before the flip
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
 
     // Update recruit overalls and jersey numbers in the players array
@@ -2454,7 +2454,7 @@ export default function Dashboard() {
   // name + recruitYear and updates overall + overallByYear[freshmanYear] AND
   // merges attributesByYear[freshmanYear].
   const handleRecruitOverallsAttributesSave = async (entries) => {
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const freshmanYear = isAfterYearFlip ? currentDynasty.currentYear : year + 1
     const updatedPlayers = [...(currentDynasty.players || [])]
@@ -2484,7 +2484,7 @@ export default function Dashboard() {
   // Handle portal transfer class assignment save
   const handlePortalTransferClassSave = async (classSelections) => {
     // On Signing Day (week 6), the year has already flipped
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     // Portal transfers join in the year AFTER recruitment
     const joiningYear = isAfterYearFlip ? currentDynasty.currentYear : year + 1
@@ -2565,7 +2565,7 @@ export default function Dashboard() {
   // Handle fringe case class assignment save
   const handleFringeCaseClassSave = async (classSelections) => {
     // On Signing Day (week 6), the year has already flipped
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
 
     // Update player classes in the players array
@@ -2647,7 +2647,9 @@ export default function Dashboard() {
       // Postseason weeks 1-4 = Bowl weeks 1-4
       return `bowl_${week}`
     } else if (phase === 'offseason' && week >= 2 && week <= 5) {
-      return `signing_${week - 1}` // Week 2 = Recruiting Week 1, Week 5 = Signing Day
+      return `signing_${week - 1}` // Week 2 = Recruiting Week 1, ..., Week 5 = Recruiting Week 4
+    } else if (phase === 'offseason' && week === 6) {
+      return 'signing_day' // National Signing Day
     }
     return null
   }
@@ -2656,7 +2658,7 @@ export default function Dashboard() {
   // This function detects potential returning players AND players from other teams who might be transferring
   const handleRecruitingCommitmentsSave = async (recruits) => {
     // On Signing Day (week 6), year has already flipped, so use previous year for recruiting data
-    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty.currentPhase === 'offseason' && currentDynasty.currentWeek >= 6
     const year = isAfterYearFlip ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
     const commitmentKey = getCommitmentKey()
     if (!commitmentKey) return
@@ -3349,8 +3351,8 @@ export default function Dashboard() {
       if (week === 4) return 'National Championship Week'
       if (week === 5) return 'End of Season'
       return `Bowl Week ${week}`
-    } else if (phase === 'offseason' && week >= 2 && week <= 5) {
-      if (week === 5) return 'National Signing Day'
+    } else if (phase === 'offseason' && week >= 2 && week <= 6) {
+      if (week === 6) return 'National Signing Day'
       return `Recruiting Week ${week - 1} of 4`
     }
     return 'Recruiting'
@@ -3502,10 +3504,10 @@ export default function Dashboard() {
       // moment the game itself calls the End of Season Recap.
       if (week === 0) return 'End of Season Recap'
       if (week === 1) return 'Players Leaving'
-      if (week >= 2 && week <= 4) return isCfb27Auto ? `Offseason Recruiting Week ${week - 1} of 4` : `Recruiting Week ${week - 1} of 4`
-      if (week === 5) return 'National Signing Day'
-      if (week === 6) return 'Training Results'
-      if (week === 7) return 'Offseason'
+      if (week >= 2 && week <= 5) return isCfb27Auto ? `Offseason Recruiting Week ${week - 1} of 4` : `Recruiting Week ${week - 1} of 4`
+      if (week === 6) return 'National Signing Day'
+      if (week === 7) return 'Training Results'
+      if (week === 8) return 'Offseason'
       return 'Off-Season'
     }
     const phases = {
@@ -7383,21 +7385,12 @@ export default function Dashboard() {
               )
             }
 
-            // Offseason Weeks 2-6: Recruiting Weeks (Week 6 = National Signing
-            // Day). Unified via renderTodoList — same row chrome as in-season.
+            // Offseason Weeks 2-5: Recruiting Weeks 1-4 (all pre-flip — the
+            // year now flips entering week 6, Signing Day's own week, below).
+            // Unified via renderTodoList — same row chrome as in-season.
             if (week >= 2 && week <= 5) {
               const recruitingWeekNum = week - 1
-
-              // The year flips ENTERING Signing Day (wk4→5), so Signing Day is the
-              // first week of the new season. Weeks 2–4 are pre-flip (data year =
-              // currentYear); Signing Day (wk5) is POST-flip, so its data year is
-              // currentYear-1 — the recruiting class being signed belongs to the
-              // season just played, not the new one.
-              const offseasonDataYear = week === 5 ? currentDynasty.currentYear - 1 : currentDynasty.currentYear
-
-              const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
-              const draftDeclarees = playersLeavingThisYear.filter(p => p.reason === 'Pro Draft')
-              const hasDraftDeclarees = draftDeclarees.length > 0
+              const offseasonDataYear = currentDynasty.currentYear
 
               const userTidForDraft = getUserTeamTid(currentDynasty)
               const userAbbrForDraft = getCurrentTeamAbbr(currentDynasty)
@@ -7418,40 +7411,8 @@ export default function Dashboard() {
               const o26Todos = []
 
               // Task 1: Recruiting Commitments (every recruiting week).
-              // CFB27: commitments + dev traits already synced.
+              // CFB27: commitments already synced.
               if (!isCfb27Auto) {
-              if (recruitingWeekNum === 4) {
-                // Signing Day variant — single "Open" button, no Yes/No
-                o26Todos.push({
-                  key: 'recruiting-signing-day',
-                  done: hasCommitmentsData,
-                  title: 'Signing Day',
-                  subtitle: hasCommitmentsData
-                    ? commitmentsCount > 0
-                      ? `${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
-                      : 'No commitments this week'
-                    : 'Enter your final recruiting class',
-                  onAction: () => setShowRecruitingModal(true),
-                  actionLabel: hasCommitmentsData ? 'Edit' : 'Open',
-                  viewTo: hasCommitmentsData ? `${pathPrefix}/recruiting/${userTidForCommits}/${offseasonDataYear}` : null,
-                  extraTools: !hasCommitmentsData ? <SellVsSendButton onClick={() => setShowSellCalc(true)} /> : null,
-                })
-
-                // National Signing Day — the other of the two weeks this task
-                // ever shows (alongside Bowl Week 1 / Early Signing Day above).
-                const nsdDevTraitTargets = getSigningClassTargets(offseasonDataYear)
-                const nsdDevTraitPending = nsdDevTraitTargets.filter(p => isHiddenDev(p.devTrait)).length
-                if (nsdDevTraitTargets.length > 0) {
-                  o26Todos.push({
-                    key: 'update-dev-traits-nsd',
-                    done: nsdDevTraitPending === 0,
-                    title: 'Update Dev Traits',
-                    subtitle: 'National Signing Day - Dev Reveal',
-                    onAction: () => handleOpenUpdateDevTraits(offseasonDataYear),
-                    actionLabel: nsdDevTraitPending > 0 ? 'Update' : 'Edit',
-                  })
-                }
-              } else {
                 o26Todos.push({
                   key: 'recruiting-week',
                   done: hasCommitmentsData,
@@ -7465,10 +7426,8 @@ export default function Dashboard() {
                   actionLabel: hasCommitmentsData ? 'Edit' : 'Yes',
                   extraTools: recruitingExtraTools,
                 })
-              }
-              } else if (recruitingWeekNum !== 4) {
-                // PC mode, non-signing-day recruiting weeks: just a View
-                // into the (already synced) Recruiting Board.
+              } else {
+                // PC mode: just a View into the (already synced) Recruiting Board.
                 o26Todos.push(pcViewTodo({
                   key: 'recruiting-board-o26-pc',
                   done: true,
@@ -7518,13 +7477,73 @@ export default function Dashboard() {
                 }
               }
 
-              // Signing Day–only tasks (3–7). PC mode: National Signing Day,
+              return (
+                <>
+                  <h3 className="font-display font-bold uppercase leading-none text-txt-primary py-3 pl-3 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', ...sectionStripStyle }}>
+                    {isCfb27Auto ? `Offseason Recruiting Week ${recruitingWeekNum} of 4` : `Recruiting Week ${recruitingWeekNum} of 4`}
+                  </h3>
+                  {renderTodoList({ todos: o26Todos, isViewOnly })}
+                </>
+              )
+            }
+
+            // Offseason Week 6: National Signing Day (post-flip — the year
+            // flips entering this week, so its data year is currentYear-1,
+            // the class being signed for the season just played).
+            // Unified via renderTodoList — same row chrome as in-season.
+            if (week === 6) {
+              const offseasonDataYear = currentDynasty.currentYear - 1
+
+              const playersLeavingThisYear = currentDynasty?.playersLeavingByYear?.[offseasonDataYear] || []
+
+              const userTidForCommits = getUserTeamTid(currentDynasty)
+              const recruitingCommitmentsForTeamYear = getRecruitingCommitments(currentDynasty, userTidForCommits, offseasonDataYear)
+              const commitmentsForWeek = recruitingCommitmentsForTeamYear.signing_day
+              const hasCommitmentsData = commitmentsForWeek !== undefined
+              const commitmentsCount = commitmentsForWeek?.length || 0
+
+              const o26Todos = []
+
+              // Task 1: Signing Day commitments — single "Open" button, no Yes/No
+              if (!isCfb27Auto) {
+                o26Todos.push({
+                  key: 'recruiting-signing-day',
+                  done: hasCommitmentsData,
+                  title: 'Signing Day',
+                  subtitle: hasCommitmentsData
+                    ? commitmentsCount > 0
+                      ? `${commitmentsCount} commitment${commitmentsCount !== 1 ? 's' : ''} recorded`
+                      : 'No commitments this week'
+                    : 'Enter your final recruiting class',
+                  onAction: () => setShowRecruitingModal(true),
+                  actionLabel: hasCommitmentsData ? 'Edit' : 'Open',
+                  viewTo: hasCommitmentsData ? `${pathPrefix}/recruiting/${userTidForCommits}/${offseasonDataYear}` : null,
+                  extraTools: !hasCommitmentsData ? <SellVsSendButton onClick={() => setShowSellCalc(true)} /> : null,
+                })
+
+                // National Signing Day — the other of the two weeks this task
+                // ever shows (alongside Bowl Week 1 / Early Signing Day above).
+                const nsdDevTraitTargets = getSigningClassTargets(offseasonDataYear)
+                const nsdDevTraitPending = nsdDevTraitTargets.filter(p => isHiddenDev(p.devTrait)).length
+                if (nsdDevTraitTargets.length > 0) {
+                  o26Todos.push({
+                    key: 'update-dev-traits-nsd',
+                    done: nsdDevTraitPending === 0,
+                    title: 'Update Dev Traits',
+                    subtitle: 'National Signing Day - Dev Reveal',
+                    onAction: () => handleOpenUpdateDevTraits(offseasonDataYear),
+                    actionLabel: nsdDevTraitPending > 0 ? 'Update' : 'Edit',
+                  })
+                }
+              }
+
+              // Signing Day–only tasks. PC mode: National Signing Day,
               // Transfer Portal, Recruiting Class Rank, and Incoming
               // Freshmen Overalls only — Transfer Destinations/Position
               // Changes/Portal Transfer Class/Fringe Case Class have no
               // place in the simplified PC list (all already-synced data
               // is covered by the other View rows above/below).
-              if (recruitingWeekNum === 4 && isCfb27Auto) {
+              if (isCfb27Auto) {
                 o26Todos.push(pcViewTodo({
                   key: 'national-signing-day-pc',
                   done: true,
@@ -7578,7 +7597,7 @@ export default function Dashboard() {
                 }
               }
 
-              if (recruitingWeekNum === 4 && !isCfb27Auto) {
+              if (!isCfb27Auto) {
                 // Transfer Destinations
                 const nonTransferReasons = ['Graduating', 'Pro Draft']
                 const transfersFromList = playersLeavingThisYear.filter(p =>
@@ -7784,15 +7803,15 @@ export default function Dashboard() {
               return (
                 <>
                   <h3 className="font-display font-bold uppercase leading-none text-txt-primary py-3 pl-3 pr-1 mb-3 sm:mb-4" style={{ fontSize: 'clamp(1.0625rem, 1.6vw, 1.375rem)', letterSpacing: '0.03em', ...sectionStripStyle }}>
-                    {recruitingWeekNum === 4 ? 'National Signing Day' : isCfb27Auto ? `Offseason Recruiting Week ${recruitingWeekNum} of 4` : `Recruiting Week ${recruitingWeekNum} of 4`}
+                    National Signing Day
                   </h3>
                   {renderTodoList({ todos: o26Todos, isViewOnly })}
                 </>
               )
             }
 
-            // Offseason Week 6: Training Results (post-flip). Unified via renderTodoList.
-            if (week === 6) {
+            // Offseason Week 7: Training Results (post-flip). Unified via renderTodoList.
+            if (week === 7) {
               const offseasonDataYear = currentDynasty.currentYear - 1
               const prevEntry = currentDynasty.coachTeamByYear?.[offseasonDataYear]
               const previousTeamTid = prevEntry?.tid ?? getTidFromAbbr(prevEntry?.team, currentDynasty)
@@ -7884,8 +7903,8 @@ export default function Dashboard() {
               )
             }
 
-            // Offseason Week 7: Custom Conferences & Encourage Transfers. Unified via renderTodoList.
-            if (week === 7) {
+            // Offseason Week 8: Custom Conferences & Encourage Transfers. Unified via renderTodoList.
+            if (week === 8) {
               // Custom Conferences (realignment planning) and Encourage
               // Transfers are both real coaching decisions the save can't
               // answer — not shown at all for PC-mode dynasties, matching

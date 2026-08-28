@@ -86,9 +86,9 @@ export default function TransferDestinationsModal({ isOpen, onClose, onSave, cur
   // reads row[0]=Player, row[1]=New Team and requires BOTH non-blank, so we
   // emit only entries with a name and a destination — round-trip safe.
   // Mirror handleTransferDestinationsSave's year: it flips to the prior season
-  // once we're at/after Signing Day (offseason week >= 5).
+  // once we're at/after Signing Day (offseason week >= 6).
   const initialText = useMemo(() => {
-    const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 5
+    const isAfterYearFlip = currentDynasty?.currentPhase === 'offseason' && currentDynasty?.currentWeek >= 6
     const dataYear = isAfterYearFlip ? Number(currentYear) - 1 : Number(currentYear)
     const tid = currentDynasty?.currentTid
     const teamAbbr = getTeamNameLabel(currentDynasty?.teams, tid) || currentDynasty?.teamName

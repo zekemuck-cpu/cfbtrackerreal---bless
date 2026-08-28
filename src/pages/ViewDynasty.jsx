@@ -69,7 +69,7 @@ function ViewDynastyContent() {
     currentDynasty.currentPhase === 'postseason'
       ? (currentDynasty.currentWeek === 5 ? 'End of Season Recap' : (currentDynasty.currentWeek === 4 ? 'National Championship' : `Bowl Week ${currentDynasty.currentWeek}`))
       : currentDynasty.currentPhase === 'offseason'
-      ? (currentDynasty.currentWeek === 1 ? 'Players Leaving' : (currentDynasty.currentWeek >= 2 && currentDynasty.currentWeek <= 4 ? `Recruiting Week ${currentDynasty.currentWeek - 1} of 4` : (currentDynasty.currentWeek === 5 ? 'National Signing Day' : (currentDynasty.currentWeek === 6 ? 'Training Results' : (currentDynasty.currentWeek === 7 ? 'Offseason' : 'Off-Season')))))
+      ? (currentDynasty.currentWeek === 1 ? 'Players Leaving' : (currentDynasty.currentWeek >= 2 && currentDynasty.currentWeek <= 5 ? `Recruiting Week ${currentDynasty.currentWeek - 1} of 4` : (currentDynasty.currentWeek === 6 ? 'National Signing Day' : (currentDynasty.currentWeek === 7 ? 'Training Results' : (currentDynasty.currentWeek === 8 ? 'Offseason' : 'Off-Season')))))
       : currentDynasty.currentPhase === 'preseason' ? 'Pre-Season'
       : currentDynasty.currentPhase === 'regular_season' ? 'Regular Season'
       : currentDynasty.currentPhase === 'conference_championship' ? 'Conference Championships'
