@@ -138,10 +138,54 @@ function devTraitBoxCls(devTrait) {
                                   'border-surface-4';
 }
 // ── Combine projections base times / reps ────────────────────────────────────
-const BASE_FORTY = {
-  QB: 4.68, HB: 4.46, WR: 4.44, TE: 4.72, OT: 5.28, OG: 5.25, C: 5.22,
-  DE: 4.76, DT: 5.10, OLB: 4.65, MIKE: 4.63, CB: 4.42, FS: 4.50, SS: 4.53, ATH: 4.48,
+// Every combine number below is interpolated between a below-average value
+// for that attribute (60) and the best realistically possible one (99)
+// using a QUADRATIC ease-in curve, not a straight line — real athletic
+// testing numbers differentiate far more at the elite tail of an attribute
+// than across the ordinary range below it. A linear interpolation was
+// verified against a real report to be wrong: it put an 87-speed player's
+// 40 time within a hundredth of a second of a 99-speed player's, when it
+// should trail by ~0.3s (87 -> ~4.5s, 99 -> ~4.2s). Solving for the curve
+// that hits both of those points exactly landed on almost precisely t^2 —
+// so every metric here (not just the 40) uses the same easeInQuad curve,
+// just with its own realistic pair of endpoints and driving attribute.
+function projectQuad(low, high, attr) {
+  const t = Math.max(0, Math.min(1, (attr - 60) / 39));
+  return low + (high - low) * t * t;
+}
+
+// AT_60 sits ~0.615s behind AT_99 for every position, not just ~0.15-0.4s
+// like an earlier pass had it — under the quadratic curve, a small AT_60-
+// AT_99 gap left speed 87 landing within a few hundredths of speed 99 (the
+// exact bug reported), because the compressed lower-middle portion of t^2
+// only eats up a fraction of whatever total gap exists. A 0.615s gap is
+// what makes speed 87 land ~0.3s behind speed 99, matching a real report
+// of what an 87 vs. a 99 speed player should actually run.
+const FORTY_AT_60 = {
+  QB: 5.12, HB: 4.88, WR: 4.84, TE: 5.17, OT: 5.67, OG: 5.64, C: 5.60,
+  DE: 5.17, DT: 5.52, OLB: 5.02, MIKE: 5.00, CB: 4.84, FS: 4.92, SS: 4.96, ATH: 4.86,
 };
+const FORTY_AT_99 = {
+  QB: 4.50, HB: 4.26, WR: 4.22, TE: 4.55, OT: 5.05, OG: 5.02, C: 4.98,
+  DE: 4.55, DT: 4.90, OLB: 4.40, MIKE: 4.38, CB: 4.22, FS: 4.30, SS: 4.34, ATH: 4.24,
+};
+
+const LINEMAN_POS = ['OT', 'OG', 'C', 'DE', 'DT'];
+const EXPLOSIVE_POS = ['WR', 'HB', 'CB', 'FS', 'SS', 'ATH'];
+const QUICK_POS = ['CB', 'WR', 'HB', 'ATH'];
+
+// Strength -> bench reps.
+const BENCH_AT_60 = { lineman: 20, skill: 8 };
+const BENCH_AT_99 = { lineman: 40, skill: 24 };
+// (Speed+Acceleration)/2 -> vertical jump (inches).
+const VERT_AT_60 = { explosive: 28, other: 22 };
+const VERT_AT_99 = { explosive: 44, other: 38 };
+// Agility -> 3-cone (seconds, lower is faster).
+const CONE_AT_60 = { quick: 7.20, other: 7.65 };
+const CONE_AT_99 = { quick: 6.35, other: 6.95 };
+// (Speed+Acceleration)/2 -> broad jump (inches).
+const BROAD_AT_60 = { explosive: 98, other: 88 };
+const BROAD_AT_99 = { explosive: 134, other: 118 };
 
 // ── Deterministic seeding ────────────────────────────────────────────────────
 function nameHash(str) {
@@ -215,19 +259,40 @@ function generateCombine(player) {
   const str   = get('Strength');
   const agl   = get('Agility') || get('Change of Direction') || 70;
 
-  const base40 = BASE_FORTY[player.position] ?? 4.72;
-  const forty  = Math.max(4.20, +(base40 - (speed - 70) * 0.006 - (accel - 70) * 0.004 + seeded(h, -0.04, 0.04)).toFixed(2));
+  const isLineman = LINEMAN_POS.includes(player.position);
+  const isExplosive = EXPLOSIVE_POS.includes(player.position);
+  const isQuick = QUICK_POS.includes(player.position);
+  const explosiveness = (speed + accel) / 2;
 
-  const benchBase = ['OT','OG','C','DE','DT'].includes(player.position) ? 28 : 18;
-  const bench = Math.max(5, Math.round(benchBase + (str - 70) * 0.3 + seeded(h + 1, -2, 2)));
+  const forty40At60 = FORTY_AT_60[player.position] ?? 4.95;
+  const forty40At99 = FORTY_AT_99[player.position] ?? 4.45;
+  // Acceleration nudges the time relative to speed (a burst-heavy player
+  // with slightly lower top speed still gets off the line fast) rather
+  // than contributing its own independent term — an earlier version added
+  // speed and acceleration as separate slopes, which double-counted the
+  // same underlying trait and compressed the gap between good and elite.
+  const accelNudge = (accel - speed) * 0.0015;
+  const forty = Math.max(4.18, +(projectQuad(forty40At60, forty40At99, speed) + accelNudge + seeded(h, -0.03, 0.03)).toFixed(2));
 
-  const vertBase = ['WR','HB','CB','FS','SS','ATH'].includes(player.position) ? 36 : 31;
-  const vert = +(vertBase + (speed - 70) * 0.12 + (accel - 70) * 0.08 + seeded(h + 2, -1, 1)).toFixed(1);
+  const bench = Math.max(5, Math.round(
+    projectQuad(isLineman ? BENCH_AT_60.lineman : BENCH_AT_60.skill, isLineman ? BENCH_AT_99.lineman : BENCH_AT_99.skill, str)
+    + seeded(h + 1, -2, 2)
+  ));
 
-  const coneBase = ['CB','WR','HB','ATH'].includes(player.position) ? 6.72 : 7.18;
-  const cone = +(coneBase - (agl - 70) * 0.005 + seeded(h + 3, -0.04, 0.04)).toFixed(2);
+  const vert = +(
+    projectQuad(isExplosive ? VERT_AT_60.explosive : VERT_AT_60.other, isExplosive ? VERT_AT_99.explosive : VERT_AT_99.other, explosiveness)
+    + seeded(h + 2, -1, 1)
+  ).toFixed(1);
 
-  const broad = Math.round(110 + (speed - 70) * 0.35 + (accel - 70) * 0.2 + seeded(h + 4, -3, 3));
+  const cone = +(
+    projectQuad(isQuick ? CONE_AT_60.quick : CONE_AT_60.other, isQuick ? CONE_AT_99.quick : CONE_AT_99.other, agl)
+    + seeded(h + 3, -0.05, 0.05)
+  ).toFixed(2);
+
+  const broad = Math.round(
+    projectQuad(isExplosive ? BROAD_AT_60.explosive : BROAD_AT_60.other, isExplosive ? BROAD_AT_99.explosive : BROAD_AT_99.other, explosiveness)
+    + seeded(h + 4, -3, 3)
+  );
 
   return { forty, bench, vert, cone, broad };
 }
