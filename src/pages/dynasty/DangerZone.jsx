@@ -72,7 +72,7 @@ const IDAHO_TEAM = {
 }
 
 export default function DangerZone() {
-  const { currentDynasty, dynasties, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, migrateConferencesToPerTeam, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap, addGame, recoverRecruitData, recoverRosterData } = useDynasty()
+  const { currentDynasty, dynasties, analyzeDocumentSize, optimizeDocumentSize, migrateToSubcollections, migrateConferencesToPerTeam, updateDynasty, updateTeambuilderTeam, exportDynasty, isViewOnly, syncAllPlayersStats, saveWeekRecap, deleteWeekRecap, addGame, recoverRecruitData, recoverRosterData, restoreDynastyFromBackup } = useDynasty()
   const { user } = useAuth()
   const { toast } = useToast()
   const { confirm } = useConfirm()
@@ -208,6 +208,8 @@ export default function DangerZone() {
   const [removeResurrectedStatus, setRemoveResurrectedStatus] = useState(null)
   const [localBackups, setLocalBackups] = useState(null) // null = not loaded yet
   const [backupStatus, setBackupStatus] = useState(null)
+  const [restoreFileStatus, setRestoreFileStatus] = useState(null)
+  const restoreFileInputRef = useRef(null)
   const [recoverRecruitSourceId, setRecoverRecruitSourceId] = useState('')
   const [recoverRecruitStatus, setRecoverRecruitStatus] = useState(null)
   const [clearRosterStatus, setClearRosterStatus] = useState(null)
@@ -989,6 +991,49 @@ export default function DangerZone() {
     } catch (err) {
       console.error('[DangerZone] recover data failed:', err)
       setRecoverRecruitStatus({ success: false, message: 'Recovery failed: ' + (err?.message || 'unknown error') })
+    }
+  }
+
+  // ─── Restore from Backup File ────────────────────────────────────────
+  // The companion to "Download Backup" above: takes that same JSON file
+  // back and merges it INTO this live dynasty (unlike Import Dynasty
+  // elsewhere in the app, which always creates a separate, new dynasty).
+  // Additive only, same as Recover Data above — fills in anything this
+  // dynasty is missing (players, games, and their attached recaps/socials/
+  // score graphics, plus season honors), never touches anything already here.
+  const handleRestoreFileChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file next time
+    if (!file) return
+    const ok = await confirm({
+      title: 'Restore from backup?',
+      message: `This reads "${file.name}" and fills in any players, games, or other data this dynasty is currently missing. It only ADDS data — nothing already here is deleted or overwritten. Continue?`,
+      confirmLabel: 'Restore',
+      variant: 'primary',
+    })
+    if (!ok) return
+    setRestoreFileStatus('running')
+    try {
+      const result = await restoreDynastyFromBackup(currentDynasty.id, file)
+      if (!result?.success) {
+        setRestoreFileStatus({ success: false, message: result?.error || 'Restore failed.' })
+        return
+      }
+      if (result.message) {
+        setRestoreFileStatus({ success: true, message: result.message })
+        return
+      }
+      const parts = []
+      if (result.playersAdded) parts.push(`${result.playersAdded} player(s)`)
+      if (result.gamesAdded) parts.push(`${result.gamesAdded} game(s)`)
+      if (result.extraFieldsFilled) parts.push(`${result.extraFieldsFilled} other record(s) (recaps/socials/honors)`)
+      setRestoreFileStatus({
+        success: true,
+        message: `Restored: ${parts.join(', ')}. Reload the page to see everything.`,
+      })
+    } catch (err) {
+      console.error('[DangerZone] restore from backup failed:', err)
+      setRestoreFileStatus({ success: false, message: 'Restore failed: ' + (err?.message || 'unknown error') })
     }
   }
 
@@ -2762,14 +2807,36 @@ export default function DangerZone() {
           <p className="text-xs text-txt-secondary m-0">
             <strong style={{ color: 'var(--accent-warning)' }}>Back up first.</strong> Download a backup before making changes.
           </p>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => exportDynasty && exportDynasty(dynastyId)}
-          >
-            Download Backup
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input
+              ref={restoreFileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={handleRestoreFileChange}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => restoreFileInputRef.current?.click()}
+              disabled={restoreFileStatus === 'running'}
+            >
+              {restoreFileStatus === 'running' ? 'Restoring…' : 'Restore from Backup'}
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => exportDynasty && exportDynasty(dynastyId)}
+            >
+              Download Backup
+            </Button>
+          </div>
         </div>
+        {restoreFileStatus && restoreFileStatus !== 'running' && (
+          <p className="text-xs mt-3 mb-0" style={{ color: restoreFileStatus.success ? 'var(--accent-success)' : 'var(--accent-danger, #f87171)' }}>
+            {restoreFileStatus.message}
+          </p>
+        )}
       </Card>
 
       {/* Game Edition — switch which edition this dynasty is tracked as.

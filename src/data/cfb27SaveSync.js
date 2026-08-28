@@ -298,7 +298,7 @@ export function buildLeagueDraftResults(leavingPlayers, players, rawTeamIdMap) {
  *   stats: {updated:number, arrivals:number, departures:number, transfers:number}
  * }}
  */
-export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, leavingPlayers }) {
+export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, leavingPlayers, departuresPossible = true }) {
   // Keyed by cfb27AssetName — the save's own real "why is this player
   // projected to leave" data (extractPlayers.cjs's buildLeavingPlayers,
   // reading the LeavingPlayer table), used below to replace the departures
@@ -514,9 +514,17 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, le
   // CFB27-tracked players only — a console-tracked player with no
   // cfb27AssetName was never something this sync could see in the first
   // place, so its absence proves nothing.
+  //
+  // Gated on departuresPossible (offseason only — see buildSyncPlan's own
+  // comment on the caller side). Nobody leaves a roster mid-season by the
+  // game's own rules: the draft, National Signing Day, and roster cuts are
+  // all offseason moments. Running this "who's missing" comparison during
+  // the season can't find a real departure, only manufacture a false one —
+  // an injury-driven name change, a bye week, an asset-name glitch — so it
+  // doesn't run at all outside the one window where it could ever be right.
   const departures = []
   const draftedPlayers = []
-  for (const p of existingPlayers) {
+  for (const p of (departuresPossible ? existingPlayers : [])) {
     if (!p.cfb27AssetName || matchedPids.has(p.pid)) continue
     if (alreadyHasMoreSpecificDeparture(p, year)) continue
     const lastStint = getLastKnownStint(p, year + 1) // include the sync year itself
@@ -1115,7 +1123,44 @@ function cpuGameId(year, week, tidA, tidB) {
  * @param {number} year
  * @returns {{toWrite: object[], stats: {gamesTouched: number, boxScoresAdded: number}}}
  */
-export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existingGames, userTid, year) {
+
+// Regular-season weeks and the conference championship share ONE numeric
+// scale in the app's games data (0-15 for regular season, APP_CCG_WEEK=16
+// for CCG — see buildWholeLeagueGames' own header comment on `week`), so a
+// single number can express "everything at or before this is locked" for
+// both at once. Derived from the dynasty's CURRENT phase/week (read fresh,
+// BEFORE this sync's own advance is applied) rather than anything the save
+// reports, because the tracker's own confirmed position — not the save's
+// momentary state — is what defines what's already locked history:
+//   preseason            -> nothing locked yet this year (-1: no numeric
+//                            week or CCG has happened)
+//   regular_season, wk W -> weeks < W are locked; W itself is the current,
+//                            still-open week (boundary = W - 1)
+//   conference_championship -> every regular-season week is locked, CCG
+//                            itself is still open (boundary = 15)
+//   postseason / offseason (or later) -> regular season AND CCG are both
+//                            locked (boundary = APP_CCG_WEEK, i.e. 16)
+export function computeGamesLockBoundary(phase, week) {
+  const w = Number(week)
+  if (phase === 'regular_season') return Number.isFinite(w) ? w - 1 : -1
+  if (phase === 'conference_championship') return APP_CCG_WEEK - 1
+  if (phase === 'postseason' || phase === 'offseason') return APP_CCG_WEEK
+  return -1 // preseason, or anything unrecognized — nothing locked yet
+}
+// The app's own regular-season+CCG week numbering (0-15 for regular season,
+// APP_CCG_WEEK=16 for the conference championship — see gameLockBoundary's
+// own comment for why these two share one numeric scale). A week <= the
+// boundary is permanently closed: not read, not compared, not written, not
+// deleted, no matter what the save reports for it. Only weeks strictly
+// after the boundary (the one the tracker is currently sitting on, plus
+// anything further ahead if the user hasn't synced in a while) may be
+// created or updated. There is deliberately no code path left in this
+// function that can touch a locked week — see the PC sync durability
+// redesign (2026-08-28) for why: a locked week's data is the one thing
+// that can never be silently lost, and an automated process that can still
+// see it is a process that can still, someday, get it wrong.
+export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existingGames, userTid, year, gamesLockBoundary) {
+  const lockedThroughWeek = Number.isFinite(gamesLockBoundary) ? gamesLockBoundary : -1
   // The save's own Conference Championship week (SeasonInfo's
   // RegularSeasonWeekConferenceChampionship, e.g. 16) — CCG matchups arrive
   // in this SAME weekType==='RegularSeason' pool (verified against a real
@@ -1160,6 +1205,9 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     // below, which then deleted them as phantom byes on the next sync
     // ("redid it and now none of the conference games are there").
     const week = isCCG ? APP_CCG_WEEK : g.week
+    // Locked week — already confirmed and closed out by a prior advance.
+    // Not read, not compared, not touched, no matter what this save says.
+    if (week <= lockedThroughWeek) continue
     const matchKey = `${week}:${cpuGameId(year, week, homeAppTid, awayAppTid)}`
     const existing = existingByMatchup.get(matchKey)
     const played = g.status !== 'Unplayed'
@@ -1270,65 +1318,20 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     toWrite.push(record)
   }
 
-  // Prune stale CPU games that no longer match the CURRENT save. The loop
-  // above is upsert-only by design (minimal-diff) and never removes a
-  // record — so a game written by an earlier, incomplete/wrong sync (e.g.
-  // a schedule that hadn't fully resolved yet) can survive forever even
-  // after a later sync's real data disagrees with it. Confirmed against a
-  // real dynasty: Notre Dame ended up with a phantom "BYU, Week 7" game
-  // (a week that's actually a BYE) and a phantom duplicate "Miami, Week 10"
-  // entry (Miami's real matchup was Week 0) — both leftover records this
-  // function had never had a way to clean up.
-  //
-  // Two distinct signals, both treated as definite (never prunes on mere
-  // absence of THIS team/week from the parse, which just means "unknown"):
-  //   1. This team+week DOES appear in the current parse, but with a
-  //      different opponent than what's stored — a wrong-opponent record.
-  //   2. This week is a real week in the season (some OTHER team has a game
-  //      that week, so it's not just "outside this sync's range"), but THIS
-  //      team has no game at all that week per the current parse — a bye,
-  //      so any stored game for this team at that week is a phantom.
-  const currentOpponentByTidWeek = new Map() // `${tid}:${week}` -> opponent tid
-  const knownWeeks = new Set() // every week that's a real (non-bye-only) week this season
-  for (const g of parsed.games || []) {
-    if (g.weekType !== 'RegularSeason') continue
-    // MUST use the same raw->app week mapping the write path above uses, or
-    // conference championships get indexed under the save's raw week while
-    // the stored records live at APP_CCG_WEEK. That mismatch made every CCG
-    // look like "no game for either team that week" — i.e. a phantom bye —
-    // so the prune deleted them all on the next sync.
-    const gWeek = ccgWeek != null && g.week === ccgWeek ? APP_CCG_WEEK : g.week
-    knownWeeks.add(gWeek)
-    const homeAppTid = g.homeTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.homeTeam] ?? null : rawTeamIdMap.get(g.homeTeamId)
-    const awayAppTid = g.awayTeamId === 255 ? FCS_FILLER_NAME_TO_TID[g.awayTeam] ?? null : rawTeamIdMap.get(g.awayTeamId)
-    if (homeAppTid == null || awayAppTid == null) continue
-    currentOpponentByTidWeek.set(`${homeAppTid}:${gWeek}`, awayAppTid)
-    currentOpponentByTidWeek.set(`${awayAppTid}:${gWeek}`, homeAppTid)
-  }
-
-  const toDelete = []
-  for (const g of existingGames || []) {
-    if ((g.gameType !== 'regular' && g.gameType !== 'conference_championship') || Number(g.year) !== year) continue
-    if (g.team1Tid == null || g.team2Tid == null) continue
-    if (g.team1Tid === userTid || g.team2Tid === userTid) continue // user games handled by the other pipeline
-    // Resolve the STORED game to the same canonical week the index above is
-    // keyed by. A conference championship can be stored as week 16, as the
-    // save's raw CCG week, or with a non-numeric week ('CCG') if it was
-    // entered by hand — all three mean the same slot, and comparing the raw
-    // value made a CCG match nothing and read as a phantom bye.
-    const storedWeek = (g.gameType === 'conference_championship' || g.isConferenceChampionship)
-      ? APP_CCG_WEEK
-      : g.week
-    const expected1 = currentOpponentByTidWeek.get(`${g.team1Tid}:${storedWeek}`)
-    const expected2 = currentOpponentByTidWeek.get(`${g.team2Tid}:${storedWeek}`)
-    const wrongOpponent =
-      (expected1 != null && expected1 !== g.team2Tid) ||
-      (expected2 != null && expected2 !== g.team1Tid)
-    const bothSidesNowByes = expected1 == null && expected2 == null && knownWeeks.has(g.week)
-    if (wrongOpponent || bothSidesNowByes) toDelete.push(g.id)
-  }
-
-  return { toWrite, toDelete, stats: { gamesTouched: toWrite.length, boxScoresAdded, gamesPruned: toDelete.length } }
+  // No prune/delete pass. This function used to carry a "wrong opponent /
+  // phantom bye" cleanup step here that re-derived the WHOLE season's
+  // opponent map from the current save and deleted any stored game that
+  // disagreed with it — necessary under the old design, where every sync
+  // re-considered the entire season from scratch and needed a way to
+  // correct its own earlier guesses. Under the locked-week model that
+  // necessity is gone: a week is only ever written once, when it's new,
+  // and never revisited afterward — there is no "earlier guess" left to
+  // correct, because nothing gets written before it's actually final. A
+  // genuinely wrong game (a real parsing bug) now has to be caught before
+  // that week locks — see the durability redesign notes — not silently
+  // "healed" by a later sync deleting and rewriting it. Automated deletion
+  // capability for CPU games ends here entirely, not just for locked weeks.
+  return { toWrite, toDelete: [], stats: { gamesTouched: toWrite.length, boxScoresAdded, gamesPruned: 0 } }
 }
 
 // PlayoffBracketSlot -> cfpSlot, a FIXED index into the real bracket
@@ -1778,7 +1781,19 @@ export function buildSyncPlan(dynasty, parsed) {
   // user's own team (see that function's header comment).
   const rawTeamIdMap = buildRawTeamIdMap(parsed.players || [], dynastyTeams)
 
-  const playerDiff = reconcilePlayers(parsed.players || [], existingPlayers, { year, dynastyTeams, leavingPlayers: parsed.leavingPlayers })
+  // Real roster departures — drafted, graduated, cut — only ever happen in
+  // the offseason (National Signing Day, the draft, and roster cuts are all
+  // offseason moments). Computed here, before reconcilePlayers, so it can
+  // gate the departure-detection pass itself rather than just labeling its
+  // output: during the season there is nothing to detect, by the game's own
+  // rules, so there's no reason to run a "who's missing" comparison at all —
+  // only a reason for it to misfire (an injury-driven name change, a bye
+  // week, an asset-name glitch) and wrongly flag someone as gone who never
+  // left. See the PC sync durability redesign (2026-08-28).
+  const phase = mapSeasonInfo(parsed.season)?.phase
+  const departuresPossible = phase === 'offseason'
+
+  const playerDiff = reconcilePlayers(parsed.players || [], existingPlayers, { year, dynastyTeams, leavingPlayers: parsed.leavingPlayers, departuresPossible })
   const recruitDiff = reconcileRecruitingBoard(parsed.recruitingBoard || [], existingPlayers, {
     userTid,
     year, // the recruiting CLASS year — see reconcileRecruitingBoard's param comment for why NOT +1
@@ -2125,8 +2140,11 @@ export function buildSyncPlan(dynasty, parsed) {
 
   // Every OTHER team's games (whole-league, per the user's ask) — minimal-
   // diff by construction, so a routine weekly sync only touches that week's
-  // ~60-70 new results, not the full 891-game season every time.
-  const cpuGames = buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, dynasty.games || [], userTid, year)
+  // ~60-70 new results, not the full 891-game season every time. Locked to
+  // weeks after gamesLockBoundary — see computeGamesLockBoundary and
+  // buildWholeLeagueGames' own header comment.
+  const gamesLockBoundary = computeGamesLockBoundary(dynasty.currentPhase, dynasty.currentWeek)
+  const cpuGames = buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, dynasty.games || [], userTid, year, gamesLockBoundary)
 
   // Whole-league weekly Players of the Week (national + per-conference) —
   // pure identity (name/position/team/photo) only. The actual stat line
@@ -2433,7 +2451,10 @@ export function buildSyncPlan(dynasty, parsed) {
     gameScoresForUserTeam,
     boxScoresByWeek,
     cpuGamesToWrite: cpuGames.toWrite,
-    cpuGamesToDelete: cpuGames.toDelete,
+    // Shared with the caller so the user's OWN schedule diff (computeScheduleDiff,
+    // in DynastyContext.jsx) locks to the exact same boundary as the CPU games
+    // above — one source of truth for "what's already confirmed history" per sync.
+    gamesLockBoundary,
     postseasonGamesToWrite: postseasonGames,
     depthChartUpdates,
     playersOfWeekUpdate,

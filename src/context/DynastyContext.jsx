@@ -4257,7 +4257,16 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year, options
   // silently reassign or delete a played game, taking its aiRecap /
   // scoreGraphic / preview with it, since those live on the game record.
   // That path passes protectPlayed and stops guessing at settled results.
-  const { protectPlayed = false } = options
+  // lockedThroughWeek: weeks at or before it are completely out of scope —
+  // not added, not updated, not removed, not even considered — regardless
+  // of played status. Stronger than protectPlayed (which only protects a
+  // week that happens to already carry played data): this protects a
+  // week's slot itself, including an unplayed/bye determination, once the
+  // dynasty has advanced past it. Only the Sync from Save call site passes
+  // this; manual Schedule Entry passes neither this nor protectPlayed, on
+  // the same reasoning as protectPlayed's own comment below — the user's
+  // own confirmation step is the safety net there, not this function.
+  const { protectPlayed = false, lockedThroughWeek = -1 } = options
   // Matches what playedAffected already counts as worth warning about — a
   // box score is real entered data even if isPlayed was never flipped.
   // Also covers a game that isn't played YET but already carries manual
@@ -4332,6 +4341,16 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year, options
   newSchedule.forEach((entry, index) => {
     const week = Number(entry.week)
     referencedWeeks.add(week)
+
+    // Locked week — already confirmed and closed out by a prior advance.
+    // Reuse whatever's already on file untouched; never add/update/remove it.
+    if (week <= lockedThroughWeek) {
+      const existingLocked = existingByWeek.get(week)
+      updatedSchedule.push(existingLocked
+        ? { ...entry, week, gameId: existingLocked.id, opponentTid: opponentTidOf(existingLocked), isBye: false }
+        : { ...entry, week, isBye: true, gameId: null, opponentTid: null })
+      return
+    }
 
     const isBye = entry.opponent?.toUpperCase() === 'BYE' || entry.isBye
 
@@ -4440,6 +4459,7 @@ export function computeScheduleDiff(dynasty, newSchedule, userTid, year, options
   // game never happened, and deleting it discards its attached content.
   const toRemove = []
   existingByWeek.forEach((g, week) => {
+    if (week <= lockedThroughWeek) return
     if (protectPlayed && hasPlayedData(g)) return
     const newEntry = newSchedule.find(e => Number(e.week) === week)
     const isBye = newEntry && (newEntry.opponent?.toUpperCase() === 'BYE' || newEntry.isBye)
@@ -7530,7 +7550,24 @@ export function DynastyProvider({ children }) {
     return dynasty
   }
 
-  // Helper to get games for a dynasty with proper storage routing
+  // Helper to get games for a dynasty with proper storage routing.
+  //
+  // serverFirst: true is NOT optional here. Every caller of this helper
+  // reads games, merges in new/changed ones, and writes the result back —
+  // and updateDynasty's games-diff logic (see its own comment) falls back
+  // to a deleteOrphans write (comparing the write against the REAL
+  // subcollection, deleting anything not present) whenever the diff looks
+  // too big or can't be trusted. getGamesSubcollection defaults to
+  // cache-first: if the local Firestore cache is missing or stale for any
+  // reason (a session that never fully hydrated this dynasty, a partially-
+  // evicted cache, a cross-device write this tab hasn't caught up on), a
+  // caller here would compute its merge against an INCOMPLETE base — and
+  // writing that back would delete every real game the incomplete read
+  // didn't happen to have cached, permanently taking their box scores
+  // (and by extension their game log, season stats, and any honor/stat
+  // display that depends on that box-score-derived data) with them. This
+  // is destructive in a way a slower read is not, so correctness wins over
+  // the cache-first speed win every single time this helper is used.
   const getDynastyGames = async (dynasty) => {
     if (!dynasty) return []
 
@@ -7538,7 +7575,7 @@ export function DynastyProvider({ children }) {
 
     if (isCloudDynasty && dynasty._subcollectionsMigrated) {
       try {
-        return await getGamesSubcollection(dynasty.id)
+        return await getGamesSubcollection(dynasty.id, { serverFirst: true })
       } catch (err) {
         return dynasty?.games || []
       }
@@ -7552,6 +7589,13 @@ export function DynastyProvider({ children }) {
   }
 
   // Helper to get players for a dynasty with proper storage routing
+  // Same reasoning as getDynastyGames above — every caller here reads
+  // players, merges in changes, and writes the result back, and
+  // updateDynasty's players-diff logic falls back to a deleteOrphans write
+  // (savePlayersToSubcollection's own deleteOrphans/forceOverwrite path)
+  // whenever the diff can't be trusted. A stale cache-first read would merge
+  // against an incomplete roster and the write-back would delete every real
+  // player the incomplete read didn't have cached. serverFirst: true always.
   const getDynastyPlayers = async (dynasty) => {
     if (!dynasty) return []
 
@@ -7559,7 +7603,7 @@ export function DynastyProvider({ children }) {
 
     if (isCloudDynasty && dynasty._subcollectionsMigrated) {
       try {
-        return await getPlayersSubcollection(dynasty.id)
+        return await getPlayersSubcollection(dynasty.id, { serverFirst: true })
       } catch (err) {
         return dynasty?.players || []
       }
@@ -10504,7 +10548,7 @@ export function DynastyProvider({ children }) {
     let mergedGames = freshGames
     let scheduleDiff = { updatedSchedule: [] }
     if (plan.scheduleForUserTeam?.length) {
-      scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, dynasty.currentYear, { protectPlayed: true })
+      scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, dynasty.currentYear, { protectPlayed: true, lockedThroughWeek: plan.gamesLockBoundary })
       mergedGames = applyScheduleDiff(freshGames, scheduleDiff)
     }
     mergedGames = applyCfb27GameScores(mergedGames, plan.gameScoresForUserTeam, plan.boxScoresByWeek, Number(dynasty.currentYear))
@@ -10545,16 +10589,10 @@ export function DynastyProvider({ children }) {
       mergedGames = [...byId.values()]
     }
 
-    // Prune stale CPU games the current save no longer agrees with — see
-    // buildWholeLeagueGames' cpuGamesToDelete comment. Without this, a
-    // record written by an earlier/incomplete sync (a phantom bye-week
-    // opponent, a stale duplicate at the wrong week, etc.) could survive
-    // forever since the upsert above only ever adds/updates by id, never
-    // removes.
-    if (plan.cpuGamesToDelete?.length) {
-      const deleteIds = new Set(plan.cpuGamesToDelete)
-      mergedGames = mergedGames.filter((g) => !deleteIds.has(g.id))
-    }
+    // No CPU-game prune step anymore — buildWholeLeagueGames no longer has
+    // any delete capability at all (plan.cpuGamesToDelete is always []; see
+    // its own header comment for why). See the PC sync durability redesign
+    // (2026-08-28).
 
     // Bowl + full CFP bracket results, every team including the user's own —
     // plan.postseasonGamesToWrite is already minimal-diff/upsert-by-id
@@ -10566,6 +10604,25 @@ export function DynastyProvider({ children }) {
       for (const postseasonGame of plan.postseasonGamesToWrite) byId.set(postseasonGame.id, postseasonGame)
       mergedGames = [...byId.values()]
     }
+
+    // Every game id this sync could plausibly have touched — the union of
+    // the user's own team's schedule (covers both the schedule diff and
+    // applyCfb27GameScores' box-score fill-in, since every week the user
+    // could have played is already in updatedSchedule with its gameId),
+    // every CPU game write, and every postseason write. Passed to
+    // updateDynasty as changedGameIds so it persists exactly this set and
+    // nothing else — bypassing its generic diff-or-deleteOrphans path
+    // entirely, the same way syncPlayersToSubcollection above already
+    // bypasses the equivalent players path. A little redundant (some of
+    // these ids won't have actually changed value), which just costs an
+    // extra idempotent write, not a correctness risk — see the PC sync
+    // durability redesign (2026-08-28) for why erring toward "write a few
+    // extra unchanged docs" beats erring toward "guess what to delete".
+    const changedGameIds = [
+      ...(scheduleDiff.updatedSchedule || []).map(e => e.gameId).filter(Boolean),
+      ...(plan.cpuGamesToWrite || []).map(g => g.id),
+      ...(plan.postseasonGamesToWrite || []).map(g => g.id),
+    ]
 
     // isConferenceGame is normally computed by GameEntryModal.jsx at the
     // moment a human enters a score — CFB27 sync writes scores directly
@@ -10591,6 +10648,10 @@ export function DynastyProvider({ children }) {
     const customConferencesForSync = getCustomConferencesForYear({ ...dynastyForPlan, teams: teamsForConf }, dynasty.currentYear)
     mergedGames = mergedGames.map((g) => {
       if (Number(g.year) !== Number(dynasty.currentYear) || (g.gameType || 'regular') !== 'regular') return g
+      // Locked week — leave its classification exactly as it was written,
+      // even if a mid-season conference realignment would now compute it
+      // differently. See the games lock boundary above.
+      if (Number(g.week) <= plan.gamesLockBoundary) return g
       if (g.team1Tid == null || g.team2Tid == null) return g
       const abbr1 = getAbbrFromTid(teamsForConf, g.team1Tid)
       const abbr2 = getAbbrFromTid(teamsForConf, g.team2Tid)
@@ -10930,7 +10991,7 @@ export function DynastyProvider({ children }) {
       // this stays a single write — only cloud dynasties need the chunked
       // sequence below.
       await enterPhase('saveFinal', 'Saving…')
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, platform: 'pc' })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, platform: 'pc' }, { changedGameIds })
       finishSyncTiming()
       if (onProgress) { try { onProgress({ message: 'Done', pct: 100, etaSeconds: 0 }) } catch (_) {} }
     } else {
@@ -11010,7 +11071,7 @@ export function DynastyProvider({ children }) {
       try {
         for (let i = 0; i < chunks.length; i++) {
           await reportSubProgress(`Saving ${chunkLabel(chunks[i])}…`, (i + 1) / chunks.length)
-          await updateDynasty(dynastyId, chunks[i], { skipPlayersSubcollection: true })
+          await updateDynasty(dynastyId, chunks[i], { skipPlayersSubcollection: true, changedGameIds })
           completedLabels.push(chunkLabel(chunks[i]))
           // Each chunk's updateDynasty call can itself dispatch a burst of
           // parallel subcollection writes (games, teamFuture, seasonal) —
@@ -11042,7 +11103,7 @@ export function DynastyProvider({ children }) {
   }
 
   const updateDynasty = async (dynastyId, updates, options = {}) => {
-    const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false, skipPlayersSubcollection = false, changedPlayerPids = null, replaceTeams = false, replaceSeasonal = [] } = options
+    const { skipLastModified = false, forceOverwrite = false, skipGamesSubcollection = false, skipPlayersSubcollection = false, changedPlayerPids = null, changedGameIds = null, replaceTeams = false, replaceSeasonal = [] } = options
 
     // Read-only chokepoint: most mutations route through updateDynasty,
     // so guarding here catches every modal whose parent forgot to gate
@@ -11548,6 +11609,21 @@ export function DynastyProvider({ children }) {
         // CRITICAL: Track this games update to prevent listener from overwriting with stale data
         lastGamesUpdateTimestampRef.current = Date.now()
         lastGamesUpdateDynastyIdRef.current = dynastyId
+        if (changedGameIds && changedGameIds.length) {
+          // Caller (PC sync) already knows precisely which games it touched —
+          // see computeGamesLockBoundary/buildWholeLeagueGames — so persist
+          // exactly those ids and nothing else. No comparison against any
+          // prior snapshot, no orphan scan, no delete capability at all: the
+          // generic diff-or-deleteOrphans path below is never reached for
+          // this write. See the PC sync durability redesign (2026-08-28).
+          const idSet = new Set(changedGameIds.map(String))
+          const subset = mainDocUpdates.games.filter(g => g?.id != null && idSet.has(String(g.id)))
+          if (subset.length > 0) {
+            subcollectionPromises.push(
+              saveGamesToSubcollection(dynastyId, subset, {})
+            )
+          }
+        } else {
         // Diff-based save — same rationale and fallback conditions as the
         // players diff above: write only changed/new games, delete exactly
         // the removed ids, and fall back to the full rewrite + orphan-scan
@@ -11600,6 +11676,7 @@ export function DynastyProvider({ children }) {
           subcollectionPromises.push(
             saveGamesToSubcollection(dynastyId, mainDocUpdates.games, { deleteOrphans: true })
           )
+        }
         }
         // Don't save games to main doc - they're in subcollection now
         delete mainDocUpdates.games
@@ -19681,6 +19758,134 @@ export function DynastyProvider({ children }) {
     return { success: true, added, total: merged.length, sourceCount: srcPlayers.length }
   }
 
+  // Restore from a downloaded backup file (exportDynasty's own JSON output)
+  // back INTO the current, live dynasty — as opposed to importDynasty, which
+  // always creates a brand-new, separate dynasty from a file. Same safety
+  // principle as recoverRosterData just above: a pure union by id/pid, the
+  // LIVE dynasty always wins on any clash, so this can only fill in
+  // something missing from live — it can never overwrite or delete anything
+  // already correct there. Deliberately not a "restore to exactly this
+  // snapshot" operation (that would mean deleting anything live has beyond
+  // the backup, which is exactly the capability this whole redesign removes).
+  // Scoped to players and games — the two things an automated sync actually
+  // has any way to lose — see the PC sync durability redesign (2026-08-28).
+  const restoreDynastyFromBackup = async (dynastyId, jsonFile) => {
+    if (blockIfReadOnly(dynastyId, 'restore from backup')) return { success: false, error: 'This dynasty is read-only.' }
+
+    let backup
+    try {
+      const raw = await jsonFile.text()
+      backup = JSON.parse(raw)
+    } catch (err) {
+      return { success: false, error: 'Could not read that file — is it a dynasty backup JSON?' }
+    }
+    if (!backup || typeof backup !== 'object') {
+      return { success: false, error: 'That file doesn\'t look like a dynasty backup.' }
+    }
+
+    const target = (String(currentDynasty?.id) === String(dynastyId))
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!target) return { success: false, error: 'Target dynasty not found.' }
+
+    // Players — union by pid, target (live) wins on any clash.
+    const srcPlayers = Array.isArray(backup.players) ? backup.players : []
+    let tgtPlayers = []
+    try {
+      tgtPlayers = (await getDynastyPlayers(target)) || []
+    } catch {
+      tgtPlayers = Array.isArray(target.players) ? target.players : []
+    }
+    const playerKeyOf = (p) => (p?.pid != null
+      ? `pid:${p.pid}`
+      : `nm:${(p?.name || '').toLowerCase().trim()}|${p?.team ?? ''}`)
+    const playersByKey = new Map()
+    for (const p of srcPlayers) if (p) playersByKey.set(playerKeyOf(p), p)
+    for (const p of tgtPlayers) if (p) playersByKey.set(playerKeyOf(p), p) // target wins
+    const mergedPlayers = [...playersByKey.values()]
+    const playersAdded = Math.max(0, mergedPlayers.length - tgtPlayers.length)
+
+    // Games — union by id, target (live) wins on any clash.
+    const srcGames = Array.isArray(backup.games) ? backup.games : []
+    let tgtGames = []
+    try {
+      tgtGames = (await getDynastyGames(target)) || []
+    } catch {
+      tgtGames = Array.isArray(target.games) ? target.games : []
+    }
+    const gameKeyOf = (g) => (g?.id != null ? `id:${g.id}` : null)
+    const gamesByKey = new Map()
+    for (const g of srcGames) { const k = gameKeyOf(g); if (k) gamesByKey.set(k, g) }
+    for (const g of tgtGames) { const k = gameKeyOf(g); if (k) gamesByKey.set(k, g) } // target wins
+    const mergedGamesResult = [...gamesByKey.values()]
+    const gamesAdded = Math.max(0, mergedGamesResult.length - tgtGames.length)
+
+    // Two-level fill-gaps merge (year -> week -> value, or year -> value) for
+    // the other "entered once, never changes" fields that live outside
+    // players/games entirely — recaps, previews, socials, score-graphic
+    // history isn't per-game here, and season honors. Same rule as
+    // everywhere else in this function: only fills a year/week the target
+    // doesn't already have data for; never touches one it does.
+    let extraFieldsFilled = 0
+    const fillGaps = (srcObj, tgtObj) => {
+      const src = srcObj && typeof srcObj === 'object' ? srcObj : {}
+      const tgt = tgtObj && typeof tgtObj === 'object' ? tgtObj : {}
+      const merged = { ...tgt }
+      for (const [key, srcVal] of Object.entries(src)) {
+        const tgtVal = tgt[key]
+        const srcHasData = Array.isArray(srcVal) ? srcVal.length > 0 : (srcVal && typeof srcVal === 'object' ? Object.keys(srcVal).length > 0 : srcVal != null)
+        const tgtHasData = Array.isArray(tgtVal) ? tgtVal.length > 0 : (tgtVal && typeof tgtVal === 'object' ? Object.keys(tgtVal).length > 0 : tgtVal != null)
+        if (!srcHasData) continue
+        if (tgtHasData) continue // target already has this slot — never touched
+        merged[key] = srcVal
+        extraFieldsFilled++
+      }
+      return merged
+    }
+    // year -> week -> posts/recap (nested one level deeper than the simple
+    // year -> value fields, so gap-fill at the week level, not the year level)
+    const fillNestedGaps = (srcObj, tgtObj) => {
+      const src = srcObj && typeof srcObj === 'object' ? srcObj : {}
+      const tgt = tgtObj && typeof tgtObj === 'object' ? tgtObj : {}
+      const merged = { ...tgt }
+      for (const [year, srcByWeek] of Object.entries(src)) {
+        merged[year] = fillGaps(srcByWeek, tgt[year])
+      }
+      return merged
+    }
+    const socialFeedByYear = fillNestedGaps(backup.socialFeedByYear, target.socialFeedByYear)
+    const weekRecapsByYear = fillNestedGaps(backup.weekRecapsByYear, target.weekRecapsByYear)
+    const allAmericansByYear = fillGaps(backup.allAmericansByYear, target.allAmericansByYear)
+    const awardsByYear = fillGaps(backup.awardsByYear, target.awardsByYear)
+
+    if (playersAdded === 0 && gamesAdded === 0 && extraFieldsFilled === 0) {
+      return { success: true, playersAdded: 0, gamesAdded: 0, message: 'Nothing in that backup was missing from this dynasty — nothing to restore.' }
+    }
+
+    try {
+      // updateDynasty routes full players/games arrays correctly for both
+      // tiers (subcollection for cloud, inline for local). Both unions
+      // INCLUDE every existing target record, so cloud's orphan-cleanup path
+      // never finds anything to delete either way. The other fields are
+      // already-established main-doc/subcollection fields updateDynasty
+      // routes on its own (see OFF_MAIN_DOC), so handing it the merged
+      // objects is enough — no separate write path needed here.
+      await updateDynasty(dynastyId, {
+        players: mergedPlayers,
+        games: mergedGamesResult,
+        socialFeedByYear,
+        weekRecapsByYear,
+        allAmericansByYear,
+        awardsByYear,
+      })
+    } catch (err) {
+      console.error('[restoreDynastyFromBackup] write failed:', err)
+      return { success: false, error: 'Failed while writing the restored data into this dynasty.' }
+    }
+
+    return { success: true, playersAdded, gamesAdded, extraFieldsFilled, playersTotal: mergedPlayers.length, gamesTotal: mergedGamesResult.length }
+  }
+
   // Delete a player from the dynasty
   // Adds a 'removed' movement to track the deletion before removing
   const deletePlayer = async (dynastyId, playerPid) => {
@@ -22158,6 +22363,7 @@ export function DynastyProvider({ children }) {
     updateRecruitingDatabasePlayers,
     recoverRecruitData,
     recoverRosterData,
+    restoreDynastyFromBackup,
     deletePlayer,
     getDynastyPlayers,
     syncAllPlayersStats,
