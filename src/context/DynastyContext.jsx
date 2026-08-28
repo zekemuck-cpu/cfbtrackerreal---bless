@@ -8341,16 +8341,31 @@ export function DynastyProvider({ children }) {
 
       // Collapse the offseason from the old 8-week layout to the new 7-week one.
       //   old wk8 (Conferences/Transfers) → new wk7 (same tasks)
-      //   old wk7 (Training)              → new wk6 (Training Results)
-      //   old wk6 (Signing Day Results, post-flip) → stays wk6 (Training Results;
-      //            the year flip already happened, so land on the next post-flip step)
-      //   old wk≤5 → unchanged (recruiting / Signing Day are pre-flip)
+      //   old wk≤7 → unchanged
       // The year flip stays at wk5→6 in BOTH models, so no year change is needed.
-      // Gated by a persisted flag so it runs exactly once per dynasty.
+      //
+      // The `w === 7 ? 6` clause this used to carry (old wk7 Training → new
+      // wk6) WEDGED every console dynasty that reached the last offseason
+      // week. _offseasonWeekCollapseV1 is set on the in-memory object only —
+      // applyMigrations is a pure transform and no write path persists it —
+      // so this re-evaluates on EVERY load against whatever is in storage.
+      // Meanwhile wk7 (Transfers) is a legitimate, reachable week that
+      // advanceWeek persists (wk6→7). So: advance to 7 → reload → knocked
+      // back to 6 → advance to 7 → reload → 6, forever. The user could never
+      // reach preseason or roll the season over.
+      //
+      // A stored 7 is ambiguous (old-model Training, or current-model
+      // Transfers), but only the latter can be reached by anyone active since
+      // this migration shipped 2026-07-17 — and they are the ones actively
+      // wedged — so 7 is now left alone. `w >= 8` stays: the current model
+      // has no week 8, so a stored 8 is unambiguously old-model. That also
+      // makes the transform a fixed point (8→7, 7→7), so re-running it on an
+      // already-migrated value is a genuine no-op and the unpersisted flag
+      // stops mattering.
       if (!migrated._offseasonWeekCollapseV1) {
         if (migrated.currentPhase === 'offseason' && typeof migrated.currentWeek === 'number') {
           const w = migrated.currentWeek
-          const newW = w >= 8 ? 7 : w === 7 ? 6 : w
+          const newW = w >= 8 ? 7 : w
           if (newW !== w) migrated = { ...migrated, currentWeek: newW }
         }
         migrated._offseasonWeekCollapseV1 = true
@@ -8388,26 +8403,33 @@ export function DynastyProvider({ children }) {
       // as "National Signing Day" — i.e. raw 5, which the new 8-week model
       // reads correctly as Recruiting Week 4). Shifting it here would push a
       // PC dynasty a real week ahead of its own save.
-      // NOTE: unlike _offseasonWeekCollapseV1's w>=8?7:w===7?6:w (which has a
-      // fixed point — reapplying it to an already-migrated value is a no-op),
-      // w>=5?w+1:w has NO fixed point between 5 and 8: reapplying it to a
-      // value that's already been shifted (or that legitimately advanced
-      // past 5 under the new model) shifts it AGAIN. applyMigrations is a
-      // pure in-memory transform with no persistence of its own, so without
-      // a durably-stored flag this would re-fire every load — and since
-      // advanceWeek DOES persist currentWeek, a shift-then-advance-then-
-      // reload cycle stacks: stored wk5 → shown as wk6 → user advances →
-      // persisted wk7 → next load shifts the (already-correct) 7 to 8,
-      // silently skipping Training Results. recruitingWeekShifts (populated
-      // here, consumed by every applyMigrations call site) is what lets the
-      // caller persist { currentWeek, _recruitingWeekExpandV1: true } in one
-      // write the first time this fires per dynasty, so it truly never
-      // re-evaluates once recorded server-side — not just in this session.
+      // NOTE: unlike _offseasonWeekCollapseV1's w>=8?7:w (a fixed point —
+      // reapplying it to an already-migrated value is a no-op), w>=5?w+1:w
+      // has NO fixed point between 5 and 8: reapplying it to a value that's
+      // already been shifted (or that legitimately advanced past 5 under the
+      // new model) shifts it AGAIN. applyMigrations is a pure in-memory
+      // transform with no persistence of its own, so without a durably-stored
+      // flag this would re-fire every load — and since advanceWeek DOES
+      // persist currentWeek, a shift-then-advance-then-reload cycle stacks:
+      // stored wk5 → shown as wk6 → user advances → persisted wk7 → next load
+      // shifts the (already-correct) 7 to 8, silently skipping Training
+      // Results. recruitingWeekShifts (populated here, consumed by every
+      // applyMigrations call site) is what lets the caller persist the flag
+      // (plus currentWeek, ONLY when it actually moved — a PC dynasty is
+      // exempt from the shift above, and writing back its unchanged week on
+      // every load would be a pointless write to a hot field that could race
+      // an in-flight sync) in one write the first time this fires per
+      // dynasty, so it truly never re-evaluates once recorded server-side —
+      // not just in this session.
       if (!migrated._recruitingWeekExpandV1) {
+        let weekShifted = false
         if (migrated.currentPhase === 'offseason' && typeof migrated.currentWeek === 'number' && !isPcAutoDynasty(migrated)) {
           const w = migrated.currentWeek
           const newW = w >= 5 ? w + 1 : w
-          if (newW !== w) migrated = { ...migrated, currentWeek: newW }
+          if (newW !== w) {
+            migrated = { ...migrated, currentWeek: newW }
+            weekShifted = true
+          }
         }
         migrated._recruitingWeekExpandV1 = true
         if (migrated.id) {
@@ -8415,7 +8437,7 @@ export function DynastyProvider({ children }) {
             id: migrated.id,
             updates: {
               _recruitingWeekExpandV1: true,
-              ...(typeof migrated.currentWeek === 'number' ? { currentWeek: migrated.currentWeek } : {}),
+              ...(weekShifted ? { currentWeek: migrated.currentWeek } : {}),
             },
           })
         }
@@ -21714,6 +21736,15 @@ export function DynastyProvider({ children }) {
   // editors[] but not the owner). Merged into the main dynasties list
   // below so existing consumers keep working without changes.
   const [sharedDynasties, setSharedDynasties] = useState([])
+  // Mirrors sharedDynasties for the snapshot handler below, which needs to
+  // read "prev" synchronously to hoist applyMigrations out of the setState
+  // updater (React doesn't guarantee the updater runs synchronously, so
+  // anything read right after a setState(fn) call — like the migration
+  // shifts collected inside it — can't be trusted to be populated yet).
+  const sharedDynastiesRef = useRef([])
+  useEffect(() => {
+    sharedDynastiesRef.current = sharedDynasties
+  }, [sharedDynasties])
 
   // Re-pull a shared dynasty's subcollections and push fresh data into both
   // the shared-list entry and currentDynasty. This is the live-sync path for
@@ -21795,21 +21826,22 @@ export function DynastyProvider({ children }) {
         .map(d => ({ ...d, storageType: 'cloud' }))
       // Preserve already-hydrated subcollection fields so a metadata-only
       // snapshot doesn't blank a loaded shared dynasty's roster/games.
-      // Collected outside the setState updater and persisted after — the
-      // updater itself must stay a pure function of prev (React may invoke
-      // it more than once), so firing updateDynasty from inside it risks
-      // duplicate/inconsistent writes.
+      // applyMigrations is hoisted OUT of the setState call (reading "prev"
+      // via sharedDynastiesRef instead of the updater form) so it runs
+      // exactly once, synchronously, before persistRecruitingWeekShifts reads
+      // its result — React does not guarantee a setState(fn) updater runs
+      // synchronously, so collecting shifts inside one and reading them on
+      // the very next line silently saw an empty array.
+      const prevById = new Map(sharedDynastiesRef.current.map(d => [String(d.id), d]))
       const recruitingWeekShiftsHere = []
-      setSharedDynasties(prev => {
-        const prevById = new Map(prev.map(d => [String(d.id), d]))
-        return applyMigrations(tagged.map(d => {
-          const old = prevById.get(String(d.id))
-          if (old && (old.players || old.games)) {
-            return { ...d, players: old.players, games: old.games, weekRecapsByYear: old.weekRecapsByYear }
-          }
-          return d
-        }), recruitingWeekShiftsHere)
-      })
+      const migratedShared = applyMigrations(tagged.map(d => {
+        const old = prevById.get(String(d.id))
+        if (old && (old.players || old.games)) {
+          return { ...d, players: old.players, games: old.games, weekRecapsByYear: old.weekRecapsByYear }
+        }
+        return d
+      }), recruitingWeekShiftsHere)
+      setSharedDynasties(migratedShared)
       persistRecruitingWeekShifts(recruitingWeekShiftsHere)
       // Live-sync the currently-open shared dynasty when another user writes.
       const openId = currentDynastyIdRef.current
