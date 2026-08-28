@@ -5278,98 +5278,6 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
   return needsConfirmation
 }
 
-// Walks (week, phase) forward using the SAME transition rules advanceWeek
-// uses (DynastyContext.jsx's advanceWeek, ~line 11022) — but as a pure
-// computation, not by invoking that function repeatedly. advanceWeek reads
-// dynasty state via closures over the provider's currentDynasty/dynasties —
-// calling it N times in a tight loop from another async function does NOT
-// see its own prior writes (each call still closes over the SAME pre-loop
-// state), so it can never walk forward more than one step no matter how
-// many times it's awaited. Recomputing the transition rules directly on
-// data already fetched fresh avoids that trap entirely.
-//
-// Used ONLY by the CFB27 (PC) sync — and for a PC dynasty, this walker is
-// the ONLY way the tracker's week/phase ever moves: the header's manual
-// "Advance Week" button is hidden entirely for isCfb27Auto dynasties
-// (Layout.jsx), replaced by "Sync from Save". An earlier version of this
-// function stopped the moment it would enter 'offseason' at all, then a
-// later version still paused at offseason week 4->5 (Signing Day) whenever
-// a player's games-played was unknown, mirroring handleAdvanceWeek's own
-// class/redshirt confirmation prompt (Layout.jsx ~line 683) — reasoning
-// that redshirt status needed a human decision the same way it does for a
-// CONSOLE dynasty, which has no save file to read it from. That reasoning
-// doesn't hold for PC: the save itself reports each player's real class
-// (redshirted or not) once the tracker's year actually rolls over and a
-// save from the new season gets synced — cfb27SaveSync.js writes
-// classByYear[year] straight from the save's own data on every sync
-// ("save always wins"), so whatever this walker or advanceWeek's carryover
-// logic guesses in the interim is provisional and gets corrected for free
-// the next time a new-season save is synced. Console users have to type
-// the answer in because nothing will ever correct it for them; PC users
-// never do. So this walker never stops mid-offseason at all — it carries a
-// PC dynasty straight through every offseason week to match whatever the
-// save reports. Never crosses the year itself — this function refuses to
-// run at all across a year mismatch (below) and offseason week 8 has no
-// further transition rule defined, so it can't run away past the last week
-// this walker models; the actual year rollover (advanceToNewSeason) is
-// separate, heavier machinery triggered elsewhere.
-export function computeCfb27SyncSeasonAdvance(startWeek, startPhase, targetYear, targetPhase, targetWeek, currentYear) {
-  const phaseOrder = ['preseason', 'regular_season', 'conference_championship', 'postseason', 'offseason']
-  let week = Number(startWeek)
-  let phase = startPhase
-  let reachedTarget = false
-
-  if (Number(currentYear) !== Number(targetYear)) {
-    // A year boundary is exactly the offseason->preseason transition this
-    // is deliberately not automating — leave it for the user.
-    return { week, phase, reachedTarget: false }
-  }
-
-  let iterations = 0
-  while (iterations < 60) {
-    if (phase === targetPhase && week === Number(targetWeek)) { reachedTarget = true; break }
-    const phaseIdx = phaseOrder.indexOf(phase)
-    const targetIdx = phaseOrder.indexOf(targetPhase)
-    if (phaseIdx > targetIdx) break // already past what the save reports — don't walk backwards
-    if (phase === targetPhase && week > Number(targetWeek)) {
-      // Already in the target phase but ahead of the fresh target week —
-      // can only happen if the previously-stored week was wrong (e.g. a
-      // since-fixed week-mapping bug). Counting up from here would just
-      // overshoot past this phase entirely and miss the target, so trust
-      // the save's own (authoritative) week label instead.
-      week = Number(targetWeek)
-      reachedTarget = true
-      break
-    }
-
-    let nextWeek = week + 1
-    let nextPhase = phase
-    // Mirrors advanceWeek's own phase-transition conditions exactly
-    // (DynastyContext.jsx ~11059-11198) — kept in sync manually since
-    // duplicating the transition RULES (not the side effects) is the
-    // deliberate tradeoff here.
-    if (phase === 'preseason' && nextWeek >= 1) {
-      nextPhase = 'regular_season'; nextWeek = 0
-    } else if (phase === 'regular_season' && nextWeek > 15) {
-      nextPhase = 'conference_championship'; nextWeek = 1
-    } else if (phase === 'conference_championship' && nextWeek > 1) {
-      nextPhase = 'postseason'; nextWeek = 1
-    } else if (phase === 'postseason' && nextWeek > 5) {
-      nextPhase = 'offseason'; nextWeek = 1
-    }
-    // No offseason->preseason rule here on purpose — see this function's
-    // header comment. Offseason week 7 is the last week it can ever reach;
-    // the year-mismatch guard above is what actually prevents this from
-    // ever needing to model crossing into a new year.
-
-    week = nextWeek
-    phase = nextPhase
-    iterations += 1
-  }
-
-  return { week, phase, reachedTarget }
-}
-
 /**
  * The Firestore update (if any) needed to capture this sync's "before
  * training camp" overall snapshot — pulled out as a small pure function
@@ -5385,7 +5293,7 @@ export function computeCfb27SyncSeasonAdvance(startWeek, startPhase, targetYear,
  * re-capture and corrupt the diff with an already-advanced "before" value.
  *
  * @param {object} dynasty - pre-sync dynasty (currentYear, overallBeforeTrainingByYear)
- * @param {{phase?: string, week?: number}|null} seasonAdvance - this sync's target position (computeCfb27SyncSeasonAdvance's result)
+ * @param {{phase?: string, week?: number}|null} seasonAdvance - this sync's target position (the save's own reported phase/week)
  * @param {Array<{pid: number, overallByYear?: object}>} freshPlayers - server-confirmed pre-sync roster
  * @returns {{overallBeforeTrainingByYear?: object}} spread straight into the sync's write payload; empty object when no capture is due
  */
@@ -10491,35 +10399,30 @@ export function DynastyProvider({ children }) {
       return
     }
 
-    // HARD STOP on a year mismatch, before anything is computed or written.
-    // Every part of this sync keys its writes to dynasty.currentYear
-    // (buildSyncPlan's very first line), while the year ROLLOVER is
-    // deliberately manual (computeCfb27SyncSeasonAdvance refuses to cross
-    // it). Those two facts combined made syncing a next-season save
-    // destructive: the 2027 schedule was written INTO 2026, deleting last
-    // season's real games via the schedule diff and CPU-game prune — a real
-    // user lost their previous season's results this way ("it loads the
-    // schedule but it just overwrites the previous one still saying 2026").
-    // The save's SeasonYear only increments once the new season actually
-    // starts, so in normal play (offseason included) the years always match
-    // and this never fires.
+    // 2026-08-28: PC sync durability redesign. This used to HARD STOP the
+    // whole sync on any year mismatch, because every part of this sync used
+    // to key its writes to dynasty.currentYear regardless of what the save
+    // itself reported — so syncing a next-season save while currentYear
+    // hadn't caught up wrote the new season's data INTO the old year,
+    // deleting last season's real games via the schedule diff and CPU-game
+    // prune (a real user lost their previous season's results this way).
+    // That stop, in turn, created a worse dead end: PC dynasties have no
+    // manual "Advance Week," so sync is the ONLY way currentYear could ever
+    // move — and nothing ever actually wrote it forward (seasonFieldUpdates
+    // below only ever set currentWeek/currentPhase), so the very first time
+    // a save's own reported year ticked forward, every future sync would
+    // hit this same stop and refuse, forever, with no way out.
+    //
+    // The actual fix is to stop keying by the stale dynasty.currentYear at
+    // all and key every write in this sync by syncYear (the save's own
+    // reported year, resolved below) instead. Once every write is correctly
+    // attributed to the year it's actually FOR, an old or skipped-ahead save
+    // can't misattribute data into the wrong year's records any more — it
+    // either writes fresh data under its own year, and the risk this stop
+    // existed for is gone by construction, not by refusing to sync.
     const saveYear = Number(parsed?.season?.year)
     const trackerYear = Number(dynasty.currentYear)
-    if (Number.isFinite(saveYear) && Number.isFinite(trackerYear) && saveYear !== trackerYear) {
-      if (saveYear > trackerYear) {
-        throw new Error(
-          `This save is in ${saveYear}, but the tracker is still in ${trackerYear}. ` +
-          `Nothing was synced. Finish out ${trackerYear} in the tracker (advance through the ` +
-          `offseason and start the ${saveYear} season), then run this sync again — syncing a ` +
-          `next-season save early would overwrite last season's schedule and results.`
-        )
-      }
-      throw new Error(
-        `This save is from ${saveYear}, but the tracker is already in ${trackerYear}. ` +
-        `Nothing was synced. This looks like an older save file (or the wrong dynasty's save) — ` +
-        `upload a current save from this dynasty instead.`
-      )
-    }
+    const syncYear = Number.isFinite(saveYear) ? saveYear : trackerYear
 
     // CRITICAL: dynasty.players/.games (from findDynastyById, a plain state
     // lookup) are NOT guaranteed to hold the full, current subcollection
@@ -10556,7 +10459,10 @@ export function DynastyProvider({ children }) {
     // existed in the server's copy. Cloud dynasties force a real server
     // read to close that gap; local (IndexedDB) dynasties have no such
     // cache-vs-server split, so `dynasty` is already authoritative.
-    let dynastyForPlan = { ...dynasty, players: freshPlayers, games: freshGames }
+    // currentYear here is syncYear, not the stale pre-sync dynasty.currentYear
+    // — see the durability-redesign comment above the hard-stop's old spot:
+    // every write in this sync needs to key by the year it's actually FOR.
+    let dynastyForPlan = { ...dynasty, currentYear: syncYear, players: freshPlayers, games: freshGames }
     if (dynasty.storageType === 'cloud' && freshDynastyDoc) {
       dynastyForPlan = {
         ...dynastyForPlan,
@@ -10568,21 +10474,24 @@ export function DynastyProvider({ children }) {
       }
     }
     await enterPhase('buildPlan', 'Loading current roster & games…')
-    // Computed here (moved earlier than where it used to run, right after
-    // this same buildSyncPlan call) so buildSyncPlan can gate roster
-    // ARRIVALS the same explicit way departuresPossible already gates
-    // departures — see reconcilePlayers' own comment on
-    // rosterArrivalsPossible for why an explicit, coded rule beats relying
-    // on save-file timing alone. Pure/read-only (doesn't write anything),
-    // so hoisting it has no side effects; its result is reused below for
-    // seasonFieldUpdates instead of recomputing.
+    // 2026-08-28: PC sync durability redesign — no more walker. It used to
+    // step currentWeek/currentPhase toward the save's reported position one
+    // phase-transition at a time, refusing to move at all if the step
+    // "looked backward" (phaseOrder treats preseason as coming before
+    // offseason in one season's own cycle, which made a legitimate
+    // offseason -> next year's preseason transition indistinguishable from a
+    // genuine regression without a pile of narrow exceptions — see this
+    // file's git history from today for that whole saga). When nothing
+    // blocked it, the walker's result always converged to exactly what the
+    // save reports anyway, so the ONLY thing it added on top of "trust the
+    // save directly" was that refusal. Same principle as everywhere else in
+    // this sync (players, games, stats: "save always wins") — just trust it,
+    // with a real backup/restore (restoreDynastyFromBackupReplace) as the
+    // actual recovery path if a wrong/stale save ever gets synced, instead
+    // of a phase-order guess trying to catch it ahead of time.
     const earlySeasonInfo = mapSeasonInfo(parsed.season)
     const seasonAdvance = earlySeasonInfo
-      ? computeCfb27SyncSeasonAdvance(
-          dynasty.currentWeek, dynasty.currentPhase,
-          earlySeasonInfo.year, earlySeasonInfo.phase, earlySeasonInfo.week,
-          dynasty.currentYear
-        )
+      ? { phase: earlySeasonInfo.phase, week: Number(earlySeasonInfo.week), year: syncYear, reachedTarget: true }
       : null
     const plan = buildSyncPlan(dynastyForPlan, parsed, {
       targetPhase: seasonAdvance?.phase ?? null,
@@ -10613,10 +10522,10 @@ export function DynastyProvider({ children }) {
     let mergedGames = freshGames
     let scheduleDiff = { updatedSchedule: [] }
     if (plan.scheduleForUserTeam?.length) {
-      scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, dynasty.currentYear, { protectPlayed: true, lockedThroughWeek: plan.gamesLockBoundary })
+      scheduleDiff = computeScheduleDiff(dynastyForPlan, plan.scheduleForUserTeam, dynasty.currentTid, syncYear, { protectPlayed: true, lockedThroughWeek: plan.gamesLockBoundary })
       mergedGames = applyScheduleDiff(freshGames, scheduleDiff)
     }
-    mergedGames = applyCfb27GameScores(mergedGames, plan.gameScoresForUserTeam, plan.boxScoresByWeek, Number(dynasty.currentYear))
+    mergedGames = applyCfb27GameScores(mergedGames, plan.gameScoresForUserTeam, plan.boxScoresByWeek, syncYear)
 
     // Denormalized schedule copy — getCurrentSchedule (and the Dashboard's
     // own "Schedule" panel) reads teams[tid].byYear[year].schedule directly,
@@ -10633,12 +10542,12 @@ export function DynastyProvider({ children }) {
       const tidKey = String(dynasty.currentTid)
       const userTeam = teamsBase[tidKey]
       if (userTeam) {
-        const yearData = userTeam.byYear?.[dynasty.currentYear] || {}
+        const yearData = userTeam.byYear?.[syncYear] || {}
         plan.mergedTeams = {
           ...teamsBase,
           [tidKey]: {
             ...userTeam,
-            byYear: { ...userTeam.byYear, [dynasty.currentYear]: { ...yearData, schedule: scheduleDiff.updatedSchedule } },
+            byYear: { ...userTeam.byYear, [syncYear]: { ...yearData, schedule: scheduleDiff.updatedSchedule } },
           },
         }
       }
@@ -10710,9 +10619,9 @@ export function DynastyProvider({ children }) {
     // teams still show 0-0 conference record" surviving multiple
     // deploys/syncs of that other fix.
     const teamsForConf = plan.mergedTeams || dynasty.teams
-    const customConferencesForSync = getCustomConferencesForYear({ ...dynastyForPlan, teams: teamsForConf }, dynasty.currentYear)
+    const customConferencesForSync = getCustomConferencesForYear({ ...dynastyForPlan, teams: teamsForConf }, syncYear)
     mergedGames = mergedGames.map((g) => {
-      if (Number(g.year) !== Number(dynasty.currentYear) || (g.gameType || 'regular') !== 'regular') return g
+      if (Number(g.year) !== syncYear || (g.gameType || 'regular') !== 'regular') return g
       // Locked week — leave its classification exactly as it was written,
       // even if a mid-season conference realignment would now compute it
       // differently. See the games lock boundary above.
@@ -10728,7 +10637,7 @@ export function DynastyProvider({ children }) {
     })
     await enterPhase('recalcStats', 'Applying game results…')
 
-    const statsYear = Number(dynasty.currentYear)
+    const statsYear = syncYear
 
     // Reconcile the roster (arrivals/departures/rating & class patches from
     // plan) against mergedGames' box scores ONCE, here — both storage
@@ -10748,20 +10657,27 @@ export function DynastyProvider({ children }) {
     // on the games unread and every stats page stays empty.
     const mergedPlayers = recalculateStatsFromBoxScores([...existingByPid.values()], mergedGames, statsYear)
 
-    // Auto-advance currentWeek/currentPhase to match the save's own season
-    // state — computed here (pure function, not by invoking advanceWeek)
+    // Auto-advance currentWeek/currentPhase/currentYear to match the save's
+    // own season state — computed here (pure, not by invoking advanceWeek)
     // and folded into the SAME write below, so the header/checklist agree
     // with the data just written in this same call rather than needing a
     // separate "Advance Week" click. Reuses seasonAdvance (computed earlier,
     // right before buildSyncPlan, for the roster-arrivals gate) instead of
-    // recomputing it — same pure inputs, so the result is identical either
-    // way; no reason to walk the transition rules twice.
+    // recomputing it. currentYear is included now (it never used to be —
+    // see the durability-redesign comment above buildSyncPlan): without it,
+    // dynasty.currentYear would never move for a PC dynasty at all, and the
+    // next sync's syncYear resolution would have nothing real to fall back
+    // on if a save ever came back without a readable year.
     let reachedTargetSeason = false
     let seasonFieldUpdates = {}
     if (plan.seasonInfo && seasonAdvance) {
       reachedTargetSeason = seasonAdvance.reachedTarget
-      if (seasonAdvance.week !== Number(dynasty.currentWeek) || seasonAdvance.phase !== dynasty.currentPhase) {
-        seasonFieldUpdates = { currentWeek: seasonAdvance.week, currentPhase: seasonAdvance.phase }
+      if (
+        seasonAdvance.week !== Number(dynasty.currentWeek) ||
+        seasonAdvance.phase !== dynasty.currentPhase ||
+        seasonAdvance.year !== Number(dynasty.currentYear)
+      ) {
+        seasonFieldUpdates = { currentWeek: seasonAdvance.week, currentPhase: seasonAdvance.phase, currentYear: seasonAdvance.year }
       }
     }
 
@@ -10797,22 +10713,22 @@ export function DynastyProvider({ children }) {
     let playersOfWeekUpdate = {}
     if (plan.playersOfWeekUpdate && Object.keys(plan.playersOfWeekUpdate).length) {
       const existingByYear = dynasty.playersOfWeekByYear || {}
-      const existingForYear = existingByYear[dynasty.currentYear] || {}
+      const existingForYear = existingByYear[syncYear] || {}
       playersOfWeekUpdate = {
         playersOfWeekByYear: {
           ...existingByYear,
-          [dynasty.currentYear]: { ...existingForYear, ...plan.playersOfWeekUpdate },
+          [syncYear]: { ...existingForYear, ...plan.playersOfWeekUpdate },
         },
       }
     }
     let heismanWatchUpdate = {}
     if (plan.heismanWatchUpdate && Object.keys(plan.heismanWatchUpdate).length) {
       const existingByYear = dynasty.heismanWatchByYear || {}
-      const existingForYear = existingByYear[dynasty.currentYear] || {}
+      const existingForYear = existingByYear[syncYear] || {}
       heismanWatchUpdate = {
         heismanWatchByYear: {
           ...existingByYear,
-          [dynasty.currentYear]: { ...existingForYear, ...plan.heismanWatchUpdate },
+          [syncYear]: { ...existingForYear, ...plan.heismanWatchUpdate },
         },
       }
     }
@@ -10841,8 +10757,8 @@ export function DynastyProvider({ children }) {
       const nextByTeamYear = { ...existingByTeamYear }
       for (const [tid, results] of Object.entries(plan.draftResultsUpdate)) {
         const teamAbbr = getAbbrFromTid(plan.mergedTeams || dynasty.teams, Number(tid))
-        nextByTeamYear[tid] = { ...(nextByTeamYear[tid] || {}), [dynasty.currentYear]: results }
-        if (teamAbbr) nextByTeamYear[teamAbbr] = { ...(nextByTeamYear[teamAbbr] || {}), [dynasty.currentYear]: results }
+        nextByTeamYear[tid] = { ...(nextByTeamYear[tid] || {}), [syncYear]: results }
+        if (teamAbbr) nextByTeamYear[teamAbbr] = { ...(nextByTeamYear[teamAbbr] || {}), [syncYear]: results }
       }
       draftResultsUpdate = { draftResultsByTeamYear: nextByTeamYear }
 
@@ -10854,10 +10770,10 @@ export function DynastyProvider({ children }) {
         const tidKey = String(tid)
         const team = teamsWithDraftResults[tidKey]
         if (!team) continue
-        const yearData = team.byYear?.[dynasty.currentYear] || {}
+        const yearData = team.byYear?.[syncYear] || {}
         teamsWithDraftResults[tidKey] = {
           ...team,
-          byYear: { ...team.byYear, [dynasty.currentYear]: { ...yearData, draftResults: results } },
+          byYear: { ...team.byYear, [syncYear]: { ...yearData, draftResults: results } },
         }
       }
       plan.mergedTeams = teamsWithDraftResults
@@ -10880,10 +10796,10 @@ export function DynastyProvider({ children }) {
       const existingByYear = dynasty.playersLeavingByYear || {}
       const existingByTeamYear = dynasty.playersLeavingByTeamYear || {}
       playersLeavingUpdate = {
-        playersLeavingByYear: { ...existingByYear, [dynasty.currentYear]: plan.playersLeavingUpdate },
+        playersLeavingByYear: { ...existingByYear, [syncYear]: plan.playersLeavingUpdate },
         playersLeavingByTeamYear: {
           ...existingByTeamYear,
-          [teamAbbr]: { ...(existingByTeamYear[teamAbbr] || {}), [dynasty.currentYear]: plan.playersLeavingUpdate },
+          [teamAbbr]: { ...(existingByTeamYear[teamAbbr] || {}), [syncYear]: plan.playersLeavingUpdate },
         },
       }
     }
@@ -10895,7 +10811,7 @@ export function DynastyProvider({ children }) {
     // shifting sync to sync right up until it's actually resolved, and a
     // stale entry from an earlier sync would otherwise sit there forever.
     const leagueDraftResultsUpdate = plan.leagueDraftResultsUpdate
-      ? { leagueDraftResultsByYear: { ...(dynasty.leagueDraftResultsByYear || {}), [dynasty.currentYear]: plan.leagueDraftResultsUpdate } }
+      ? { leagueDraftResultsByYear: { ...(dynasty.leagueDraftResultsByYear || {}), [syncYear]: plan.leagueDraftResultsUpdate } }
       : {}
 
     // Real CFP seed list + bowl-host config — mirrors CFPSeedsModal's exact
@@ -10908,7 +10824,7 @@ export function DynastyProvider({ children }) {
     let cfpSeedsUpdate = {}
     if (plan.cfpSeedsUpdate) {
       const { seeds, bowlConfig } = plan.cfpSeedsUpdate
-      const year = dynasty.currentYear
+      const year = syncYear
       const seedsWithTid = {}
       for (const s of seeds) seedsWithTid[s.seed] = s.tid
       cfpSeedsUpdate = {
@@ -10928,7 +10844,7 @@ export function DynastyProvider({ children }) {
     // sync has no verified data for (e.g. a coach award) is never clobbered.
     let honorsUpdate = {}
     if (plan.allAmericansUpdate) {
-      const year = dynasty.currentYear
+      const year = syncYear
       const existingByYear = dynasty.allAmericansByYear || {}
       const existingYearData = existingByYear[year] || {}
       honorsUpdate.allAmericansByYear = {
@@ -10937,7 +10853,7 @@ export function DynastyProvider({ children }) {
       }
     }
     if (plan.awardsUpdate) {
-      const year = dynasty.currentYear
+      const year = syncYear
       const existingByYear = dynasty.awardsByYear || {}
       const existingYearData = existingByYear[year] || {}
       honorsUpdate.awardsByYear = {
@@ -19949,6 +19865,99 @@ export function DynastyProvider({ children }) {
     return { success: true, playersAdded, gamesAdded, extraFieldsFilled, playersTotal: mergedPlayers.length, gamesTotal: mergedGamesResult.length }
   }
 
+  // Restore from a downloaded backup file — a TRUE restore, not a merge.
+  // PC (CFB27 auto-sync) only — see the isPcAutoDynasty check inside. The
+  // backup wins on every field it carries: players/games/every ...ByYear
+  // map get REPLACED wholesale with the backup's content (anything not in
+  // the backup, including orphaned players/games, is deleted, not just left
+  // alone). restoreDynastyFromBackup above can only ever ADD, so it can't
+  // fix a value that's already wrong (e.g. a bad sync that overwrote real
+  // data rather than just failing to add it) — this is the actual undo
+  // button for that. The tradeoff is real and unavoidable: anything created
+  // or changed after the backup was taken is lost, same as restoring any
+  // point-in-time snapshot. Excludes ownership/access/sharing/storage/list-
+  // organization fields — a season-data snapshot should never change who
+  // owns or can edit this dynasty, whether/how it's shared, where it's
+  // stored, or whether the user starred it in their list. Same set
+  // processImportData strips for the exact same reason (import creates a
+  // separate dynasty rather than writing into this one, but the fields that
+  // shouldn't carry over are identical) — plus editors/memberTeams/
+  // memberLabels/memberTeamHistory, which import instead reassigns to the
+  // importer rather than stripping, but which a restore into the SAME
+  // dynasty must leave alone: membership can legitimately change between
+  // when a backup was taken and now, and a restore isn't a membership event.
+  const RESTORE_REPLACE_EXCLUDED_FIELDS = new Set([
+    'id', '_firestoreId', 'userId', 'editors', 'storageType', 'createdAt', 'lastModified',
+    'shareCode', 'isPublic', 'googleSheetsByTeam', 'favorite',
+    'memberTeams', 'memberLabels', 'memberTeamHistory',
+  ])
+  const restoreDynastyFromBackupReplace = async (dynastyId, jsonFile) => {
+    if (blockIfReadOnly(dynastyId, 'restore from backup')) return { success: false, error: 'This dynasty is read-only.' }
+
+    // PC-only. A console dynasty's data is entirely hand-entered — there's
+    // no automated sync that could "get something messed up" the way a
+    // wrong/stale CFB27 save sync can, and wholesale replacing a manually-
+    // maintained dynasty with an old snapshot is a much bigger footgun than
+    // benefit for that workflow. restoreDynastyFromBackup above (fill-gaps,
+    // never overwrites) stays available to everyone. Checked here, not just
+    // hidden in the UI, so this can't be invoked on a console dynasty by any
+    // other path either.
+    const target = (String(currentDynasty?.id) === String(dynastyId))
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!target) return { success: false, error: 'Target dynasty not found.' }
+    if (!isPcAutoDynasty(target)) {
+      return { success: false, error: 'Replace with Backup is only available for CFB27 (PC) dynasties.' }
+    }
+
+    let backup
+    try {
+      const raw = await jsonFile.text()
+      backup = JSON.parse(raw)
+    } catch (err) {
+      return { success: false, error: 'Could not read that file — is it a dynasty backup JSON?' }
+    }
+    if (!backup || typeof backup !== 'object') {
+      return { success: false, error: 'That file doesn\'t look like a dynasty backup.' }
+    }
+    // Refuse rather than silently wipe players/games if the file's shape
+    // looks wrong for these two highest-stakes fields.
+    if ('players' in backup && !Array.isArray(backup.players)) {
+      return { success: false, error: 'That backup\'s player data looks corrupted — refusing to restore.' }
+    }
+    if ('games' in backup && !Array.isArray(backup.games)) {
+      return { success: false, error: 'That backup\'s game data looks corrupted — refusing to restore.' }
+    }
+
+    const updates = {}
+    for (const [key, value] of Object.entries(backup)) {
+      if (RESTORE_REPLACE_EXCLUDED_FIELDS.has(key)) continue
+      updates[key] = value
+    }
+    if (Object.keys(updates).length === 0) {
+      return { success: false, error: 'Nothing restorable found in that backup.' }
+    }
+
+    try {
+      // forceOverwrite: true is what makes this a REPLACE, not a merge — it
+      // bypasses updateDynasty's normal players/games diff (which only ever
+      // writes changed docs and deletes the removed ids it detects from a
+      // diff against the CURRENT live roster) and instead does a full
+      // rewrite with deleteOrphans, so anything live has that the backup
+      // doesn't is actually removed.
+      await updateDynasty(dynastyId, updates, { forceOverwrite: true })
+    } catch (err) {
+      console.error('[restoreDynastyFromBackupReplace] write failed:', err)
+      return { success: false, error: 'Failed while writing the restored data into this dynasty.' }
+    }
+
+    return {
+      success: true,
+      playersTotal: Array.isArray(backup.players) ? backup.players.length : 0,
+      gamesTotal: Array.isArray(backup.games) ? backup.games.length : 0,
+    }
+  }
+
   // Delete a player from the dynasty
   // Adds a 'removed' movement to track the deletion before removing
   const deletePlayer = async (dynastyId, playerPid) => {
@@ -20544,13 +20553,19 @@ export function DynastyProvider({ children }) {
     // — which is exactly the false alarm a beta user hit on UK_2034_Week12.
     if (dynasty.storageType === 'cloud') {
       try {
-        // Pull EVERY subcollection the dynasty fanned off its main doc, or
-        // the backup silently loses whatever we skip. Social + the Recruiting
-        // Database were previously omitted here — so a cloud-dynasty export
-        // produced a JSON with zero social universe and (for a dynasty not
-        // opened this session) no recruiting database. Import already writes
-        // all of these back, so the round-trip must export them too.
-        const [players, games, weekRecaps, seasonalRehydrated, socialFeed, socialChars, recruitingDb] = await Promise.all([
+        // 2026-08-28: also force a real server read of the MAIN doc itself
+        // (getDynastyFromServer — same helper syncDynastyFromCFB27Save uses
+        // for the identical reason, see its own header comment), not just
+        // the subcollections. Without this, every field that lives directly
+        // on the main doc — teams, rivalries, cfpSeedsByYearTid, currentWeek/
+        // currentPhase/currentYear, coachPosition, newJobData, etc. — came
+        // from whatever `dynasty` already was in React state, which can be a
+        // cache-first snapshot a moment behind Firestore (e.g. right after a
+        // sync, before the listener catches up). A backup taken in that
+        // window would look complete but silently carry stale main-doc
+        // fields — exactly the gap restoreDynastyFromBackupReplace's "true
+        // restore" can't afford, since it trusts this file completely.
+        const [players, games, weekRecaps, seasonalRehydrated, socialFeed, socialChars, recruitingDb, freshMainDoc] = await Promise.all([
           getPlayersSubcollection(dynasty.id),
           getGamesSubcollection(dynasty.id),
           getWeekRecapsSubcollection(dynasty.id),
@@ -20558,14 +20573,23 @@ export function DynastyProvider({ children }) {
           getSocialFeedSubcollection(dynasty.id),
           getSocialCharactersSubcollection(dynasty.id),
           getRecruitingDatabaseSubcollection(dynasty.id),
+          getDynastyFromServer(dynasty.id).catch((err) => {
+            console.error('Failed to fetch fresh main doc for export:', err)
+            return null
+          }),
         ])
 
-        // Merge fresh data with dynasty. Seasonal fields are merged
-        // back into their legacy ByYear / ByTeamYear shapes so the
-        // export is shape-compatible with backups taken before the
-        // subcollection migration — old re-imports keep working.
+        // Merge fresh data with dynasty. freshMainDoc goes in FIRST so every
+        // main-doc field it carries overrides the possibly-stale React-state
+        // copy; the subcollection results layer on top since freshMainDoc
+        // itself won't have them (they're routed off the main doc entirely).
+        // Seasonal fields are merged back into their legacy ByYear /
+        // ByTeamYear shapes so the export is shape-compatible with backups
+        // taken before the subcollection migration — old re-imports keep
+        // working.
         dynasty = {
           ...dynasty,
+          ...(freshMainDoc || {}),
           players: players || [],
           games: games || [],
           weekRecapsByYear: weekRecaps || {},
@@ -22427,6 +22451,7 @@ export function DynastyProvider({ children }) {
     recoverRecruitData,
     recoverRosterData,
     restoreDynastyFromBackup,
+    restoreDynastyFromBackupReplace,
     deletePlayer,
     getDynastyPlayers,
     syncAllPlayersStats,

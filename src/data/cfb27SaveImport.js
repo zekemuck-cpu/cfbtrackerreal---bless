@@ -968,10 +968,10 @@ export function mapSeasonInfo(rawSeason) {
   // CurrentWeek is ONE CONTINUOUS COUNT across the whole season (verified
   // up to 21 in a real save — RegularSeason 1-15, ConferenceChampionship at
   // 16, BowlSeason1/2/3 at 17-19+) — but the app's own week/phase engine
-  // (computeCfb27SyncSeasonAdvance / advanceWeek) expects a PHASE-RELATIVE
-  // week instead (conference championship is always week 1; postseason
-  // counts 1-4/5 from the start of bowl season), or it can never actually
-  // reach the target and the sync silently stalls. Converted using the
+  // (DynastyContext.jsx's advanceWeek and the CFB27 sync) expects a
+  // PHASE-RELATIVE week instead (conference championship is always week 1;
+  // postseason counts 1-4/5 from the start of bowl season), or downstream
+  // week/phase comparisons never actually line up. Converted using the
   // save's own boundary markers rather than a hardcoded offset, so this
   // stays correct even if a save's regular-season length ever differs from
   // this year's default (15 weeks + week-16 CCG).

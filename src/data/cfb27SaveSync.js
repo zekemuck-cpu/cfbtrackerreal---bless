@@ -1798,7 +1798,7 @@ export function findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamI
  * @param {object} parsed - the raw result from api/cfb27-save-parse.js
  */
 // Offseason weeks (the app's own numbering — DynastyContext.jsx's
-// computeCfb27SyncSeasonAdvance/advanceWeek convention, e.g. week 6 =
+// advanceWeek convention, e.g. week 6 =
 // National Signing Day) where new players are allowed to fully join the
 // roster for the first time. An explicit, coded allowlist rather than
 // relying on the save simply not having the data early — the same "never
@@ -1814,15 +1814,14 @@ const ROSTER_ARRIVAL_OFFSEASON_WEEKS = [6]
  * pulled out as a small pure function specifically so it's unit-testable
  * without a full buildSyncPlan/dynasty fixture.
  *
- * targetPhase/targetWeek are the TRACKER's own confirmed position this
- * sync is landing on (computeCfb27SyncSeasonAdvance's result, computed by
- * the caller BEFORE buildSyncPlan runs — see syncDynastyFromCFB27Save),
- * not anything read from the save directly. Deliberately the tracker's own
- * walked position, same reasoning as computeGamesLockBoundary: the save's
- * raw week numbering isn't guaranteed to line up with the app's own
- * offseason week convention (it doesn't, in fact — mapSeasonInfo only maps
- * regular-season/CCG/postseason weeks into the app's numbering, not
- * offseason ones).
+ * targetPhase/targetWeek are the save's own reported phase/week, already
+ * run through mapSeasonInfo by the caller (BEFORE buildSyncPlan runs — see
+ * syncDynastyFromCFB27Save), not the raw save numbering directly. Same
+ * reasoning as computeGamesLockBoundary: the save's raw week numbering
+ * isn't guaranteed to line up with the app's own offseason week convention
+ * (it doesn't, in fact — mapSeasonInfo only maps regular-season/CCG/
+ * postseason weeks into the app's numbering, not offseason ones, which the
+ * save already numbers the same way the app does).
  *
  * A dynasty with no existing CFB27-tracked players yet (its very first
  * sync) is never gated — there is no "too early" for a roster that doesn't

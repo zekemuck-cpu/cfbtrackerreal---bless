@@ -7880,6 +7880,18 @@ export default function Dashboard() {
               // answer — not shown at all for PC-mode dynasties, matching
               // the simplified spec, which has no equivalent row here.
               const w8Todos = []
+              if (isCfb27Auto) {
+                const reviewRosterTid = getUserTeamTid(currentDynasty)
+                w8Todos.push(pcViewTodo({
+                  key: 'review-roster-pc',
+                  done: true,
+                  title: 'Review Roster',
+                  subtitle: 'Synced from your save',
+                  url: reviewRosterTid != null
+                    ? `${pathPrefix}/team/${reviewRosterTid}/${currentDynasty.currentYear}?tab=roster`
+                    : null,
+                }))
+              }
               if (!isCfb27Auto) {
                 const userTid = getUserTeamTid(currentDynasty)
                 const upcomingSeasonYear = currentDynasty.currentYear
