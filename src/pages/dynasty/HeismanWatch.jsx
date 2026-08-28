@@ -10,6 +10,7 @@ import { getPlayerTid } from '../../data/rosterModel'
 import { currentPollRank } from '../../utils/teamRanking'
 import { HonorPlayerTile } from '../../components/HonorsUI'
 import { PageHero, Card, EmptyState, TitleWithYear, Select } from '../../components/ui'
+import { APP_PRESEASON_WEEK } from '../../data/cfb27SaveImport'
 
 // This candidate's most recent played game AT OR BEFORE the week being
 // viewed (not just "most recent in the whole season" — viewing an older
@@ -193,7 +194,7 @@ export default function HeismanWatch() {
         }
         right={hasWeeks && (
           <Select value={activeWeek ?? ''} onChange={(e) => setWeek(Number(e.target.value))} size="sm">
-            {availableWeeks.map((w) => <option key={w} value={w}>Week {w}</option>)}
+            {availableWeeks.map((w) => <option key={w} value={w}>{w === APP_PRESEASON_WEEK ? 'Preseason' : `Week ${w}`}</option>)}
           </Select>
         )}
       />

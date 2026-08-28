@@ -8,13 +8,18 @@
  *
  *   2. buildPreseasonRecapPrompt(dynasty, year)
  *      — Forward-looking preseason narrative built on past seasons + a saved
- *        preseason Top 25 (if one was entered). Used at week 0.
+ *        preseason Top 25 (if one was entered). Used at week -1 (preseason).
  *
  *   3. buildPreseasonTop25Prompt(dynasty, year)
  *      — The user is filling a Top-25 entry sheet for the upcoming season; this
  *        prompt asks the AI to suggest a Top 25 from the prior-season data the
  *        dynasty actually contains (no real-world rosters, no transfers we
  *        don't track).
+ *
+ *   4. buildWeekPreviewPrompt(dynasty, year, week)
+ *      — Forward-looking preview of a single upcoming week's national
+ *        schedule (no results — nothing's been played yet). Used at week 0
+ *        to preview Week 1, the season opener.
  *
  * All prompt outputs are plain text with explicit guidance to wrap the
  * narrative in a fenced markdown block (matches the FormattedRecap renderer's
@@ -1687,6 +1692,128 @@ export function buildPreseasonRecapPrompt(dynasty, year) {
     ``,
     `If the data block is sparse (early dynasty, no prior history), keep the preview SHORT. Three or four paragraphs is plenty.`,
     `If a section's data block is empty, skip it entirely. Do not write filler.`,
+    ``,
+    OUTPUT_FORMAT.trim(),
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `DATA — every fact you may use`,
+    `═══════════════════════════════════════════════════════════`,
+    dataBlock,
+  ].join('\n')
+}
+
+// ---------------------------------------------------------------------------
+// 2b) WEEK PREVIEW — a single upcoming week's national schedule, previewed
+//     before any of it is played. No results exist yet by definition, so this
+//     is schedule + entering-week rankings only, never box scores. Currently
+//     only wired up for Week 1 (the season opener, shown on Week 0's
+//     dashboard — see Dashboard.jsx) but takes `week` generically in case a
+//     later week ever wants the same treatment.
+// ---------------------------------------------------------------------------
+
+export function buildWeekPreviewPrompt(dynasty, year, week) {
+  const yearNum = Number(year)
+  const weekNum = Number(week)
+  const weekLabel = `Week ${weekNum}`
+
+  const games = (dynasty?.games || []).filter(g =>
+    g && Number(g.year) === yearNum && Number(g.week) === weekNum
+  )
+
+  // Entering-week rank: the poll in effect heading into this week. Falls
+  // back through preseason (-1, the APP_PRESEASON_WEEK sentinel — see
+  // cfb27SaveImport.js) if this week's own poll hasn't synced yet, same
+  // fallback order WeeklyScoresModal's prior-poll block uses.
+  const isRanked = (n) => typeof n === 'number' && n >= 1 && n <= 25
+  const rankFor = (tid) => {
+    const team = dynasty?.teams?.[tid]
+    const rbw = team?.byYear?.[yearNum]?.rankByWeek
+    if (!rbw) return null
+    for (const w of [weekNum, -1, 0]) {
+      const v = rbw[w] ?? rbw[String(w)]
+      if (isRanked(v)) return v
+    }
+    return null
+  }
+
+  const top25vTop25 = []
+  const top25vUnranked = []
+  const everyGameLine = []
+  for (const g of games) {
+    const r1 = rankFor(g.team1Tid)
+    const r2 = rankFor(g.team2Tid)
+    const line = {
+      t1: teamDisplay(g.team1Tid, g.team1, dynasty), r1,
+      t2: teamDisplay(g.team2Tid, g.team2, dynasty), r2,
+      neutral: g.homeTeamTid == null,
+    }
+    if (isRanked(r1) && isRanked(r2)) top25vTop25.push(line)
+    else if (isRanked(r1) || isRanked(r2)) top25vUnranked.push(line)
+    else everyGameLine.push(line)
+  }
+
+  const fmtLine = (l) => {
+    const t1 = l.r1 ? `#${l.r1} ${l.t1}` : l.t1
+    const t2 = l.r2 ? `#${l.r2} ${l.t2}` : l.t2
+    return `${t1} vs ${t2}${l.neutral ? ' (neutral site)' : ''}`
+  }
+
+  const sections = []
+  sections.push(`${weekLabel.toUpperCase()} — UPCOMING SCHEDULE, ${yearNum}`)
+  sections.push('')
+
+  if (top25vTop25.length > 0) {
+    sections.push('RANKED vs RANKED')
+    for (const l of top25vTop25) sections.push(fmtLine(l))
+    sections.push('')
+  }
+  if (top25vUnranked.length > 0) {
+    sections.push('RANKED vs UNRANKED')
+    for (const l of top25vUnranked) sections.push(fmtLine(l))
+    sections.push('')
+  }
+  if (everyGameLine.length > 0) {
+    sections.push('EVERY OTHER GAME')
+    for (const l of everyGameLine) sections.push(fmtLine(l))
+    sections.push('')
+  }
+  if (games.length === 0) {
+    sections.push(`(no ${weekLabel} schedule has been entered/synced yet for ${yearNum} — do not invent one)`)
+    sections.push('')
+  }
+
+  const alignmentBlock = conferenceAlignmentBlock(dynasty, yearNum)
+  if (alignmentBlock) {
+    sections.push(`CONFERENCE ALIGNMENT (${yearNum}) — THIS OVERRIDES YOUR REAL-WORLD KNOWLEDGE`)
+    sections.push(`(Use these conference assignments verbatim. Do not assign any team to a conference based on real life — only what's listed below counts.)`)
+    sections.push(alignmentBlock)
+    sections.push('')
+  }
+
+  const dataBlock = sections.join('\n')
+
+  return [
+    `You are writing a national ${weekLabel} preview for the ${yearNum} College Football season, published BEFORE any games this week are played.`,
+    ``,
+    `This is a NATIONAL preview, not a single team's storyline. Lead with the marquee ranked matchups, then touch on any other games worth a line. The reader is a college football fan scanning what to watch this week.`,
+    ``,
+    `Tone: a "what to watch this week" column from a major outlet, confident about matchup stakes but making zero claims about results — nothing below has been played yet.`,
+    ``,
+    FACTUAL_GUARDRAIL.trim(),
+    ``,
+    CONFERENCE_GUARDRAIL.trim(),
+    ``,
+    `CRITICAL: do not invent a score, a winner, a final result, or any in-game detail (a play, a stat line, an injury) for ANY game listed below. These games have not happened yet. Write about stakes, storylines, and what a win or loss would mean, never what happened.`,
+    ``,
+    `═══════════════════════════════════════════════════════════`,
+    `PROSE DISCIPLINE — keep this short list in mind while drafting`,
+    `═══════════════════════════════════════════════════════════`,
+    `• Em-dashes: NEVER use an em dash (—). Use a comma, colon, parentheses, or a separate sentence instead.`,
+    `• Sentence rhythm: within every paragraph, at least one sentence ≤ 8 words AND at least one sentence ≥ 25 words.`,
+    `• NO FOURTH-WALL COMMENTARY. You are a sports journalist previewing the week, not an AI summarizing a data file. Never acknowledge what data you do or don't have.`,
+    `• Lede: open on the single matchup with the most at stake this week, not a generic "Week ${weekNum} is here" opener.`,
+    ``,
+    `If the data block is sparse (few or no ranked games this week), keep the preview SHORT — two or three paragraphs is plenty. If there's no schedule data at all, do not invent games — just note briefly that the schedule isn't in yet.`,
     ``,
     OUTPUT_FORMAT.trim(),
     ``,

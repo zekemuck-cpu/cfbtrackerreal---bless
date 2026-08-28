@@ -2726,10 +2726,24 @@ export function getTeamRanking(dynasty, tidOrAbbr, year) {
         // rank slot is 16 (post-Week-15 / pre-CCG poll). Anchoring to
         // currentWeek=1 would surface every team's preseason rank on
         // every team page during CCG week — override to slot 16.
+        // Preseason and Week 0 (the first regular-season week) both report
+        // dynasty.currentWeek === 0. PC-sync dynasties key the true
+        // Preseason poll under -1 instead (APP_PRESEASON_WEEK in
+        // cfb27SaveImport.js, to stop it colliding with/getting overwritten
+        // by Week 0's real poll — these are two distinct in-game weeks for
+        // a synced save), so the currentWeek anchor here needs the same
+        // override for THOSE dynasties or it'd look up the not-yet-populated
+        // Week 0 slot during preseason and show every team unranked despite
+        // a real preseason poll existing. Manual/console dynasties are left
+        // untouched — their long-standing convention (PreseasonTop25Modal,
+        // WeeklyScoresModal's prevWeekTop25Block) treats the preseason poll
+        // and the poll entering Week 0 as the SAME rankByWeek[0] entry, and
+        // changing that here would misfile every existing manual dynasty's
+        // preseason rank lookup.
         const isCCGPhase = phase === 'conference_championship'
-        const cw = isCCGPhase ? 16 : Number(dynasty.currentWeek)
+        const cw = isCCGPhase ? 16 : (phase === 'preseason' && isPcAutoDynasty(dynasty) ? -1 : Number(dynasty.currentWeek))
         let snapshotWeek = -Infinity
-        if (Number.isFinite(cw) && cw >= 0) {
+        if (Number.isFinite(cw) && cw >= -1) {
           // Confirm at least one team has data for currentWeek; if not,
           // fall through to the legacy "max populated" path.
           for (const otherTeam of Object.values(dynasty.teams || {})) {
@@ -12312,6 +12326,33 @@ export function DynastyProvider({ children }) {
     const cur = { ...(dynasty.playoffPreviewByYear || {}) }
     delete cur[yearN]
     await updateDynasty(dynastyId, { playoffPreviewByYear: cur })
+  }
+
+  // Same shape/reasoning as savePlayoffPreview/deletePlayoffPreview above —
+  // one Week 1 Preview per year, plain embedded map, no subcollection needed.
+  const saveWeekOnePreview = async (dynastyId, year, text) => {
+    if (blockIfReadOnly(dynastyId, 'save week one preview')) return
+    const yearN = Number(year)
+    const dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+    const cur = dynasty.weekOnePreviewByYear || {}
+    await updateDynasty(dynastyId, {
+      weekOnePreviewByYear: { ...cur, [yearN]: { generatedAt: Date.now(), text: String(text || '') } }
+    })
+  }
+
+  const deleteWeekOnePreview = async (dynastyId, year) => {
+    if (blockIfReadOnly(dynastyId, 'delete week one preview')) return
+    const yearN = Number(year)
+    const dynasty = String(currentDynasty?.id) === String(dynastyId)
+      ? currentDynasty
+      : dynasties.find(d => String(d.id) === String(dynastyId))
+    if (!dynasty) throw new Error('Dynasty not found')
+    const cur = { ...(dynasty.weekOnePreviewByYear || {}) }
+    delete cur[yearN]
+    await updateDynasty(dynastyId, { weekOnePreviewByYear: cur })
   }
 
   // ─── Social Media feature ──────────────────────────────────────────────────
@@ -22462,6 +22503,8 @@ export function DynastyProvider({ children }) {
     deleteWeekRecap,
     savePlayoffPreview,
     deletePlayoffPreview,
+    saveWeekOnePreview,
+    deleteWeekOnePreview,
     // Social Media feature
     loadSocial,
     importSocialUniverse,

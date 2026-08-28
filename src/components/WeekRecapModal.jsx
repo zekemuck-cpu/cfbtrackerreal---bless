@@ -17,7 +17,7 @@ import {
  * the AI's narrative back here and saves.
  *
  * Recaps live at `dynasty.weekRecapsByYear[year][week] = { generatedAt, text }`.
- * Week 0 stores the preseason recap and uses the preseason prompt variant.
+ * Week -1 stores the preseason preview and uses the preseason prompt variant.
  *
  * Props:
  *   isOpen, onClose
@@ -143,7 +143,7 @@ export default function WeekRecapModal({ isOpen, onClose, year, week, onSaved })
     : `Week ${weekNum}`
 
   const heading = isPreseason
-    ? `${yearNum} Preseason Recap`
+    ? `${yearNum} Preseason Preview`
     : `${yearNum} ${weekLabel} Recap`
 
   // Shared save: take the AI's full output (from the Paste button's clipboard

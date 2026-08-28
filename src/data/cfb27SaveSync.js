@@ -49,6 +49,7 @@ import {
   mapPreseasonTop25,
   mapScheduleForTeam,
   APP_CCG_WEEK,
+  APP_PRESEASON_WEEK,
   mapSeasonInfo,
   mapPosition,
   mapClass,
@@ -1901,6 +1902,13 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   // overwrite (save always wins), same multi-team write shape
   // createDynasty's CFB27 path already uses for first-write.
   const week = Number.isFinite(parsed.season?.week) ? parsed.season.week : 0
+  // Preseason and Week 0 both report raw week 0 (mapSeasonInfo applies no
+  // offset to 'PreSeason') — see APP_PRESEASON_WEEK's header comment. Only
+  // used for the snapshot-style artifacts below (rank polls, Heisman Watch)
+  // that are keyed by this single week number with no phase alongside it;
+  // `week` itself is left alone since per-game data (schedule/box scores)
+  // carries its own real week per entry and is never ambiguous this way.
+  const pollWeek = phase === 'preseason' ? APP_PRESEASON_WEEK : week
   const mergedTeams = { ...dynastyTeams }
   let teamsRatingsUpdated = 0
   let teamsCoachingUpdated = 0
@@ -2101,7 +2109,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   // report — which is where a PC dynasty's Final Top 25 was invisible
   // before this, even though the sync had been capturing the data all
   // along under a plain numbered week nothing recognized as "final."
-  const isFinalPollSync = parsed.season?.phase === 'offseason'
+  const isFinalPollSync = phase === 'offseason'
   for (const entry of rankings) {
     const tidKey = String(entry.tid)
     const team = mergedTeams[tidKey]
@@ -2111,7 +2119,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
       ...team,
       byYear: {
         ...team.byYear,
-        [year]: { ...yearData, rankByWeek: buildRankByWeekPatch(yearData.rankByWeek, week, entry.rank, isFinalPollSync) },
+        [year]: { ...yearData, rankByWeek: buildRankByWeekPatch(yearData.rankByWeek, pollWeek, entry.rank, isFinalPollSync) },
       },
     }
   }
@@ -2165,7 +2173,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
       ...team,
       byYear: {
         ...team.byYear,
-        [year]: { ...yearData, cfpRankByWeek: { ...(yearData.cfpRankByWeek || {}), [week]: entry.rank } },
+        [year]: { ...yearData, cfpRankByWeek: { ...(yearData.cfpRankByWeek || {}), [pollWeek]: entry.rank } },
       },
     }
   }
@@ -2247,7 +2255,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   // a per-week history table like PlayerAward), so this sync's snapshot
   // lands under the save's own current week; syncing week after week
   // naturally builds a week-by-week history in dynasty.heismanWatchByYear.
-  const heismanWatchUpdate = { [week]: (parsed.heismanWatch || []).map((h) => mapHeismanEntry(h, rawTeamIdMap)) }
+  const heismanWatchUpdate = { [pollWeek]: (parsed.heismanWatch || []).map((h) => mapHeismanEntry(h, rawTeamIdMap)) }
 
   // Rivalries — auto-seed/gap-fill dynasty.rivalries[] (a flat array, not
   // nested per-team-per-year like everything else above) with the user's

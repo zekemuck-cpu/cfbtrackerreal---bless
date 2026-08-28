@@ -10,6 +10,7 @@ import { PageHero, Card, EmptyState, TitleWithYear, Button } from '../../compone
 import Top25SheetModal from '../../components/Top25SheetModal'
 import Top25MovementChart from '../../components/Top25MovementChart'
 import { isPcAutoDynasty } from '../../editions'
+import { APP_PRESEASON_WEEK } from '../../data/cfb27SaveImport'
 
 const getSchoolName = stripMascotFromName
 
@@ -149,7 +150,7 @@ export default function Rankings() {
         // 0-40 covers every legitimate raw week with room to spare, alongside the
         // app's own canonical 101-105 postseason slots. 100 stays excluded — it's
         // the deprecated shared CCG/bowl sentinel.
-        const isRealPollWeek = (wk >= 0 && wk <= 40) || (wk >= 101 && wk <= 105)
+        const isRealPollWeek = wk === APP_PRESEASON_WEEK || (wk >= 0 && wk <= 40) || (wk >= 101 && wk <= 105)
         if (!isRealPollWeek || wk === 100) continue
         let v = wk >= 10 ? cfp[k] : media[k]
         if (typeof v !== 'number' || v < 1 || v > 25) v = wk >= 10 ? media[k] : cfp[k]
@@ -468,8 +469,18 @@ export default function Rankings() {
   // text. The new rank semantics are entering-week ranks (= the rank
   // each team was DURING that week's games), so plain "Week N" reads
   // correctly. Special week keys map to postseason labels.
+  // Manual/console dynasties never write a -1 (APP_PRESEASON_WEEK) entry —
+  // for them week 0 IS the preseason poll (PreseasonTop25Modal writes it
+  // there directly, and WeeklyScoresModal's prevWeekTop25Block treats it as
+  // the poll entering Week 0's games — one poll, one slot, by design). Only
+  // a PC-synced dynasty that has actually split the two gets a real -1
+  // entry, so gate the "Week 0" vs "Preseason Rankings" label on whether
+  // this year's data shows that split, instead of hardcoding one meaning
+  // for week 0 and breaking the other dynasty type's label.
+  const hasSplitPreseasonWeek = availableWeeks.includes(APP_PRESEASON_WEEK)
   const weekLabel = (w) => {
-    if (w === 0) return 'Preseason Rankings'
+    if (w === APP_PRESEASON_WEEK) return 'Preseason Rankings'
+    if (w === 0) return hasSplitPreseasonWeek ? 'Week 0' : 'Preseason Rankings'
     if (w === 16) return 'Conf Champ Week'  // post-Week-15 / pre-CCG poll slot
     if (w === 17) return 'Bowl Week 1'
     if (w === 18) return 'Bowl Week 2'

@@ -70,6 +70,7 @@ import RecruitingClassRankModal from '../../components/RecruitingClassRankModal'
 import TrainingResultsModal from '../../components/TrainingResultsModal'
 import WeekRecapModal from '../../components/WeekRecapModal'
 import PlayoffPreviewModal from '../../components/PlayoffPreviewModal'
+import WeekOnePreviewModal from '../../components/WeekOnePreviewModal'
 import FormattedRecap from '../../components/FormattedRecap'
 import buildRecapLinks from '../../utils/buildRecapLinks'
 import PreseasonTop25Modal from '../../components/PreseasonTop25Modal'
@@ -700,6 +701,8 @@ export default function Dashboard() {
   // Playoff Preview modal: the year it's open for, or null when closed —
   // same on/off shape as recapModalContext above.
   const [playoffPreviewYear, setPlayoffPreviewYear] = useState(null)
+  // Week 1 Preview modal (shown on Week 0's task list) — same on/off shape.
+  const [weekOnePreviewYear, setWeekOnePreviewYear] = useState(null)
   // Inline budget editing on the preseason "Enter Dynasty Points Budget" to-do.
   const [dpBudgetEditing, setDpBudgetEditing] = useState(false)
   const [dpBudgetInput, setDpBudgetInput] = useState('')
@@ -3821,13 +3824,14 @@ export default function Dashboard() {
             // prompts that deep-link to the always-editable Dynasty Blueprint
             // page. Gated by isDynastyBlueprintEnabled so CFB 26 dynasties AND
             // anyone who's hidden Blueprint via league preferences never see
-            // these rows. Stays manual in BOTH modes — there's no verified save
-            // field for either budget or staff.
+            // these rows. Manual-mode only — there's no verified save field
+            // for either budget or staff, so a PC dynasty would only ever see
+            // these sitting permanently undone with no way to sync them.
             //
             // Scoped to preseasonUserTid: in a shared league each member runs
             // their own program and has their own budget, so an unscoped read
             // would show every member the dynasty owner's number.
-            if (isDynastyBlueprintEnabled(currentDynasty)) {
+            if (isDynastyBlueprintEnabled(currentDynasty) && !isCfb27Auto) {
               const dpBudget = getSeasonBudget(currentDynasty, preseasonYear, preseasonUserTid)
               const dpDone = dpBudget != null
               const saveDpBudget = async () => {
@@ -4019,12 +4023,22 @@ export default function Dashboard() {
                 onAction: () => setPreseasonTop25Year(preseasonYear),
                 actionLabel: t25Done ? 'Edit' : 'Enter',
               })
+            } else {
+              // PC mode: Preseason Top 25 / Heisman Watch stay off this list
+              // (redundant with the sidebar nav), but the Recruiting Board
+              // gets a View row here — recruiting is actively happening in
+              // the preseason and there's otherwise nothing on this screen
+              // pointing at it.
+              todos.push(pcViewTodo({
+                key: 'recruiting-board-preseason-pc',
+                done: true,
+                title: 'Recruiting Board',
+                subtitle: 'Synced from your save',
+                url: `${pathPrefix}/recruiting/${preseasonUserTid}/${preseasonYear}?tab=targets`,
+              }))
             }
-            // PC mode: preseason had no manual-entry rows to replace with
-            // View links (Recruiting Board / Preseason Top 25 / Heisman
-            // Watch were removed as redundant with the sidebar nav).
 
-            // Preseason CFB Recap — shared by both modes (AI-generated, not save data).
+            // Preseason CFB Preview — shared by both modes (AI-generated, not save data).
             {
               const yearNum = Number(currentDynasty.currentYear)
               const recap = currentDynasty.weekRecapsByYear?.[yearNum]?.[-1]
@@ -4032,7 +4046,7 @@ export default function Dashboard() {
               todos.push({
                 key: 'preseason-recap',
                 done: recapDone,
-                title: 'Generate Preseason CFB Recap',
+                title: 'Generate Preseason CFB Preview',
                 subtitle: recapDone
                   ? 'Saved. View it on the Around the Country page'
                   : 'AI-written season preview based on past dynasty data',
@@ -4342,11 +4356,19 @@ export default function Dashboard() {
                 })
               } else {
                 // PC mode: Weekly Install and Scouting Report — already
-                // synced, pure View links. (Recruiting Board / Injury
-                // Report / Heisman Watch dropped as redundant with the
-                // sidebar nav.) Need an actual opponent for the week (no
-                // report to build on a bye), so this is gated on there
-                // being a real scheduled game.
+                // synced, pure View links. (Injury Report / Heisman Watch
+                // dropped as redundant with the sidebar nav.) Need an actual
+                // opponent for the week (no report to build on a bye), so
+                // this is gated on there being a real scheduled game.
+                //
+                // Recruiting Board — back on every regular-season week.
+                todos.push(pcViewTodo({
+                  key: 'recruiting-board-weekly-pc',
+                  done: true,
+                  title: 'Recruiting Board',
+                  subtitle: 'Synced from your save',
+                  url: `${pathPrefix}/recruiting/${userTidForCommitments}/${currentDynasty.currentYear}?tab=targets`,
+                }))
                 if (!isByeWeek && scheduledGame && gameRecord && showWeeklyInstallScouting) {
                   todos.push(pcViewTodo({
                     key: 'weekly-install-pc',
@@ -4421,6 +4443,25 @@ export default function Dashboard() {
                     title: `Generate Week ${prevWeek} Recap`,
                     subtitle: "Summarize the week's biggest results",
                     onAction: () => setRecapModalContext({ year: yearNum, week: prevWeek }),
+                    actionLabel: 'Generate',
+                  })
+                }
+              }
+
+              // Row 3b: Week 1 Preview — the mirror image of Row 3 above.
+              // Week 0 has no previous week to recap, so it gets a
+              // forward-looking preview of the season opener instead.
+              // Shared by both modes, same as the Preseason Preview.
+              if (curWeek === 0) {
+                const preview = currentDynasty.weekOnePreviewByYear?.[yearNum]
+                const done = !!preview?.text
+                if (!done) {
+                  todos.push({
+                    key: 'week-one-preview',
+                    done: false,
+                    title: 'Generate Week 1 Preview',
+                    subtitle: "Preview the season's opening slate",
+                    onAction: () => setWeekOnePreviewYear(yearNum),
                     actionLabel: 'Generate',
                   })
                 }
@@ -9415,6 +9456,17 @@ export default function Dashboard() {
           isOpen={playoffPreviewYear != null}
           onClose={() => setPlayoffPreviewYear(null)}
           year={playoffPreviewYear}
+        />
+      )}
+
+      {/* Week 1 Preview Modal — generates and saves the AI preview of the
+          season-opening week's national schedule. Same copy/paste shell as
+          Playoff Preview. Shown on Week 0's task list. */}
+      {weekOnePreviewYear != null && (
+        <WeekOnePreviewModal
+          isOpen={weekOnePreviewYear != null}
+          onClose={() => setWeekOnePreviewYear(null)}
+          year={weekOnePreviewYear}
         />
       )}
 

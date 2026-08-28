@@ -796,6 +796,19 @@ function gameDateTimeFields(g) {
 // save happened to use, which is why it has to be normalized here.
 export const APP_CCG_WEEK = 16
 
+// The app's canonical Preseason slot for week-keyed snapshots (Top 25 poll,
+// CFP poll, Heisman Watch). "Preseason" (fall camp, weekType 'PreSeason')
+// and "Week 0" (the first real game week, weekType 'RegularSeason') are two
+// genuinely different weeks in-game — DynastyContext's own manual advance
+// state machine already treats them as separate steps ("Preseason: Week 0"
+// then "Regular Season: Week 0") — but mapSeasonInfo does no offset for the
+// 'PreSeason' weekType, so a save reports raw week 0 for BOTH. Anything
+// keyed by raw week alone (rankByWeek, cfpRankByWeek, heismanWatchByYear)
+// would silently let the real Week 0 sync overwrite the Preseason sync's
+// entry. Sorts before every real week (negative), same idea as APP_CCG_WEEK
+// sorting after them.
+export const APP_PRESEASON_WEEK = -1
+
 // TeamIndex 255 is the save's "not a real opponent" sentinel. It covers EA's
 // 5 directional FCS filler schools (kept — they're real schedule slots, see
 // FCS_FILLER_NAME_TO_TID) but ALSO non-game calendar entries that share the

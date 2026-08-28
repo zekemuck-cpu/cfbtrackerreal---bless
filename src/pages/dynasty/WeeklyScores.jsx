@@ -18,6 +18,7 @@ import ConferenceChampionshipModal from '../../components/ConferenceChampionship
 import FormattedRecap from '../../components/FormattedRecap'
 import GenerateSocialModal from '../../components/GenerateSocialModal'
 import PlayoffPreviewModal from '../../components/PlayoffPreviewModal'
+import WeekOnePreviewModal from '../../components/WeekOnePreviewModal'
 import SocialFeed from '../../components/SocialFeed'
 import { DEFAULT_SOCIAL_PLATFORM, getEffectiveCharacters } from '../../data/socialModel'
 import buildRecapLinks from '../../utils/buildRecapLinks'
@@ -421,6 +422,7 @@ export default function WeeklyScores() {
   const [recapModalOpen, setRecapModalOpen] = useState(false)
   const [socialModalOpen, setSocialModalOpen] = useState(false)
   const [previewModalOpen, setPreviewModalOpen] = useState(false)
+  const [weekOnePreviewModalOpen, setWeekOnePreviewModalOpen] = useState(false)
 
   // Resolve display year/week BEFORE consumers like `tabParam` reference
   // them — both feed off URL params plus dynasty phase fallbacks.
@@ -478,6 +480,12 @@ export default function WeeklyScores() {
   // the last "active" weekly-scores week before bowl season actually starts
   // playing games. Tab only appears once a preview has actually been saved.
   const hasPlayoffPreview = displayWeek === 16 && !!currentDynasty?.playoffPreviewByYear?.[displayYear]?.text
+
+  // Week 1 Preview is likewise a once-per-year artifact, living on Week 0's
+  // own page — it's generated while sitting on Week 0 (nothing's been played
+  // yet), previewing the Week 1 slate that's about to start. See
+  // WeekOnePreviewModal.
+  const hasWeekOnePreview = displayWeek === 0 && !!currentDynasty?.weekOnePreviewByYear?.[displayYear]?.text
 
   // Generic URL-param setter (shared by the sportsbook sub-tab + conference row)
   // so the whole sportsbook view is link-routable, stacked on ?tab=sportsbook.
@@ -964,6 +972,11 @@ export default function WeeklyScores() {
                       Edit Preview
                     </button>
                   )}
+                  {displayWeek === 0 && (
+                    <button type="button" onClick={() => setWeekOnePreviewModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Generate and edit the Week 1 preview">
+                      Edit Preview
+                    </button>
+                  )}
                   {displayWeek !== -1 && (
                     <button type="button" onClick={() => setSocialModalOpen(true)} className="px-2.5 py-1.5 text-[11px] font-semibold uppercase rounded border transition-colors flex-shrink-0 hover:bg-surface-4" style={btnStyle} title="Generate and edit social posts">
                       Edit Social
@@ -981,8 +994,9 @@ export default function WeeklyScores() {
             <div className="flex overflow-x-auto no-scrollbar px-4 sm:px-5">
               {[
                 ...(displayWeek !== -1 ? [{ key: 'scores', label: 'Scores' }] : []),
-                { key: 'recap', label: displayWeek === -1 ? 'Preseason Recap' : 'Recap' },
+                { key: 'recap', label: displayWeek === -1 ? 'Preseason Preview' : 'Recap' },
                 ...(hasPlayoffPreview ? [{ key: 'preview', label: 'Preview' }] : []),
+                ...(hasWeekOnePreview ? [{ key: 'week1preview', label: 'Preview' }] : []),
                 ...(displayWeek !== -1 ? [{ key: 'social', label: 'Social' }] : []),
                 ...(displayWeek !== -1 ? [{ key: 'sportsbook', label: 'Sportsbook' }] : []),
                 ...(showCoachCarousel ? [{ key: 'coachCarousel', label: 'Coach Carousel' }] : []),
@@ -1180,6 +1194,29 @@ export default function WeeklyScores() {
         )
       })()}
 
+      {tabParam === 'week1preview' && hasWeekOnePreview && (() => {
+        const preview = currentDynasty.weekOnePreviewByYear[displayYear]
+        return (
+          <Card padding="lg">
+            <FormattedRecap text={preview.text} />
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-surface-4">
+              <p className="text-xs text-txt-tertiary">
+                {preview.generatedAt ? `Saved ${new Date(preview.generatedAt).toLocaleString()}` : ''}
+              </p>
+              {!isViewOnly && (
+                <button
+                  type="button"
+                  onClick={() => setWeekOnePreviewModalOpen(true)}
+                  className="text-xs font-semibold underline hover:text-txt-secondary"
+                >
+                  Edit preview
+                </button>
+              )}
+            </div>
+          </Card>
+        )
+      })()}
+
       {tabParam === 'social' && (() => {
         const platform = { ...DEFAULT_SOCIAL_PLATFORM, ...(currentDynasty.socialPlatform || {}) }
         const weekPosts = currentDynasty.socialFeedByYear?.[displayYear]?.[displayWeek] || []
@@ -1344,6 +1381,14 @@ export default function WeeklyScores() {
         <PlayoffPreviewModal
           isOpen={previewModalOpen}
           onClose={() => setPreviewModalOpen(false)}
+          year={displayYear}
+        />
+      )}
+
+      {weekOnePreviewModalOpen && (
+        <WeekOnePreviewModal
+          isOpen={weekOnePreviewModalOpen}
+          onClose={() => setWeekOnePreviewModalOpen(false)}
           year={displayYear}
         />
       )}
