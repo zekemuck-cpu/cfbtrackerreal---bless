@@ -130,6 +130,7 @@ import { syncPlayersToSubcollection } from '../utils/cfb27SyncPlayers'
 import { chunkUpdateObject } from '../utils/updateChunker'
 import { firestoreDocSize, firestoreValueSize } from '../utils/firestoreSize'
 import { buildSyncPlan } from '../data/cfb27SaveSync'
+import { mapSeasonInfo } from '../data/cfb27SaveImport'
 import { CFB27_TEAM_RATINGS } from '../data/cfb27TeamRatings'
 import { CFB27_TEAM_ABBRS } from '../data/cfb27TeamAbbrs'
 import { CFB27_CONFERENCES } from '../data/cfb27Conferences'
@@ -5370,6 +5371,42 @@ export function computeCfb27SyncSeasonAdvance(startWeek, startPhase, targetYear,
 }
 
 /**
+ * The Firestore update (if any) needed to capture this sync's "before
+ * training camp" overall snapshot — pulled out as a small pure function
+ * specifically so it's unit-testable without a full sync fixture.
+ *
+ * overallByYear only ever holds ONE value per YEAR, overwritten by every
+ * sync — so by the time Training Results week (offseason week 7) has its
+ * own sync run, whatever National Signing Day (week 6) left behind is
+ * already gone unless captured first. Captured once, on the sync that
+ * FIRST reaches week 7 for this year — gated directly on whether a
+ * snapshot already exists for dynasty.currentYear (not on the prior
+ * week), so a later re-sync while still sitting at week 7 can never
+ * re-capture and corrupt the diff with an already-advanced "before" value.
+ *
+ * @param {object} dynasty - pre-sync dynasty (currentYear, overallBeforeTrainingByYear)
+ * @param {{phase?: string, week?: number}|null} seasonAdvance - this sync's target position (computeCfb27SyncSeasonAdvance's result)
+ * @param {Array<{pid: number, overallByYear?: object}>} freshPlayers - server-confirmed pre-sync roster
+ * @returns {{overallBeforeTrainingByYear?: object}} spread straight into the sync's write payload; empty object when no capture is due
+ */
+export function computeTrainingSnapshotUpdate(dynasty, seasonAdvance, freshPlayers) {
+  const alreadyCaptured = dynasty.overallBeforeTrainingByYear?.[dynasty.currentYear]
+  if (seasonAdvance?.phase !== 'offseason' || seasonAdvance?.week !== 7 || alreadyCaptured) return {}
+
+  const snapshot = {}
+  for (const p of freshPlayers || []) {
+    const ovr = p.overallByYear?.[dynasty.currentYear]
+    if (ovr != null) snapshot[p.pid] = ovr
+  }
+  return {
+    overallBeforeTrainingByYear: {
+      ...(dynasty.overallBeforeTrainingByYear || {}),
+      [dynasty.currentYear]: snapshot,
+    },
+  }
+}
+
+/**
  * Check if user is on a new team (first year coaching this team)
  * This checks if the team for the PREVIOUS year differs from the current team
  */
@@ -10531,7 +10568,35 @@ export function DynastyProvider({ children }) {
       }
     }
     await enterPhase('buildPlan', 'Loading current roster & games…')
-    const plan = buildSyncPlan(dynastyForPlan, parsed)
+    // Computed here (moved earlier than where it used to run, right after
+    // this same buildSyncPlan call) so buildSyncPlan can gate roster
+    // ARRIVALS the same explicit way departuresPossible already gates
+    // departures — see reconcilePlayers' own comment on
+    // rosterArrivalsPossible for why an explicit, coded rule beats relying
+    // on save-file timing alone. Pure/read-only (doesn't write anything),
+    // so hoisting it has no side effects; its result is reused below for
+    // seasonFieldUpdates instead of recomputing.
+    const earlySeasonInfo = mapSeasonInfo(parsed.season)
+    const seasonAdvance = earlySeasonInfo
+      ? computeCfb27SyncSeasonAdvance(
+          dynasty.currentWeek, dynasty.currentPhase,
+          earlySeasonInfo.year, earlySeasonInfo.phase, earlySeasonInfo.week,
+          dynasty.currentYear
+        )
+      : null
+    const plan = buildSyncPlan(dynastyForPlan, parsed, {
+      targetPhase: seasonAdvance?.phase ?? null,
+      targetWeek: seasonAdvance?.week ?? null,
+    })
+
+    // Training Results (offseason week 7) needs a "before training camp"
+    // overall snapshot to diff against — see computeTrainingSnapshotUpdate's
+    // own header comment for why. Captured from freshPlayers (the server-
+    // confirmed pre-sync roster, fetched above) — the LAST moment this sync
+    // has access to the pre-training value, before reconcilePlayers/
+    // mergedPlayers below overwrite it with this week's fresh data.
+    const trainingSnapshotUpdate = computeTrainingSnapshotUpdate(dynasty, seasonAdvance, freshPlayers)
+
     await enterPhase('mergeGames', 'Merging schedule & scores…')
 
     // An empty scheduleForUserTeam means the save just doesn't have this
@@ -10687,18 +10752,16 @@ export function DynastyProvider({ children }) {
     // state — computed here (pure function, not by invoking advanceWeek)
     // and folded into the SAME write below, so the header/checklist agree
     // with the data just written in this same call rather than needing a
-    // separate "Advance Week" click.
+    // separate "Advance Week" click. Reuses seasonAdvance (computed earlier,
+    // right before buildSyncPlan, for the roster-arrivals gate) instead of
+    // recomputing it — same pure inputs, so the result is identical either
+    // way; no reason to walk the transition rules twice.
     let reachedTargetSeason = false
     let seasonFieldUpdates = {}
-    if (plan.seasonInfo) {
-      const advance = computeCfb27SyncSeasonAdvance(
-        dynasty.currentWeek, dynasty.currentPhase,
-        plan.seasonInfo.year, plan.seasonInfo.phase, plan.seasonInfo.week,
-        dynasty.currentYear
-      )
-      reachedTargetSeason = advance.reachedTarget
-      if (advance.week !== Number(dynasty.currentWeek) || advance.phase !== dynasty.currentPhase) {
-        seasonFieldUpdates = { currentWeek: advance.week, currentPhase: advance.phase }
+    if (plan.seasonInfo && seasonAdvance) {
+      reachedTargetSeason = seasonAdvance.reachedTarget
+      if (seasonAdvance.week !== Number(dynasty.currentWeek) || seasonAdvance.phase !== dynasty.currentPhase) {
+        seasonFieldUpdates = { currentWeek: seasonAdvance.week, currentPhase: seasonAdvance.phase }
       }
     }
 
@@ -10991,7 +11054,7 @@ export function DynastyProvider({ children }) {
       // this stays a single write — only cloud dynasties need the chunked
       // sequence below.
       await enterPhase('saveFinal', 'Saving…')
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, platform: 'pc' }, { changedGameIds })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, ...trainingSnapshotUpdate, platform: 'pc' }, { changedGameIds })
       finishSyncTiming()
       if (onProgress) { try { onProgress({ message: 'Done', pct: 100, etaSeconds: 0 }) } catch (_) {} }
     } else {
@@ -11057,7 +11120,7 @@ export function DynastyProvider({ children }) {
         teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate,
         ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate,
         ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate,
-        ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, platform: 'pc',
+        ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, ...trainingSnapshotUpdate, platform: 'pc',
       }
       const chunks = chunkUpdateObject(fullUpdate, { lastKeys: ['currentYear', 'currentPhase', 'currentWeek'] })
 

@@ -298,7 +298,7 @@ export function buildLeagueDraftResults(leavingPlayers, players, rawTeamIdMap) {
  *   stats: {updated:number, arrivals:number, departures:number, transfers:number}
  * }}
  */
-export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, leavingPlayers, departuresPossible = true }) {
+export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, leavingPlayers, departuresPossible = true, rosterArrivalsPossible = true }) {
   // Keyed by cfb27AssetName — the save's own real "why is this player
   // projected to leave" data (extractPlayers.cjs's buildLeavingPlayers,
   // reading the LeavingPlayer table), used below to replace the departures
@@ -405,11 +405,39 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, le
       // has 25+ confirmed same-name pairs among unrelated players), so it
       // additionally has to survive isPlausibleRecruitLink's year/height/
       // weight/attribute corroboration before it's trusted.
+      // True the moment this row represents a player appearing on the REAL
+      // roster for the first time this dynasty has ever seen them there —
+      // either a genuine brand-new arrival (existing stays null, below) or
+      // a recruit-board placeholder about to be promoted into a real
+      // player (the dangling-recruit match right below). Gated on
+      // rosterArrivalsPossible: an already-rostered player being matched
+      // normally (asset name or name+team, above) is never a "new
+      // appearance" and is never gated — only the two paths that would
+      // otherwise put someone on the roster for the first time are.
+      let isNewRosterAppearance = false
+      let deferredDanglingRecruit = null
       if (!existing) {
         const danglingRecruit = existingByNameTeam.get(normalizedNameTeamKey(name, -1))
         if (danglingRecruit?.isTarget && isPlausibleRecruitLink(danglingRecruit, mapped, year)) {
-          existing = danglingRecruit
+          isNewRosterAppearance = true
+          if (rosterArrivalsPossible) {
+            existing = danglingRecruit
+          } else {
+            deferredDanglingRecruit = danglingRecruit
+          }
+        } else {
+          isNewRosterAppearance = true // will fall through to toCreate below
         }
+      }
+      if (isNewRosterAppearance && !rosterArrivalsPossible) {
+        // Not yet an allowed week — leave the promotion/create for later,
+        // but a dangling recruit specifically still needs to be marked
+        // "seen" so the departures pass below (which can run on ANY
+        // offseason week, not just the roster-arrival weeks) doesn't
+        // mistake "not promoted yet" for "gone" the rare times a still-
+        // dangling recruit already carries a real cfb27AssetName.
+        if (deferredDanglingRecruit) matchedPids.add(deferredDanglingRecruit.pid)
+        continue
       }
 
       if (existing) {
@@ -1769,7 +1797,48 @@ export function findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamI
  * @param {object} dynasty - dynasty.players/.teams/.currentYear/.currentTid
  * @param {object} parsed - the raw result from api/cfb27-save-parse.js
  */
-export function buildSyncPlan(dynasty, parsed) {
+// Offseason weeks (the app's own numbering — DynastyContext.jsx's
+// computeCfb27SyncSeasonAdvance/advanceWeek convention, e.g. week 6 =
+// National Signing Day) where new players are allowed to fully join the
+// roster for the first time. An explicit, coded allowlist rather than
+// relying on the save simply not having the data early — the same "never
+// guess, always be explicit" principle as departuresPossible and the
+// locked-week game boundary (see the PC sync durability redesign,
+// 2026-08-28). Confirmed so far: National Signing Day (week 6), the first
+// week each season the save's own roster reflects the incoming class.
+// Extend this list if more specific weeks are confirmed later.
+const ROSTER_ARRIVAL_OFFSEASON_WEEKS = [6]
+
+/**
+ * Whether new players are allowed to fully join the roster this sync —
+ * pulled out as a small pure function specifically so it's unit-testable
+ * without a full buildSyncPlan/dynasty fixture.
+ *
+ * targetPhase/targetWeek are the TRACKER's own confirmed position this
+ * sync is landing on (computeCfb27SyncSeasonAdvance's result, computed by
+ * the caller BEFORE buildSyncPlan runs — see syncDynastyFromCFB27Save),
+ * not anything read from the save directly. Deliberately the tracker's own
+ * walked position, same reasoning as computeGamesLockBoundary: the save's
+ * raw week numbering isn't guaranteed to line up with the app's own
+ * offseason week convention (it doesn't, in fact — mapSeasonInfo only maps
+ * regular-season/CCG/postseason weeks into the app's numbering, not
+ * offseason ones).
+ *
+ * A dynasty with no existing CFB27-tracked players yet (its very first
+ * sync) is never gated — there is no "too early" for a roster that doesn't
+ * exist yet.
+ *
+ * @param {Array<object>} existingPlayers - dynasty.players before this sync
+ * @param {{targetPhase?: string, targetWeek?: number}} target
+ * @returns {boolean}
+ */
+export function computeRosterArrivalsPossible(existingPlayers, target) {
+  const isFirstCfb27SyncEver = !(existingPlayers || []).some((p) => p.cfb27AssetName)
+  if (isFirstCfb27SyncEver) return true
+  return target?.targetPhase === 'offseason' && ROSTER_ARRIVAL_OFFSEASON_WEEKS.includes(Number(target?.targetWeek))
+}
+
+export function buildSyncPlan(dynasty, parsed, options = {}) {
   const year = Number(dynasty.currentYear)
   const userTid = Number(dynasty.currentTid)
   const existingPlayers = dynasty.players || []
@@ -1793,7 +1862,9 @@ export function buildSyncPlan(dynasty, parsed) {
   const phase = mapSeasonInfo(parsed.season)?.phase
   const departuresPossible = phase === 'offseason'
 
-  const playerDiff = reconcilePlayers(parsed.players || [], existingPlayers, { year, dynastyTeams, leavingPlayers: parsed.leavingPlayers, departuresPossible })
+  const rosterArrivalsPossible = computeRosterArrivalsPossible(existingPlayers, options)
+
+  const playerDiff = reconcilePlayers(parsed.players || [], existingPlayers, { year, dynastyTeams, leavingPlayers: parsed.leavingPlayers, departuresPossible, rosterArrivalsPossible })
   const recruitDiff = reconcileRecruitingBoard(parsed.recruitingBoard || [], existingPlayers, {
     userTid,
     year, // the recruiting CLASS year — see reconcileRecruitingBoard's param comment for why NOT +1

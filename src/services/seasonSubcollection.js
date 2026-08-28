@@ -76,6 +76,7 @@ export const PER_YEAR_FIELDS = [
   'fringeCaseClassByYear',
   'leagueDraftResultsByYear',
   'lockedCoachingStaffByYear',
+  'overallBeforeTrainingByYear',
   'playersLeavingByYear',
   'playerStatsByYear',
   'portalTransferClassByYear',

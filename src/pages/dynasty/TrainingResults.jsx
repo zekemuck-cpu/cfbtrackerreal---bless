@@ -4,12 +4,15 @@ import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { getUserTeamTid } from '../../data/teamRegistry'
 import { PageHero, Card, EmptyState, TitleWithYear } from '../../components/ui'
 
-// Roster-wide overall-progression view — CFB27 sync already fills in
-// overallByYear for every year (see cfb27SaveSync.js), so unlike the manual
-// Training Results modal (per-player OCR entry), this just reads and diffs
-// data that's already there. Modeled on OverallProgressionModal.jsx's
-// per-player year-over-year diff, applied across the whole roster instead
-// of one player at a time.
+// Week-over-week overall progression for the user's own roster, comparing
+// each player's overall as of RIGHT BEFORE training camp (National Signing
+// Day, offseason week 6) to right after (Training Results, week 7) — NOT a
+// year-over-year comparison. overallByYear only ever holds one value per
+// YEAR, overwritten by every sync, so the "before" side can't be read back
+// out of it once week 7's own sync has run — dynasty.overallBeforeTrainingByYear
+// is a snapshot captured once, at the exact sync that first reaches week 7
+// (see syncDynastyFromCFB27Save in DynastyContext.jsx), specifically to
+// preserve that value.
 export default function TrainingResults() {
   const { year: urlYear } = useParams()
   const navigate = useNavigate()
@@ -20,30 +23,30 @@ export default function TrainingResults() {
 
   const startYear = currentDynasty.startYear || currentDynasty.currentYear
   const availableYears = []
-  for (let y = currentDynasty.currentYear; y >= startYear + 1; y--) availableYears.push(y)
+  for (let y = currentDynasty.currentYear; y >= startYear; y--) availableYears.push(y)
   const displayYear = urlYear ? parseInt(urlYear, 10) : currentDynasty.currentYear
   const handleYearChange = (y) => navigate(`${pathPrefix}/training-results/${y}`)
 
   const userTid = getUserTeamTid(currentDynasty)
-  const prevYear = displayYear - 1
+  const beforeSnapshot = currentDynasty.overallBeforeTrainingByYear?.[displayYear] || null
 
   const progressions = (currentDynasty.players || [])
     .filter((p) => Number(p.teamsByYear?.[displayYear]) === Number(userTid))
     .map((p) => {
-      const prevOvr = p.overallByYear?.[prevYear]
       const curOvr = p.overallByYear?.[displayYear]
-      if (prevOvr == null || curOvr == null) return null
+      const prevOvr = beforeSnapshot?.[p.pid]
+      if (curOvr == null || prevOvr == null) return null
       return {
         pid: p.pid,
         name: p.name,
         position: p.position,
-        prevOvr,
+        classYear: p.classByYear?.[displayYear] || p.year || '',
         curOvr,
         delta: curOvr - prevOvr,
       }
     })
     .filter(Boolean)
-    .sort((a, b) => b.delta - a.delta)
+    .sort((a, b) => b.curOvr - a.curOvr)
 
   return (
     <div className="space-y-6">
@@ -53,15 +56,15 @@ export default function TrainingResults() {
 
       {progressions.length === 0 ? (
         <Card>
-          <EmptyState title="No Training Data Yet" subtitle={`Overall ratings for both ${prevYear} and ${displayYear} haven't synced for this roster yet.`} />
+          <EmptyState title="No Training Data Yet" subtitle={`Training results for ${displayYear} haven't synced for this roster yet.`} />
         </Card>
       ) : (
         <Card padding="none">
           <div className="hidden md:flex items-center gap-3 px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-txt-tertiary" style={{ borderBottom: '1px solid var(--surface-4)' }}>
             <span className="flex-1">Player</span>
-            <span className="w-12 text-right">{prevYear}</span>
-            <span className="w-12 text-right">{displayYear}</span>
-            <span className="w-16 text-right">Change</span>
+            <span className="w-12 text-center">Year</span>
+            <span className="w-14 text-center">Pos</span>
+            <span className="w-24 text-right">Overall</span>
           </div>
           <div className="divide-y" style={{ borderColor: 'var(--surface-4)' }}>
             {progressions.map((p) => (
@@ -70,15 +73,11 @@ export default function TrainingResults() {
                   <Link to={`${pathPrefix}/player/${p.pid}`} className="font-semibold text-txt-primary hover:underline">
                     {p.name || 'Unknown'}
                   </Link>
-                  <span className="ml-2 text-xs text-txt-tertiary uppercase">{p.position}</span>
                 </div>
-                <span className="w-12 text-right tabular-nums text-txt-tertiary">{p.prevOvr}</span>
-                <span className="w-12 text-right tabular-nums text-txt-primary font-semibold">{p.curOvr}</span>
-                <span
-                  className="w-16 text-right tabular-nums font-bold"
-                  style={{ color: p.delta > 0 ? 'var(--accent-success)' : p.delta < 0 ? 'var(--accent-error)' : 'var(--text-tertiary)' }}
-                >
-                  {p.delta > 0 ? '+' : ''}{p.delta}
+                <span className="w-12 text-center text-xs text-txt-tertiary uppercase">{p.classYear}</span>
+                <span className="w-14 text-center text-xs text-txt-tertiary uppercase">{p.position}</span>
+                <span className="w-24 text-right tabular-nums font-bold text-txt-primary">
+                  {p.curOvr}{p.delta > 0 ? ` (+${p.delta})` : ''}
                 </span>
               </div>
             ))}
