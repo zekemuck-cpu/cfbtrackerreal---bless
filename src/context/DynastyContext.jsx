@@ -10792,15 +10792,50 @@ export function DynastyProvider({ children }) {
     // flow re-saving with someone unchecked.
     let playersLeavingUpdate = {}
     if (plan.playersLeavingUpdate) {
-      const teamAbbr = getAbbrFromTid(plan.mergedTeams || dynasty.teams, dynasty.currentTid) || dynasty.teamName
+      const teamTid = dynasty.currentTid
+      const teamAbbr = getAbbrFromTid(plan.mergedTeams || dynasty.teams, teamTid) || dynasty.teamName
       const existingByYear = dynasty.playersLeavingByYear || {}
       const existingByTeamYear = dynasty.playersLeavingByTeamYear || {}
       playersLeavingUpdate = {
         playersLeavingByYear: { ...existingByYear, [syncYear]: plan.playersLeavingUpdate },
+        // Dual-keyed by both tid and abbr, same as Dashboard's own manual
+        // entry (see revertWeek's matching comment on this same field) —
+        // lookupByTeamYear checks the tid key FIRST, so writing abbr alone
+        // leaves a stale tid-keyed entry from an earlier manual save
+        // shadowing everything this sync just wrote.
         playersLeavingByTeamYear: {
           ...existingByTeamYear,
           [teamAbbr]: { ...(existingByTeamYear[teamAbbr] || {}), [syncYear]: plan.playersLeavingUpdate },
+          ...(teamTid != null
+            ? { [teamTid]: { ...(existingByTeamYear[teamTid] || {}), [syncYear]: plan.playersLeavingUpdate } }
+            : {}),
         },
+      }
+      // ...and the per-tid teams store, which getPlayersLeaving checks
+      // FIRST of all — ahead of both flat stores above (see its own "Try
+      // NEW tid-based byYear structure first" branch). handlePlayersLeavingSave
+      // writes here too, so on a dynasty where Players Leaving was ever
+      // entered by hand, THIS is the value that wins — without it, the sync
+      // writes the two stores above correctly and they're never read.
+      // syncYear, not dynasty.currentYear: this is the exact field this
+      // whole redesign exists to get right at a year rollover.
+      if (teamTid != null) {
+        const baseTeams = plan.mergedTeams || dynasty.teams || {}
+        const teamData = baseTeams[teamTid] || {}
+        const teamByYear = teamData.byYear || {}
+        plan.mergedTeams = {
+          ...baseTeams,
+          [teamTid]: {
+            ...teamData,
+            byYear: {
+              ...teamByYear,
+              [syncYear]: {
+                ...(teamByYear[syncYear] || {}),
+                playersLeaving: plan.playersLeavingUpdate,
+              },
+            },
+          },
+        }
       }
     }
 
