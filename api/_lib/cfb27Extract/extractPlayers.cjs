@@ -2029,7 +2029,7 @@ function playerGameStatsAttribsByTable() {
  * already has fully synced — a late-season sync otherwise re-walks every
  * week from 1 through the current one, every single time, even though only
  * the newest week is actually new. opts.alreadySyncedYear/
- * alreadySyncedThroughWeek (see api/cfb27-save-parse.js) are the calling
+ * alreadySyncedThroughWeek (see api/_handlers/cfb27/save-parse.js) are the calling
  * dynasty's OWN last-known season position, sent so this can be compared
  * safely without this function knowing anything about a specific dynasty.
  *

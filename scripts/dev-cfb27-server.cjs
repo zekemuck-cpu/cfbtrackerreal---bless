@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 /**
- * Local-only stand-in for /api/cfb27-save-upload-url and
- * /api/cfb27-save-parse.
+ * Local-only stand-in for /api/cfb27/save-upload-url and
+ * /api/cfb27/save-parse.
  *
  * This project's Vercel account belongs to someone else, so `vercel login` /
  * `vercel link` / `vercel dev` aren't available on this machine. Without
@@ -14,8 +14,8 @@
  *
  * NEVER used in production: only vite.config.js's dev-only `server.proxy`
  * forwards requests here, and that config has zero effect on `vite build`
- * or the real deployed Vercel functions (api/cfb27-save-upload-url.js /
- * api/cfb27-save-parse.js), which still do the real R2 + Firebase-token
+ * or the real deployed Vercel functions (api/_handlers/cfb27/save-upload-url.js /
+ * api/_handlers/cfb27/save-parse.js), which still do the real R2 + Firebase-token
  * flow untouched.
  *
  * Run: node scripts/dev-cfb27-server.cjs [port=5051]
@@ -66,7 +66,7 @@ function loadEnvLocal() {
 loadEnvLocal();
 
 // When VITE_USE_FIREBASE_EMULATOR=true, run the REAL production handler
-// (api/cfb27-bulk-seed-players.js) against the local Firestore/Auth
+// (api/_handlers/cfb27/bulk-seed-players.js) against the local Firestore/Auth
 // emulators instead of stubbing it — same firebase-admin code path as
 // prod, zero real credentials needed. Setting these env vars BEFORE the
 // handler's first import is what makes firebase-admin redirect there.
@@ -91,7 +91,7 @@ function toVercelStyle(res) {
 let realBulkSeedHandler = null;
 async function getRealBulkSeedHandler() {
   if (!realBulkSeedHandler) {
-    const mod = await import('../api/cfb27-bulk-seed-players.js');
+    const mod = await import('../api/_handlers/cfb27/bulk-seed-players.js');
     realBulkSeedHandler = mod.default;
   }
   return realBulkSeedHandler;
@@ -100,7 +100,7 @@ async function getRealBulkSeedHandler() {
 let realSyncPlayersHandler = null;
 async function getRealSyncPlayersHandler() {
   if (!realSyncPlayersHandler) {
-    const mod = await import('../api/cfb27-save-sync-players.js');
+    const mod = await import('../api/_handlers/cfb27/save-sync-players.js');
     realSyncPlayersHandler = mod.default;
   }
   return realSyncPlayersHandler;
@@ -146,9 +146,9 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${PORT}`);
 
   try {
-    // Mirrors api/cfb27-save-upload-url.js's response shape, minus real R2
+    // Mirrors api/_handlers/cfb27/save-upload-url.js's response shape, minus real R2
     // signing and minus the Firebase auth check.
-    if (req.method === 'POST' && url.pathname === '/api/cfb27-save-upload-url') {
+    if (req.method === 'POST' && url.pathname === '/api/cfb27/save-upload-url') {
       const key = crypto.randomUUID();
       return sendJson(res, 200, {
         uploadUrl: `http://localhost:${PORT}/local-upload/${key}`,
@@ -165,10 +165,10 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, { ok: true });
     }
 
-    // Mirrors api/cfb27-save-parse.js's response shape, but reads the local
+    // Mirrors api/_handlers/cfb27/save-parse.js's response shape, but reads the local
     // temp file instead of downloading from R2. Runs the REAL vendored
     // extractor (api/_lib/cfb27Extract) — this part is genuine production code.
-    if (req.method === 'POST' && url.pathname === '/api/cfb27-save-parse') {
+    if (req.method === 'POST' && url.pathname === '/api/cfb27/save-parse') {
       const { key } = await readJsonBody(req);
       const filePath = path.join(UPLOAD_DIR, key || '');
       if (!key || !fs.existsSync(filePath)) {
@@ -182,13 +182,13 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 200, result);
     }
 
-    // api/cfb27-bulk-seed-players.js — the REAL production handler when
+    // api/_handlers/cfb27/bulk-seed-players.js — the REAL production handler when
     // VITE_USE_FIREBASE_EMULATOR=true (runs against the local Firestore/Auth
     // emulators, exercising the actual firebase-admin BulkWriter code path
     // with zero real credentials). Falls back to a no-op stub otherwise, so
     // the create-dynasty flow can still be clicked through without the
     // emulators running — but that path never touches any real Firestore.
-    if (req.method === 'POST' && url.pathname === '/api/cfb27-bulk-seed-players') {
+    if (req.method === 'POST' && url.pathname === '/api/cfb27/bulk-seed-players') {
       if (!USE_EMULATOR) {
         const { players } = await readJsonBody(req);
         console.log(`[dev-cfb27-server] (stub) would bulk-seed ${Array.isArray(players) ? players.length : 0} players — set VITE_USE_FIREBASE_EMULATOR=true + start the emulators to run the real handler`);
@@ -204,10 +204,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    // api/cfb27-save-sync-players.js — the existing-dynasty sync's
+    // api/_handlers/cfb27/save-sync-players.js — the existing-dynasty sync's
     // players-subcollection delta writer. Same emulator-or-stub split as
     // cfb27-bulk-seed-players above.
-    if (req.method === 'POST' && url.pathname === '/api/cfb27-save-sync-players') {
+    if (req.method === 'POST' && url.pathname === '/api/cfb27/save-sync-players') {
       if (!USE_EMULATOR) {
         const { creates, patches } = await readJsonBody(req);
         const n = (Array.isArray(creates) ? creates.length : 0) + (Array.isArray(patches) ? patches.length : 0);

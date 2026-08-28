@@ -19,7 +19,7 @@ import path from 'path'
 // `new Date().toISOString().slice(0, 10)` below, so the date itself
 // flips automatically at UTC midnight — only the counter needs the
 // manual reset.
-const MANUAL_BUILD = '0027'
+const MANUAL_BUILD = '0028'
 
 function buildAppVersion() {
   const today = new Date().toISOString().slice(0, 10)
@@ -80,11 +80,14 @@ export default defineConfig({
       // (scripts/dev-cfb27-server.cjs — run it separately, or via
       // `npm run dev:cfb27-api`) that uses local disk instead of R2 and skips
       // auth, so the feature is fully clickable locally. Production still
-      // uses the real functions untouched.
-      '/api/cfb27-save-upload-url': { target: 'http://localhost:5051', changeOrigin: true },
-      '/api/cfb27-save-parse': { target: 'http://localhost:5051', changeOrigin: true },
-      '/api/cfb27-bulk-seed-players': { target: 'http://localhost:5051', changeOrigin: true },
-      '/api/cfb27-save-sync-players': { target: 'http://localhost:5051', changeOrigin: true },
+      // uses the real functions untouched. Paths match the client's actual
+      // /api/cfb27/* calls (the single [action] dispatcher — see
+      // api/cfb27/[action].js) even though this dev stand-in isn't itself
+      // that dispatcher.
+      '/api/cfb27/save-upload-url': { target: 'http://localhost:5051', changeOrigin: true },
+      '/api/cfb27/save-parse': { target: 'http://localhost:5051', changeOrigin: true },
+      '/api/cfb27/bulk-seed-players': { target: 'http://localhost:5051', changeOrigin: true },
+      '/api/cfb27/save-sync-players': { target: 'http://localhost:5051', changeOrigin: true },
     },
   }
 })
