@@ -9,7 +9,16 @@ import { resolveDepartureReason } from '../cfb27SaveSync'
 // shows ("Transfer (Pro Potential)", etc.) — verified against a real save,
 // see extractPlayers.cjs's buildLeavingPlayers/LEAVE_TYPE_MAP. These tests
 // cover resolveDepartureReason's precedence: real draft round > real
-// LeavingPlayer data > the old Sr-vs-not guess as a last resort.
+// LeavingPlayer data > graduated as the last resort.
+//
+// The Sr-vs-not guess (non-Sr with no resolvable LeavingPlayer entry ->
+// assume pro_draft) was removed entirely: confirmed against two real
+// players that it produced a false "NFL Draft" tag for someone who was
+// never actually drafted (a Junior who'd really just entered the transfer
+// portal), and that tag never self-corrected even after the player showed
+// up playing again the next season. 'pro_draft' is now assigned ONLY from a
+// real, confirmed draftRound — every other unresolved case reads as
+// graduated.
 
 describe('resolveDepartureReason', () => {
   it('a real draft round always wins, regardless of any LeavingPlayer data', () => {
@@ -39,15 +48,16 @@ describe('resolveDepartureReason', () => {
     expect(result).toEqual({ departure: 'graduated', departureReason: null })
   })
 
-  it('falls back to the Sr-vs-not heuristic when LeavingPlayer has no resolvable entry', () => {
+  it('falls back to graduated when LeavingPlayer has no resolvable entry, regardless of class', () => {
     const senior = resolveDepartureReason({ draftRound: null, leaving: null, lastClass: 'Sr' })
     expect(senior).toEqual({ departure: 'graduated', departureReason: null })
 
+    // Not a senior, and no confirmed draft round -- never guess pro_draft.
     const nonSenior = resolveDepartureReason({ draftRound: null, leaving: null, lastClass: 'Jr' })
-    expect(nonSenior).toEqual({ departure: 'pro_draft', departureReason: null })
+    expect(nonSenior).toEqual({ departure: 'graduated', departureReason: null })
   })
 
-  it('falls back to the heuristic for an unmapped LeavingPlayer category too', () => {
+  it('falls back to graduated for an unmapped LeavingPlayer category too', () => {
     // extractPlayers.cjs's buildLeavingPlayers only ever returns
     // 'transfer'/'draft'/'graduate' categories (it drops unmapped raw
     // LeaveType values entirely) -- 'draft' shouldn't reach here in

@@ -10901,23 +10901,40 @@ export function DynastyProvider({ children }) {
     }
 
     // Season-end honors — National All-Americans, All-Conference teams, and
-    // named individual awards. plan.allAmericansUpdate/awardsUpdate are null
-    // (untouched) until the save actually has real honorees this year, so a
+    // named individual awards. plan.allAmericansFinalUpdate/awardsUpdate are
+    // null (untouched) until the save actually has real honorees this year, so a
     // mid-season sync never wipes what's already there. Awards merge KEY BY
     // KEY (not a full-object overwrite) so a manually-entered award this
     // sync has no verified data for (e.g. a coach award) is never clobbered.
+    // Final honors/awards belong to the season that just ended, which is
+    // NOT always syncYear — see cfb27SaveSync.js's postseasonYear comment
+    // (a sync from preseason or later, i.e. almost every sync, has already
+    // flipped syncYear to the NEW season while the save's honors/named-award
+    // tables still hold the just-finished season's results). Preseason
+    // predictions genuinely belong to syncYear itself, so those still use
+    // it unchanged. plan.postseasonYear is the same corrected year
+    // postseasonGamesToWrite below is keyed to — one source of truth.
     let honorsUpdate = {}
-    if (plan.allAmericansUpdate) {
-      const year = syncYear
+    if (plan.allAmericansFinalUpdate) {
+      const year = plan.postseasonYear ?? syncYear
       const existingByYear = dynasty.allAmericansByYear || {}
       const existingYearData = existingByYear[year] || {}
       honorsUpdate.allAmericansByYear = {
         ...existingByYear,
-        [year]: { ...existingYearData, ...plan.allAmericansUpdate },
+        [year]: { ...existingYearData, ...plan.allAmericansFinalUpdate },
+      }
+    }
+    if (plan.allAmericansPreseasonUpdate) {
+      const year = syncYear
+      const existingByYear = honorsUpdate.allAmericansByYear || dynasty.allAmericansByYear || {}
+      const existingYearData = existingByYear[year] || {}
+      honorsUpdate.allAmericansByYear = {
+        ...existingByYear,
+        [year]: { ...existingYearData, ...plan.allAmericansPreseasonUpdate },
       }
     }
     if (plan.awardsUpdate) {
-      const year = syncYear
+      const year = plan.postseasonYear ?? syncYear
       const existingByYear = dynasty.awardsByYear || {}
       const existingYearData = existingByYear[year] || {}
       honorsUpdate.awardsByYear = {

@@ -329,10 +329,28 @@ export default function AllConference() {
     ? allConference
     : allConference.filter(p => p.designation === filter)
 
+  // Same position-order sort as AllAmericans.jsx — see its own comment for
+  // why (the Preseason list came through in the save's arbitrary order).
+  const POSITION_ORDER = [
+    'QB', 'HB', 'FB', 'WR', 'TE',
+    'LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG',
+    'LE', 'RE', 'LEDG', 'REDG', 'EDGE', 'DT',
+    'LOLB', 'MLB', 'ROLB', 'SAM', 'MIKE', 'WILL', 'OLB', 'LB',
+    'CB', 'FS', 'SS', 'S', 'K', 'P',
+  ]
+  const byPosition = (a, b) => {
+    const ai = POSITION_ORDER.indexOf(a.position)
+    const bi = POSITION_ORDER.indexOf(b.position)
+    if (ai === -1 && bi === -1) return 0
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  }
+
   const groupedByDesignation = {
-    first: allConference.filter(p => p.designation === 'first'),
-    second: allConference.filter(p => p.designation === 'second'),
-    freshman: allConference.filter(p => p.designation === 'freshman')
+    first: allConference.filter(p => p.designation === 'first').sort(byPosition),
+    second: allConference.filter(p => p.designation === 'second').sort(byPosition),
+    freshman: allConference.filter(p => p.designation === 'freshman').sort(byPosition)
   }
 
   // School leaderboard strip — same weighted tally (1st = 3, 2nd = 2,

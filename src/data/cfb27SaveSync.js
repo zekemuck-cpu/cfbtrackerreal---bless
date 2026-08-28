@@ -168,6 +168,23 @@ function alreadyHasMoreSpecificDeparture(player, year) {
   return Boolean(entry && entry.type === 'departure')
 }
 
+// Graduating and getting drafted are real-world irreversible — unlike a
+// transfer (which genuinely can be a bad read that a later sync corrects,
+// see the "clear a stale departure stamp" case below), there is no such
+// thing as un-graduating or un-getting-drafted. Confirmed against a real
+// duplicate-player case: a Junior correctly recorded as departed (pro_draft)
+// after 2026 kept getting matched and UPDATED by later syncs anyway — some
+// leftover/colliding save row for the same assetName still reported him on
+// a roster — advancing his class to "Sr" for 2027 as if he'd never left,
+// with no way for that to self-correct. A player with a graduated/pro_draft
+// stamp for ANY year is now permanently frozen: no later sync, whatever a
+// matched row seems to show, can ever update their class/team/overall again.
+function hasTerminalDeparture(player) {
+  return Object.values(player.movementByYear || {}).some(
+    (m) => m?.type === 'departure' && (m.departure === 'graduated' || m.departure === 'pro_draft')
+  )
+}
+
 // A repeat sync against an unchanged save would otherwise re-patch every
 // single tracked player every time (each patch recomputes the SAME values) —
 // exactly the "full re-seed every time" cost the whole point of diffing was
@@ -210,10 +227,22 @@ function isNoOpPlayerPatch(existing, patch, year) {
  * dangling-recruit matching, etc.) isn't needed to exercise this one
  * decision. Precedence: a real draft round from the save (definitive) beats
  * the save's own LeavingPlayer projection (real transfer reason / real
- * graduation flag) beats the Sr-vs-not heuristic (last resort, only reached
+ * graduation flag) beats the graduated fallback (last resort, only reached
  * when LeavingPlayer has no resolvable entry for this player — e.g. its
  * LeaveType was an enum value this schema has no name for; see
  * extractPlayers.cjs's LEAVE_TYPE_MAP comment).
+ *
+ * 'pro_draft' is ONLY ever assigned from a real, confirmed draftRound — never
+ * guessed. This used to fall back to 'pro_draft' whenever lastClass didn't
+ * literally end in "Sr" (reasoning: an underclassman leaving without a
+ * resolvable category was probably going pro) — confirmed wrong against two
+ * real players: a Junior who actually just entered the transfer portal (no
+ * LeavingPlayer entry resolved for him) got tagged "2026 NFL Draft" and kept
+ * that badge on his profile forever, even after he showed up on a new roster
+ * the very next year via a correctly-tracked portal transfer. NFL Draft is a
+ * real, verifiable outcome (rounds 1-7); anyone who leaves without one —
+ * whether the save explicitly says graduate, or the category just can't be
+ * resolved — reads as graduated instead, never as a guessed draft pick.
  *
  * @param {object} params
  * @param {number|null} params.draftRound
@@ -225,8 +254,7 @@ export function resolveDepartureReason({ draftRound, leaving, lastClass }) {
   const departure = draftRound
     ? 'pro_draft'
     : leaving?.category === 'transfer' ? 'transfer_out'
-    : leaving?.category === 'graduate' ? 'graduated'
-    : (/Sr$/.test(lastClass || '') ? 'graduated' : 'pro_draft')
+    : 'graduated'
   const departureReason = !draftRound && leaving?.category === 'transfer' ? leaving.reason : null
   return { departure, departureReason }
 }
@@ -443,6 +471,11 @@ export function reconcilePlayers(rows, existingPlayers, { year, dynastyTeams, le
 
       if (existing) {
         matchedPids.add(existing.pid)
+        // Frozen — see hasTerminalDeparture's comment. Still counts as
+        // "matched" above (the departures pass below must never mistake an
+        // already-departed player for newly missing), but nothing about
+        // their tracked data moves again.
+        if (hasTerminalDeparture(existing)) continue
         mapped.pid = existing.pid
         mapped.id = `player-${existing.pid}`
         const lastStint = getLastKnownStint(existing, year)
@@ -1798,17 +1831,28 @@ export function findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamI
  * @param {object} dynasty - dynasty.players/.teams/.currentYear/.currentTid
  * @param {object} parsed - the raw result from api/cfb27-save-parse.js
  */
-// Offseason weeks (the app's own numbering — DynastyContext.jsx's
-// advanceWeek convention, e.g. week 6 =
-// National Signing Day) where new players are allowed to fully join the
-// roster for the first time. An explicit, coded allowlist rather than
+// The offseason week (the app's own numbering — DynastyContext.jsx's
+// advanceWeek convention) where new players are first allowed to fully join
+// the roster — National Signing Day, week 6, the first week the save's own
+// roster reflects the incoming class. An explicit threshold rather than
 // relying on the save simply not having the data early — the same "never
 // guess, always be explicit" principle as departuresPossible and the
 // locked-week game boundary (see the PC sync durability redesign,
-// 2026-08-28). Confirmed so far: National Signing Day (week 6), the first
-// week each season the save's own roster reflects the incoming class.
-// Extend this list if more specific weeks are confirmed later.
-const ROSTER_ARRIVAL_OFFSEASON_WEEKS = [6]
+// 2026-08-28).
+//
+// A THRESHOLD (>=), not an exact-match allowlist — a real dynasty confirmed
+// the bug in the original `=== 6` version: if no sync ever landed on the
+// exact literal week 6 snapshot (entirely plausible — sync cadence is
+// whatever the user happens to do, and this app's own offseason week
+// numbering had its own bugs fixed earlier this same day), the gate stayed
+// permanently closed for that whole season, and every OTHER team's new
+// recruiting class (freshmen) was silently never captured at all — only the
+// user's own team's freshmen still arrived, via the separate, ungated
+// recruiting-board pathway. Once Signing Day has happened, the incoming
+// class stays visible in the save for the rest of that season (through
+// Training Results, the rest of the offseason, preseason, and beyond) — so
+// anything at or after week 6 is safe, not just the literal week itself.
+const ROSTER_ARRIVAL_MIN_OFFSEASON_WEEK = 6
 
 /**
  * Whether new players are allowed to fully join the roster this sync —
@@ -1828,6 +1872,13 @@ const ROSTER_ARRIVAL_OFFSEASON_WEEKS = [6]
  * sync) is never gated — there is no "too early" for a roster that doesn't
  * exist yet.
  *
+ * Only the early-offseason recruiting weeks (0-5, before Signing Day) are
+ * ever "too early" — every other phase (offseason week 6+, preseason,
+ * regular season, conference championship, postseason) is at-or-after
+ * Signing Day for whichever season is currently in progress, so arrivals
+ * stay open there too. An unresolved phase (seasonInfo missing/unparseable)
+ * is the one case that still gates closed, same as before.
+ *
  * @param {Array<object>} existingPlayers - dynasty.players before this sync
  * @param {{targetPhase?: string, targetWeek?: number}} target
  * @returns {boolean}
@@ -1835,7 +1886,10 @@ const ROSTER_ARRIVAL_OFFSEASON_WEEKS = [6]
 export function computeRosterArrivalsPossible(existingPlayers, target) {
   const isFirstCfb27SyncEver = !(existingPlayers || []).some((p) => p.cfb27AssetName)
   if (isFirstCfb27SyncEver) return true
-  return target?.targetPhase === 'offseason' && ROSTER_ARRIVAL_OFFSEASON_WEEKS.includes(Number(target?.targetWeek))
+  const phase = target?.targetPhase
+  if (phase == null) return false
+  if (phase === 'offseason') return Number(target?.targetWeek) >= ROSTER_ARRIVAL_MIN_OFFSEASON_WEEK
+  return true
 }
 
 export function buildSyncPlan(dynasty, parsed, options = {}) {
@@ -2279,6 +2333,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
     if (!existing) {
       rivalriesToAdd.push({
         id: `cfb27-rival-${mr.rivalTid}`,
+        tid: userTid,
         rivalTid: mr.rivalTid,
         formedYear: mr.formedYear,
         active: true,
@@ -2315,7 +2370,23 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   // cfpSlot identification now comes directly from the save's own fixed
   // bracket structure (see buildPostseasonGames/PLAYOFF_SLOT_TO_CFP_SLOT) —
   // no ranking-based guessing involved.
-  const postseasonGames = buildPostseasonGames(parsed, rawTeamIdMap, dynastyTeams, dynasty.games || [], year)
+  //
+  // Year: NOT the outer `year` (this sync's CURRENT season-in-progress
+  // year) whenever the save has already moved past postseason — the save's
+  // own `season.year` flips the moment weekType becomes 'OffSeason' (see
+  // mapSeasonInfo/getPhaseDisplay's Week-0 comments), but parsed.games still
+  // carries the just-finished season's now-decided bowl/CFP games. A sync
+  // that runs from preseason (or any later point) onward — which is nearly
+  // every sync, since almost nobody syncs mid-bowl-week right before the
+  // flip — used to stamp those already-completed games with `year` (the
+  // NEW season), duplicating them under the wrong year: a National
+  // Championship win counted as a "current season" game with zero games
+  // actually played yet, a bowl win appearing in BOTH the real year and the
+  // one after it on Coach Career. Confirmed via a real dynasty (2026-08-28).
+  // Only 'postseason'/'conference_championship' phases mean the year hasn't
+  // flipped yet, so postseason games still belong to `year` unchanged.
+  const postseasonYear = (phase === 'postseason' || phase === 'conference_championship') ? year : year - 1
+  const postseasonGames = buildPostseasonGames(parsed, rawTeamIdMap, dynastyTeams, dynasty.games || [], postseasonYear)
 
   // Real CFP seed list + bowl-host config, mirroring CFPSeedsModal's exact
   // save shape — null until the bracket is actually locked (see
@@ -2343,16 +2414,24 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   const rawHonorsPreseason = parsed.leagueHonors?.allAmericansPreseason
   const hasFinalHonors = rawHonors?.national?.length || rawHonors?.conference?.length
   const hasPreseasonHonors = rawHonorsPreseason?.national?.length || rawHonorsPreseason?.conference?.length
-  const allAmericansUpdate = (hasFinalHonors || hasPreseasonHonors)
+  // Split into two separately-year-keyed updates (see postseasonYear's
+  // comment above) — final honors belong to the season that just ended
+  // (postseasonYear), preseason predictions belong to the season about to
+  // start (year, unchanged). These used to merge into ONE object written
+  // under a single `year`, which mislabeled last season's real final
+  // All-Americans as the new season's honors the moment a sync ran from
+  // preseason (or later) — every synced dynasty, since almost nobody syncs
+  // in the narrow postseason window before the flip.
+  const allAmericansFinalUpdate = hasFinalHonors
     ? {
-        ...(hasFinalHonors ? {
-          allAmericans: (rawHonors.national || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
-          allConference: (rawHonors.conference || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
-        } : {}),
-        ...(hasPreseasonHonors ? {
-          allAmericansPreseason: (rawHonorsPreseason.national || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
-          allConferencePreseason: (rawHonorsPreseason.conference || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
-        } : {}),
+        allAmericans: (rawHonors.national || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
+        allConference: (rawHonors.conference || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
+      }
+    : null
+  const allAmericansPreseasonUpdate = hasPreseasonHonors
+    ? {
+        allAmericansPreseason: (rawHonorsPreseason.national || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
+        allConferencePreseason: (rawHonorsPreseason.conference || []).map((e) => mapHonorEntry(e, rawTeamIdMap, dynastyTeams)),
       }
     : null
 
@@ -2534,6 +2613,10 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
     // above — one source of truth for "what's already confirmed history" per sync.
     gamesLockBoundary,
     postseasonGamesToWrite: postseasonGames,
+    // Shared so the caller (DynastyContext.jsx) can key allAmericansFinalUpdate
+    // and awardsUpdate to the right year the same way postseasonGames above
+    // already is — see postseasonYear's own comment for why.
+    postseasonYear,
     depthChartUpdates,
     playersOfWeekUpdate,
     heismanWatchUpdate,
@@ -2541,7 +2624,8 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
     rivalriesToPatch,
     draftResultsUpdate,
     cfpSeedsUpdate: cfpSeeds,
-    allAmericansUpdate,
+    allAmericansFinalUpdate,
+    allAmericansPreseasonUpdate,
     awardsUpdate,
     leagueStatRecordsUpdate,
     userJobChange,
@@ -2573,7 +2657,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
       rivalriesPatched: rivalriesToPatch.length,
       draftResultsTeams: Object.keys(draftResultsUpdate).length,
       cfpSeedsLocked: cfpSeeds != null,
-      allAmericansUpdated: allAmericansUpdate != null,
+      allAmericansUpdated: allAmericansFinalUpdate != null || allAmericansPreseasonUpdate != null,
       awardsUpdated: awardsUpdate ? Object.keys(awardsUpdate).length : 0,
       leagueStatRecordsUpdated: leagueStatRecordsUpdate != null,
       userJobChangeDetected: userJobChange != null,

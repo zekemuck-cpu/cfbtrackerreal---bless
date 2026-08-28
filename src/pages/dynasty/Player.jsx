@@ -401,9 +401,27 @@ function PlayerInner() {
     const mby = player?.movementByYear
     if (mby) {
       const years = Object.keys(mby).map(Number).filter(y => !isNaN(y)).sort((a, b) => b - a)
+      // Scanning newest-year-first: once a later year's entry proves the
+      // player actually arrived/re-arrived somewhere (movementByYear has
+      // its own 'arrival' entry for that), any OLDER departure-type entry
+      // is stale — the player came back, whatever left them tagged
+      // departed that year (a bad match during sync, a portal entry
+      // misread as pro_draft, etc.) doesn't reflect where they are now.
+      // Previously only the transfer_out case checked this (via its own
+      // teamsByYear "did they come back" inference below); a departure
+      // tagged pro_draft/graduated/etc. had no such check, so a player who
+      // got a false "left via NFL Draft" record one year and then shows up
+      // playing again in a later year (confirmed via real saves: two
+      // separate players, each falsely draft-tagged the year before their
+      // real, correctly-tracked portal transfer) kept showing "20XX NFL
+      // Draft" on their profile forever, with no way for it to self-heal.
+      let sawLaterArrival = false
       for (const y of years) {
         const m = mby[y] || mby[String(y)]
         if (!m?.type) continue
+        if (sawLaterArrival && m.type !== 'arrival' && m.type !== 'recommit' && m.type !== 'recommitted') {
+          return null
+        }
         // Canonical v2 shapes — these are the post-migration write
         // shapes (departure/{graduated,pro_draft,transfer_out},
         // recommit, arrival). The block below also handles legacy
@@ -456,7 +474,10 @@ function PlayerInner() {
           return null
         }
         if (m.type === 'arrival') {
-          // Arrival is not a departure — keep looking earlier years.
+          // Arrival is not a departure — keep looking earlier years, but
+          // remember it: any departure-type entry found in an earlier year
+          // from here on is superseded (see sawLaterArrival's comment above).
+          sawLaterArrival = true
           continue
         }
         if (m.type === 'declared_for_draft') {

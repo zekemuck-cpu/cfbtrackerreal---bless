@@ -261,10 +261,33 @@ export default function AllAmericans() {
     ? allAmericans
     : allAmericans.filter(p => p.designation === filter)
 
+  // Position order for display — offense skill/line, then defensive front/
+  // level/secondary, then specialists. The save's own PlayerAward table
+  // order is usable as-is for the small Final list (one slot per position,
+  // already roughly ordered), but the larger Preseason predictions list
+  // came through in whatever order the save happened to report, reading as
+  // random on screen. Sorting both consistently by position is simpler and
+  // strictly better than only fixing the one view that looked wrong.
+  const POSITION_ORDER = [
+    'QB', 'HB', 'FB', 'WR', 'TE',
+    'LT', 'LG', 'C', 'RG', 'RT', 'OT', 'OG',
+    'LE', 'RE', 'LEDG', 'REDG', 'EDGE', 'DT',
+    'LOLB', 'MLB', 'ROLB', 'SAM', 'MIKE', 'WILL', 'OLB', 'LB',
+    'CB', 'FS', 'SS', 'S', 'K', 'P',
+  ]
+  const byPosition = (a, b) => {
+    const ai = POSITION_ORDER.indexOf(a.position)
+    const bi = POSITION_ORDER.indexOf(b.position)
+    if (ai === -1 && bi === -1) return 0
+    if (ai === -1) return 1
+    if (bi === -1) return -1
+    return ai - bi
+  }
+
   const groupedByDesignation = {
-    first: allAmericans.filter(p => p.designation === 'first'),
-    second: allAmericans.filter(p => p.designation === 'second'),
-    freshman: allAmericans.filter(p => p.designation === 'freshman')
+    first: allAmericans.filter(p => p.designation === 'first').sort(byPosition),
+    second: allAmericans.filter(p => p.designation === 'second').sort(byPosition),
+    freshman: allAmericans.filter(p => p.designation === 'freshman').sort(byPosition)
   }
 
   // Resolve a school to its registry team using the durable schoolTid FIRST,

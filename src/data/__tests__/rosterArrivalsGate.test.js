@@ -2,10 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { reconcilePlayers, computeRosterArrivalsPossible } from '../cfb27SaveSync'
 
 // New requirement (2026-08-28): the roster should only fully gain new
-// players on specific offseason weeks, starting with National Signing Day
-// (week 6) — the first week each season the save's own roster reflects the
-// incoming class. An explicit, coded rule rather than relying on the save
-// simply not having the data early.
+// players starting with National Signing Day (offseason week 6) — the first
+// week each season the save's own roster reflects the incoming class. An
+// explicit, coded rule rather than relying on the save simply not having
+// the data early.
+//
+// Changed same day: originally an exact `=== 6` match, which a real dynasty
+// showed could permanently miss a whole season's new class if no sync ever
+// landed on that literal week — every OTHER team's freshmen silently never
+// got created (only the user's own team's still arrived, via the separate
+// recruiting-board pathway). Now a >= 6 threshold, open through every phase
+// after Signing Day (not just the rest of the offseason) since the incoming
+// class stays visible in the save for the whole season once it's signed.
 
 const YEAR = 2029
 
@@ -43,15 +51,29 @@ describe('computeRosterArrivalsPossible', () => {
     expect(computeRosterArrivalsPossible(existing, { targetPhase: 'offseason', targetWeek: 6 })).toBe(true)
   })
 
-  it('any other offseason week does not allow arrivals', () => {
+  it('an earlier offseason week (before Signing Day) does not allow arrivals', () => {
     const existing = [{ pid: 1, cfb27AssetName: 'Existing_1' }]
     expect(computeRosterArrivalsPossible(existing, { targetPhase: 'offseason', targetWeek: 3 })).toBe(false)
-    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'offseason', targetWeek: 7 })).toBe(false)
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'offseason', targetWeek: 5 })).toBe(false)
   })
 
-  it('the regular season never allows arrivals (once past the first sync)', () => {
+  it('any offseason week at or after Signing Day allows arrivals, not just the literal week 6', () => {
     const existing = [{ pid: 1, cfb27AssetName: 'Existing_1' }]
-    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'regular_season', targetWeek: 6 })).toBe(false)
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'offseason', targetWeek: 7 })).toBe(true)
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'offseason', targetWeek: 8 })).toBe(true)
+  })
+
+  it('any phase after Signing Day allows arrivals too (preseason, regular season, etc.)', () => {
+    const existing = [{ pid: 1, cfb27AssetName: 'Existing_1' }]
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'preseason', targetWeek: 0 })).toBe(true)
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'regular_season', targetWeek: 6 })).toBe(true)
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'conference_championship', targetWeek: 1 })).toBe(true)
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: 'postseason', targetWeek: 2 })).toBe(true)
+  })
+
+  it('an unresolved phase still gates closed', () => {
+    const existing = [{ pid: 1, cfb27AssetName: 'Existing_1' }]
+    expect(computeRosterArrivalsPossible(existing, { targetPhase: null, targetWeek: null })).toBe(false)
   })
 })
 
