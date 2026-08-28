@@ -2019,6 +2019,54 @@ function playerGameStatsAttribsByTable() {
   };
 }
 
+/**
+ * Which played weeks buildGameStats should actually resolve stats for —
+ * pulled out as a small pure function specifically so it's unit-testable
+ * without a real save file (extractFullSave itself needs the binary file
+ * and can't be exercised with synthetic data the same way).
+ *
+ * Skips re-resolving box-score stats for regular-season weeks the caller
+ * already has fully synced — a late-season sync otherwise re-walks every
+ * week from 1 through the current one, every single time, even though only
+ * the newest week is actually new. opts.alreadySyncedYear/
+ * alreadySyncedThroughWeek (see api/cfb27-save-parse.js) are the calling
+ * dynasty's OWN last-known season position, sent so this can be compared
+ * safely without this function knowing anything about a specific dynasty.
+ *
+ * Deliberately narrow: only ever applies when there are ZERO non-regular-
+ * season games AND conference championship week hasn't been played yet
+ * either — i.e. strictly ordinary regular-season play. CCG and bowl/CFP
+ * weeks' raw SeasonWeek numbering isn't confirmed safe to compare against
+ * alreadySyncedThroughWeek the same way conference play's plain 1-15
+ * numbering is (the save's own CCG week isn't even fixed — 15 and 16 both
+ * observed on real saves), so the moment either shows up, this
+ * optimization turns itself off and every played week is returned
+ * unfiltered — identical to before this existed. A year change, an
+ * offseason/preseason last sync, or missing opts also fall back to that
+ * same full list.
+ *
+ * @param {Array<{week: number, weekType: string}>} playedGames
+ * @param {number[]} playedWeeks - unique week numbers from playedGames
+ * @param {{year?: number, conferenceChampionshipWeek?: number}|null} season
+ * @param {{alreadySyncedYear?: number, alreadySyncedThroughWeek?: number}} opts
+ * @returns {number[]}
+ */
+function computeGameStatsWeeksToFetch(playedGames, playedWeeks, season, opts) {
+  const alreadySyncedThroughWeek = Number(opts.alreadySyncedThroughWeek);
+  const hasAnyNonRegularSeasonGames = playedGames.some((g) => g.weekType !== 'RegularSeason');
+  const ccgAlreadyPlayed = season?.conferenceChampionshipWeek != null &&
+    playedGames.some((g) => g.week === season.conferenceChampionshipWeek);
+  const canSkipKnownWeeks =
+    !hasAnyNonRegularSeasonGames &&
+    !ccgAlreadyPlayed &&
+    Number.isFinite(alreadySyncedThroughWeek) &&
+    opts.alreadySyncedYear != null &&
+    season?.year === opts.alreadySyncedYear;
+  return canSkipKnownWeeks
+    ? playedWeeks.filter((w) => w > alreadySyncedThroughWeek)
+    : playedWeeks;
+}
+
 async function buildGameStats(save, playerTable, teamRecords, F, playedWeeks) {
   const teamStatsByWeek = {};
   const playerStatsByWeek = {};
@@ -2401,10 +2449,18 @@ async function extractFullSave(filePath, opts = {}) {
   // though the final score always synced fine (that comes straight off the
   // SeasonGame row, not gameStats). Conference championship games were
   // never affected — they carry weekType 'RegularSeason' themselves.
-  const playedWeeks = [...new Set(
-    games.filter((g) => g.status !== 'Unplayed').map((g) => g.week)
-  )];
-  const gameStats = await buildGameStats(save, playerTable, teamRecords, playerFieldPicker, playedWeeks);
+  const playedGames = games.filter((g) => g.status !== 'Unplayed');
+  const playedWeeks = [...new Set(playedGames.map((g) => g.week))];
+  const weeksToCompute = computeGameStatsWeeksToFetch(playedGames, playedWeeks, season, opts);
+
+  const gameStats = await buildGameStats(save, playerTable, teamRecords, playerFieldPicker, weeksToCompute);
+  // Tells the client exactly which raw weeks this response actually has
+  // stats for — a week's key being entirely absent from teamStatsByWeek/
+  // playerStatsByWeek is ambiguous on its own (genuinely no stats vs. not
+  // computed this sync), so callers gate on this list instead of treating
+  // a missing/empty key as "no stats for this game" and overwriting
+  // already-synced box score data with nothing.
+  gameStats.computedWeeks = weeksToCompute;
   const depthCharts = await buildDepthCharts(save, teamRecords, playerFieldPicker);
   const leavingPlayers = await buildLeavingPlayers(save, playerFieldPicker);
 
@@ -2463,4 +2519,4 @@ async function extractPlayers(filePath, opts = {}) {
   };
 }
 
-module.exports = { extractPlayers, extractFullSave };
+module.exports = { extractPlayers, extractFullSave, computeGameStatsWeeksToFetch };

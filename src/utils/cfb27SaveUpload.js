@@ -16,6 +16,16 @@ const API_BASE = import.meta.env.VITE_API_BASE || ''
  * @param {object} [opts]
  * @param {(stage: 'uploading'|'parsing') => void} [opts.onProgress]
  * @param {AbortSignal} [opts.signal]
+ * @param {number} [opts.alreadySyncedYear] - the calling dynasty's current
+ *   season year as of its LAST sync — lets the server skip re-resolving
+ *   box-score stats for regular-season weeks already fully synced. See
+ *   extractFullSave's comment in api/_lib/cfb27Extract/extractPlayers.cjs
+ *   for the (deliberately narrow) conditions this actually applies under.
+ *   Omit (or pass an unrecognized value) to always get the full, unskipped
+ *   parse — identical to this option not existing at all.
+ * @param {number} [opts.alreadySyncedThroughWeek] - the calling dynasty's
+ *   current regular-season week as of its LAST sync, paired with
+ *   alreadySyncedYear above.
  * @returns {Promise<{ players: object[], teamCount: number, tableRowCount: number }>}
  */
 // Turn a failed API response into an error that actually says what happened.
@@ -36,7 +46,7 @@ async function describeFailure(res, what) {
   )
 }
 
-export async function uploadAndParseCfb27Save(file, { onProgress, signal } = {}) {
+export async function uploadAndParseCfb27Save(file, { onProgress, signal, alreadySyncedYear, alreadySyncedThroughWeek } = {}) {
   const user = auth.currentUser
   if (!user) throw new Error('Sign in to import a save file')
   const token = await user.getIdToken()
@@ -65,7 +75,7 @@ export async function uploadAndParseCfb27Save(file, { onProgress, signal } = {})
   const parseRes = await fetch(`${API_BASE}/api/cfb27-save-parse`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ key }),
+    body: JSON.stringify({ key, alreadySyncedYear, alreadySyncedThroughWeek }),
     signal,
   })
   if (!parseRes.ok) {

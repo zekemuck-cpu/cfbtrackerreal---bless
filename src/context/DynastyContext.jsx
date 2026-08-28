@@ -1537,7 +1537,7 @@ function hasRecommitForYear(player, year) {
 /**
  * Movement-record departure check — the single source of truth for "this
  * player left and never came back", shared by the Signing Day carryover
- * (offseason week 5→6) and advanceToNewSeason (week 7).
+ * (offseason week 5→6) and advanceToNewSeason (week 8).
  *
  * Extracted VERBATIM from the Signing Day carryover's isPlayerLeaving
  * closure (minus its playersLeaving-list checks, which stay at the call
@@ -5288,7 +5288,7 @@ export function getPlayersNeedingClassConfirmation(dynasty) {
 // never do. So this walker never stops mid-offseason at all — it carries a
 // PC dynasty straight through every offseason week to match whatever the
 // save reports. Never crosses the year itself — this function refuses to
-// run at all across a year mismatch (below) and offseason week 7 has no
+// run at all across a year mismatch (below) and offseason week 8 has no
 // further transition rule defined, so it can't run away past the last week
 // this walker models; the actual year rollover (advanceToNewSeason) is
 // separate, heavier machinery triggered elsewhere.
@@ -8359,6 +8359,24 @@ export function DynastyProvider({ children }) {
         migrated._offseasonRevertFlipExperimentV1 = true
       }
 
+      // Expand recruiting from 3 tracker-weeks to the real game's 4: old wk2-4
+      // (Recruiting Weeks 1-3) are unchanged, but old wk5 (Signing Day) no
+      // longer immediately follows wk4 — a new wk5 (Recruiting Week 4 of 4)
+      // is inserted first, pushing Signing Day/Training/Transfers each back
+      // one slot: old wk5→new wk6, old wk6→new wk7, old wk7→new wk8. A
+      // dynasty parked at old wk≤4 needs no change (those weeks kept their
+      // meaning); one parked at wk≥5 was already PAST the inserted week, so
+      // it shifts forward to land on the same real-world task it was on.
+      // Gated by a persisted flag so it runs exactly once per dynasty.
+      if (!migrated._recruitingWeekExpandV1) {
+        if (migrated.currentPhase === 'offseason' && typeof migrated.currentWeek === 'number') {
+          const w = migrated.currentWeek
+          const newW = w >= 5 ? w + 1 : w
+          if (newW !== w) migrated = { ...migrated, currentWeek: newW }
+        }
+        migrated._recruitingWeekExpandV1 = true
+      }
+
       // Heal a corrupted offseason year-flip state. The year flip
       // (advanceWeek wk4→5) sets classProgressionDoneForYear AND currentYear
       // to the SAME new year, atomically — so once the flip has run the
@@ -10341,8 +10359,23 @@ export function DynastyProvider({ children }) {
     // games path always does) would silently delete real games/players that
     // just weren't loaded into state yet at the moment of the sync.
     await enterPhase('loadRosterGames', 'Loading dynasty…')
-    const freshPlayers = await getDynastyPlayers(dynasty)
-    const freshGames = await getDynastyGames(dynasty)
+    // These three reads don't depend on each other's results — fired
+    // together instead of one after another shaves off two network
+    // round-trips' worth of sequential wait. Per-call error handling is
+    // unchanged: getDynastyPlayers/getDynastyGames still reject the whole
+    // sync on failure exactly as before, while getDynastyFromServer's
+    // failure is still swallowed (a stale local snapshot, no worse than
+    // pre-fix behavior) rather than blocking the sync.
+    const [freshPlayers, freshGames, freshDynastyDoc] = await Promise.all([
+      getDynastyPlayers(dynasty),
+      getDynastyGames(dynasty),
+      dynasty.storageType === 'cloud'
+        ? getDynastyFromServer(dynastyId).catch((err) => {
+            console.error('Failed to fetch fresh dynasty doc before sync:', err)
+            return null
+          })
+        : Promise.resolve(null),
+    ])
 
     // Same staleness risk as players/games above, for the main doc's own
     // fields — `teams` (rankByWeek Top 25 history, cfpSeedsByYear, etc.)
@@ -10354,24 +10387,14 @@ export function DynastyProvider({ children }) {
     // read to close that gap; local (IndexedDB) dynasties have no such
     // cache-vs-server split, so `dynasty` is already authoritative.
     let dynastyForPlan = { ...dynasty, players: freshPlayers, games: freshGames }
-    if (dynasty.storageType === 'cloud') {
-      try {
-        const freshDynastyDoc = await getDynastyFromServer(dynastyId)
-        if (freshDynastyDoc) {
-          dynastyForPlan = {
-            ...dynastyForPlan,
-            teams: freshDynastyDoc.teams ?? dynastyForPlan.teams,
-            rivalries: freshDynastyDoc.rivalries ?? dynastyForPlan.rivalries,
-            cfpSeedsByYear: freshDynastyDoc.cfpSeedsByYear ?? dynastyForPlan.cfpSeedsByYear,
-            coachPosition: freshDynastyDoc.coachPosition ?? dynastyForPlan.coachPosition,
-            newJobData: freshDynastyDoc.newJobData ?? dynastyForPlan.newJobData,
-          }
-        }
-      } catch (err) {
-        // A failed server read here just means the sync proceeds on the
-        // same (potentially stale) local snapshot it always used before
-        // this fix — no worse than before, so don't block the sync over it.
-        console.error('Failed to fetch fresh dynasty doc before sync:', err)
+    if (dynasty.storageType === 'cloud' && freshDynastyDoc) {
+      dynastyForPlan = {
+        ...dynastyForPlan,
+        teams: freshDynastyDoc.teams ?? dynastyForPlan.teams,
+        rivalries: freshDynastyDoc.rivalries ?? dynastyForPlan.rivalries,
+        cfpSeedsByYear: freshDynastyDoc.cfpSeedsByYear ?? dynastyForPlan.cfpSeedsByYear,
+        coachPosition: freshDynastyDoc.coachPosition ?? dynastyForPlan.coachPosition,
+        newJobData: freshDynastyDoc.newJobData ?? dynastyForPlan.newJobData,
       }
     }
     await enterPhase('buildPlan', 'Loading current roster & games…')
@@ -10834,13 +10857,18 @@ export function DynastyProvider({ children }) {
       // mergedPlayers already reconciled+recalculated above, shared with the
       // season-advance check.
       const recalculatedByPid = new Map(mergedPlayers.map((p) => [p.pid, p]))
+      // freshPlayers can run to thousands of rows for a long-running cloud
+      // dynasty — .find() per mergedPlayers entry below used to be an O(n*m)
+      // linear rescan of the whole array on every iteration; a Map keyed by
+      // pid makes each lookup O(1) instead.
+      const freshPlayersByPid = new Map(freshPlayers.map((p) => [p.pid, p]))
       await enterPhase('saveRoster', 'Recalculating stats…')
 
       const createPidSet = new Set(plan.toCreatePlayers.map((p) => p.pid))
       const statsPatches = []
       for (const player of mergedPlayers) {
         if (createPidSet.has(player.pid)) continue // folded into the create doc below instead
-        const freshPlayer = freshPlayers.find((p) => p.pid === player.pid)
+        const freshPlayer = freshPlayersByPid.get(player.pid)
         // stableStringify — same key-order-independence reasoning as the
         // games/players diffs in updateDynasty.
         const before = stableStringify(freshPlayer?.statsByYear?.[statsYear] || null)
@@ -15616,10 +15644,11 @@ export function DynastyProvider({ children }) {
         // Clear newJobData
         additionalUpdates.newJobData = null
       }
-    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 4 && nextWeek === 5) {
-      console.log('[advanceWeek] *** ENTERING WEEK 4→5 TRANSITION (SIGNING DAY / YEAR FLIP) ***')
+    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 5 && nextWeek === 6) {
+      console.log('[advanceWeek] *** ENTERING WEEK 5→6 TRANSITION (SIGNING DAY / YEAR FLIP) ***')
 
-      // YEAR FLIP - Happens when entering Signing Day (week 5)
+      // YEAR FLIP - Happens when entering Signing Day (week 6). Recruiting
+      // now runs 4 full weeks (2-5) before Signing Day gets its own week.
       // The year changes here so that team pages for the new year become available
       // CRITICAL: Use Number() to ensure proper arithmetic (currentYear could be string from Firestore)
       nextYear = Number(dynasty.currentYear) + 1
@@ -16050,12 +16079,12 @@ export function DynastyProvider({ children }) {
           }
         }
       }
-    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 6 && nextWeek === 7) {
-      // Week 6→7 transition (after Signing Day tasks complete)
+    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 7 && nextWeek === 8) {
+      // Week 7→8 transition (after Signing Day tasks complete)
       // With the new system, departures and transfers are handled directly in:
       // - handlePlayersLeavingSave (adds movements, doesn't add next year to teamsByYear)
       // - handleTransferDestinationsSave (updates teamsByYear, adds movements)
-      // NOTE: Recruits stay as isRecruit=true until Week 7→8 so users can enter Recruit Overalls
+      // NOTE: Recruits stay as isRecruit=true until Week 8→Preseason so users can enter Recruit Overalls
       const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended
       const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
       const players = dynasty.players || []
@@ -16096,12 +16125,12 @@ export function DynastyProvider({ children }) {
       if (updatedPlayers.some((p, i) => p !== players[i])) {
         additionalUpdates.players = updatedPlayers
       }
-    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 7 && nextWeek > 7) {
-      // Week 7 (Conferences/Transfers — the last offseason week) → Preseason.
-      // Collapsed 7-week model: this single transition does BOTH
-      //   (a) recruit→player conversion (the old wk7→8 step), and
-      //   (b) the move to preseason + cleanup (the old wk8→preseason step).
-      // advanceToNewSeason runs just before this, in Layout's wk7 intercept.
+    } else if (dynasty.currentPhase === 'offseason' && dynasty.currentWeek === 8 && nextWeek > 8) {
+      // Week 8 (Conferences/Transfers — the last offseason week) → Preseason.
+      // This single transition does BOTH
+      //   (a) recruit→player conversion, and
+      //   (b) the move to preseason + cleanup.
+      // advanceToNewSeason runs just before this, in Layout's wk8 intercept.
       // (a) NOW convert recruits to active players (after Recruit Overalls entry)
       const previousSeasonYear = dynasty.currentYear - 1 // Year that just ended (recruitYear)
       const currentSeasonYear = dynasty.currentYear // The new season (already flipped)
@@ -16152,11 +16181,9 @@ export function DynastyProvider({ children }) {
       nextWeek = 0
       // nextYear stays the same (already set when entering week 6)
 
-      // NOTE: do NOT null prevAdvanceToNewSeasonSnapshot here. In the old
-      // 8-week model the snapshot was restorable at the intermediate wk8→wk7
-      // revert; that stop no longer exists in the collapsed model, so the
-      // snapshot must survive into preseason for the preseason→wk7 revert to
-      // roll back advanceToNewSeason's writes.
+      // NOTE: do NOT null prevAdvanceToNewSeasonSnapshot here — it must
+      // survive into preseason for the preseason→wk8 revert to roll back
+      // advanceToNewSeason's writes.
 
       // Clear CC firing data for the new season
       additionalUpdates.conferenceChampionshipData = null
@@ -16791,15 +16818,14 @@ export function DynastyProvider({ children }) {
 
     // Determine the previous phase/week based on current state
     if (currentPhase === 'preseason') {
-      // Preseason Week 0 → Previous Year's Offseason Week 7 (last offseason week
-      // in the collapsed 7-week model — was week 8).
+      // Preseason Week 0 → Previous Year's Offseason Week 8 (last offseason week).
       if (currentYear <= startYear) {
         // Can't go back before the dynasty started
         // Cannot revert: at start of dynasty
         return
       }
       prevPhase = 'offseason'
-      prevWeek = 7
+      prevWeek = 8
       prevYear = currentYear - 1
 
       // CRITICAL: Restore recruits to isRecruit: true
@@ -16836,10 +16862,9 @@ export function DynastyProvider({ children }) {
         additionalUpdates.players = updatedPlayers
       }
 
-      // Also undo advanceToNewSeason's writes. It runs at Layout's wk7 intercept
-      // just before the wk7→preseason advance, capturing prevAdvanceToNewSeasonSnapshot.
-      // In the old 8-week model this rollback happened at the intermediate wk8→wk7
-      // revert; the collapsed model has no such stop, so we restore it here.
+      // Also undo advanceToNewSeason's writes. It runs at Layout's wk8 intercept
+      // just before the wk8→preseason advance, capturing prevAdvanceToNewSeasonSnapshot.
+      // There's no intermediate stop between wk8 and preseason, so we restore it here.
       const snapshot = dynasty.prevAdvanceToNewSeasonSnapshot
       if (snapshot) {
         additionalUpdates.isFirstYearOnCurrentTeam = snapshot.isFirstYearOnCurrentTeam
@@ -17629,17 +17654,17 @@ export function DynastyProvider({ children }) {
           // Clear previousJobData since we've restored it
           additionalUpdates.previousJobData = null
         }
-      } else if (dynasty.currentWeek >= 2 && dynasty.currentWeek <= 4 && prevWeek === dynasty.currentWeek - 1) {
+      } else if (dynasty.currentWeek >= 2 && dynasty.currentWeek <= 5 && prevWeek === dynasty.currentWeek - 1) {
         // Reverting within recruiting weeks (2-5)
         // Clear recruiting commitments that were added in current week
         // Note: We don't delete recruits here, just clear sheet IDs as the actual
         // recruit management is handled through the recruiting modal
         additionalUpdates.recruitingSheetId = null
-      } else if (dynasty.currentWeek === 6 && prevWeek === 5) {
-        // Reverting FROM Training Results (week 6) TO National Signing Day (week 5).
-        // With the flip at wk4→5, BOTH weeks are POST-flip — this does NOT cross
+      } else if (dynasty.currentWeek === 7 && prevWeek === 6) {
+        // Reverting FROM Training Results (week 7) TO National Signing Day (week 6).
+        // With the flip at wk5→6, BOTH weeks are POST-flip — this does NOT cross
         // the year flip. So we only restore the Training Results overalls the
-        // modal wrote at wk6 (year-keyed by the post-flip year).
+        // modal wrote at wk7 (year-keyed by the post-flip year).
         const trainingYear = currentYear
         let basePlayers = dynasty.players || []
         const trainingResults = dynasty.trainingResultsByYear?.[trainingYear]
@@ -17692,17 +17717,17 @@ export function DynastyProvider({ children }) {
           }
         }
         // NOTE: do NOT clear recruitOverallsByYear here. Recruit Overalls is a
-        // Signing-Day (wk5) task keyed under the ending year S, not Training-
-        // Results (wk6) data. Reverting wk6→wk5 lands the user back ON Signing
+        // Signing-Day (wk6) task keyed under the ending year S, not Training-
+        // Results (wk7) data. Reverting wk7→wk6 lands the user back ON Signing
         // Day, so that data must survive.
 
         // Persist the training-overall restoration (no class-progression change here).
         if (basePlayers.some((p, i) => p !== (dynasty.players || [])[i])) {
           additionalUpdates.players = basePlayers
         }
-      } else if (dynasty.currentWeek === 5 && prevWeek === 4) {
-        // Reverting FROM National Signing Day (week 5, POST-flip) TO Recruiting
-        // Week 3 (week 4, PRE-flip). This crosses the year flip → undo the flip
+      } else if (dynasty.currentWeek === 6 && prevWeek === 5) {
+        // Reverting FROM National Signing Day (week 6, POST-flip) TO Recruiting
+        // Week 4 (week 5, PRE-flip). This crosses the year flip → undo the flip
         // + class progression. currentYear is the NEW year (post-flip).
         prevYear = currentYear - 1
         const newSeasonYear = currentYear // The year we're leaving
@@ -17948,9 +17973,9 @@ export function DynastyProvider({ children }) {
         // NOTE: We intentionally do NOT clear recruitingClassRankByTeamYear or
         // draftResultsByTeamYear here. In the flip-on-Signing-Day model these are
         // keyed under the ENDING season year S (= previousSeasonYear after this
-        // un-flip): Class Rank is a Signing-Day (wk5) task whose data year is
+        // un-flip): Class Rank is a Signing-Day (wk6) task whose data year is
         // currentYear-1, and Draft Results are entered earlier in the offseason
-        // under the same year. Un-flipping wk5→wk4 rolls the year back to S but
+        // under the same year. Un-flipping wk6→wk5 rolls the year back to S but
         // leaves that S-keyed data in place, so re-advancing into Signing Day
         // surfaces the user's entries again. Clearing it would silently wipe
         // them.

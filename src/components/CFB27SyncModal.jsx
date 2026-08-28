@@ -62,8 +62,18 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
     setProgress(null)
     setStatus('uploading')
     try {
+      // Lets the server skip redundantly re-resolving box-score stats for
+      // regular-season weeks already synced last time — see
+      // extractFullSave's comment for the narrow conditions this applies
+      // under. Only sent when the dynasty's LAST sync left it mid regular
+      // season (currentWeek there unambiguously means a football week
+      // number matching the save's own SeasonWeek); any other phase omits
+      // both, which is identical to this optimization not existing.
+      const isRegularSeasonPhase = currentDynasty.currentPhase === 'regular_season'
       const parsed = await uploadAndParseCfb27Save(file, {
         onProgress: (stage) => setStatus(stage),
+        alreadySyncedYear: isRegularSeasonPhase ? currentDynasty.currentYear : undefined,
+        alreadySyncedThroughWeek: isRegularSeasonPhase ? Number(currentDynasty.currentWeek) : undefined,
       })
       setStatus('syncing')
       const syncResult = await syncDynastyFromCFB27Save(currentDynasty.id, parsed, {

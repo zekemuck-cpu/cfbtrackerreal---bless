@@ -62,7 +62,7 @@ export default async function handler(req, res) {
   if (!decoded) return; // verifyAuth already sent 401
   const uid = decoded.uid;
 
-  const { key } = req.body || {};
+  const { key, alreadySyncedYear, alreadySyncedThroughWeek } = req.body || {};
   // The key must be one this same user's upload endpoint minted for them —
   // prevents parsing (and deleting) another user's uploaded save via a
   // guessed/leaked key.
@@ -90,7 +90,12 @@ export default async function handler(req, res) {
     const bytes = Buffer.from(await download.arrayBuffer());
     await fs.writeFile(tmpPath, bytes);
 
-    const result = await extractFullSave(tmpPath);
+    // alreadySyncedYear/alreadySyncedThroughWeek are optional — the calling
+    // dynasty's own last-known season position (see CFB27SyncModal.jsx),
+    // used only to skip redundantly re-resolving box-score stats for
+    // regular-season weeks already fully synced. See extractFullSave's own
+    // comment for the (deliberately narrow) safety conditions.
+    const result = await extractFullSave(tmpPath, { alreadySyncedYear, alreadySyncedThroughWeek });
 
     return res.status(200).json(result);
   } catch (err) {

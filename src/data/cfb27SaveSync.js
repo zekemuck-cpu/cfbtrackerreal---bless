@@ -1187,7 +1187,13 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     const overtimes = played && (team1OT || team2OT) ? [{ team1: team1OT, team2: team2OT }] : null
 
     let box = null
-    if (played && parsed.gameStats) {
+    // Gated on the RAW g.week (not the CCG-remapped `week` above) — that's
+    // what computedWeeks is keyed by server-side. When a week wasn't
+    // computed this sync (already-known regular-season week, see
+    // extractFullSave), leave box null so the existing record's boxScore
+    // below is left untouched instead of getting overwritten with nothing.
+    const weekWasComputed = !parsed.gameStats?.computedWeeks || parsed.gameStats.computedWeeks.includes(g.week)
+    if (played && parsed.gameStats && weekWasComputed) {
       const teamStatsRaw = parsed.gameStats.teamStatsByWeek?.[week] || {}
       const playerStatsRaw = parsed.gameStats.playerStatsByWeek?.[week] || []
       const byTid = {}
@@ -1467,7 +1473,14 @@ export function buildPostseasonGames(parsed, rawTeamIdMap, dynastyTeams, existin
     // extractPlayers.cjs) — without that, gameStats.teamStatsByWeek/
     // playerStatsByWeek simply have no entry for a bowl/CFP week to read.
     let box = null
-    if (isPlayed && parsed.gameStats) {
+    // Same computedWeeks gate as the CPU regular-season loop above — in
+    // practice this is always true here, since extractFullSave's skip
+    // optimization unconditionally disables itself the moment ANY
+    // postseason game exists in the save (see its own comment), so a
+    // bowl/CFP week's stats are always freshly computed. Checked anyway
+    // for defense in depth rather than relying on that invariant silently.
+    const weekWasComputed = !parsed.gameStats?.computedWeeks || parsed.gameStats.computedWeeks.includes(g.week)
+    if (isPlayed && parsed.gameStats && weekWasComputed) {
       const teamStatsRaw = parsed.gameStats.teamStatsByWeek?.[g.week] || {}
       const playerStatsRaw = parsed.gameStats.playerStatsByWeek?.[g.week] || []
       const byTid = {}
@@ -2774,6 +2787,12 @@ export function buildBoxScoresForUserGames(parsed, rawTeamIdMap, dynastyTeams, u
     if (homeAppTid !== userTid && awayAppTid !== userTid) continue
 
     const week = g.week
+    // A week absent from computedWeeks means the server deliberately didn't
+    // (re)resolve it this sync (already-known, see extractFullSave) — skip
+    // it entirely rather than writing an empty entry into boxScoresByWeek,
+    // which applyCfb27GameScores would otherwise use to overwrite that
+    // week's already-synced boxScore with nothing.
+    if (gameStats.computedWeeks && !gameStats.computedWeeks.includes(week)) continue
     const teamStatsRaw = gameStats.teamStatsByWeek?.[week] || {}
     const playerStatsRaw = gameStats.playerStatsByWeek?.[week] || []
 
