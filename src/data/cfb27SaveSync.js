@@ -1860,17 +1860,23 @@ export function findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamI
 // @param {Map<number,number>} rawTeamIdMap - from buildRawTeamIdMap
 // @returns {{name: string, genericHeadAssetName: string|null, portraitId: number|null} | null}
 export function findUserCoachPortraitBootstrap(dynasty, parsed, userTid, rawTeamIdMap) {
-  if (parsed.userCoachInfo) return null
-  if (dynasty.userCoachPortrait) return null // already resolved once — no longer "first ever"
-  if (!parsed.coachingStaff) return null
+  // TEMPORARY diagnostic — pinpointing why this bootstrap isn't producing a
+  // result for a real report. Logs which specific guard bailed. Safe to
+  // remove once resolved.
+  const bail = (reason, extra) => { console.log('[coachPortraitBootstrap] bailed:', reason, extra || ''); return null }
+  if (parsed.userCoachInfo) return bail('parsed.userCoachInfo already present')
+  if (dynasty.userCoachPortrait) return bail('dynasty.userCoachPortrait already set', dynasty.userCoachPortrait)
+  if (!parsed.coachingStaff) return bail('parsed.coachingStaff missing')
   const positionKey = { HC: 'headCoach', OC: 'offensiveCoordinator', DC: 'defensiveCoordinator' }[dynasty.coachPosition]
-  if (!positionKey) return null
+  if (!positionKey) return bail('no positionKey for dynasty.coachPosition', dynasty.coachPosition)
   let rawUserTid = null
   for (const [rawTid, tid] of rawTeamIdMap) {
     if (Number(tid) === Number(userTid)) { rawUserTid = rawTid; break }
   }
-  const candidate = rawUserTid != null ? parsed.coachingStaff[rawUserTid]?.[positionKey] : null
-  if (!candidate?.name) return null
+  if (rawUserTid == null) return bail('userTid not found in rawTeamIdMap', userTid)
+  const candidate = parsed.coachingStaff[rawUserTid]?.[positionKey]
+  if (!candidate?.name) return bail('no candidate.name at coachingStaff[rawUserTid][positionKey]', { rawUserTid, positionKey, candidate })
+  console.log('[coachPortraitBootstrap] resolved:', candidate)
   return {
     name: candidate.name,
     genericHeadAssetName: candidate.generic_head_asset_name ?? null,
@@ -2560,6 +2566,17 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
         portraitId: parsed.userCoachInfo.portrait_id ?? null,
       }
     : userCoachPortraitFallback
+  // TEMPORARY diagnostic — pinpointing a real report of the auto-loaded
+  // coach headshot never appearing despite the gallery/CDN working. Shows
+  // exactly which stage produced (or failed to produce) a value: the
+  // primary IsUserControlled path, the name-matched fallback, the
+  // first-sync bootstrap, or nothing at all. Safe to remove once resolved.
+  console.log('[userCoachPortrait]', {
+    hadUserCoachInfo: !!parsed.userCoachInfo,
+    alreadyTrackedName: dynasty.userCoachPortrait?.name ?? null,
+    resolvedVia: parsed.userCoachInfo ? 'userCoachInfo' : (userCoachPortraitFallback ? 'fallbackOrBootstrap' : 'none'),
+    result: userCoachPortrait,
+  })
 
   // Real, save-authoritative career win/loss totals for the human coach — a
   // full overwrite every sync (lifetime counters the save itself maintains,

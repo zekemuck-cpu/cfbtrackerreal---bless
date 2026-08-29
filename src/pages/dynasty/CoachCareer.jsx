@@ -750,7 +750,13 @@ export default function CoachCareer() {
     if (!isPcAutoDynasty(currentDynasty)) return null
     if (!user?.uid || effectiveSelectedUid !== user.uid) return null
     const assetName = currentDynasty.userCoachPortrait?.genericHeadAssetName
-    return assetName ? (mapCoachPortraitUrl(assetName) || null) : null
+    const url = assetName ? (mapCoachPortraitUrl(assetName) || null) : null
+    // TEMPORARY diagnostic — see cfb27SaveSync.js's matching [userCoachPortrait]
+    // log. Distinguishes "never got an asset name" (sync/resolution problem)
+    // from "got one, but it's not in our bundled manifest" (mapCoachPortraitUrl
+    // returns '' for an id/key it doesn't recognize) from "resolved fine."
+    console.log('[inGameCoachPhotoUrl]', { userCoachPortrait: currentDynasty.userCoachPortrait, assetName, url })
+    return url
   })()
   const coachPhotoUrl = manualCoachPhotoUrl || inGameCoachPhotoUrl
   const canEditPhoto = !!user?.uid && !!selectedCoach && (
