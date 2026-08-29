@@ -4,6 +4,7 @@ import { useConfirm } from './ui/ConfirmDialog'
 import { uploadAndParseCfb27Save } from '../utils/cfb27SaveUpload'
 import Modal from './ui/Modal'
 import Button from './ui/Button'
+import { hasPcDynastySynced } from '../editions'
 
 /**
  * "Advance Week" for a PC (CFB27) dynasty — re-uploads a newer save against
@@ -12,7 +13,10 @@ import Button from './ui/Button'
  * scores, and recruiting board changes, then moves the tracker's week/phase
  * to match. Labeled the same as the manual Advance Week button (console
  * dynasties) since this is the PC equivalent, even though the mechanism is
- * an upload rather than a click. Counterpart to the CFB27 import flow in
+ * an upload rather than a click — except before the dynasty's very first
+ * sync, where it reads "Sync from Save" instead, since creation only
+ * hand-seeds a subset of fields and this first run is really an initial
+ * import, not an advance. Counterpart to the CFB27 import flow in
  * CreateDynasty.jsx, which only ever creates a brand-new dynasty.
  */
 export default function CFB27SyncModal({ isOpen, onClose }) {
@@ -27,6 +31,13 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
   const [progress, setProgress] = useState(null) // { message, pct, etaSeconds } | null
 
   const isCfb27Dynasty = currentDynasty?.gameEdition === 'cfb27'
+  // Before the very first successful sync, this modal is actually
+  // bootstrapping the dynasty's real data (schedule, rankings, awards —
+  // none of which creation seeds), not "advancing" an existing state — see
+  // hasPcDynastySynced's own comment for why this isn't just the raw
+  // cfb27SyncCompletedOnce flag.
+  const isFirstSync = isCfb27Dynasty && !hasPcDynastySynced(currentDynasty)
+  const modalTitle = isFirstSync ? 'Sync from Save' : 'Advance Week'
 
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0]
@@ -122,7 +133,7 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Advance Week"
+      title={modalTitle}
       size="sm"
       closeOnBackdrop={!busy}
       closeOnEscape={!busy}
@@ -137,7 +148,9 @@ export default function CFB27SyncModal({ isOpen, onClose }) {
       {isCfb27Dynasty && status === null && (
         <>
           <p className="text-sm text-txt-secondary mb-4">
-            Upload an updated save file for this same dynasty. The week will advance and imports all of your new data automatically.
+            {isFirstSync
+              ? 'Upload your save file to pull in your dynasty\'s real data — schedule, rankings, coaching staff, and season awards.'
+              : 'Upload an updated save file for this same dynasty. The week will advance and imports all of your new data automatically.'}
           </p>
           <input
             ref={fileInputRef}

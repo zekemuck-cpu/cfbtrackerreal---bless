@@ -11036,7 +11036,7 @@ export function DynastyProvider({ children }) {
     const chunkLabel = (chunk) => {
       const labels = [...new Set(
         Object.keys(chunk)
-          .filter((k) => k !== 'platform')
+          .filter((k) => k !== 'platform' && k !== 'cfb27SyncCompletedOnce')
           .map((k) => SYNC_FIELD_LABELS[k] || 'additional sync data')
       )]
       return labels.length ? labels.join(', ') : 'sync data'
@@ -11050,8 +11050,14 @@ export function DynastyProvider({ children }) {
       // No Firestore size ceiling applies to a local (IndexedDB) dynasty, so
       // this stays a single write — only cloud dynasties need the chunked
       // sequence below.
+      //
+      // cfb27SyncCompletedOnce: true — set once here and never cleared. A
+      // freshly-created PC dynasty has never taken this path (creation only
+      // hand-seeds a subset of fields, never this function), so its absence
+      // is what lets the header/modal tell "Sync from Save" (first time)
+      // apart from "Advance Week" (every sync after).
       await enterPhase('saveFinal', 'Saving…')
-      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, ...trainingSnapshotUpdate, platform: 'pc' }, { changedGameIds })
+      await updateDynasty(dynastyId, { players: mergedPlayers, teams: plan.mergedTeams, games: mergedGames, ...seasonFieldUpdates, ...teamFutureUpdate, ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate, ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate, ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, ...trainingSnapshotUpdate, platform: 'pc', cfb27SyncCompletedOnce: true }, { changedGameIds })
       finishSyncTiming()
       if (onProgress) { try { onProgress({ message: 'Done', pct: 100, etaSeconds: 0 }) } catch (_) {} }
     } else {
@@ -11118,6 +11124,7 @@ export function DynastyProvider({ children }) {
         ...playersOfWeekUpdate, ...heismanWatchUpdate, ...rivalriesUpdate, ...draftResultsUpdate, ...cfpSeedsUpdate,
         ...honorsUpdate, ...userJobChangeUpdate, ...userCoachPortraitUpdate, ...userCoachCareerStatsUpdate,
         ...coachOffersUpdate, ...playersLeavingUpdate, ...leagueDraftResultsUpdate, ...trainingSnapshotUpdate, platform: 'pc',
+        cfb27SyncCompletedOnce: true,
       }
       const chunks = chunkUpdateObject(fullUpdate, { lastKeys: ['currentYear', 'currentPhase', 'currentWeek'] })
 

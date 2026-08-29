@@ -121,6 +121,21 @@ export function isPcAutoDynasty(dynasty) {
   return dynasty?.platform === 'pc'
 }
 
+// Has this PC dynasty ever completed a real Sync from Save (as opposed to
+// only the hand-seeded subset CreateDynasty.jsx writes at creation)? Checks
+// cfb27AssetName — the save's own per-player id, stamped ONLY by
+// reconcilePlayers inside cfb27SaveSync.js, never by creation — as the
+// primary signal rather than the cfb27SyncCompletedOnce flag alone, because
+// every PC dynasty that synced before that flag existed has no way to have
+// it set retroactively; without this fallback, "first sync" UI (the Sync
+// from Save/Advance Week button label, the initial-sync lock screen) would
+// wrongly re-trigger for every already-active PC dynasty the moment this
+// shipped.
+export function hasPcDynastySynced(dynasty) {
+  if (dynasty?.cfb27SyncCompletedOnce) return true
+  return (dynasty?.players || []).some((p) => p?.cfb27AssetName)
+}
+
 // Given a dynasty OR an edition key, return the resolved config bundle.
 export function getEditionConfig(dynastyOrKey) {
   const key =
