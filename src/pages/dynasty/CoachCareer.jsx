@@ -24,7 +24,7 @@ import {
 } from '../../data/leagueModel'
 import { getCoaches, getCoachesControlledBy, synthOwnerCoachFromCoachTeamByYear } from '../../data/coachModel'
 import ImageUpload from '../../components/ImageUpload'
-import { proxyImageUrl } from '../../utils/imageProxy'
+import { proxyImageUrl, resolvePortraitUrl } from '../../utils/imageProxy'
 import { mapCoachPortraitUrl } from '../../data/cfb27SaveImport'
 import UNIQUE_COACH_PORTRAIT_IDS from '../../data/cfb27UniqueCoachPortraitIds.json'
 import GENERIC_COACH_PORTRAIT_KEYS from '../../data/cfb27GenericCoachPortraitKeys.json'
@@ -36,6 +36,20 @@ const ALL_COACH_PORTRAITS = [
   ...UNIQUE_COACH_PORTRAIT_IDS.map((id) => `/cfb27-portraits/coach-unique/${id}.webp`),
   ...GENERIC_COACH_PORTRAIT_KEYS.map((key) => `/cfb27-portraits/coach-generic/${key}.webp`),
 ]
+
+// A bundled portrait-pack path is the app's own controlled, always-online
+// static asset (or a dedicated CDN, via VITE_CFB27_PORTRAIT_BASE) — not a
+// flaky third-party host like ImgBB, so it skips proxyImageUrl's wsrv.nl
+// resize/hotlink-resilience proxy entirely (that exists for arbitrary
+// user-uploaded photos, not this). Routing every one of the gallery's
+// thousands of thumbnails through a third-party proxy on every render added
+// a real failure point (rate limits, proxy downtime, an extra cross-origin
+// round trip) with no corresponding benefit for a same-origin/CDN-hosted
+// asset — confirmed as the cause of the gallery rendering as all broken
+// images. A genuinely user-uploaded coach photo still goes through
+// proxyImageUrl as before.
+const displayCoachPhotoUrl = (url, width) =>
+  (url && url.includes('/cfb27-portraits/')) ? resolvePortraitUrl(url) : proxyImageUrl(url, width)
 import { isPcAutoDynasty } from '../../editions'
 import {
   PageHero,
@@ -821,7 +835,7 @@ export default function CoachCareer() {
                 {coachPhotoUrl ? (
                   <>
                     <img
-                      src={proxyImageUrl(coachPhotoUrl, 300)}
+                      src={displayCoachPhotoUrl(coachPhotoUrl, 300)}
                       alt={selectedDisplayName}
                       className="w-full h-full object-cover"
                       onError={(e) => { e.target.style.display = 'none' }}
@@ -1568,7 +1582,7 @@ export default function CoachCareer() {
                 style={{ borderColor: isSelected ? 'var(--text-primary)' : 'transparent' }}
               >
                 <img
-                  src={proxyImageUrl(`${window.location.origin}${path}`, 120)}
+                  src={displayCoachPhotoUrl(`${window.location.origin}${path}`, 120)}
                   alt=""
                   loading="lazy"
                   className="w-full h-full object-cover"

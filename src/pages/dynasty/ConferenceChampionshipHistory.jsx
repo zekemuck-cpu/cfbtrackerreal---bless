@@ -281,6 +281,8 @@ export default function ConferenceChampionshipHistory() {
     // same shared week) fall back to keeping the first-seen record rather
     // than guessing further.
     const confOfGame = (g, customConferences) => {
+      const explicit = canonicalizeConferenceName(g.conference)
+      if (explicit) return explicit
       const t1 = resolveGameTid(g, true)
       const t2 = resolveGameTid(g, false)
       const abbrOf = (tid) => (tid != null ? getAbbrFromTid(teams, tid) : null)
@@ -288,7 +290,18 @@ export default function ConferenceChampionshipHistory() {
         const abbr = abbrOf(tid)
         return abbr ? canonicalizeConferenceName(getTeamConference(abbr, customConferences, teams)) : null
       }
-      return canonicalizeConferenceName(g.conference) || confOf(t1) || confOf(t2)
+      // Sync tags ANY game in the save's conference-championship WEEK as
+      // gameType 'conference_championship', with no check that it's actually
+      // a title game — a fixed annual rivalry that happens to land that same
+      // week (Army-Navy, with Army now realigned into the American while
+      // Navy stays independent) used to inherit whichever side's conference
+      // resolved first via `confOf(t1) || confOf(t2)`, misfiling an
+      // unplayed non-title game as that conference's championship. A real
+      // championship is between two teams of the SAME conference — require
+      // that agreement here instead of accepting either side alone.
+      const c1 = confOf(t1)
+      const c2 = confOf(t2)
+      return (c1 && c1 === c2) ? c1 : null
     }
     const allRegularGames = currentDynasty.games || []
     const conferenceWins = (tid, year, conference, customConferences) => {

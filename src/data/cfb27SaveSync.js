@@ -1221,6 +1221,19 @@ export function computeGamesLockBoundary(phase, week) {
 // redesign (2026-08-28) for why: a locked week's data is the one thing
 // that can never be silently lost, and an automated process that can still
 // see it is a process that can still, someday, get it wrong.
+// Army (tid 6) and Navy (tid 66) — the app's static, non-teambuilder FBS
+// slots. Their annual rivalry game is fixed the week BEFORE conference
+// championship weekend, but this save's own week numbering lands it on the
+// same week number the app treats as CCG week (see isCCG below), so the
+// plain week-match heuristic alone tags it a "conference championship" even
+// though it's never one — Army-Navy decides nothing about either team's
+// conference and, since 2024, both sides are in the American besides,
+// making a same-conference check alone unable to catch this. Hardcoded
+// because there's exactly one such fixed, decides-nothing rivalry landing on
+// CCG week — not a general pattern worth a data-driven rule for.
+const ARMY_NAVY_TIDS = new Set([6, 66])
+const isArmyNavyMatchup = (t1, t2) => ARMY_NAVY_TIDS.has(t1) && ARMY_NAVY_TIDS.has(t2)
+
 export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existingGames, userTid, year, gamesLockBoundary) {
   const lockedThroughWeek = Number.isFinite(gamesLockBoundary) ? gamesLockBoundary : -1
   // The save's own Conference Championship week (SeasonInfo's
@@ -1258,7 +1271,7 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
     if (homeAppTid == null || awayAppTid == null) continue
     if (homeAppTid === userTid || awayAppTid === userTid) continue // handled by the user-team pipeline instead
 
-    const isCCG = ccgWeek != null && g.week === ccgWeek
+    const isCCG = ccgWeek != null && g.week === ccgWeek && !isArmyNavyMatchup(homeAppTid, awayAppTid)
     // File the CCG under the app's canonical Conference Championship week
     // rather than whatever number this save used. The save's CCG week is not
     // fixed (15 and 16 both observed), so carrying it through raw put
@@ -1330,8 +1343,13 @@ export function buildWholeLeagueGames(parsed, rawTeamIdMap, dynastyTeams, existi
           // Self-heals a record synced before this fix existed (still
           // 'regular' with no isConferenceChampionship flag) the next time
           // it's touched, same "save always wins" rule as every other field.
-          gameType: isCCG ? 'conference_championship' : (existing.gameType || 'regular'),
-          ...(isCCG ? { isConferenceChampionship: true } : {}),
+          // Fully bidirectional (not "existing wins" once already tagged
+          // one way) — a matchup like Army-Navy, excluded from isCCG by
+          // isArmyNavyMatchup above, needs this to also heal a record
+          // mis-tagged 'conference_championship' by an older sync BACK to
+          // 'regular', not just heal the other, more common direction.
+          gameType: isCCG ? 'conference_championship' : 'regular',
+          isConferenceChampionship: isCCG,
           team1Score,
           team2Score,
           isPlayed: played,
@@ -1807,6 +1825,52 @@ export function findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamI
   const candidate = rawUserTid != null ? parsed.coachingStaff[rawUserTid]?.[positionKey] : null
   const knownName = String(dynasty.userCoachPortrait.name).trim().toLowerCase()
   if (!candidate?.name || String(candidate.name).trim().toLowerCase() !== knownName) return null
+  return {
+    name: candidate.name,
+    genericHeadAssetName: candidate.generic_head_asset_name ?? null,
+    portraitId: candidate.portrait_id ?? null,
+  }
+}
+
+// One-time BOOTSTRAP for a dynasty's very FIRST sync, when neither
+// parsed.userCoachInfo NOR the name-matched fallback above can resolve
+// anything — the fallback needs dynasty.userCoachPortrait.name to already
+// exist, which is exactly what hasn't happened yet on a genuinely first
+// sync, so a dynasty whose save never has (or never has yet) an
+// IsUserControlled row stayed permanently frozen with no portrait at all,
+// by design, forever — not just until the next real signal arrived.
+//
+// The team+position coaching-staff lookup this uses was already tried once
+// as an ONGOING primary signal and reverted after a real save showed it
+// holding a DIFFERENT coach than the actual human mid-succession (see
+// mapCoachingStaff's header comment) — that failure mode needs TIME to
+// occur (a coaching-carousel event happening inside a dynasty already in
+// progress). At the one moment gated here — dynasty.userCoachPortrait has
+// NEVER been set even once — no such event could possibly have happened
+// yet: the dynasty was just created as this exact team+position, so
+// "whoever's in that slot" and "the human" are the same person by
+// construction. Every sync after this one goes back to requiring
+// IsUserControlled (or the name-matched fallback above), same as before —
+// this only ever fires once, at dynasty.userCoachPortrait's very first
+// write.
+//
+// @param {object} dynasty - dynasty.userCoachPortrait/.coachPosition/.currentTid
+// @param {object} parsed - the raw result from api/cfb27-save-parse.js (userCoachInfo, coachingStaff)
+// @param {number} userTid - dynasty.currentTid, already resolved to a Number
+// @param {Map<number,number>} rawTeamIdMap - from buildRawTeamIdMap
+// @returns {{name: string, genericHeadAssetName: string|null, portraitId: number|null} | null}
+export function findUserCoachPortraitBootstrap(dynasty, parsed, userTid, rawTeamIdMap) {
+  if (parsed.userCoachInfo) return null
+  if (dynasty.userCoachPortrait) return null // already resolved once — no longer "first ever"
+  if (!parsed.coachingStaff) return null
+  const positionKey = { HC: 'headCoach', OC: 'offensiveCoordinator', DC: 'defensiveCoordinator' }[dynasty.coachPosition]
+  if (!positionKey) return null
+  let rawUserTid = null
+  for (const [rawTid, tid] of rawTeamIdMap) {
+    if (Number(tid) === Number(userTid)) { rawUserTid = rawTid; break }
+  }
+  const candidate = rawUserTid != null ? parsed.coachingStaff[rawUserTid]?.[positionKey] : null
+  if (!candidate?.name) return null
   return {
     name: candidate.name,
     genericHeadAssetName: candidate.generic_head_asset_name ?? null,
@@ -2480,6 +2544,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   // one" produce the exact same (null) userJobChange otherwise.
   let userJobChangeResolved = false
   const userCoachPortraitFallback = findUserCoachPortraitFallback(dynasty, parsed, userTid, rawTeamIdMap)
+    ?? findUserCoachPortraitBootstrap(dynasty, parsed, userTid, rawTeamIdMap)
   // The human's own real headshot — read directly off the SAME
   // IsUserControlled row used for job-change detection above, not
   // cross-referenced through mergedTeams' byTeam+position coaching staff
@@ -2487,7 +2552,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   // "headCoach" position slot held a different coach than the row actually
   // flagged as the human) — IsUserControlled is the only reliable way to
   // identify the specific coach that's really the user, EXCEPT for the
-  // narrow name-matched fallback above.
+  // narrow name-matched fallback and the one-time bootstrap above.
   const userCoachPortrait = parsed.userCoachInfo
     ? {
         name: parsed.userCoachInfo.name ?? null,

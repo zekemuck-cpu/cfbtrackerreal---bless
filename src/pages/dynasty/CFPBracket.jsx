@@ -11,6 +11,7 @@ import { getBowlLogo } from '../../data/bowlGames'
 import { getCFPGameId, DEFAULT_BOWL_CONFIG, getBowlForSlot, getBowlForSeed, CFP_NY6_BOWLS } from '../../data/cfpConstants'
 import { InlineYearSelect } from '../../components/ui'
 import GameEntryModal from '../../components/GameEntryModal'
+import { isPcAutoDynasty } from '../../editions'
 
 // Broadcast gold used for round labels, eyebrow, and trophy accents.
 const CFP_GOLD = '#e4b04a'
@@ -206,6 +207,10 @@ export default function CFPBracket() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, updateGame, addGame, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
+  // PC (CFB27) dynasties get the whole bracket synced from the save — there's
+  // nothing to hand-place, so the inline bracket editor is never offered,
+  // same as isViewOnly.
+  const canEditBracket = !isViewOnly && !isPcAutoDynasty(currentDynasty)
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingGameData, setEditingGameData] = useState(null)
@@ -1805,7 +1810,7 @@ export default function CFPBracket() {
       {/* Inline bracket editor controls. Lets the user hand-place any team in
           any slot and type scores directly on the bracket; winners auto-advance
           to the next round unless a downstream slot is overridden. */}
-      {!isViewOnly && (
+      {canEditBracket && (
         <div className="mt-4 flex flex-col items-center gap-2">
           {bracketEditError && (
             <div className="text-center text-xs" style={{ color: 'var(--accent-danger, #ef4444)' }}>

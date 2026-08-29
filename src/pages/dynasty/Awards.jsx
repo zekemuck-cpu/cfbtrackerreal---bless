@@ -4,6 +4,7 @@ import { isOpenTarget } from '../../utils/recruitingTargets'
 import { useDynasty } from '../../context/DynastyContext'
 import { usePathPrefix } from '../../hooks/usePathPrefix'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import { isPcAutoDynasty } from '../../editions'
 import { getTeamLogo, getMascotName as getMascotNameFromTeams, stripMascotFromName } from '../../data/teams'
 import { getTeamColors } from '../../data/teamColors'
 import { getContrastTextColor } from '../../utils/colorUtils'
@@ -138,6 +139,10 @@ export default function Awards() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, isViewOnly, processHonorPlayers } = useDynasty()
   const pathPrefix = usePathPrefix()
+  // PC (CFB27) dynasties get this page's whole content synced from the save
+  // — there's nothing to hand-enter, so the manual editor is never offered,
+  // same as isViewOnly.
+  const canEdit = !isViewOnly && !isPcAutoDynasty(currentDynasty)
   const [showAwardsModal, setShowAwardsModal] = useState(false)
 
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
@@ -348,7 +353,7 @@ export default function Awards() {
     .map(key => ({ key, data: yearAwards[key] }))
   const hasAnyAwards = presentAwards.length > 0
 
-  const heroActions = !isViewOnly ? (
+  const heroActions = canEdit ? (
     <Button variant="secondary" size="sm" onClick={() => setShowAwardsModal(true)}>
       Edit
     </Button>
@@ -372,7 +377,7 @@ export default function Awards() {
         <Card>
           <EmptyState
             title="No Awards Yet"
-            action={!isViewOnly && (
+            action={canEdit && (
               <Button variant="secondary" onClick={() => setShowAwardsModal(true)}>
                 Add Awards
               </Button>

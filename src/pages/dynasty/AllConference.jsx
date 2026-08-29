@@ -12,6 +12,7 @@ import AllConferenceModal from '../../components/AllConferenceModal'
 import { HonorPlayerTile, SchoolLeaderboard } from '../../components/HonorsUI'
 import { normalizePlayerName } from '../../utils/playerMatching'
 import { useTeamColors } from '../../hooks/useTeamColors'
+import { isPcAutoDynasty } from '../../editions'
 import {
   PageHero,
   Card,
@@ -103,6 +104,10 @@ export default function AllConference() {
   const navigate = useNavigate()
   const { currentDynasty, updateDynasty, isViewOnly, processHonorPlayers } = useDynasty()
   const pathPrefix = usePathPrefix()
+  // PC (CFB27) dynasties get this page's whole content synced from the save
+  // — there's nothing to hand-enter, so the manual editor is never offered,
+  // same as isViewOnly.
+  const canEdit = !isViewOnly && !isPcAutoDynasty(currentDynasty)
   const [filter, setFilter] = useState('first')
   const [showEditModal, setShowEditModal] = useState(false)
   // Explicit Final/Preseason selection — null means "no explicit choice
@@ -547,7 +552,7 @@ export default function AllConference() {
 
   const hasAnyPlayers = allConference.length > 0
 
-  const heroActions = !isViewOnly ? (
+  const heroActions = canEdit ? (
     <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
       Edit
     </Button>
@@ -637,7 +642,7 @@ export default function AllConference() {
           <EmptyState
             title={activeView === 'final' ? `Final All-${displayConference} Not Announced Yet` : `No Preseason All-${displayConference} Yet`}
             message={activeView === 'final' ? "Check back once the season's final honors are announced." : undefined}
-            action={!isViewOnly && (
+            action={canEdit && (
               <Button variant="secondary" onClick={() => setShowEditModal(true)}>
                 Add All-Conference
               </Button>

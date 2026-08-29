@@ -194,6 +194,10 @@ export default function ConferenceStandings() {
   const [searchParams] = useSearchParams()
   const { currentDynasty, updateDynasty, saveConferenceAlignment, isViewOnly } = useDynasty()
   const pathPrefix = usePathPrefix()
+  // PC (CFB27) dynasties get conference alignment refreshed from the save's
+  // own Conference table on every sync — there's nothing to hand-edit, so
+  // the manual realignment editor is never offered, same as isViewOnly.
+  const canEdit = !isViewOnly && !isPcAutoDynasty(currentDynasty)
   const teamColors = useTeamColors(currentDynasty?.teamName, currentDynasty?.teams || currentDynasty?.customTeams)
   const [searchQuery, setSearchQuery] = useState('')
   const [showConferencesModal, setShowConferencesModal] = useState(false)
@@ -334,7 +338,7 @@ export default function ConferenceStandings() {
     return conf.toLowerCase().includes(searchQuery.toLowerCase())
   })
 
-  const heroActions = !isViewOnly ? (
+  const heroActions = canEdit ? (
     <Button variant="secondary" size="sm" onClick={() => setShowConferencesModal(true)}>
       Edit
     </Button>
