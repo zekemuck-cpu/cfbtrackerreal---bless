@@ -2501,6 +2501,16 @@ async function extractFullSave(filePath, opts = {}) {
     // displayed profile is whatever a much earlier successful sync left
     // behind, not this one).
     userCoachInfoDiagnostics,
+    // TEMPORARY diagnostic — same gap userCoachInfoDiagnostics above already
+    // closed once: getAllTableRecords(save, 'Coach') tracks per-instance read
+    // failures (candidateCount/readErrors/lastErrorMessage, see its own
+    // comment re: a real save where the in-game Coach Stats screen showed
+    // data getAllTableRecords silently returned none of), but that
+    // diagnostic never left this function before now. Distinguishes "a
+    // team's Coach rows are missing because an instance failed to read" from
+    // "they were never there in the readable instances at all." Safe to
+    // remove once the current coach-portrait bootstrap gap is resolved.
+    coachingStaffDiagnostics: coachRecords.diagnostics || null,
     coachOffers,
     gameStats,
     depthCharts,

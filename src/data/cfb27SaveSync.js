@@ -1890,6 +1890,11 @@ export function findUserCoachPortraitBootstrap(dynasty, parsed, userTid, rawTeam
       staffEntryExists: staffEntry !== undefined,
       staffEntryPositions: staffEntry ? Object.keys(staffEntry) : null,
       totalTeamsInCoachingStaff: Object.keys(parsed.coachingStaff || {}).length,
+      // Whether the Coach table itself had a read failure on some sharded
+      // instance this parse — see coachingStaffDiagnostics' own comment in
+      // extractPlayers.cjs. null candidateCount means this deploy predates
+      // the field existing at all (re-sync again after it's live).
+      coachingStaffDiagnostics: parsed.coachingStaffDiagnostics ?? null,
     })
   }
   console.warn('[coachPortraitBootstrap] resolved:', candidate)
