@@ -755,7 +755,7 @@ export default function CoachCareer() {
     // log. Distinguishes "never got an asset name" (sync/resolution problem)
     // from "got one, but it's not in our bundled manifest" (mapCoachPortraitUrl
     // returns '' for an id/key it doesn't recognize) from "resolved fine."
-    console.log('[inGameCoachPhotoUrl]', { userCoachPortrait: currentDynasty.userCoachPortrait, assetName, url })
+    console.warn('[inGameCoachPhotoUrl]', { userCoachPortrait: currentDynasty.userCoachPortrait, assetName, url })
     return url
   })()
   const coachPhotoUrl = manualCoachPhotoUrl || inGameCoachPhotoUrl

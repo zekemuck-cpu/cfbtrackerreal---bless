@@ -1863,7 +1863,7 @@ export function findUserCoachPortraitBootstrap(dynasty, parsed, userTid, rawTeam
   // TEMPORARY diagnostic — pinpointing why this bootstrap isn't producing a
   // result for a real report. Logs which specific guard bailed. Safe to
   // remove once resolved.
-  const bail = (reason, extra) => { console.log('[coachPortraitBootstrap] bailed:', reason, extra || ''); return null }
+  const bail = (reason, extra) => { console.warn('[coachPortraitBootstrap] bailed:', reason, extra || ''); return null }
   if (parsed.userCoachInfo) return bail('parsed.userCoachInfo already present')
   if (dynasty.userCoachPortrait) return bail('dynasty.userCoachPortrait already set', dynasty.userCoachPortrait)
   if (!parsed.coachingStaff) return bail('parsed.coachingStaff missing')
@@ -1876,7 +1876,7 @@ export function findUserCoachPortraitBootstrap(dynasty, parsed, userTid, rawTeam
   if (rawUserTid == null) return bail('userTid not found in rawTeamIdMap', userTid)
   const candidate = parsed.coachingStaff[rawUserTid]?.[positionKey]
   if (!candidate?.name) return bail('no candidate.name at coachingStaff[rawUserTid][positionKey]', { rawUserTid, positionKey, candidate })
-  console.log('[coachPortraitBootstrap] resolved:', candidate)
+  console.warn('[coachPortraitBootstrap] resolved:', candidate)
   return {
     name: candidate.name,
     genericHeadAssetName: candidate.generic_head_asset_name ?? null,
@@ -2571,7 +2571,7 @@ export function buildSyncPlan(dynasty, parsed, options = {}) {
   // exactly which stage produced (or failed to produce) a value: the
   // primary IsUserControlled path, the name-matched fallback, the
   // first-sync bootstrap, or nothing at all. Safe to remove once resolved.
-  console.log('[userCoachPortrait]', {
+  console.warn('[userCoachPortrait]', {
     hadUserCoachInfo: !!parsed.userCoachInfo,
     alreadyTrackedName: dynasty.userCoachPortrait?.name ?? null,
     resolvedVia: parsed.userCoachInfo ? 'userCoachInfo' : (userCoachPortraitFallback ? 'fallbackOrBootstrap' : 'none'),
