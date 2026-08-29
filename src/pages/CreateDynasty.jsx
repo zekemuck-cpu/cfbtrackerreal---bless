@@ -760,7 +760,7 @@ export default function CreateDynasty() {
             />
           </div>
 
-          {formData.gameEdition === 'cfb27' && (
+          {formData.gameEdition === 'cfb27' && formData.platform !== 'pc' && (
             <label className="flex items-start gap-3 rounded-md border border-surface-4 bg-surface-2 p-3 cursor-pointer">
               <input
                 type="checkbox"
